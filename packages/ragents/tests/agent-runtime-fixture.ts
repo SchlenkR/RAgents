@@ -171,7 +171,7 @@ export const scriptedRuntime = (id: string, respond: (context: Context) => Assis
     setup.modelRuntime.registerProvider(model.provider, {
         baseUrl: model.baseUrl, apiKey: "faux-key", api: setup.faux.api,
         models: [{
-            id, name: id, reasoning: false, input: model.input, cost: model.cost, maxTokens: model.maxTokens, contextWindow: 4_000,
+            id, name: id, reasoning: false, input: model.input, cost: model.cost, maxTokens: 1_000, contextWindow: 4_000,
             compaction: { threshold: 3_000, keepRecentTokens: 200, summaryTokens: 800 },
         }],
     });

@@ -6,6 +6,7 @@ import {
 	getApiProvider,
 	type InputModality,
 	lazyStream,
+	reasoningReplayProblem,
 	type Model,
 	type ModelCompaction,
 	type Provider,
@@ -34,6 +35,7 @@ export interface ProviderConfigInput {
 		contextWindow: number;
 		maxTokens: number;
 		compaction?: ModelCompaction;
+		reasoningReplay?: Model<Api>["reasoningReplay"];
 		compat?: Model<Api>["compat"];
 	}>;
 }
@@ -56,7 +58,8 @@ function registeredModels(
 		}
 		const baseUrl = definition.baseUrl ?? config.baseUrl ?? defaults?.baseUrl;
 		if (!baseUrl) throw new Error(`Provider ${providerId}: "baseUrl" is required when defining custom models.`);
-		const problem = definition.compaction === undefined ? undefined : compactionProblem(definition.compaction, definition);
+		const problem = reasoningReplayProblem(definition.reasoningReplay)
+			?? (definition.compaction === undefined ? undefined : compactionProblem(definition.compaction, definition));
 		if (problem) throw new Error(`Provider ${providerId}, model ${definition.id}: ${problem}.`);
 		return {
 			...definition,

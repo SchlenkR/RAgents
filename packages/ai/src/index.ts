@@ -19,3 +19,5 @@ export * from "./utils/overflow.ts";
 export * from "./utils/retry.ts";
 export * from "./utils/typebox-helpers.ts";
 export * from "./utils/validation.ts";
+export { estimateMessageTokens } from "./utils/estimate.ts";
+export { reasoningReplayProblem } from "./models.ts";

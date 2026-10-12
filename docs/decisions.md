@@ -1,5 +1,49 @@
 # Decisions
 
+## 2026-10-12: Preserve reasoning on the wire and cut oversized tool loops
+
+Chapters: `spec/core.md` (Projection, Retries and compaction), `spec/profiles.md` (model aliases);
+operations: `operations.md` (Compaction of the model context).
+
+Replaying the incident journal yields 253263 reported tokens plus 551 trailing tool-result
+tokens, already above the 250000 threshold. No checkpoint was committed. The two subsequent
+small calls belonged to another actor, not to summarization; the 259752-token request therefore
+still used the original history. Failed proactive summarization previously allowed dispatch
+with that history. Tests reproduce the failed attempt with the old shared reasoning/text output
+allowance and verify both blocked dispatch and recovery with the increased allowance.
+
+Reasoning remains complete by default. OpenRouter's SDK merged distinct thinking indices on
+receipt and deduplicated replay details across messages. The adapter now assembles indexed raw
+fragments and restores complete ordered details at the HTTP boundary, including repeated items
+and provider fields. Estimates share the provider's message accounting and include opaque
+signatures as well as visible thinking, while reported usage remains authoritative.
+
+A retained suffix previously could exceed its budget because the cut counted individual
+messages rather than the whole suffix; an oversized last tool round had no later cut point.
+The runtime can now summarize that complete round and resume from a journaled continuation.
+It validates the reduced request before committing a checkpoint. Repeated compaction also
+excludes replaced checkpoints from retained slices. The explicit model option
+`reasoningReplay: "current-turn"` omits only earlier runtime turns for models that ignore them;
+steering and hidden notes do not shorten the active tool loop. Journals keep their format and
+original blocks; tests cover ordered replay, incident usage, long loops and restart.
+
+## 2026-10-12: Reserve the next response before compaction and budget summary reasoning
+
+Chapters: `spec/core.md` (Retries and compaction), `spec/profiles.md` (model aliases);
+usage: `usage.md` (Keep and restore context); operations: `operations.md` (Compaction of the model context).
+
+A threshold near the context window left too little room for the next reasoning response.
+Recovery then reused the actor's thinking level with only the summary text budget as its total
+output allowance. At xhigh, reasoning alone could exhaust 12000 tokens or the smaller split budgets,
+so even bounded summary chunks ended with length. The next request now includes new inputs, tool
+results, request instructions and hook notes, with a level-dependent reasoning/output reserve.
+Registration rejects unsafe thresholds and names a valid maximum. Summary requests add their
+reasoning allowance before computing chunk sizes; incomplete checkpoints still replace nothing.
+Failed compaction diagnostics now reach the server log with run and actor, and failures show a
+short cause without provider JSON. A failed summary blocks requests that still lack output room.
+Tests reproduce reasoning exhausting the old budget, recover overfull history and split turns,
+enforce request and output limits, and verify startup errors and server logging.
+
 ## 2026-10-12: Run details use labelled rows and explicit explanations
 
 Chapter: `spec/plugins.md` (Web host, shared UI, Run panel, Workspace, sandbox tools, and processes);

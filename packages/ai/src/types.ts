@@ -596,6 +596,8 @@ export interface Model<TApi extends Api> {
 	maxTokens: number;
 	/** The model's own compaction values; without them the agent applies the catalog standard of its context window. */
 	compaction?: ModelCompaction;
+	/** Replay all reasoning by default; current-turn is an explicit choice only for models that ignore earlier turns. */
+	reasoningReplay?: "all" | "current-turn";
 	headers?: Record<string, string>;
 	/** Compatibility overrides for OpenAI-compatible APIs. If not set, auto-detected from baseUrl. */
 	compat?: TApi extends "openai-completions"

@@ -70,7 +70,8 @@ const harness = (
     const directory = mkdtempSync(join(tmpdir(), `ragents-context-${name}-`));
     const faux = registerFauxProvider({
         api: "faux-context",
-        models: [{ id: `context-${name}`, reasoning: false, input: ["text", "image"], contextWindow: options.contextWindow ?? 128_000 }],
+        models: [{ id: `context-${name}`, reasoning: false, input: ["text", "image"], contextWindow: options.contextWindow ?? 128_000,
+            ...(options.compaction ? { maxTokens: 1_000 } : {}) }],
         tokensPerSecond: options.tokensPerSecond ?? 1_000_000,
     });
     const modelRuntime = ModelRuntime.create();
@@ -366,7 +367,8 @@ test("model context: compaction on the model's threshold and after a context ove
         const compactions = setup.runtime.events(setup.runId).filter((event) => event.type === "context.compacted");
         assert.equal(answers.length, 0);
         assert.deepEqual(summaries, ["initial", "update", "update", "update", "initial"]);
-        assert.equal(compactions.length, 3);
+        assert.equal(compactions.length, 2);
+        assert.ok(setup.runtime.view(setup.runId).turns.every((turn) => turn.status === "completed"));
         for (const compaction of compactions)
             assert.deepEqual(compaction.type === "context.compacted" && compaction.payload.threshold, { tokens: 3_000, source: "model" });
         assertGolden(setup, worker);

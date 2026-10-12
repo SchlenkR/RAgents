@@ -1,7 +1,8 @@
-import type { AssistantModelMessage, FilePart, JSONValue, ModelMessage, ToolResultPart, UserContent as SdkUserContent } from "ai";
+import type { AssistantModelMessage, FilePart, ModelMessage, ToolResultPart, UserContent as SdkUserContent } from "ai";
 import type { Api, AssistantMessage, Context, Model, UserContent } from "../types.ts";
 import { sanitizeSurrogates } from "../utils/sanitize-unicode.ts";
 import { transformMessages } from "./transform-messages.ts";
+import { storedReasoningDetails } from "./reasoning-details.ts";
 
 type CacheControl = { type: "ephemeral"; ttl?: "1h" };
 
@@ -15,23 +16,9 @@ function userContent(part: UserContent): Exclude<SdkUserContent, string>[number]
 	};
 }
 
-function signatureDetails(signature: string | undefined): JSONValue[] {
-	if (!signature || !/^[\s]*[\[{]/.test(signature)) return [];
-	const parsed: JSONValue = JSON.parse(signature);
-	const details = Array.isArray(parsed) ? parsed : [parsed];
-	if (details.some((detail) => !detail || typeof detail !== "object" || Array.isArray(detail)
-		|| typeof detail.type !== "string" || !detail.type.startsWith("reasoning."))) {
-		throw new Error("Invalid stored OpenRouter reasoning details.");
-	}
-	return details;
-}
-
 function assistantMessage(message: AssistantMessage): AssistantModelMessage | undefined {
-	const storedDetails = message.content.flatMap((part) => signatureDetails(
-		part.type === "thinking" ? part.thinkingSignature : part.type === "toolCall" ? part.thoughtSignature : undefined,
-	));
-	const uniqueDetails = [...new Map(storedDetails.map((detail) => [JSON.stringify(detail), detail])).values()];
-	const reasoningDetails = uniqueDetails.length > 0 ? uniqueDetails : message.content.flatMap((part) =>
+	const storedDetails = storedReasoningDetails(message);
+	const reasoningDetails = storedDetails.length > 0 ? storedDetails : message.content.flatMap((part) =>
 		part.type === "thinking" && part.thinking.trim().length > 0 && !part.redacted
 			? [{ type: "reasoning.text", text: part.thinking, format: "unknown" }]
 			: [],
@@ -41,7 +28,7 @@ function assistantMessage(message: AssistantMessage): AssistantModelMessage | un
 		if (part.type === "text" && part.text.trim().length > 0) {
 			content.push({ type: "text", text: sanitizeSurrogates(part.text) });
 		} else if (part.type === "thinking" && (part.thinking.length > 0 || reasoningDetails.length > 0)) {
-			content.push({ type: "reasoning", text: part.redacted ? "" : sanitizeSurrogates(part.thinking) });
+			content.push({ type: "reasoning", text: part.redacted ? "" : part.thinking });
 		} else if (part.type === "toolCall") {
 			content.push({ type: "tool-call", toolCallId: part.id, toolName: part.name, input: part.arguments });
 		}

@@ -27,6 +27,21 @@ test("without a compaction the whole log is the context", () => {
 	assert.deepEqual(activeContextEntries([message("a", "one"), message("b", "two")]).map((entry) => entry.id), ["a", "b"]);
 });
 
+test("a repeated compaction never resurrects the replaced checkpoint inside its retained suffix", () => {
+	const log = [message("old", "Old"), message("kept", "Recent"), compaction("first", "kept", "Outdated checkpoint"),
+		message("next", "Continue"), compaction("second", "kept", "Current checkpoint")];
+	assert.deepEqual(activeContextEntries(log).map((entry) => entry.id), ["second", "kept", "next"]);
+	assert.equal(JSON.stringify(contextMessages(log)).includes("Outdated checkpoint"), false);
+});
+
+test("the latest reported usage including cached input crosses the incident threshold before the next request", () => {
+	const step = fauxAssistantMessage([{ type: "thinking", thinking: "Reasoning", thinkingSignature: JSON.stringify([{ type: "reasoning.text", text: "Reasoning", format: "unknown" }]) }]);
+	step.usage = { ...step.usage, input: 20_390, cacheRead: 229_376, output: 3_497, totalTokens: 253_263 };
+	const log: ContextLogEntry[] = [message("input", "Task"), { kind: "message", id: "step", message: step },
+		{ kind: "message", id: "result", message: { role: "toolResult", toolCallId: "call", toolName: "lookup", content: [{ type: "text", text: "x".repeat(2_204) }], timestamp: 1, isError: false } }];
+	assert.deepEqual(estimateContextUsage(log), { tokens: 253_814, usageTokens: 253_263, trailingTokens: 551, lastUsageIndex: 1 });
+});
+
 test("context estimates ignore retained usage from before compaction and include new tool results", () => {
 	const retained = fauxAssistantMessage("Kept.");
 	retained.usage = { ...retained.usage, input: 100_000, output: 2, totalTokens: 100_002 };

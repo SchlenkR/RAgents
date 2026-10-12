@@ -215,7 +215,11 @@ shortly before that silently ends up, with a long context, at one of the few pro
 large window. The start aborts with alias and cause if `compaction` is missing, a value is not a
 positive integer, `keepRecentTokens + summaryTokens` is not below `threshold`,
 `threshold + summaryTokens` is not below the target's context window, or `summaryTokens` is above
-its output limit; likewise for an unknown key, a duplicate alias, a target outside the catalog, for
+its output limit. A threshold that leaves less room than the largest reasoning/output reserve of
+the alias's offered levels also aborts startup, with the alias, reserve and maximum valid threshold.
+Mapped target efforts determine the reserve, including a mapped `off` level; runtime checks use
+the level selected for the next request. The allowance is defined in
+[core.md](core.md#retries-and-compaction). Likewise startup rejects an unknown key, a duplicate alias, a target outside the catalog, for
 `thinkingLevels` without a level, with an unknown level, with a level other than `off` pointing to
 `off`, or with a target level the target does not have, and for a default thinking level the alias
 does not offer (`thinkingLevelsProblem` in `packages/agent`, `validatedAliasModel`). In the
@@ -234,6 +238,14 @@ journal stores the alias and `alias`. A role thinking level (`AGENT_THINKING`,
 `high` (`roleThinkingLevel`); if someone switches to another alias in the chat, that alias's
 thinking level applies, and back on the coordinator model, the coordinator's. If the target of an
 alias changes, existing runs continue under the same name with the new target.
+
+An alias or a model definition in `MODEL_PROVIDERS.models` can explicitly set
+`reasoningReplay: "current-turn"` for a model that ignores prior-turn reasoning. Without it, or
+with `"all"`, the runtime returns all reasoning complete and unmodified. The option keeps the
+entire current RAgents turn, including steering, tools and transient notes, and changes only
+outgoing context; the journal stays unchanged. Do not enable it for Gemini, DeepSeek tool use,
+preserved GLM thinking, or other models that require earlier reasoning. Alias settings override
+their target's setting and travel through the relay catalog. Unknown values abort startup.
 
 An alias can also point to a provider of the profile's own, a self-hosted server or a vendor API:
 `MODEL_PROVIDERS` in the `host` section is a list of providers

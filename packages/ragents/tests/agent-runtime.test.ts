@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { Type } from "typebox";
 
-import { convertToLlm, ModelRuntime, toolResultLimit, TOOL_RESULT_MAX_BYTES } from "@ragents/agent";
+import { convertToLlm, ModelRuntime, modelOutputReserve, toolResultLimit, TOOL_RESULT_MAX_BYTES } from "@ragents/agent";
 import { createAssistantMessageEventStream, fauxAssistantMessage, fauxText, fauxThinking, fauxToolCall, registerFauxProvider, type Context } from "@ragents/ai";
 
 import { modelContextOf } from "../src/agents/model-context.ts";
@@ -38,6 +38,103 @@ const userTextsOf = (message: Context["messages"][number] | undefined): string[]
     message?.role !== "user" ? []
         : typeof message.content === "string" ? [message.content]
         : message.content.flatMap((part) => part.type === "text" ? [part.text] : []);
+
+for (const added of ["input", "tool result", "hook note"] as const) {
+    test(`the next request reserves xhigh output before a growing ${added} can overflow`, async () => {
+        const setup = fauxModelRuntime(`reserve-${added.replaceAll(" ", "-")}`);
+        const base = setup.faux.getModel();
+        const model = { ...base, reasoning: true, thinkingLevelMap: { xhigh: "xhigh" }, contextWindow: 264_000, maxTokens: 131_072,
+            compaction: { threshold: 239_424, keepRecentTokens: 24_000, summaryTokens: 12_000 } };
+        setup.modelRuntime.registerProvider(base.provider, {
+            baseUrl: base.baseUrl, apiKey: "faux-key", api: setup.faux.api,
+            models: [model],
+        });
+        const requests: string[] = [];
+        let ordinary = 0;
+        setup.modelRuntime.streamSimple = (requestModel, context, options) => {
+            const summary = isSummary(context);
+            requests.push(summary ? "summary" : "step");
+            const input = !summary && ordinary === 1 && !requests.includes("summary")
+                ? (added === "tool result" ? 233_632 + 7_000 : 220_904 + 20_000)
+                : Math.ceil(Buffer.byteLength(JSON.stringify(context)) / 4);
+            const needed = summary ? 16_000 + 400 : modelOutputReserve(model, "xhigh");
+            const outputLimit = options?.maxTokens ?? model.maxTokens;
+            const available = Math.min(outputLimit, model.contextWindow - input);
+            const response = available < needed ? fauxAssistantMessage([], { stopReason: "length" })
+                : summary ? fauxAssistantMessage("Complete checkpoint.")
+                : ++ordinary === 1 ? withTokens(fauxAssistantMessage(added === "tool result"
+                    ? [fauxToolCall("lookup", {}, { id: "lookup-1" })] : "First answer.", { stopReason: added === "tool result" ? "toolUse" : "stop" }),
+                    added === "tool result" ? 229_632 : 219_904, added === "tool result" ? 4_000 : 1_000)
+                : fauxAssistantMessage("Continued safely.");
+            const message = { ...response,
+                ...(response.usage.input > 1_000 ? { usage: { ...response.usage, input: 1_000, cacheRead: response.usage.input - 1_000 } } : {}),
+                api: requestModel.api, provider: requestModel.provider, model: requestModel.id };
+            const stream = createAssistantMessageEventStream();
+            stream.push({ type: "done", reason: message.stopReason as "stop" | "toolUse" | "length", message });
+            stream.end(message);
+            return stream;
+        };
+        const harness = journalHarness(setup.selection);
+        const manager = new AgentRuntimeManager({ modelRuntime: setup.modelRuntime, thinkingLevel: "xhigh", ...(added === "hook note" ? { resolveHooks: hooksOf({
+            id: "test.reserve", beforeModelCall: () => ordinary === 1 ? "n".repeat(80_000) : undefined,
+        }) } : {}) });
+        try {
+            const first = await turnOf(harness, manager, "Initial task. ".repeat(10_000), { tools: [nativeTool("lookup")], invoke: async () => "x".repeat(28_000) });
+            assert.equal(first.result.failure, null);
+            if (added !== "tool result") {
+                const next = await turnOf(harness, manager, added === "input" ? "x".repeat(80_000) : "Continue.");
+                assert.equal(next.result.failure, null);
+            }
+            assert.deepEqual(requests, ["step", "summary", "step"]);
+            const events = harness.runtime.events(harness.runId);
+            assert.equal(events.filter((event) => event.type === "context.compacted").length, 1);
+            assert.ok(events.some((event) => event.type === "model.step.completed" && event.payload.usage.cacheRead > 200_000));
+            assert.equal(events.some((event) => event.type === "model.step.completed" && event.payload.stopReason === "length"), false);
+        } finally {
+            await manager.shutdown();
+            harness.journal.close();
+            setup.faux.unregister();
+        }
+    });
+}
+
+test("an unsafe request is blocked after a failed proactive summary and reports its readable reason", async () => {
+    const setup = scriptedRuntime("proactive-summary-failure", (context) => isSummary(context)
+        ? fauxAssistantMessage("Partial checkpoint.", { stopReason: "length" })
+        : withTokens(fauxAssistantMessage("First answer."), 2_000));
+    const harness = journalHarness(setup.selection);
+    const diagnostics: string[] = [];
+    const manager = new AgentRuntimeManager({ modelRuntime: setup.modelRuntime, onDiagnostic: ({ message }) => diagnostics.push(message) });
+    try {
+        assert.equal((await turnOf(harness, manager, "Initial task.")).result.failure, null);
+        const failed = await turnOf(harness, manager, "x".repeat(5_000));
+        assert.match(failed.result.failure!, /summary reached the output token limit \(length\)/);
+        assert.ok(diagnostics.some((message) => message.includes("incomplete response (length)")));
+        assert.equal(harness.runtime.events(harness.runId).filter((event) => event.type === "model.step.completed").length, 1);
+        assert.equal(harness.runtime.events(harness.runId).some((event) => event.type === "context.compacted"), false);
+    } finally {
+        await manager.shutdown();
+        harness.journal.close();
+        setup.faux.unregister();
+    }
+});
+
+test("an input that cannot fit without compactable history fails before dispatch and logs the cause", async () => {
+    const setup = scriptedRuntime("input-without-history", () => { throw new Error("An unsafe request was sent."); });
+    const harness = journalHarness(setup.selection);
+    const diagnostics: string[] = [];
+    const manager = new AgentRuntimeManager({ modelRuntime: setup.modelRuntime, onDiagnostic: ({ message }) => diagnostics.push(message) });
+    try {
+        const failed = await turnOf(harness, manager, "x".repeat(20_000));
+        assert.match(failed.result.failure!, /there is no context to compact/);
+        assert.ok(diagnostics.some((message) => message.includes("there is no context to compact")));
+        assert.equal(harness.runtime.events(harness.runId).some((event) => event.type === "model.step.completed"), false);
+    } finally {
+        await manager.shutdown();
+        harness.journal.close();
+        setup.faux.unregister();
+    }
+});
 
 for (const kind of ["native", "typescript_eval", "plugin", "hook", "error"] as const) {
     test(`multi-MB ${kind} results reach the model bounded with a readable file, including after replay`, async () => {
@@ -153,15 +250,17 @@ test("failed overflow recovery reports a short notice and the next user message 
 for (const output of ["tool arguments", "compaction summary"] as const) {
     test(`streamed ${output} reports progress without visible output`, async () => {
         let requests = 0;
+        let summaries = 0;
         const setup = scriptedRuntime("stream-progress", () => fauxAssistantMessage("Done."));
         setup.modelRuntime.streamSimple = (model, context) => {
             const stream = createAssistantMessageEventStream();
             const summary = isSummary(context);
+            if (summary) summaries++;
             const first = !summary && ++requests === 1;
             const response = summary
                 ? fauxAssistantMessage("## Goal\nKeep working.")
                 : first
-                ? withTokens(fauxAssistantMessage([fauxToolCall("lookup", {}, { id: "lookup-1" })], { stopReason: "toolUse" }), 2_800)
+                ? withTokens(fauxAssistantMessage([fauxToolCall("lookup", {}, { id: "lookup-1" })], { stopReason: "toolUse" }), 2_950)
                 : fauxAssistantMessage("Done.");
             const message = { ...response, api: model.api, provider: model.provider, model: model.id };
             stream.push({ type: "start", partial: message });
@@ -183,7 +282,8 @@ for (const output of ["tool arguments", "compaction summary"] as const) {
                 progress: () => { progress++; },
             });
             assert.equal(result.failure, null);
-            assert.equal(progress, 1);
+            assert.equal(progress, output === "compaction summary" ? summaries : 1);
+            assert.ok(output !== "compaction summary" || summaries > 0);
             assert.equal(harness.published.some((event) => event.kind === "text" || event.kind === "thinking"), false);
             assert.equal(harness.runtime.events(harness.runId).filter((event) => event.type === "context.compacted").length, 1);
         } finally {
@@ -204,7 +304,7 @@ test("the context threshold crossed by a tool result compacts before the next re
         }
         requests.push({ ...(context.systemPrompt === undefined ? {} : { systemPrompt: context.systemPrompt }), messages: structuredClone(context.messages) });
         return requests.length === 1
-            ? withTokens(fauxAssistantMessage([fauxToolCall("lookup", {}, { id: "lookup-1" })], { stopReason: "toolUse" }), 2_800)
+            ? withTokens(fauxAssistantMessage([fauxToolCall("lookup", {}, { id: "lookup-1" })], { stopReason: "toolUse" }), 2_950)
             : withTokens(fauxAssistantMessage("Done."), 100);
     });
     const directory = mkdtempSync(join(tmpdir(), "ragents-mid-turn-"));
@@ -215,10 +315,11 @@ test("the context threshold crossed by a tool result compacts before the next re
             tools: [nativeTool("lookup")], invoke: async () => "x".repeat(1_600),
         });
         assert.equal(result.failure, null);
-        assert.equal(summaries, 1);
+        assert.ok(summaries > 0);
         assert.equal(requests.length, 2);
         assert.match(JSON.stringify(requests[1]!.messages), /Keep working/);
-        assert.ok(requests[1]!.messages.some((message) => message.role === "toolResult" && message.toolCallId === "lookup-1"));
+        assert.equal(requests[1]!.messages.some((message) => message.role === "toolResult" && message.toolCallId === "lookup-1"), false);
+        assert.ok(harness.runtime.modelContext(harness.runId, harness.agentId).entries.some((entry) => entry.kind === "message" && entry.message.role === "toolResult" && entry.message.toolCallId === "lookup-1"));
         const events = harness.runtime.events(harness.runId);
         const compactionIndex = events.findIndex((event) => event.type === "context.compacted");
         assert.ok(compactionIndex > events.findIndex((event) => event.type === "model.tool-result.presented"));

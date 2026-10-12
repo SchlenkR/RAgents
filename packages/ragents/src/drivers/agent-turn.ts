@@ -8,19 +8,25 @@ import {
     type AgentEvent,
     type AgentLoopTurnUpdate,
     type AgentMessage,
+    type ContextLogEntry,
     type AgentSettings,
     type AgentTool,
     compact,
+    compactionFailureReason,
     compactionOf,
     contextMessages,
+    contextToolResults,
     convertToLlm,
     EMPTY_RESPONSE_NUDGE,
+    effectiveCompactionThreshold,
     estimateContextUsage,
+    estimateTokens,
     formatSkillsForPrompt,
     isRunFailure,
     type ModelRuntime,
+    modelOutputReserve,
     prepareCompaction,
-    shouldCompact,
+    retainedToolResultMessage,
     type Skill,
     type ThinkingLevel,
 } from "@ragents/agent";
@@ -140,11 +146,14 @@ export class AgentTurn {
     #overflowRecoveryAttempted = false;
     #retryAbort: AbortController | null = null;
     #compactionAbort: AbortController | null = null;
+    #compactionFailure: string | null = null;
+    readonly #priorContextIds: ReadonlySet<string>;
     #settled: Promise<void> = Promise.resolve();
 
     constructor(options: AgentTurnOptions) {
         this.#options = options;
         this.#request = options.request;
+        this.#priorContextIds = new Set(options.request.modelContext().entries.map((entry) => entry.id));
     }
 
     /** Runs the turn up to its last model answer; `onAccepted` marks the point from which an abort reaches the loop. */
@@ -354,13 +363,6 @@ export class AgentTurn {
 
     /** The projection of the journal plus the hidden notes of the hooks for this one call. */
     async #contextForModelCall(signal: AbortSignal | undefined): Promise<AgentMessage[]> {
-        await this.#checkCompaction(lastAssistantOf(this.#request.modelContext().messages), false);
-
-        if (this.#overflowRecoveryAttempted && this.#modelFailure)
-            throw new Error(this.#modelFailure);
-
-        const context = this.#request.modelContext();
-        this.#contextKey = context.key;
         const notes: AgentMessage[] = [];
 
         for (const hook of this.#options.hooks) {
@@ -389,8 +391,24 @@ export class AgentTurn {
             }
         }
 
+        await this.#checkCompaction(lastAssistantOf(this.#request.modelContext().messages), false, notes);
+
+        if (this.#overflowRecoveryAttempted && this.#modelFailure)
+            throw new Error(this.#modelFailure);
+
+        const context = this.#request.modelContext();
+        this.#contextKey = context.key;
+        const { model, thinkingLevel } = this.#options;
+        if (this.#nextRequestTokens(notes) + modelOutputReserve(model, thinkingLevel) > model.contextWindow) {
+            const reason = this.#compactionFailure
+                ? `the summary could not be completed: ${this.#compactionFailure}`
+                : "the retained context and request instructions leave insufficient room for the model output.";
+            this.#modelFailure = `Context overflow recovery failed: ${reason} Send another message to try again.`;
+            throw new Error(this.#modelFailure);
+        }
+
         const activeIds = new Set(activeContextEntries(context.entries).map((entry) => entry.id));
-        const entries = await Promise.all(context.entries.map(async (entry) => activeIds.has(entry.id) && entry.kind === "message" && entry.message.role === "toolResult"
+        const entries = await Promise.all(this.#contextEntries().map(async (entry) => activeIds.has(entry.id) && entry.kind === "message" && entry.message.role === "toolResult"
             ? { ...entry, message: { ...entry.message, content: await this.#boundedResult(entry.message.content) } }
             : entry));
         const projected = contextMessages(entries, this.#options.model.contextWindow);
@@ -681,7 +699,7 @@ export class AgentTurn {
     }
 
     /** After a context overflow compacts and retries once; over the threshold of the turn's model compacts without a retry. */
-    async #checkCompaction(assistant: AssistantMessage | undefined, skipAborted = true): Promise<boolean> {
+    async #checkCompaction(assistant: AssistantMessage | undefined, skipAborted = true, notes: readonly AgentMessage[] = []): Promise<boolean> {
         const { model } = this.#options;
 
         if (skipAborted && assistant?.stopReason === "aborted")
@@ -695,7 +713,7 @@ export class AgentTurn {
 
         if (assistant && sameModel && assistantIndex > compactionIndex && isContextOverflow(assistant, contextWindow)) {
             if (assistant.stopReason === "stop")
-                return this.#compact(false);
+                return this.#compact(false, notes);
 
             if (this.#overflowRecoveryAttempted) {
                 this.#modelFailure = "The model context overflowed again after compaction and one retry. Send another message to continue.";
@@ -703,29 +721,58 @@ export class AgentTurn {
             }
 
             this.#overflowRecoveryAttempted = true;
-            return this.#compact(true);
+            return this.#compact(true, notes);
         }
 
-        const contextTokens = estimateContextUsage(log).tokens;
-        return shouldCompact(contextTokens, compactionOf(model).values) ? this.#compact(false) : false;
+        return this.#nextRequestTokens(notes) > effectiveCompactionThreshold(model, this.#options.thinkingLevel) ? this.#compact(false, notes) : false;
     }
 
-    async #compact(retry: boolean): Promise<boolean> {
+    #contextEntries(): ContextLogEntry[] {
+        return this.#request.modelContext().entries.map((entry) => {
+            if (this.#options.model.reasoningReplay !== "current-turn" || !this.#priorContextIds.has(entry.id)
+                || entry.kind !== "message" || entry.message.role !== "assistant") return entry;
+            return { ...entry, message: { ...entry.message,
+                content: entry.message.content.flatMap((block): AssistantMessage["content"] => {
+                    if (block.type === "thinking") return [];
+                    if (block.type !== "toolCall") return [block];
+                    const { thoughtSignature: _signature, ...call } = block;
+                    return [call];
+                }),
+                usage: { ...entry.message.usage, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0 },
+            } };
+        });
+    }
+
+    #nextRequestTokens(notes: readonly AgentMessage[] = [], entries = this.#contextEntries()): number {
+        const window = this.#options.model.contextWindow;
+        const messages = contextMessages(entries, window);
+        const tools = this.#agent?.state.tools.map(({ name, description, parameters }) => ({ name, description, parameters })) ?? [];
+        const prefix = Math.ceil((this.#systemPrompt.length + JSON.stringify(tools).length) / 4);
+        const estimated = messages.reduce((sum, message) => sum + estimateTokens(message), prefix);
+        return Math.max(estimateContextUsage(entries, window).tokens, estimated) + notes.reduce((sum, message) => sum + estimateTokens(message), 0);
+    }
+
+    async #compact(retry: boolean, requestNotes: readonly AgentMessage[] = []): Promise<boolean> {
         const { model, modelRuntime, thinkingLevel } = this.#options;
         const compaction = compactionOf(model);
-        const entries = [...this.#request.modelContext().entries];
-        const initial = prepareCompaction(entries, compaction.values);
-
-        if (!initial) {
-            if (retry)
-                this.#modelFailure = "Context overflow recovery failed: there is no context to compact. Send another message to continue.";
-            return false;
-        }
-
+        const entries = this.#contextEntries();
         const abort = new AbortController();
         this.#compactionAbort = abort;
+        this.#compactionFailure = null;
 
         try {
+            const initial = prepareCompaction(entries, compaction.values);
+            const lastEntry = entries.at(-1);
+            const canCloseLoop = entries.some((entry) => entry.kind === "message" && entry.message.role === "assistant" && entry.message.content.length > 0)
+                && lastEntry?.kind === "message" && (lastEntry.message.role === "assistant" || lastEntry.message.role === "toolResult");
+            if (!initial && !canCloseLoop) {
+                this.#compactionFailure = "there is no context to compact.";
+                if (!abort.signal.aborted && !this.#options.signal.aborted)
+                    this.#options.onDiagnostic("Compaction of the model context failed: there is no context to compact.");
+                if (retry)
+                    this.#modelFailure = "Context overflow recovery failed: there is no context to compact. Send another message to continue.";
+                return false;
+            }
             const retained = new Set<string>();
             const notes: string[] = [];
             for (const hook of this.#options.hooks) {
@@ -733,7 +780,7 @@ export class AgentTurn {
                     signal: AbortSignal.any([abort.signal, this.#options.signal]),
                     modelReadsImages: model.input.includes("image"),
                     retentionTokens: Math.floor(compaction.values.keepRecentTokens / 2),
-                    firstKeptEventId: initial.firstKeptId,
+                    firstKeptEventId: initial?.firstKeptId ?? lastEntry!.id,
                     toolNames: this.#agent?.state.tools.map((tool) => tool.name) ?? [],
                     kept: this.#request.hookState.kept(hook.id),
                     keep: (value) => {
@@ -744,12 +791,25 @@ export class AgentTurn {
                 for (const id of contribution?.toolResultIds ?? []) retained.add(id);
                 if (contribution?.contextNotes) notes.push(contribution.contextNotes);
             }
-            const preparation = prepareCompaction(entries, compaction.values, {
+            const retention = {
                 toolResultIds: [...retained],
                 ...(notes.length > 0 ? { contextNotes: notes.join("\n\n") } : {}),
-            });
+            };
+            let preparation = prepareCompaction(entries, compaction.values, retention);
+            const keptTokens = preparation ? entries.slice(entries.findIndex((entry) => entry.id === preparation!.firstKeptId))
+                .reduce((sum, entry) => sum + (entry.kind === "message" ? estimateTokens(entry.message) : 0), 0) : Infinity;
+            const retentionTokens = contextToolResults(entries).filter((result) => retained.has(result.entryId))
+                .reduce((sum, result) => sum + estimateTokens(retainedToolResultMessage(result)), Math.ceil(notes.join("\n\n").length / 4));
+            const continuation: ContextLogEntry & { kind: "message"; message: UserMessage } = { kind: "message", id: `compaction-continuation:${this.#request.turnId}:${entries.length}`, message: {
+                role: "user", content: "Continue the current task from the checkpoint. Completed tool calls need no repetition.", timestamp: Date.now(),
+            } };
+            const closeLoop = canCloseLoop && keptTokens > compaction.values.keepRecentTokens - retentionTokens;
+            if (closeLoop) {
+                entries.push(continuation);
+                preparation = prepareCompaction(entries, compaction.values, { ...retention, firstKeptId: continuation.id });
+            }
             if (!preparation) throw new Error("The compaction has no history after retaining tool results.");
-            const auth = await modelRuntime.getAuth(model).catch(() => undefined);
+            const auth = await modelRuntime.getAuth(model);
             const headers = auth?.auth.headers
                 ? Object.fromEntries(Object.entries(auth.auth.headers).filter((entry): entry is [string, string] => entry[1] !== null))
                 : undefined;
@@ -775,6 +835,15 @@ export class AgentTurn {
             if (abort.signal.aborted || this.#options.signal.aborted || !this.#active)
                 return false;
 
+            const projected = [...entries, { kind: "compaction" as const, id: "compaction-result", timestamp: Date.now(), ...result }];
+            const nextTokens = this.#nextRequestTokens(requestNotes, projected);
+            if (nextTokens >= this.#nextRequestTokens(requestNotes) || nextTokens + modelOutputReserve(model, thinkingLevel) > model.contextWindow)
+                throw new Error("The summary and retained context do not reduce the request enough to fit the model window.");
+
+            if (closeLoop) {
+                this.#request.recordContext({ kind: "input", inputId: null, content: continuation.message.content });
+                result.firstKeptId = this.#request.modelContext().entries.at(-1)!.id;
+            }
             this.#request.recordContext({
                 kind: "compaction",
                 compaction: {
@@ -800,9 +869,10 @@ export class AgentTurn {
             return retry;
         } catch (error) {
             if (!abort.signal.aborted && !this.#options.signal.aborted) {
+                this.#compactionFailure = compactionFailureReason(error);
                 this.#options.onDiagnostic(`Compaction of the model context failed: ${errorMessage(error)}`);
                 if (retry)
-                    this.#modelFailure = "Context overflow recovery failed: the summary could not be completed. Send another message to try again.";
+                    this.#modelFailure = `Context overflow recovery failed: the summary could not be completed: ${this.#compactionFailure} Send another message to try again.`;
             }
             return false;
         } finally {

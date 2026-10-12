@@ -59,6 +59,16 @@ test("reasoning details from message and tool signatures survive deduplicated wi
   assert.equal(messages[1]?.role, "tool");
 });
 
+test("legacy copies of the same metadata list are removed without deduplicating its ordered entries", () => {
+  const detail = { type: "reasoning.encrypted", id: "item", data: "opaque", format: "openai-responses-v1" };
+  const details = [detail, detail, { type: "reasoning.summary", summary: "Conclusion" }];
+  const message = assistant([
+    { type: "thinking", thinking: "", thinkingSignature: JSON.stringify(details) },
+    { type: "toolCall", id: "call", name: "echo", arguments: {}, thoughtSignature: JSON.stringify(detail) },
+  ]);
+  assert.deepEqual(convertMessages({ messages: [message] }, model)[0]?.providerOptions?.openrouter?.reasoning_details, details);
+});
+
 test("SDK provider replays encrypted tool reasoning and summary from an empty thinking block", async () => {
   const encrypted = { type: "reasoning.encrypted", id: "call", data: "opaque", format: "google-gemini-v1" };
   const summary = { type: "reasoning.summary", summary: "Thought" };

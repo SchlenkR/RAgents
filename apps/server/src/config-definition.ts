@@ -63,6 +63,7 @@ export interface ProfileModelAlias {
   /** The levels the alias offers, each mapped to a level of the target; without them it offers the target's levels. */
   readonly thinkingLevels?: Readonly<Partial<Record<ThinkingLevel, ThinkingLevel>>>;
   readonly compaction: Readonly<ModelCompaction>;
+  readonly reasoningReplay?: "all" | "current-turn";
 }
 
 interface ProfileModelProviderBase {
@@ -73,6 +74,7 @@ interface ProfileModelProviderBase {
     id: string;
     contextWindow: number;
     maxTokens: number;
+    reasoningReplay?: "all" | "current-turn";
     reasoning: boolean;
     input: readonly ("text" | "image" | "video" | "file" | "audio")[];
     /** What the server gets per level; null removes a level, xhigh and max exist only when named here. */

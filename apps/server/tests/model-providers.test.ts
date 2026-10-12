@@ -48,6 +48,16 @@ const runtimeOf = (aliases: readonly ModelAlias[] = parseModelAliases([alias])):
   return runtime;
 };
 
+test("per-model reasoning replay survives provider registration and the relay catalog", (t) => {
+  withProfile(t, [provider({ models: [{ ...exampleModel, reasoningReplay: "current-turn" }] })]);
+  const models = runtimeOf();
+  assert.equal(models.getModel("local", "example-model")!.reasoningReplay, "current-turn");
+  assert.equal(models.getModel(ALIAS_PROVIDER, "local-model")!.reasoningReplay, "current-turn");
+  const configured = resolveAliases(modelRelayConfig.aliases(), modelRelayConfig.upstreams([]))[0]!;
+  assert.equal(catalogEntryOf(configured).catalog.reasoningReplay, "current-turn");
+  assert.throws(() => parseModelProviders([provider({ models: [{ ...exampleModel, reasoningReplay: "none" }] })], environment), /models\[0\]\.reasoningReplay must be "all" or "current-turn"/);
+});
+
 test("MODEL_PROVIDERS accepts OpenAI-compatible servers only with an env key and complete model data", () => {
   const parse = (entry: unknown) => parseModelProviders([entry], environment);
   assert.throws(() => parseModelProviders("x", environment), /MODEL_PROVIDERS must be a list of providers/);
