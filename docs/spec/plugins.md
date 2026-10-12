@@ -1534,7 +1534,7 @@ the header's window buttons compares client coordinates with client rectangles. 
 Menus, header hints, actor popouts, chat step details, and journal use `Popover`, `Tooltip`,
 and `Select` from the UI library. Base UI follows their anchors, scrolling, and layout changes.
 Header dropdowns share `HeaderDropdown`, exported through `@ragents/web/ui`: Run details,
-Run script, Agents, Share, and the global coordinator use the same square panel, labeled
+Run script, Share, and the global coordinator use the same square panel, labeled
 heading, close button, 8 px padding, and theme dimming. By default, the panel opens below the nearest
 header, inset 8 px from the header edge on the side of its trigger (the left edge for a trigger in the left half,
 otherwise the right edge); outside a header it follows the calling row or action.
@@ -1810,7 +1810,8 @@ By default, the run header lists every view (Chat, each window tab, and each app
 actions" group, whether shown or not; a visible view's button is pressed (`aria-pressed`).
 `revealDockPanel` decides the click: a closed view opens beside the focused area in wide browser
 workspaces or as a tab in narrow ones; a background tab or the active tab of an area hidden by
-another maximized area is selected and its area focused; an already visible view changes nothing.
+another maximized area is revealed and its area focused; an already visible view focuses its area.
+The focused visible view keeps its layout unchanged.
 Every view button and the extra and reset actions remain directly available regardless of width
 or window count. Whole buttons wrap to further rows with flex layout; the run header grows with
 them instead of hiding actions or scrolling horizontally. Labels remain visible within the
@@ -3131,7 +3132,7 @@ closed until available. The browser instead uses the docking state described abo
 `app` layout never has an inspection rail in either host. The chat reports the active inspection
 tab through the existing navigation and user-location contract.
 The panel header (`RunHeader` in `RunPanelPage`) keeps fixed controls in a leading group (logo,
-global coordinator, and run title) and a trailing group (bar contributions such as Agents,
+global coordinator, and run title) and a trailing group (bar contributions,
 Share, Run script, environment, run state, Stop, Appearance, Settings, Help, browser, and sign-out).
 The coordinator and title have bounded preferred widths; the title truncates. At header widths
 of at least 768px, the title shrinks first, down to its chevron, and then the global coordinator,
@@ -3215,11 +3216,11 @@ are missing, an agent created by a program hangs under that program's creator. S
 creation order; from four of the same kind (the same kind and the same handle stem, the first word
 of the handle without a counter suffix, such as `review-*`) the tree combines them into a group with the shared
 prefix, count, and state count. A group is collapsed unless it contains the chosen
-actor; a click reverses that until the graph closes. `actorGraphLayout` (`web/run-panel/actor-graph.ts`)
+actor; a click reverses that. `actorGraphLayout` (`web/run-panel/actor-graph.ts`)
 lays the tree out deterministically, without a layout library: cards of fixed width and a shared
 height measured in rem, every creator
 centered above the first row of its children, at most as many children per row as cards fit into
-the largest canvas width the popout allows (`graphColumns`); further rows hang on a line in a gutter left of them, so no
+the available canvas width (`graphColumns`); further rows hang on a line in a gutter left of them, so no
 edge crosses a card. Edges run orthogonally with rounded corners from the bottom of the creator
 to the top of the child as `SvgEdge` from the UI library; an edge into a working actor (or a group
 with a working member) is `accent` and `active`, one into an actor waiting for input `warning`.
@@ -3240,8 +3241,8 @@ key in the canvas. After a click on a group, the group card stays at its screen 
 the pan limits allow; the position is applied again on the first resize notification after the
 popout has moved to fit its new size. `ActorGraph` (`ActorGraph.tsx`) is the only renderer, used by
 the recipient popout without a header (its label only names the dialog, the close button sits in
-the top right corner) and by `HeaderDropdown` with the title "Agents". The header graph uses
-the shared panel's available body dimensions and pans within them. Per
+the top right corner) and by the "Agents" workspace tab. The workspace graph measures its
+panel's available body dimensions and pans within them. Per
 card there are the handle, the state (`working` with a spinner, `waiting for input` for an open
 action of the actor, `waiting`, or `stopped`), a time, the short description (the actor's
 `description`, otherwise the first line of its first own input, shortened to 90 characters,
@@ -3262,11 +3263,16 @@ While the recipient is not the actor chosen without a stored choice (`selectedRu
 chooses that actor directly without opening the popout.
 Next to it the bar shows only a spinner and the number of currently working subagents,
 excluding the primary chat actor. The count is independent of the selected addressee and
-opens the graph on click; the accessible label names the count and action. The
-header contribution `ragents.orchestration.agents` (`placement: "bar"`, `AgentsHeader.tsx`) shows
-"Agents" while the run lists at least one actor besides humans and opens the same graph in
-the shared `HeaderDropdown`; a click there stores the chosen actor the same way, and the run
-panel takes it over through the stored state. The chosen actor is stored per run in browser storage
+opens the recipient graph on click; the accessible label names the count and action.
+The orchestration plugin registers "Agents" through `workspaceTabs` with `placement: "window"`
+when the run state is available. In the browser, `DockWindowActions`
+provides its ordinary window button: a click opens, reveals, or focuses the single graph window.
+It uses the same initial layout, moving, docking, resizing, retention, and remembered layout as
+other window tabs. Picking an actor addresses the main chat; dragging an actor opens or moves
+its actor-bound chat, and the graph follows live run state. VS Code shows the same contribution
+in `RunPanelRail` and the existing `RunPanelWorkspace` inspection popout, reached through
+`SessionNavigation.openTab`; it has no separate header dropdown or app editor. The recipient
+popup remains independent. The chosen actor is stored per run in browser storage
 (`ragents.orchestration.run-navigation:<runId>`); browser app selection belongs to the docking
 state. These domains have separate storage keys; layout preferences are not migrated. Invalid
 navigation values are a hard error.

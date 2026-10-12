@@ -106,7 +106,7 @@ Clicking or typing elsewhere while it loads cancels that focus request.
 
 The run title opens "Run details". Its panel contains all run metadata, start option badges (an option
 that a metadata cell already shows appears once), and contributed detail controls in cells that wrap as the
-panel narrows. "Run details", "Run script", "Agents", and "Share" use the same square dropdown below the header,
+panel narrows. "Run details", "Run script", and "Share" use the same square dropdown below the header,
 up to 800 pixels wide with a small inset on the side of their button. Each dims the page below the header and keeps
 its content within the available width. The close button, Escape, or clicking outside closes it. Focus returns
 to its button unless it has moved elsewhere.
@@ -152,9 +152,9 @@ window, and every app as buttons with their existing icons, whether shown or not
 visible window appears pressed.
 Clicking a closed window opens it beside the current area in a wide browser workspace, or as a
 tab when narrow. Clicking a window that waits as a background tab brings that tab to the front.
-Clicking a visible window changes nothing. All window buttons, "Empty space", and "Reset layout" remain directly available. They fill
+Clicking a visible window focuses its area. All window buttons, "Empty space", and "Reset layout" remain directly available. They fill
 the space between the fixed controls first, then continue across the full header width when
-needed. Adding apps keeps the title and actions such as "Agents", "Share", Stop, and Settings
+needed. Adding apps keeps the title and actions such as "Share", Stop, and Settings
 in place. The title, and after it the global coordinator, shrinks before the fixed actions wrap on
 desktop widths. The title and long button labels truncate; full labels remain available on hover.
 Narrow panels can also wrap fixed controls. The header grows and pushes the workspace down;
@@ -280,10 +280,13 @@ brings a hidden card into view, and Escape, a click outside, or the x in the top
 closes. All actors permitted by your access rights are available, including stopped actors.
 TypeScript actors require inspection rights.
 
-"Agents" in the run header opens the same graph with the title "Agents" in the shared header
-dropdown as soon as the run has an actor besides you; the graph pans within the panel. Clicking an
-actor there also makes it the chat's addressee. Its labeled button wraps with the other header
-actions when space is short.
+"Agents" is an ordinary run window once the run state is available. Its browser
+header button opens or focuses the same window, revealing it when it is hidden behind another tab
+or maximized area. Move, dock, resize, close, and reopen it like a mini-app; its place is remembered
+with the run's layout. The graph pans within the window and follows live actor states. Picking an
+actor makes it the main chat's addressee while the graph stays open. Its button can move to the
+sidebar like any window button. In VS Code, "Agents" in the inspection rail opens the same graph
+in the existing tool popout.
 
 In the browser, drag an actor from either graph or the addressee chip
 onto the workspace's docking guides to open a separate chat addressed to that actor. Drop on

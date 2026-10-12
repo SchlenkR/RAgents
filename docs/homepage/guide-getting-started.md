@@ -415,7 +415,7 @@ Activated visible mini-apps become available automatically, including those from
 Programs cannot arrange the host interface. Runs saved with removed layout functions or placements
 are locked with an explanation; their original files are kept. Start a new run with updated programs.
 
-Wide browser runs start with Chat beside the mini-apps; narrow ones use one tab group. Drag tabs
+Wide browser runs start with Chat beside the other windows; narrow ones use one tab group. Drag tabs
 onto the docking guides to arrange areas or merge them. Chat and visited apps keep their input
 through switches and moves. New apps appear without taking focus. A window that is unavailable
 for a while keeps its place and returns to it; the app of a later start of the same run script
@@ -431,6 +431,8 @@ workspace down.
 Drag a button between the sidebar rail and header to choose where it lives, or right-click it
 and choose "Move to header" or "Move to sidebar". Shift+F10 opens the same menu from the keyboard.
 Moving a button keeps its panel's open state; "Reset layout" restores the plugin defaults.
+"Agents" shows or focuses the live actor graph in its own window. Pick an actor to address its
+chat, or drag it onto the docking guides to open a separate chat for that actor.
 
 When step details are enabled, click a thinking or tool step to open its popup. Long traces
 scroll inside it; the heading and close button stay visible within the available screen space.
@@ -443,4 +445,5 @@ also after a server restart.
 
 In VS Code, clicking an app opens or focuses its editor tab. VS Code controls where that tab
 appears. Questions and news stay in chat. The selector below the input chooses the addressee;
-the run coordinator is selected by default.
+the run coordinator is selected by default. "Agents" in the inspection rail shows the same graph
+in the run's tool popout.

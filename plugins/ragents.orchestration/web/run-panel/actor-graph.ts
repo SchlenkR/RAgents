@@ -100,14 +100,14 @@ export const graphColumns = (width: number): number =>
   Math.max(1, Math.floor((width - 2 * PADDING - GUTTER + GAP_X) / (GRAPH_CARD_WIDTH + GAP_X)));
 
 const clamp = (value: number, max: number) => Math.min(Math.max(value, 0), Math.max(0, max));
-const viewAxis = (size: number, room: number) => size <= room
-  ? { view: size, scroll: size, offset: 0 }
+const viewAxis = (size: number, room: number, fill: boolean) => size <= room
+  ? { view: fill ? room : size, scroll: fill ? room : size, offset: fill ? (room - size) / 2 : 0 }
   : { view: Math.max(0, room), scroll: size + 2 * (GRAPH_PAN_MARGIN - PADDING), offset: GRAPH_PAN_MARGIN - PADDING };
 
 /** The view grows with the layout up to the room; an axis that does not fit pans over the cards plus the pan margin. */
-export const graphViewport = (layout: GraphSize, room: GraphSize): GraphViewport => {
-  const x = viewAxis(layout.width, room.width);
-  const y = viewAxis(layout.height, room.height);
+export const graphViewport = (layout: GraphSize, room: GraphSize, fill = false): GraphViewport => {
+  const x = viewAxis(layout.width, room.width, fill);
+  const y = viewAxis(layout.height, room.height, fill);
   return { width: x.view, height: y.view, scrollWidth: x.scroll, scrollHeight: y.scroll, left: x.offset, top: y.offset };
 };
 
