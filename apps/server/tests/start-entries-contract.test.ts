@@ -128,6 +128,9 @@ test("a run script may carry its own category; without one it stays without", ()
     ]);
     writeFileSync(path.join(without, "RUN.md"), "---\ntitle: Plain\ndescription: A procedure\ncategory:  \n---\n");
     assert.throws(() => runScriptsFromDirectory(scripts, "example.script"), /category is empty/);
+    writeFileSync(path.join(without, "RUN.md"), "---\ntitle: Plain\ndescription: A procedure\nlisted: false\n---\n");
+    assert.equal(runScriptsFromDirectory(scripts, "example.script").find((entry) => entry.id === "example.script.plain")?.listed, false);
+    assert.equal(runScriptsFromDirectory(scripts, "example.script").find((entry) => entry.id === "example.script.moderation")?.listed, undefined);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }

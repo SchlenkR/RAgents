@@ -6,7 +6,7 @@ import { flag, frontMatterOf, numberOf, tagsOf } from "./front-matter.js";
 export type ScriptStartEntry = Extract<StartEntryContribution, { action: "script" }>;
 
 const PACKAGE_NAME = /^[a-z0-9][a-z0-9-]*$/;
-const RUN_FIELDS = ["title", "description", "order", "guide", "tags", "coordinator", "embeddable", "shared-programs", "category", "fixed-start-options"];
+const RUN_FIELDS = ["title", "description", "order", "listed", "guide", "tags", "coordinator", "embeddable", "shared-programs", "category", "fixed-start-options"];
 
 const requiredFile = (directory: string, name: string): string => {
   const file = path.join(directory, name);
@@ -65,6 +65,7 @@ const runScriptFrom = (directory: string, name: string, id: string): ScriptStart
   if (!title) throw new Error(`${runFile}: title is missing`);
   if (!description) throw new Error(`${runFile}: description is missing`);
   const order = numberOf(runFile, "order", fields.get("order"));
+  const listed = flag(runFile, "listed", fields.get("listed"), true);
   const guide = fields.get("guide");
   const tags = tagsOf(runFile, fields.get("tags"));
   const category = fields.get("category");
@@ -84,6 +85,7 @@ const runScriptFrom = (directory: string, name: string, id: string): ScriptStart
   return {
     id, action: "script", title, description,
     ...(order !== undefined ? {order} : {}),
+    ...(listed ? {} : {listed}),
     ...(guide ? {guide} : {}),
     ...(tags !== undefined ? {tags} : {}),
     ...(category ? {category} : {}),

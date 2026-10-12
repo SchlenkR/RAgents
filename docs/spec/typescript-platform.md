@@ -370,7 +370,7 @@ this copy is what gets loaded:
 
 ```text
 plugins/<id>/run-scripts/<name>/
-  RUN.md                  title, description, order, optional guide, coordinator, embeddable, shared-programs, fixed-start-options
+  RUN.md                  title, description, order, optional listed, guide, coordinator, embeddable, shared-programs, fixed-start-options
   package.json            ragents.backend points to the setup entry point
   src/server.ts           defineActor with input, onInput, and optional onStart
   tests/program.test.ts    normal node:test domain tests
