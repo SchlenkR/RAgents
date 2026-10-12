@@ -20,7 +20,7 @@ export interface ChoiceSelectProps<Value extends string = string> {
 function ChoiceSelect<Value extends string>({ label, options, value, onValueChange, size = "default", disabled, className }: ChoiceSelectProps<Value>) {
   if (options.length > 0 && options.length <= segmentedOptionLimit) return <ToggleGroup aria-label={label} className={cn("max-w-full", className)} disabled={disabled} size={size} value={[value]}
     onValueChange={([next]) => { if (next !== undefined) onValueChange(next) }}>
-    {options.map((option) => <ToggleGroupItem disabled={option.disabled} key={option.value} value={option.value} title={option.label}><span className="min-w-0 truncate">{option.label}</span></ToggleGroupItem>)}
+    {options.map((option) => <ToggleGroupItem disabled={option.disabled} key={option.value} value={option.value} aria-label={option.label}><span className="min-w-0 truncate">{option.label}</span></ToggleGroupItem>)}
   </ToggleGroup>
   return <Select disabled={disabled} items={options} value={value} onValueChange={(next) => { if (next !== null) onValueChange(next) }}>
     <SelectTrigger aria-label={label} className={className} size={size}><SelectValue /></SelectTrigger>

@@ -161,14 +161,14 @@ test("the run panel keeps questions at the selected addressee input and retains 
     await page.getByRole("textbox", { name: "App draft" }).fill("App input");
     await page.getByRole("tab", { name: "Chat", exact: true }).click();
     assert.equal(await active().locator("textarea").inputValue(), "Coordinator draft");
-    await page.locator('button[title^="Addressee: @coordinator"]:visible').click();
+    await page.locator('button[aria-label^="Addressee: @coordinator"]:visible').click();
     await page.getByRole("dialog", { name: "Addressee" }).locator('button[data-actor-handle="reviewer"]').click();
     await active().getByRole("textbox", { name: "Message to @reviewer ...", exact: true }).fill("Reviewer draft");
     await assertDocked(active(), chat);
-    await page.locator('button[title^="Addressee: @reviewer"]:visible').click();
+    await page.locator('button[aria-label^="Addressee: @reviewer"]:visible').click();
     await page.getByRole("dialog", { name: "Addressee" }).locator('button[data-actor-handle="coordinator"]').click();
     assert.equal(await active().locator("textarea").inputValue(), "Coordinator draft");
-    await page.locator('button[title^="Addressee: @coordinator"]:visible').click();
+    await page.locator('button[aria-label^="Addressee: @coordinator"]:visible').click();
     await page.getByRole("dialog", { name: "Addressee" }).locator('button[data-actor-handle="reviewer"]').click();
     assert.equal(await active().locator("textarea").inputValue(), "Reviewer draft");
     await active().locator("textarea").press("Enter");

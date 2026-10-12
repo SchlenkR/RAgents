@@ -15,7 +15,7 @@ export function ContextUsageControl({ usage, error }: { usage: ContextUsage | nu
     : error ? "Context usage unavailable" : "Context usage: loading";
   const remaining = current && Math.max(0, current.compactionThreshold - current.tokens);
   return <Popover>
-    <PopoverTrigger render={<Button aria-label={label} title={label} size="icon-sm" variant="ghost" />}>
+    <PopoverTrigger render={<Button aria-label={label} aria-description={label} size="icon-sm" variant="ghost" />}>
       <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5 -rotate-90" fill="none" strokeWidth="2.5">
         <circle cx="12" cy="12" r="9" className="stroke-border-strong" />
         <circle cx="12" cy="12" r="9" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - fraction * 100}

@@ -355,13 +355,13 @@ export function DockWorkspace({ additions = [], apps, chat, chatIcon = <UsersIco
         <div aria-hidden data-dock-card={group.id} className={cn(cardClass, "z-0", areaFocused(group.id) ? "border-primary/70" : "border-border")} style={rect} />
         <div aria-label="Area tabs" className={areaHeaderClass} data-dock-group={group.id} role="tablist" style={headerRect(rect)} onFocusCapture={() => { if (state.focused !== group.id || state.side.focused) update((current) => ({ ...current, focused: group.id, side: { ...current.side, focused: false } })); }}>
           {group.tabs.map((id) => <div className={cn(tabClass, id === group.active && (areaFocused(group.id) ? "bg-selected text-selected-foreground hover:bg-selected-hover" : group.tabs.length > 1 && "bg-band"))} key={id} role="presentation">
-            {id === (group.active ?? group.tabs[0]) && <Button aria-label={`Move ${title(id)}`} className={cn(gripClass, "flex-none touch-none cursor-grab hover:bg-transparent active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, [id])} size="icon-xs" title="Drag this window" variant="ghost"><DockGrip /></Button>}
+            {id === (group.active ?? group.tabs[0]) && <Button aria-label={`Move ${title(id)}`} className={cn(gripClass, "flex-none touch-none cursor-grab hover:bg-transparent active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, [id])} size="icon-xs" aria-description="Drag this window" variant="ghost"><DockGrip /></Button>}
             <InteractiveItem id={`dock-tab-${encodeURIComponent(id)}`} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={title(id)} aria-selected={id === group.active} className="flex h-7 min-w-0 flex-1 touch-none cursor-grab items-center gap-2 border-0 px-2 text-left text-xs text-muted-foreground hover:bg-transparent hover:text-foreground selected:border-0 selected:bg-transparent selected:text-selected-foreground selected:hover:bg-transparent [&>svg]:size-4 [&>svg]:shrink-0"
               onClick={(event) => { if (event.detail === 0) select(id); }} onKeyDown={(event) => selectFromKeyboard(event, group, id)}
-              onPointerDown={(event) => startDrag(event, [id], () => select(id))} role="tab" tabIndex={id === group.active ? 0 : -1} title={title(id)} type="button">{icon(id)}<span className="truncate">{title(id)}</span></InteractiveItem>
+              onPointerDown={(event) => startDrag(event, [id], () => select(id))} role="tab" tabIndex={id === group.active ? 0 : -1} aria-description={title(id)} type="button">{icon(id)}<span className="truncate">{title(id)}</span></InteractiveItem>
             {id === group.active && <>
               {toolHeader(group.active)}
-              {group.active && isToolPanel(group.active) && <Button aria-label={`Return ${title(group.active)} to sidebar`} onClick={() => update((current) => returnDockTool(current, group.active!))} size="icon-xs" title="Return to sidebar" variant="ghost"><PanelRightOpenIcon /></Button>}
+              {group.active && isToolPanel(group.active) && <Button aria-label={`Return ${title(group.active)} to sidebar`} onClick={() => update((current) => returnDockTool(current, group.active!))} size="icon-xs" aria-description="Return to sidebar" variant="ghost"><PanelRightOpenIcon /></Button>}
               {dockGroups(state.root).length > 1 && <Button aria-label={state.maximized === group.id ? "Restore area" : "Maximize area"} onClick={() => update((current) => ({ ...current, maximized: current.maximized === group.id ? null : group.id }))} size="icon-xs" variant="ghost">{state.maximized === group.id ? <MinimizeIcon /> : <MaximizeIcon />}</Button>}
             </>}
             <Button aria-label={`Close ${title(id)}`} className="flex-none" onClick={() => close([id])} size="icon-xs" variant="ghost"><XIcon /></Button>
@@ -398,7 +398,7 @@ export function DockWorkspace({ additions = [], apps, chat, chatIcon = <UsersIco
           <Button aria-label="Move sidebar window" className={cn(gripClass, "touch-none cursor-grab active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, [sideTab!])} size="icon-xs" variant="ghost"><DockGrip /></Button>
           <span className="min-w-0 flex-1 truncate px-1 text-xs font-semibold" id={`dock-side-${encodeURIComponent(sideTab!)}`}>{title(sideTab!)}</span>
           {toolHeader(sideTab)}
-          <Button aria-label="Move into layout" title="Move into layout" onClick={() => update((current) => transitionDockSide(current, { type: "layout", placement, newId }))} size="icon-xs" variant="ghost"><PanelRightCloseIcon /></Button>
+          <Button aria-label="Move into layout" aria-description="Move into layout" onClick={() => update((current) => transitionDockSide(current, { type: "layout", placement, newId }))} size="icon-xs" variant="ghost"><PanelRightCloseIcon /></Button>
           <Button aria-label="Close sidebar" onClick={hideSide} size="icon-xs" variant="ghost"><XIcon /></Button>
         </div>
       </>}
@@ -407,6 +407,7 @@ export function DockWorkspace({ additions = [], apps, chat, chatIcon = <UsersIco
           const tab = tabFor(id);
           const active = visible.includes(id);
           const pending = tab && pendingTabIds.includes(tab.id);
+          // The icon-only rail needs visible tab names on hover and focus.
           return <Tooltip disableHoverablePopup key={id}>
             <div className="relative flex">
               <DockButtonMenu destination="header" onMove={() => moveButton(id, "window")}>

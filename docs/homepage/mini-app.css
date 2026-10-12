@@ -334,9 +334,6 @@
   .top-3 {
     top: calc(var(--spacing) * 3);
   }
-  .top-\[calc\(100\%\+6px\)\] {
-    top: calc(100% + 6px);
-  }
   .top-\[min\(2\.5rem\,calc\(50\%-1\.5rem\)\)\] {
     top: min(2.5rem, calc(50% - 1.5rem));
   }
@@ -399,9 +396,6 @@
   }
   .z-1 {
     z-index: 1;
-  }
-  .z-3 {
-    z-index: 3;
   }
   .z-10 {
     z-index: 10;
@@ -967,6 +961,9 @@
   .max-h-56 {
     max-height: calc(var(--spacing) * 56);
   }
+  .max-h-80 {
+    max-height: calc(var(--spacing) * 80);
+  }
   .max-h-\[180px\] {
     max-height: 180px;
   }
@@ -978,9 +975,6 @@
   }
   .max-h-\[calc\(var\(--ragents-viewport-height\,100dvh\)\*0\.3\)\] {
     max-height: calc(var(--ragents-viewport-height,100dvh) * 0.3);
-  }
-  .max-h-\[calc\(var\(--ragents-viewport-height\,100dvh\)\*0\.44\)\] {
-    max-height: calc(var(--ragents-viewport-height,100dvh) * 0.44);
   }
   .max-h-\[min\(86\%\,900px\)\] {
     max-height: min(86%, 900px);
@@ -1200,9 +1194,6 @@
   }
   .max-w-\[min\(20rem\,var\(--available-width\)\)\] {
     max-width: min(20rem, var(--available-width));
-  }
-  .max-w-\[min\(620px\,calc\(var\(--ragents-viewport-width\,100vw\)\*0\.78\)\)\] {
-    max-width: min(620px, calc(var(--ragents-viewport-width,100vw) * 0.78));
   }
   .max-w-full {
     max-width: 100%;
@@ -1437,6 +1428,9 @@
   }
   .grid-cols-\[minmax\(0\,1fr\)_minmax\(125px\,180px\)\] {
     grid-template-columns: minmax(0,1fr) minmax(125px,180px);
+  }
+  .grid-cols-\[minmax\(0\,6\.5rem\)_minmax\(0\,1fr\)\] {
+    grid-template-columns: minmax(0,6.5rem) minmax(0,1fr);
   }
   .grid-cols-\[repeat\(auto-fill\,minmax\(160px\,1fr\)\)\] {
     grid-template-columns: repeat(auto-fill,minmax(160px,1fr));
@@ -2496,6 +2490,9 @@
   }
   .break-words {
     overflow-wrap: break-word;
+  }
+  .wrap-anywhere {
+    overflow-wrap: anywhere;
   }
   .text-ellipsis {
     text-overflow: ellipsis;
@@ -3567,6 +3564,9 @@
   .has-\[\>\[data-slot\=radio-group\]\]\:gap-3:has( > [data-slot=radio-group]) {
     gap: calc(var(--spacing) * 3);
   }
+  .has-\[\>dd\>div\:empty\]\:hidden:has( > dd > div:empty) {
+    display: none;
+  }
   .has-\[\>img\:first-child\]\:pt-0:has( > img:first-child) {
     padding-top: 0px;
   }
@@ -4108,11 +4108,6 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
-  @container header-dropdown (width >= 720px) {
-    .\@\[720px\]\/header-dropdown\:grid-cols-3 {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-  }
   @container (width >= 760px) {
     .\@\[760px\]\:grid-cols-3 {
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4404,12 +4399,6 @@
   #root > .\[\#root\>\&\]\:p-0 {
     padding: 0px;
   }
-  .\[\&_\*\]\:max-w-full * {
-    max-width: 100%;
-  }
-  .\[\&_\*\]\:whitespace-normal * {
-    white-space: normal;
-  }
   .\[\&_\[data-chat\=composer\]\]\:top-1\/2 [data-chat=composer] {
     top: calc(1 / 2 * 100%);
   }
@@ -4450,9 +4439,6 @@
   }
   .\[\&_p\:not\(\:last-child\)\]\:mb-4 p:not(:last-child) {
     margin-bottom: calc(var(--spacing) * 4);
-  }
-  .\[\&_span\]\:\[-webkit-line-clamp\:unset\] span {
-    -webkit-line-clamp: unset;
   }
   .\[\&_svg\]\:pointer-events-none svg {
     pointer-events: none;
@@ -4599,34 +4585,6 @@
   :is(.\*\:\[svg\:not\(\[class\*\=\'size-\'\]\)\]\:size-4 > *):is(svg:not([class*='size-'])) {
     width: calc(var(--spacing) * 4);
     height: calc(var(--spacing) * 4);
-  }
-  .\[\&\>\*\]\:max-w-full > * {
-    max-width: 100%;
-  }
-  .\[\&\>\*\]\:min-w-0 > * {
-    min-width: 0px;
-  }
-  .\[\&\>\*\]\:items-start > * {
-    align-items: flex-start;
-  }
-  .\[\&\>\*\]\:rounded-\[12px\] > * {
-    border-radius: 12px;
-  }
-  .\[\&\>\*\]\:border > * {
-    border-style: var(--tw-border-style);
-    border-width: 1px;
-  }
-  .\[\&\>\*\]\:border-border > * {
-    border-color: var(--border);
-  }
-  .\[\&\>\*\]\:bg-card > * {
-    background-color: var(--card);
-  }
-  .\[\&\>\*\]\:p-3 > * {
-    padding: calc(var(--spacing) * 3);
-  }
-  .\[\&\>\*\]\:\[overflow-wrap\:break-word\] > * {
-    overflow-wrap: break-word;
   }
   .\[\&\>\*\]\:opacity-60 > * {
     opacity: 60%;

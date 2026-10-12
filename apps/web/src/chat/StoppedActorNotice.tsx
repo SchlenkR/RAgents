@@ -28,7 +28,7 @@ export function StoppedActorNotice({ actor, runId, className, toolbar }: { actor
       <p className="min-w-0 flex-1 [overflow-wrap:anywhere]" role="status">
         <span className="font-semibold">@{actorAddress(actor)} stopped:</span> {reason}
       </p>
-      {restartable && <Button disabled={busy} onClick={() => void restart()} size="sm" title={`Restart @${actorAddress(actor)}; it then accepts messages again`} variant="outline">
+      {restartable && <Button disabled={busy} onClick={() => void restart()} size="sm" aria-description={`Restart @${actorAddress(actor)}; it then accepts messages again`} variant="outline">
         Restart
       </Button>}
     </div>

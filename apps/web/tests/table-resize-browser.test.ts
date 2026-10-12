@@ -61,7 +61,7 @@ test("table columns resize, fit, retain widths and expose full cell text without
   assert.equal(await columnWidth(table, "Name"), 100, "pointer resizing respects the minimum");
   const description = table.getByRole("cell").first();
   const fullText = await description.textContent();
-  assert.equal(await description.getAttribute("title"), fullText);
+  assert.equal(await description.getAttribute("aria-label"), fullText);
   const text = description.locator('[data-slot="table-cell-content"]');
   assert.deepEqual(await text.evaluate((element) => ({ clipped: element.scrollWidth > element.clientWidth, ellipsis: getComputedStyle(element).textOverflow })), { clipped: true, ellipsis: "ellipsis" });
   await handle.dblclick();

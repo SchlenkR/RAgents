@@ -1,5 +1,4 @@
-import { ShieldCheckIcon } from "lucide-react";
-import { Label, Switch } from "@ragents/web/ui";
+import { DetailRow, Label, Switch } from "@ragents/web/ui";
 import type { StartOptionBadgeContext, StartOptionControlContext } from "@ragents/web/PluginRegistry";
 
 export function SandboxControl({ option, disabled, error, setValue }: StartOptionControlContext) {
@@ -18,7 +17,9 @@ export function SandboxControl({ option, disabled, error, setValue }: StartOptio
 
 export function SandboxBadge({ option }: StartOptionBadgeContext) {
   const forced = (option.presentation as { forced?: boolean } | null)?.forced === true;
-  return forced || option.value === true ? (
-    <span className="flex items-center gap-1 text-xs text-muted-foreground"><ShieldCheckIcon size={12} />Sandbox</span>
-  ) : null;
+  return <DetailRow label="Sandbox">
+    {forced || option.value === true
+      ? "Commands run isolated from other work on this machine."
+      : "Commands run without isolation from other work on this machine."}
+  </DetailRow>;
 }

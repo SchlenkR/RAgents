@@ -79,7 +79,7 @@ export function HelpDialog({ onClose, sampleEntries, onStartSample }: {
         ref={frameRef}
         src={`${import.meta.env.BASE_URL}help/index.html`}
         tabIndex={0}
-        title="RAgents: homepage and documentation"
+        aria-label="RAgents: homepage and documentation"
       />
     </DialogContent>
     </Dialog>

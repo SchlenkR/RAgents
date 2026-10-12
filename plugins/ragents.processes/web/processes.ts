@@ -2,8 +2,6 @@ import { isRecord } from "@ragents/web/lib/guards";
 import type { RunPanelHost } from "@ragents/web/run-panel/host";
 import type { RunProcess, RunProcessMachine, RunProcessMessage, RunProcessPort, RunProcessSnapshot } from "../contract";
 
-export const VISIBLE_PROCESSES = 4;
-
 const ORIGINS = ["tool-call", "background"] as const;
 
 const portFrom = (value: unknown): RunProcessPort => {
@@ -87,13 +85,3 @@ export const titleOf = (process: RunProcess): string => {
     : "";
   return `${process.command}\nPID ${process.pid}, ${originText(process.origin)}, observed since ${timeText(process.seenSince)}${ports}`;
 };
-
-export interface VisibleProcesses {
-  shown: readonly RunProcess[];
-  hidden: number;
-}
-
-export const visibleProcesses = (processes: readonly RunProcess[]): VisibleProcesses => ({
-  shown: processes.slice(0, VISIBLE_PROCESSES),
-  hidden: Math.max(0, processes.length - VISIBLE_PROCESSES),
-});

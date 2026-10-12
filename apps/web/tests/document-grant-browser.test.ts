@@ -124,9 +124,9 @@ test("document addresses carry grants instead of the access token where the page
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(`${origin}/${query}`);
-    await page.frameLocator("iframe[title='report.html']").getByRole("img", { name: "Home" }).waitFor({ state: "attached" });
+    await page.frameLocator("iframe[aria-label='report.html']").getByRole("img", { name: "Home" }).waitFor({ state: "attached" });
     await page.waitForFunction((count) => {
-      const frame = document.querySelector<HTMLIFrameElement>("iframe[title='report.html']");
+      const frame = document.querySelector<HTMLIFrameElement>("iframe[aria-label='report.html']");
       const all = [...document.images, ...frame?.contentDocument?.images ?? []];
       return all.filter((image) => image.complete && image.naturalWidth === 1).length === count;
     }, IMAGE_COUNT);

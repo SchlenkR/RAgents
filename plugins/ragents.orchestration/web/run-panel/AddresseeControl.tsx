@@ -41,15 +41,15 @@ export function AddresseeControl({ actors, onSelect, selected, view }: {
       <InteractiveItem aria-controls={open ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog" className={cn(pickClass, back && "pr-1", drag && "touch-none cursor-grab active:cursor-grabbing")}
         onClick={(event) => { if (!drag || event.detail === 0) setOpen(!open); }}
         onPointerDown={drag && ((event) => drag(event, `actor:${selected.id}`, () => setOpen(!open), () => close()))}
-        ref={buttonRef} title={`Addressee: @${actorAddress(selected)}. Click to choose another actor`} type="button">
+        ref={buttonRef} aria-label={`Addressee: @${actorAddress(selected)}. Click to choose another actor`} type="button">
         <ActorIcon actor={selected} className="size-5" view={view} />
         <span className="truncate">@{actorAddress(selected)}</span>
         <ChevronDownIcon aria-hidden className="size-3 flex-none text-muted-foreground" />
       </InteractiveItem>
-      {back && <InteractiveItem aria-label={`Back to @${actorAddress(back)}`} className={backClass} onClick={() => onSelect(back)} title={`Back to @${actorAddress(back)}`} type="button"><XIcon aria-hidden /></InteractiveItem>}
+      {back && <InteractiveItem aria-label={`Back to @${actorAddress(back)}`} className={backClass} onClick={() => onSelect(back)} aria-description={`Back to @${actorAddress(back)}`} type="button"><XIcon aria-hidden /></InteractiveItem>}
     </span>
     {working.length > 0 && <InteractiveItem aria-label={busyTitle} aria-controls={open ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog" className={busyClass}
-      onClick={() => setOpen(!open)} title={busyTitle} type="button">
+      onClick={() => setOpen(!open)} aria-description={busyTitle} type="button">
       <Spinner aria-hidden className="size-3 flex-none" />
       <span className="tabular-nums">{working.length}</span>
     </InteractiveItem>}

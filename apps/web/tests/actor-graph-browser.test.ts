@@ -110,7 +110,7 @@ const assertCardRowsFit = async (dialog: Locator, label: string) => {
       padding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft].map(parseFloat),
       description: description && {
         text: description.textContent,
-        title: description.title,
+        name: description.getAttribute("aria-label"),
         clamp: getComputedStyle(description).webkitLineClamp,
         height: description.getBoundingClientRect().height,
         lineHeight: parseFloat(getComputedStyle(description).lineHeight),
@@ -144,7 +144,7 @@ const assertCardRowsFit = async (dialog: Locator, label: string) => {
       assert.ok(card.centerDifference !== undefined && card.centerDifference <= 1, `${label} @${card.handle} centers the state icon and name within 1 px (${card.centerDifference}).`);
       assert.ok(card.padding.every((padding, index) => Math.abs(padding - (card.script && index === 0 ? 6 : 2) * 0.235 * card.fontSize) < 0.01), `${label} @${card.handle} uses related padding with room for a program band.`);
       if (card.description) {
-        assert.equal(card.description.title, card.description.text, `${label} @${card.handle} exposes its full description as a tooltip.`);
+        assert.equal(card.description.name, card.description.text, `${label} @${card.handle} exposes its full accessible description.`);
         assert.equal(card.description.clamp, card.script ? "none" : "3");
         const lines = card.description.height / (card.description.lineHeight * card.zoom);
         assert.ok(Math.abs(lines - Math.round(lines)) < 0.05 && lines >= 0.95 && lines <= 3.05, `${label} @${card.handle} fits whole description lines (${lines}).`);
@@ -192,7 +192,7 @@ test("the addressee pop-out and the agents tool show who created whom as a graph
   };
 
   assert.equal(await page.getByRole("button", { name: /^Back to @/ }).count(), 0, "the chip has no way back while it addresses the primary actor");
-  await page.locator("button[title^=\"Addressee: @coordinator\"]").click();
+  await page.locator("button[aria-label^=\"Addressee: @coordinator\"]").click();
   const dialog = page.getByRole("dialog", { name: "Addressee" });
   const card = (handle: string) => dialog.locator(`button[data-actor-handle="${handle}"]`);
   const node = (key: string) => dialog.locator(`li[data-graph-node="${key}"]`);
@@ -220,11 +220,11 @@ test("the addressee pop-out and the agents tool show who created whom as a graph
   await card("formatter").getByText("Formatter", { exact: true }).waitFor();
   await card("formatter").getByText("format-files", { exact: true }).waitFor();
   await card("formatter").getByText("2 functions, 1 view", { exact: true }).waitFor();
-  assert.equal(await card("implementer").getByRole("img", { name: "running", exact: true }).getAttribute("title"), "running");
-  assert.equal(await card("test-writer").getByRole("img", { name: "idle", exact: true }).getAttribute("title"), "idle");
+  assert.equal(await card("implementer").getByRole("img", { name: "running", exact: true }).getAttribute("aria-label"), "running");
+  assert.equal(await card("test-writer").getByRole("img", { name: "idle", exact: true }).getAttribute("aria-label"), "idle");
   assert.equal(await dialog.locator("[data-actor-duration], [data-addressee-status]").count(), 0, "actor cards have no state or timing row");
   assert.equal(await card("test-writer").getByText("1", { exact: true }).count(), 0, "actor cards contain only a ring, handle, and description");
-  assert.equal(await card("implementer").locator("[data-actor-description]").getAttribute("title"),
+  assert.equal(await card("implementer").locator("[data-actor-description]").getAttribute("aria-label"),
     "Rebuild the chat's addressee list into a graph.\nDetails are in the task.\nKeep the creator relationships and all graph interactions intact.\nVerify the result in both hosts.");
 
   assert.equal(await group.getAttribute("aria-expanded"), "false");
@@ -252,10 +252,10 @@ test("the addressee pop-out and the agents tool show who created whom as a graph
   assert.equal(await members.count(), 37);
   assert.equal(await dialog.locator(`[data-graph-frame="${reviewGroup}"]`).count(), 1, "the members stand in a frame below the group");
   assert.equal(await node("actor:review-visibility").getAttribute("data-graph-parent"), reviewGroup);
-  assert.equal(await card("review-visibility").getByRole("img", { name: "stopped", exact: true }).getAttribute("title"), "stopped");
+  assert.equal(await card("review-visibility").getByRole("img", { name: "stopped", exact: true }).getAttribute("aria-label"), "stopped");
   assert.equal(await card("review-visibility").locator("[data-actor-state]").getAttribute("data-actor-state"), "cancelled");
-  assert.equal(await card("review-dates").getByRole("img", { name: "waiting for input", exact: true }).getAttribute("title"), "waiting for input");
-  assert.equal(await card("review-errors").getByRole("img", { name: "failed", exact: true }).getAttribute("title"), "failed");
+  assert.equal(await card("review-dates").getByRole("img", { name: "waiting for input", exact: true }).getAttribute("aria-label"), "waiting for input");
+  assert.equal(await card("review-errors").getByRole("img", { name: "failed", exact: true }).getAttribute("aria-label"), "failed");
   const rows = new Set(await members.evaluateAll((buttons) => buttons.map((button) => Math.round(button.getBoundingClientRect().top))));
   assert.ok(rows.size > 1, "37 members wrap into rows");
   await shoot("actor-graph-group-open");
@@ -309,7 +309,7 @@ test("the addressee pop-out and the agents tool show who created whom as a graph
   await page.getByPlaceholder("Message to @review-strings ...").waitFor();
   assert.equal(await dialog.count(), 0, "picking closes the pop-out");
 
-  await page.locator("button[title^=\"Addressee: @review-strings\"]:visible").click();
+  await page.locator("button[aria-label^=\"Addressee: @review-strings\"]:visible").click();
   await card("review-strings").waitFor();
   assert.equal(await card("review-strings").getAttribute("aria-current"), "true");
   assert.equal(await group.getAttribute("aria-expanded"), "true", "the group holding the addressee opens by itself");
@@ -338,14 +338,14 @@ test("the addressee pop-out and the agents tool show who created whom as a graph
   assert.ok((near(openAt.x, closedAt.x) || expandedCanvas.left === 0 || expandedCanvas.left === expandedCanvas.maxLeft)
     && (near(openAt.y, closedAt.y) || expandedCanvas.top === 0 || expandedCanvas.top === expandedCanvas.maxTop), "the clicked group stays in place as far as the fixed panel's pan limits allow");
   await agents.locator("button[data-actor-handle=\"test-writer\"]").click();
-  await page.locator("button[title^=\"Addressee: @test-writer\"]:visible").waitFor();
+  await page.locator("button[aria-label^=\"Addressee: @test-writer\"]:visible").waitFor();
   assert.equal(await agents.isVisible(), true, "picking keeps the agents tool open");
   await agents.getByRole("button", { name: "Close sidebar", exact: true }).click();
   await agents.waitFor({ state: "hidden" });
 
   await shoot("actor-graph-back");
   await page.getByRole("button", { name: "Back to @coordinator" }).click();
-  await page.locator("button[title^=\"Addressee: @coordinator\"]:visible").waitFor();
+  await page.locator("button[aria-label^=\"Addressee: @coordinator\"]:visible").waitFor();
   assert.equal(await page.getByRole("button", { name: /^Back to @/ }).count(), 0, "back at the primary actor the x disappears");
   assert.equal(await dialog.count(), 0, "the x does not open the pop-out");
 
@@ -435,7 +435,7 @@ test("script cards show program identity and their own frame in both graphs, hos
           assert.equal(await script.locator("[data-actor-program]").textContent(), "format-files");
           assert.equal(await script.locator("[data-actor-description]").textContent(), "2 functions, 1 view");
           assert.doesNotMatch(await script.innerHTML(), /"input"|"options"|ragents\.workspace\.binding|Please echo|formats changed files/);
-          assert.equal(await script.getAttribute("title"), "Address messages to @formatter");
+          assert.equal(await script.getAttribute("aria-description"), "Address messages to @formatter");
           assert.match((await script.getAttribute("aria-label"))!, /@formatter.*Formatter.*format-files.*2 functions, 1 view/);
           const appearance = await script.evaluate((element) => {
             const style = getComputedStyle(element);
@@ -463,7 +463,7 @@ test("script cards show program identity and their own frame in both graphs, hos
           await graph.locator('button[data-actor-handle="formatter"][aria-current="true"]').waitFor();
           await page.getByRole("button", { name: host === "browser" ? "Close Agents" : "Close sidebar", exact: true }).click();
           await graph.waitFor({ state: "hidden" });
-          await page.locator('button[title^="Addressee: @formatter"]:visible').click();
+          await page.locator('button[aria-label^="Addressee: @formatter"]:visible').click();
           const picker = page.getByRole("dialog", { name: "Addressee", exact: true });
           const selected = picker.locator('button[data-actor-handle="formatter"][aria-current="true"]');
           await selected.waitFor();
@@ -476,7 +476,7 @@ test("script cards show program identity and their own frame in both graphs, hos
           await picker.locator('button[data-actor-handle="coordinator"]').focus();
           await page.keyboard.press("Enter");
           await picker.waitFor({ state: "detached" });
-          await page.locator('button[title^="Addressee: @coordinator"]:visible').waitFor();
+          await page.locator('button[aria-label^="Addressee: @coordinator"]:visible').waitFor();
         }
       }
       assert.deepEqual(errors, []);
@@ -530,7 +530,7 @@ test("graph cards fit their text and the working subagent count keeps tight spac
         await assertCardRowsFit(header, `${label}, expanded Agents`);
         await page.getByRole("button", { name: host === "browser" ? "Close Agents" : "Close sidebar", exact: true }).click();
         await header.waitFor({ state: "hidden" });
-        await page.locator('button[title^="Addressee: @coordinator"]:visible').click();
+        await page.locator('button[aria-label^="Addressee: @coordinator"]:visible').click();
         const picker = page.getByRole("dialog", { name: "Addressee", exact: true });
         await picker.locator('button[data-actor-handle="implementer"]').waitFor();
         await settlePopouts(page);
@@ -560,7 +560,7 @@ test("actors dragged from either graph or the addressee chip open bound chats an
   const panel = (id: string) => page.locator(`[data-dock-panel="view:actor:${id}"]`);
   const tab = (id: string) => page.getByRole("tab", { name: `@${id}`, exact: true });
   const groups = page.locator("[data-dock-group]");
-  const chip = () => primary.locator('button[title^="Addressee: @coordinator"]:visible');
+  const chip = () => primary.locator('button[aria-label^="Addressee: @coordinator"]:visible');
   const headerGraph = async () => {
     await page.getByRole("button", { name: "Agents", exact: true }).click();
     const graph = page.locator('[data-dock-panel="tab:ragents.orchestration.agents"]');

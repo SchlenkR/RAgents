@@ -11,12 +11,12 @@ export function StopGlyph({ className, ...props }: Omit<ComponentProps<typeof Sq
 
 const stopButtonClass = "text-destructive hover:text-destructive";
 
-/** Every stop button looks the same: the glyph as the icon, the word in the tooltip, red at rest and on hover. */
+/** Every stop button uses the same red glyph and an accessible name. */
 export function StopButton({ label, busy = false, className, title, ...props }: Omit<ComponentProps<typeof Button>, "children" | "variant"> & {
   label: string;
   busy?: boolean;
 }) {
-  return <Button aria-busy={busy || undefined} aria-label={label} className={cn(stopButtonClass, className)} title={title ?? label} variant="ghost" {...props}>
+  return <Button aria-busy={busy || undefined} aria-label={label} className={cn(stopButtonClass, className)} aria-description={title} variant="ghost" {...props}>
     {busy ? <Spinner /> : <StopGlyph />}
   </Button>;
 }

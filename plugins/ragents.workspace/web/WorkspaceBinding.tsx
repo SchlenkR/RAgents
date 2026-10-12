@@ -1,7 +1,5 @@
 import { useId, useMemo, useState } from "react";
-import { FolderIcon } from "lucide-react";
-import { ChoiceSelect, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ragents/web/ui";
-import { ToolbarCopy, ToolbarItem, ToolbarLabel, ToolbarText } from "@ragents/web/Toolbar";
+import { ChoiceSelect, DetailRow, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ragents/web/ui";
 import type {
   SessionMetadataContext,
   StartOptionBadgeContext,
@@ -238,16 +236,14 @@ export function WorkspaceBindingBadge({ option }: StartOptionBadgeContext) {
   try {
     binding = bindingFrom(option.value, option.id);
   } catch (cause) {
-    return <ToolbarItem title={messageOf(cause)}><ToolbarText>Workspace unreadable</ToolbarText></ToolbarItem>;
+    return <DetailRow label="Workspace"><span className="text-destructive" role="alert">{messageOf(cause)}</span></DetailRow>;
   }
   const { machine } = binding;
   const current = machine === "server" ? binding
     : withCurrentLabel(binding, clientsOf(option.presentation).find((client) => client.id === machine.client)?.label);
   const summary = workspaceBindingSummary(current, freshLabelsOf(option.presentation));
   return (
-    <ToolbarItem title={`Workspace: ${summary}`}>
-      <ToolbarCopy><ToolbarLabel>Workspace</ToolbarLabel><ToolbarText>{summary}</ToolbarText></ToolbarCopy>
-    </ToolbarItem>
+    <DetailRow explanation={workspaceExplanation(current)} label="Workspace">{summary}</DetailRow>
   );
 }
 
@@ -255,9 +251,12 @@ export function WorkspaceMetadata({ session }: SessionMetadataContext) {
   const metadata = workspaceMetadataFrom(session.metadata?.[WORKSPACE_METADATA_ID]);
   if (!metadata) return null;
   return (
-    <ToolbarItem title={`Workspace: ${metadata.summary}`}>
-      <FolderIcon aria-hidden className="size-3.5" />
-      <ToolbarCopy><ToolbarLabel>Workspace</ToolbarLabel><ToolbarText>{metadata.summary}</ToolbarText></ToolbarCopy>
-    </ToolbarItem>
+    <DetailRow explanation={workspaceExplanation(metadata.binding)} label="Workspace">{metadata.summary}</DetailRow>
   );
 }
+
+const workspaceExplanation = (binding: WorkspaceBinding): string => {
+  const folder = isFreshFolder(binding.folder) ? "a separate folder for this run" : "this project folder";
+  const machine = binding.machine === "server" ? "the server" : `workstation ${binding.machine.label}`;
+  return `Files and commands use ${folder} on ${machine}.`;
+};

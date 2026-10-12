@@ -25,7 +25,7 @@ export function PausedRunNotice({ runId, view }: { runId: string; view: unknown 
   return <div className="flex min-w-0 flex-col gap-0.5 px-1 pb-2 text-[0.8rem]" data-slot="paused-run">
     <div className="flex min-w-0 items-center gap-2">
       <Badge className="min-w-0 truncate" role="status" tone="warning">{pausedRunText(pause.waiting)}</Badge>
-      <Button disabled={busy || !writable} onClick={() => void resume()} size="xs" title="Continue the run without a message" variant="outline">
+      <Button disabled={busy || !writable} onClick={() => void resume()} size="xs" aria-description="Continue the run without a message" variant="outline">
         Resume
       </Button>
     </div>

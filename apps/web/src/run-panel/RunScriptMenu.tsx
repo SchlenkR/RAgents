@@ -37,7 +37,7 @@ export function RunScriptMenu({ runId }: { runId: string }) {
   return <div className="ml-1 flex flex-none items-center gap-2">
     <Separator className="my-3" orientation="vertical" />
     <HeaderDropdown label="Run script" onOpenChange={(next) => { if (next) listScripts(); else close(); }} open={open}
-      trigger={<Button aria-label="Run script" className="flex-none self-center" size="lg" title="Run script" variant="ghost">
+      trigger={<Button aria-label="Run script" className="flex-none self-center" size="lg" aria-description="Run script" variant="ghost">
         <CodeIcon className="text-primary" /><span>Run script</span>
       </Button>}>
         {scripts?.kind === "loading" && <p className={noticeClass}>Loading run scripts ...</p>}

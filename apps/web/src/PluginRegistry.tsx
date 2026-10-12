@@ -331,8 +331,11 @@ export interface SessionHeaderContext {
 }
 
 export interface SessionHeaderContribution {
-  /** In the run details popover (default) or in the run's title bar next to Share. */
-  placement?: "details" | "bar";
+  /** In the details sheet (default), its action footer, or the title bar next to Share. */
+  placement?: "details" | "actions" | "bar";
+  label?: string;
+  /** A short sentence below the value in a labelled details row. */
+  explanation?: string;
   readRight?: string;
   /** The contribution needs the run's workspace and is missing where the viewer cannot reach it. */
   requiresWorkspace?: boolean;

@@ -76,7 +76,7 @@ function RunPanel({ autoFocusChat, onAutoFocusChatSettled, surfaceElements, card
     onSelect={selectActor}
     selected={selectedActor}
     view={view}
-  />{inspect && <Button aria-label={`Inspect @${actorAddress(selectedActor)}`} onClick={() => navigation.openTab(INSPECTION_TAB_ID, { type: "actor", id: selectedActor.id })} size="icon-sm" title="Inspect actor" variant="ghost"><SearchIcon /></Button>}</>;
+  />{inspect && <Button aria-label={`Inspect @${actorAddress(selectedActor)}`} onClick={() => navigation.openTab(INSPECTION_TAB_ID, { type: "actor", id: selectedActor.id })} size="icon-sm" aria-description="Inspect actor" variant="ghost"><SearchIcon /></Button>}</>;
 
   const chat = (
     <section aria-label="Chat" className={viewClass} data-view={primarySelected ? "chat" : "actor-chat"}>

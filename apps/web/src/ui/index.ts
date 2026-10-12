@@ -7,6 +7,7 @@ export { Button, buttonVariants } from "./button";
 export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./card";
 export { Checkbox } from "./checkbox";
 export { DataGrid, type DataGridProps, type DataGridColumn, type DataGridSort, type DataGridValue } from "./data-grid";
+export { DetailRow } from "./detail-row";
 export { ChoiceSelect, type ChoiceSelectProps } from "./choice-select";
 export { Combobox, ComboboxContent, ComboboxGroup, ComboboxItem, ComboboxLabel, ComboboxSeparator, ComboboxTrigger, ComboboxValue } from "./combobox";
 export { type ControlSize } from "./control-size";

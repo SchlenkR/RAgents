@@ -160,13 +160,15 @@ test("the badge appears only once the binding is frozen with the start, also for
   assert.ok(badge({ kind: "client", client: "laptop-01", label: "Notebook", path: "/Users/example/repos/one" }, true)
     .includes("Notebook: /Users/example/repos/one"));
   assert.ok(badge({ kind: "fresh" }, true).includes("Empty folder per run"));
-  assert.ok(badge({ kind: "other" }, true).includes("Workspace unreadable"));
+  assert.ok(badge({ kind: "other" }, true).includes("The value of the start option"));
 });
 
 test("the run header always names the workspace; the run list takes its line from the server", () => {
   const metadata = (info: SessionInfo) => renderToStaticMarkup(createElement(WorkspaceMetadata, { session: info }));
   assert.ok(metadata(session(serverFresh, "Empty folder per run")).includes("Empty folder per run"));
-  assert.ok(metadata(session(serverProject, "/Users/example/repos/one")).includes("Workspace: /Users/example/repos/one"));
+  const existing = metadata(session(serverProject, "/Users/example/repos/one"));
+  assert.ok(existing.includes("/Users/example/repos/one"));
+  assert.ok(existing.includes("Files and commands use this project folder on the server."));
   assert.ok(metadata(session(notebookFresh, "Notebook: new folder")).includes("Notebook: new folder"));
   assert.equal(metadata({ id: "run-2", title: "Without", updatedAt: 0 }), "");
 });

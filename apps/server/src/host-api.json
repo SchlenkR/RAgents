@@ -888,6 +888,7 @@
       "ComboboxTrigger",
       "ComboboxValue",
       "DataGrid",
+      "DetailRow",
       "Dialog",
       "DialogBody",
       "DialogContent",

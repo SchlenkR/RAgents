@@ -219,8 +219,8 @@ createRoot(document.getElementById('root')).render(<App />);` },
   const compact = await summaryGeometry();
   const title = summary.getByRole('heading');
   assert.ok((await title.textContent() ?? '').split('\n').length <= 2);
-  assert.match(await title.getAttribute('title') ?? '', /at most two lines/);
-  assert.match(await title.getAttribute('title') ?? '', /Long report with concrete findings/);
+  assert.match(await title.getAttribute('aria-label') ?? '', /at most two lines/);
+  assert.match(await title.getAttribute('aria-label') ?? '', /Long report with concrete findings/);
   const rows = summary.locator('li');
   assert.equal(await rows.count(), 8, 'Every review rule has its own row');
   assert.equal(await rows.evaluateAll(elements=>elements.every(element=>Math.abs(element.getBoundingClientRect().height - (12 + element.querySelector('span')!.textContent!.split('\n').length * 24) * 0.8) < 0.01)), true, 'Each row height matches all wrapped label lines at 100 percent scale');
@@ -247,11 +247,11 @@ createRoot(document.getElementById('root')).render(<App />);` },
   assert.equal(await summary.locator('[data-running]').evaluate(element=>getComputedStyle(element).animationName), 'none');
   assert.equal(await rows.locator('[role="img"][data-status="active"]').first().evaluate(element=>getComputedStyle(element).animationName), 'none');
   await page.emulateMedia({reducedMotion:'no-preference'});
-  assert.match(await rows.first().getAttribute('title') ?? '', /may take up only one visible line/);
-  assert.match(await rows.first().getAttribute('title') ?? '', /Long report with concrete findings/);
+  assert.match(await rows.first().getAttribute('aria-label') ?? '', /may take up only one visible line/);
+  assert.match(await rows.first().getAttribute('aria-label') ?? '', /Long report with concrete findings/);
   await page.evaluate(() => { (window as any).diagramFixture.setSummaryStatus('done'); (window as any).diagramFixture.setSummaryDetail('Updated extensive report. '.repeat(400)); });
   await summary.locator('li [role="img"][aria-label="Done"]').nth(7).waitFor();
-  assert.match(await rows.first().getAttribute('title') ?? '', /Updated extensive report/);
+  assert.match(await rows.first().getAttribute('aria-label') ?? '', /Updated extensive report/);
   assert.deepEqual(await summaryGeometry(), compact, 'Status changes and growing detail reports preserve compact geometry');
   assert.equal(await summary.locator('[data-running], li').evaluateAll(elements=>elements.every(element=>element.scrollWidth<=element.clientWidth && element.scrollHeight<=element.clientHeight+1)), true, 'Compact cards and individual rows do not overflow');
   if (zoomExtension) {

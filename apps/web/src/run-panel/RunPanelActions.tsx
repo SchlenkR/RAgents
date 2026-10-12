@@ -21,10 +21,10 @@ export function RunPanelActions({ onOpenSettings, onOpenHelp }: { onOpenSettings
   };
   return <>
     {access.can("settings.read") && <AppearanceQuickSwitch />}
-    {access.can("settings.read") && <Button aria-label="Settings" className="self-center" onClick={onOpenSettings} size="icon-lg" title="Settings" variant="ghost"><SettingsIcon /></Button>}
-    {onOpenHelp && access.can("runs.inspect") && <Button aria-label="Help" className="self-center" onClick={onOpenHelp} size="icon-lg" title="Help" variant="ghost"><CircleHelpIcon /></Button>}
-    {host.kind === "vscode" && <Button aria-label="Open in browser" className="self-center" onClick={() => host.openExternal(new URL("/", window.location.href).toString())} size="icon-lg" title="Open in browser" variant="ghost"><ExternalLinkIcon /></Button>}
-    {access.enabled && access.user && <Button aria-label={`Sign out ${access.user.label}`} className="self-center" disabled={pending} onClick={logout} size="icon-lg" title={`Sign out ${access.user.label}`} variant="ghost"><LogOutIcon /></Button>}
-    {error && <span className="max-w-40 self-center truncate type-body text-destructive" role="alert" title={error}>{error}</span>}
+    {access.can("settings.read") && <Button aria-label="Settings" className="self-center" onClick={onOpenSettings} size="icon-lg" aria-description="Settings" variant="ghost"><SettingsIcon /></Button>}
+    {onOpenHelp && access.can("runs.inspect") && <Button aria-label="Help" className="self-center" onClick={onOpenHelp} size="icon-lg" aria-description="Help" variant="ghost"><CircleHelpIcon /></Button>}
+    {host.kind === "vscode" && <Button aria-label="Open in browser" className="self-center" onClick={() => host.openExternal(new URL("/", window.location.href).toString())} size="icon-lg" aria-description="Open in browser" variant="ghost"><ExternalLinkIcon /></Button>}
+    {access.enabled && access.user && <Button aria-label={`Sign out ${access.user.label}`} className="self-center" disabled={pending} onClick={logout} size="icon-lg" aria-description={`Sign out ${access.user.label}`} variant="ghost"><LogOutIcon /></Button>}
+    {error && <span className="max-w-40 self-center whitespace-normal wrap-anywhere type-body text-destructive" role="alert" aria-label={error}>{error}</span>}
   </>;
 }

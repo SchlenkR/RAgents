@@ -49,17 +49,17 @@ function ShareMark({ run }: { run: ConnectionRun }) {
   const label = run.sharedAccess !== undefined ? sharedWithYouLabel(run.sharedAccess) : run.shared ? "Shared" : undefined;
   if (label === undefined) return null;
   const Icon = run.sharedAccess === "read" ? EyeIcon : UsersIcon;
-  return <span className="flex flex-none text-muted-foreground" title={label}><Icon aria-hidden className="size-3.5" /><span className="sr-only">{label}</span></span>;
+  return <span className="flex flex-none text-muted-foreground" aria-label={label}><Icon aria-hidden className="size-3.5" /><span className="sr-only">{label}</span></span>;
 }
 
 /** Owner and the metadata lines below the title; part of the clickable item. */
 function RunDetails({ run }: { run: ConnectionRun }) {
   if (run.owner === undefined && (run.details ?? []).length === 0) return null;
   return <span className="col-[2/-1] flex min-w-0 flex-wrap gap-x-3 type-meta text-muted-foreground @max-[360px]/runs:hidden">
-    {run.owner !== undefined && <span className="min-w-0 truncate" title={`Owner: ${run.owner}`}>{run.owner}</span>}
+    {run.owner !== undefined && <span className="min-w-0 truncate" aria-label={`Owner: ${run.owner}`}>{run.owner}</span>}
     {run.details?.map((detail, index) => {
       const Icon = detail.icon === undefined ? undefined : DETAIL_ICONS[detail.icon];
-      return <span className="flex max-w-full min-w-0 items-center gap-1" key={`${detail.label}:${index}`} title={`${detail.label}: ${detail.text}`}>
+      return <span className="flex max-w-full min-w-0 items-center gap-1" key={`${detail.label}:${index}`} aria-label={`${detail.label}: ${detail.text}`}>
         {Icon && <Icon aria-hidden className="size-3 flex-none" />}
         <span className="truncate">{detail.text}</span>
       </span>;
@@ -94,19 +94,19 @@ export function RunLine({ run, selecting = false, selectable = true, selected, a
       : <span aria-hidden />)}
     <InteractiveItem aria-pressed={toggling ? selected === true : undefined} aria-disabled={disabled}
       className={cn(lineClass, itemColumns(selecting, actions), "hover:bg-transparent aria-disabled:cursor-default aria-disabled:opacity-100 aria-disabled:*:opacity-50")}
-      onClick={() => (toggling ? onToggle?.() : run.locked === undefined && onOpen())} title={run.title} type="button">
+      onClick={() => (toggling ? onToggle?.() : run.locked === undefined && onOpen())} aria-label={run.title} type="button">
       <RunStateIcon notice={run.locked ? undefined : run.notice} open={run.pendingActions} state={run.state} />
       <span className="flex min-w-0 items-center gap-2">
         <span className="min-w-0 truncate type-item">{run.title}</span>
-        {locked !== undefined && <span className="flex flex-none text-destructive" title={locked}><CircleAlertIcon aria-hidden className="size-3.5" /><span className="sr-only">{locked}</span></span>}
+        {locked !== undefined && <span className="flex flex-none text-destructive" aria-label={locked}><CircleAlertIcon aria-hidden className="size-3.5" /><span className="sr-only">{locked}</span></span>}
         <ShareMark run={run} />
       </span>
-      <span className="w-[42px] text-right font-mono type-meta text-muted-foreground @max-[280px]/runs:hidden" data-cell="time" title={longTime(run.updatedAt)}>{time}</span>
+      <span className="w-[42px] text-right font-mono type-meta text-muted-foreground @max-[280px]/runs:hidden" data-cell="time" aria-label={longTime(run.updatedAt)}>{time}</span>
       <RunDetails run={run} />
     </InteractiveItem>
     {actions && <span className="mt-0.5 flex self-start" data-cell="share">
-      {onShare && <Button aria-controls={sharingOpen ? "run-sharing-dropdown" : undefined} aria-expanded={sharingOpen} aria-haspopup="dialog" aria-label={`Share ${run.title}`} className={cn("text-muted-foreground", sharingOpen && "relative z-[110]")} data-share-run={run.id} onClick={onShare} size="icon-sm" title="Share ..." type="button" variant="ghost"><Share2Icon /></Button>}
-      {onDelete && <Button aria-label={`Delete ${run.title}`} className="text-muted-foreground hover:text-destructive" onClick={() => setConfirming(true)} size="icon-sm" title="Delete run ..." type="button" variant="ghost"><Trash2Icon /></Button>}
+      {onShare && <Button aria-controls={sharingOpen ? "run-sharing-dropdown" : undefined} aria-expanded={sharingOpen} aria-haspopup="dialog" aria-label={`Share ${run.title}`} className={cn("text-muted-foreground", sharingOpen && "relative z-[110]")} data-share-run={run.id} onClick={onShare} size="icon-sm" aria-description="Share ..." type="button" variant="ghost"><Share2Icon /></Button>}
+      {onDelete && <Button aria-label={`Delete ${run.title}`} className="text-muted-foreground hover:text-destructive" onClick={() => setConfirming(true)} size="icon-sm" aria-description="Delete run ..." type="button" variant="ghost"><Trash2Icon /></Button>}
     </span>}
     {confirming && onDelete && <ConfirmDialog confirmLabel="Delete" onClose={() => setConfirming(false)}
       onConfirm={() => { setConfirming(false); onDelete(); }} title="Delete one run?">

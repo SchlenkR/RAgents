@@ -43,8 +43,8 @@ test("Start shows only the current server's recent runs and templates", () => {
   assert.doesNotMatch(html, /data-cell="route"|data-cell="connection"|>workshop</);
   assert.match(html, />Continue</);
   assert.match(html, />Night bus round</);
-  assert.match(html, /title="Night bus round"/);
-  assert.match(html, /title="running"/);
+  assert.match(html, /aria-label="Night bus round"/);
+  assert.match(html, /aria-label="running"/);
   assert.match(html, />New</);
   assert.ok(html.indexOf('aria-label="Templates"') < html.indexOf('>Continue<'), "New appears before Continue");
   assert.match(html, /aria-label="Templates"/);
@@ -220,7 +220,7 @@ test("server management retains sign-in, retry, and connect actions with the err
   assert.match(failed, />Retry</);
   const login = render(page({ page: "connections", connections: [connection({ state: { kind: "login-required", mode: "password" }, runs: [] })] }));
   assert.match(login, />Sign in</);
-  assert.match(login, /title="sign-in required"/);
+  assert.match(login, /aria-label="sign-in required"/);
   const stopped = render(page({ page: "connections", connections: [connection({ state: { kind: "stopped" }, runs: [] })] }));
   assert.match(stopped, />Connect</);
   const start = render(page());
@@ -232,9 +232,9 @@ test("a run line names the cause of a locked run with a warning icon and opens n
     { id: "run-a", title: "Night bus round", state: "idle", pendingActions: 0, updatedAt: Date.now(), locked: "unsupported journal format 6" },
     { id: "run-b", title: "Balcony", state: "idle", pendingActions: 0, updatedAt: Date.now() },
   ] })] }));
-  assert.match(html, /Night bus round<\/span><span class="[^"]*text-destructive[^"]*" title="Locked: unsupported journal format 6">/);
-  assert.equal(html.match(/text-destructive[^"]*" title="Locked:/g)?.length, 1, "only the affected run carries the cause");
-  assert.match(html, /<button\b(?=[^>]*aria-disabled="true")(?=[^>]*title="Night bus round")[^>]*>/);
+  assert.match(html, /Night bus round<\/span><span class="[^"]*text-destructive[^"]*" aria-label="Locked: unsupported journal format 6">/);
+  assert.equal(html.match(/text-destructive[^"]*" aria-label="Locked:/g)?.length, 1, "only the affected run carries the cause");
+  assert.match(html, /<button\b(?=[^>]*aria-disabled="true")(?=[^>]*aria-label="Night bus round")[^>]*>/);
 });
 
 test("Start shows at most fifteen runs and leads to the full list", () => {
@@ -283,7 +283,7 @@ test("the Runs page lists only the current server's runs and offers search, hidi
   assert.ok(html.indexOf('aria-label="Run actions"') < html.indexOf('aria-label="Runs"'));
   assert.match(html, />Night bus round</);
   assert.match(html, />Word game</);
-  assert.match(html, /title="waiting for input \(2\)"/);
+  assert.match(html, /aria-label="waiting for input \(2\)"/);
   assert.match(html, />3d</);
   assert.doesNotMatch(html, /All servers|aria-label="Only /, "there is no server filter inside a server page");
   assert.doesNotMatch(html, /selected<|>Select all<|>Select none<|>Cancel</, "bulk actions appear only in selection mode");
@@ -311,20 +311,20 @@ test("the Server page lists the rows with their actions, without Start and Stop"
   assert.match(html, /aria-label="Back to Start"/);
   assert.match(html, /aria-label="Open setting"[^>]*>.*settings\.json</);
   assert.match(html, /aria-label="Remove workshop"/);
-  assert.match(html, /title="http:\/\/localhost:4710"/);
-  assert.match(html, /title="\/x\/ragents\.config\.core\.ts"[^>]*>ragents\.config\.core\.ts</);
+  assert.match(html, /aria-label="http:\/\/localhost:4710"/);
+  assert.match(html, /aria-label="\/x\/ragents\.config\.core\.ts"[^>]*>ragents\.config\.core\.ts</);
   assert.match(html, />Disconnect</);
   assert.match(html, />Sign out</);
   assert.match(html, />Edit</);
   assert.match(html, />New server</);
-  assert.match(html, /title="starting"/);
+  assert.match(html, /aria-label="starting"/);
   assert.match(html, /role="status">Fetching host package 0\.1\.8 \.\.\.<\/p>/);
   assert.doesNotMatch(html, />Start</, "the extension starts a local profile itself");
   assert.doesNotMatch(html, />Stop</);
   assert.doesNotMatch(html, /Really remove\?/, "removing asks for confirmation in the dialog");
   assert.doesNotMatch(html, /Server type/, "the dialog appears only after the click");
   const failed = render(page({ page: "connections", connections: [connection({ kind: "profile", address: "/x/ragents.config.core.ts", route: { kind: "profile", profile: "core" }, state: { kind: "failed", message: "install the host first" }, runs: [], entries: [] })] }));
-  assert.match(failed, /title="failed"/);
+  assert.match(failed, /aria-label="failed"/);
   assert.match(failed, /role="alert"[^>]*>install the host first</);
   assert.match(failed, />Retry</);
   const empty = render(page({ page: "connections", connections: [] }));
@@ -428,12 +428,12 @@ test("owner and list lines stand below the title inside the clickable item, the 
     id: "run", title: "Review", state: "idle", pendingActions: 0, updatedAt: 0, notice: "updated", owner: "Alice",
     details: [{ label: "Workspace", text: "/home/user/project", icon: "folder" }, { label: "Branch", text: "main", icon: "branch" }, { label: "Ticket", text: "ACME-7" }],
   }, { id: "plain", title: "Plain", state: "idle", pendingActions: 0, updatedAt: 0 }] })] }));
-  assert.match(html, /title="[^"]*, new activity"/);
+  assert.match(html, /aria-label="[^"]*, new activity"/);
   assert.doesNotMatch(html, /aria-label="New activity"/);
-  const item = /<button[^>]*title="Review"[^>]*>(.*?)<\/button>/s.exec(html)?.[1] ?? "";
-  assert.match(item, /class="col-\[2\/-1\][^"]*"><span[^>]*title="Owner: Alice">Alice<\/span><span[^>]*title="Workspace: \/home\/user\/project">.*?lucide-folder.*?\/home\/user\/project<\/span><\/span><span[^>]*title="Branch: main">.*?lucide-git-branch.*?main<\/span><\/span><span[^>]*title="Ticket: ACME-7"><span[^>]*>ACME-7<\/span><\/span><\/span>/s,
+  const item = /<button[^>]*aria-label="Review"[^>]*>(.*?)<\/button>/s.exec(html)?.[1] ?? "";
+  assert.match(item, /class="col-\[2\/-1\][^"]*"><span[^>]*aria-label="Owner: Alice">Alice<\/span><span[^>]*aria-label="Workspace: \/home\/user\/project">.*?lucide-folder.*?\/home\/user\/project<\/span><\/span><span[^>]*aria-label="Branch: main">.*?lucide-git-branch.*?main<\/span><\/span><span[^>]*aria-label="Ticket: ACME-7"><span[^>]*>ACME-7<\/span><\/span><\/span>/s,
     "owner, then the lines in their order; a line without an icon shows only its text");
-  const plain = /<button[^>]*title="Plain"[^>]*>(.*?)<\/button>/s.exec(html)?.[1] ?? "";
+  const plain = /<button[^>]*aria-label="Plain"[^>]*>(.*?)<\/button>/s.exec(html)?.[1] ?? "";
   assert.doesNotMatch(plain, /col-\[2\/-1\]/, "without owner and lines there is no second line");
 });
 
@@ -459,12 +459,12 @@ test("bulk selection permits locked and owner-shared runs, but excludes sharees 
 
 test("shared runs carry an indicator, a sharee row says what the share permits, and only runs the user may share offer Share ...", () => {
   const html = render(page({ page: "runs", connections: [connection({ runs: sharedRuns })] }));
-  const item = (title: string) => new RegExp(`<button[^>]*title="${title}"[^>]*>(.*?)</button>`, "s").exec(html)?.[1] ?? "";
-  assert.match(item("Own review"), /title="Shared"><svg[^>]*lucide-users[^>]*>.*?<span class="sr-only">Shared<\/span>/s);
-  assert.doesNotMatch(item("Plain run"), /title="Shared/);
-  assert.match(item("Viewed run"), /title="Shared with you - view only"><svg[^>]*lucide-eye/);
-  assert.match(item("Joined run"), /title="Shared with you - can operate"><svg[^>]*lucide-users/);
-  assert.match(html, /<button(?=[^>]*aria-label="Share Own review")(?=[^>]*title="Share \.\.\.")[^>]*>/);
+  const item = (title: string) => new RegExp(`<button[^>]*aria-label="${title}"[^>]*>(.*?)</button>`, "s").exec(html)?.[1] ?? "";
+  assert.match(item("Own review"), /aria-label="Shared"><svg[^>]*lucide-users[^>]*>.*?<span class="sr-only">Shared<\/span>/s);
+  assert.doesNotMatch(item("Plain run"), /aria-label="Shared/);
+  assert.match(item("Viewed run"), /aria-label="Shared with you - view only"><svg[^>]*lucide-eye/);
+  assert.match(item("Joined run"), /aria-label="Shared with you - can operate"><svg[^>]*lucide-users/);
+  assert.match(html, /<button(?=[^>]*aria-label="Share Own review")(?=[^>]*aria-description="Share \.\.\.")[^>]*>/);
   assert.match(html, /aria-label="Share Plain run"/);
   assert.doesNotMatch(html, /aria-label="Share Viewed run"|aria-label="Share Joined run"/, "a sharee never changes the sharing");
   assert.equal(html.match(/data-cell="share"/g)?.length, 4, "every row keeps its action cell, so the columns stay aligned");
@@ -492,7 +492,7 @@ test("in selection mode a row that cannot be deleted keeps an empty checkbox cel
   assert.match(html, /grid-cols-\[auto_auto_minmax\(0,1fr\)_auto\]/);
   assert.match(html, /aria-label="Select Own review"/);
   assert.doesNotMatch(html, /aria-label="Select Viewed run"/);
-  assert.match(html, /<li[^>]*><span aria-hidden="true"><\/span><button[^>]*title="Viewed run"/);
+  assert.match(html, /<li[^>]*><span aria-hidden="true"><\/span><button[^>]*aria-label="Viewed run"/);
 });
 
 test("share actions are checked before the host acts on them", () => {

@@ -102,7 +102,7 @@ function FileHeader({ entry }: { entry: DiffEntry }) {
   const removed = changes.filter(isDelete).length;
   return (
     <div className="sticky top-0 z-[2] flex min-h-9 min-w-0 items-center gap-3 border-y border-border bg-secondary px-3 py-2" data-status={status}>
-      <span aria-label={statusLabels[status]} className={`inline-flex size-[1.2rem] shrink-0 items-center justify-center rounded-sm font-mono text-[0.74rem] font-bold ${statusClasses[status]}`} role="img" title={statusLabels[status]}>{status}</span>
+      <span aria-label={statusLabels[status]} className={`inline-flex size-[1.2rem] shrink-0 items-center justify-center rounded-sm font-mono text-[0.74rem] font-bold ${statusClasses[status]}`} role="img" aria-description={statusLabels[status]}>{status}</span>
       {status === "R" && (
         <>
           <FilePath muted path={file.oldPath} />
@@ -124,7 +124,7 @@ function FileHeader({ entry }: { entry: DiffEntry }) {
 function FilePath({ muted = false, path }: { muted?: boolean; path: string }) {
   const slash = path.lastIndexOf("/") + 1;
   return (
-    <span className="flex min-w-0 font-mono text-[0.8rem]" title={path}>
+    <span className="flex min-w-0 font-mono text-[0.8rem]" aria-label={path}>
       <span className="truncate text-muted-foreground">{path.slice(0, slash)}</span>
       <span className={muted ? "max-w-full shrink-0 truncate text-muted-foreground" : "max-w-full shrink-0 truncate font-semibold text-foreground"}>{path.slice(slash)}</span>
     </span>

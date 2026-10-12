@@ -26,7 +26,7 @@ import { baseAddressOf, documentUrlResolver, grantedAddressOf, htmlWithBase, typ
 export type DocumentFormat = "markdown" | "text" | "html" | "image" | "binary";
 
 const copyClass = "grid min-w-0 gap-px";
-const titleClass = "truncate text-[0.82rem] font-semibold";
+const titleClass = "whitespace-normal wrap-anywhere text-[0.82rem] font-semibold";
 const metaClass = "text-[0.68rem] text-muted-foreground tabular-nums";
 const sourceClass = "min-w-0 p-0 whitespace-pre-wrap break-words";
 const groupBadgeClass = "flex size-7 items-center justify-center rounded-[9px] text-[0.62rem] font-bold tracking-[0.02em]";
@@ -194,7 +194,7 @@ export function DocumentToolCall({ active, document, onOpen, status }: DocumentT
       </span>
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="text-[0.62rem] font-semibold tracking-[0.05em] text-primary uppercase group-aria-pressed/call:text-selected-foreground">Document</span>
-        <strong className="truncate text-[0.84rem] leading-[1.35]" title={document.title}>{document.title}</strong>
+        <strong className="whitespace-normal wrap-anywhere text-[0.84rem] leading-[1.35]" aria-label={document.title}>{document.title}</strong>
         <span className="text-[0.7rem] leading-[1.35] text-muted-foreground">
           {document.content === undefined
             ? formatLabels[document.format]
@@ -321,7 +321,7 @@ function DocumentContent({ document, loaded }: { document: RunDocument; loaded: 
   if (document.format === "html") {
     // Scripts stay off; the app's origin lets the sign-in cookie reach the images the document names, a grant in the base does so without one.
     const html = base ? htmlWithBase(loaded.text, baseAddressOf(base, grant.grant)) : loaded.text;
-    return <iframe className="h-full min-h-full w-full border-0 bg-white" sandbox="allow-same-origin" srcDoc={html} title={document.title} />;
+    return <iframe className="h-full min-h-full w-full border-0 bg-white" sandbox="allow-same-origin" srcDoc={html} aria-label={document.title} />;
   }
   if (document.format === "text") {
     return <SourceCode className={sourceClass} content={loaded.text} path={document.title} />;
@@ -340,7 +340,7 @@ function DocumentHead({ document }: { document: RunDocument }) {
 
   return (
     <>
-      <strong className={titleClass} title={document.title}>{document.title}</strong>
+      <strong className={titleClass} aria-label={document.title}>{document.title}</strong>
       <span className={metaClass}>{meta.join(" · ")}</span>
     </>
   );
@@ -362,7 +362,7 @@ export function DocumentModal({ document, onClose }: DocumentModalProps) {
         <DialogTitle className={copyClass} render={<span />}>
           <DocumentHead document={document} />
         </DialogTitle>
-        <Button aria-label="Close" className="rounded-full" onClick={onClose} size="icon" title="Close" variant="outline">
+        <Button aria-label="Close" className="rounded-full" onClick={onClose} size="icon" aria-description="Close" variant="outline">
           <XIcon />
         </Button>
       </header>
@@ -431,7 +431,7 @@ export function DocumentPanel({ activeId, sections, truncated, onSelect }: Docum
                 {section.kind === "store" && <span aria-hidden className={`${groupBadgeClass} bg-[color-mix(in_srgb,var(--foreground)_8%,var(--background))] text-[0.85rem] text-foreground`}>#</span>}
                 {section.kind === "results" && <span aria-hidden className={`${groupBadgeClass} bg-[color-mix(in_srgb,var(--primary)_16%,var(--background))] text-primary`}><IconResult /></span>}
                 {section.kind === "chat" && <span aria-hidden className={`${groupBadgeClass} bg-[color-mix(in_srgb,var(--foreground)_9%,var(--background))] text-muted-foreground`}><IconChat /></span>}
-                <span className="truncate text-sm font-semibold" title={section.label}>{section.label}</span>
+                <span className="whitespace-normal wrap-anywhere text-sm font-semibold" aria-label={section.label}>{section.label}</span>
                 <Badge className="tabular-nums" variant="secondary">{section.documents.length}</Badge>
               </button>
               {open && (
@@ -446,7 +446,7 @@ export function DocumentPanel({ activeId, sections, truncated, onSelect }: Docum
                         >
                           <span className="flex text-primary"><IconDocument size={18} /></span>
                           <span className="grid min-w-0 gap-0.5">
-                            <strong className="truncate text-[0.79rem] font-semibold" title={document.title}>{document.title}</strong>
+                            <strong className="whitespace-normal wrap-anywhere text-[0.79rem] font-semibold" aria-label={document.title}>{document.title}</strong>
                             <small className={metaClass}>
                               {[
                                 formatLabels[document.format],
@@ -474,7 +474,7 @@ export function DocumentPanel({ activeId, sections, truncated, onSelect }: Docum
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border-soft px-workspace-inset py-3">
-        <Button aria-label="Back to overview" onClick={() => onSelect(undefined)} size="icon-sm" title="Back to overview" variant="outline">
+        <Button aria-label="Back to overview" onClick={() => onSelect(undefined)} size="icon-sm" aria-description="Back to overview" variant="outline">
           <ArrowLeftIcon />
         </Button>
         <span className={copyClass}>

@@ -55,7 +55,7 @@ export function JournalStatus({ session, dockActive }: SessionHeaderContext & { 
       <header className="flex flex-none items-center gap-2 border-b border-border-soft px-3 py-2">
         <div className="flex min-w-0 flex-1 items-baseline gap-3 [&>span]:truncate"><strong>Journal</strong><span className="text-muted-foreground">{session.session.title || "Run"}</span></div>
         <Button onClick={() => setReload((value) => value + 1)} size="sm" variant="ghost">Refresh</Button>
-        {dockActive === undefined && <Button aria-label="Close journal" onClick={() => close(true)} size="icon-sm" title="Close journal" variant="ghost"><XIcon /></Button>}
+        {dockActive === undefined && <Button aria-label="Close journal" onClick={() => close(true)} size="icon-sm" aria-description="Close journal" variant="ghost"><XIcon /></Button>}
       </header>
       <div className="flex flex-none items-center gap-3 px-3 py-2">
         <SearchInput className="flex-1" aria-label="Search journal" inputRef={searchRef} onValueChange={(value) => { setQuery(value); setLimit(100); }} placeholder="Search event type, actor or content ..." value={query} />
@@ -88,7 +88,7 @@ function JournalEntry({ actor, event }: { actor: string | undefined; event: Jour
     <InteractiveItem aria-expanded={expanded} className="grid cursor-pointer grid-cols-[32px_minmax(130px,1fr)_minmax(70px,140px)_auto] items-baseline gap-2 px-0.5 py-2 text-[0.68rem] max-[550px]:grid-cols-[24px_minmax(0,1fr)_auto] max-[550px]:gap-x-2 max-[550px]:gap-y-1" render={<summary />}>
       <span className="text-muted-foreground tabular-nums">{event.sequence}</span>
       <span className="font-mono [overflow-wrap:anywhere]">{event.type}</span>
-      <span className="truncate max-[550px]:col-start-2 max-[550px]:row-start-2" title={event.actorId}>{actor ? `@${actor}` : event.actorId}</span>
+      <span className="truncate max-[550px]:col-start-2 max-[550px]:row-start-2" aria-label={event.actorId}>{actor ? `@${actor}` : event.actorId}</span>
       <time className="text-muted-foreground tabular-nums max-[550px]:col-start-3 max-[550px]:row-start-1" dateTime={event.occurredAt}>{new Date(event.occurredAt).toLocaleTimeString()}</time>
     </InteractiveItem>
     {expanded && <SourceCode className="m-0 mb-2" content={JSON.stringify(event, null, 2)} language="json" path="event.json" />}

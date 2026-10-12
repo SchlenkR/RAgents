@@ -884,14 +884,17 @@ const headers = {
       </button> },
   ],
   sessionHeaders: [
-    { id: "ragents.example.run-header", order: 100,
+    { id: "ragents.example.run-header", order: 100, label: "Work",
+      explanation: "Shows whether an agent is working on a message.",
       Header: ({ session }) => <span>{session.running ? "Working" : "Ready"}</span> },
     { id: "ragents.example.run-bar", order: 110, placement: "bar",
       Header: ({ session }) => session.connected ? <button>Overview</button> : null },
+    { id: "ragents.example.run-actions", order: 120, placement: "actions",
+      Header: () => <button onClick={() => window.print()} type="button">Print run</button> },
   ],
   sessionStatus: [{ id: "ragents.example.run-status", order: 100,
     Status: ({ session }) => <span>{session.connected ? "Connected" : "Disconnected"}</span> }],
-} satisfies WebPlugin;`, ["web.overviewPanels", "web.sessionHeaders", "web.sessionStatus"], ["The context provides registry, open, onOpen, onClose, and onBusy. Without placement, the contribution appears in the overview and is mounted when first opened. Toolbar contributions are mounted from application startup; they activate their own connections only when used. The host coordinates open toolbar contributions. sessionHeaders appear in the run details popover, with the placement bar in the run's title bar next to Share; a bar contribution without content returns null. Run header and lower status groups receive SessionContext and navigation and follow the active run."], "tsx"),
+} satisfies WebPlugin;`, ["web.overviewPanels", "web.sessionHeaders", "web.sessionStatus"], ["The context provides registry, open, onOpen, onClose, and onBusy. Without placement, the contribution appears in the overview and is mounted when first opened. Toolbar contributions are mounted from application startup; they activate their own connections only when used. The host coordinates open toolbar contributions. sessionHeaders appear in the run details sheet: label and explanation wrap the value in a shared DetailRow. Their order is shared with metadata so useful facts can come first. The actions placement puts controls in its footer; bar puts them in the title bar next to Share. A contribution without content returns null. Run header and lower status groups receive SessionContext and navigation and follow the active run."], "tsx"),
   entry("web-settings", "Web contributions", "Editable plugin settings", "A plugin can offer its own interface for editing its settings. With category, it appears under Models or Appearance, and additionally on the plugin's settings page. The application assigns it to the active plugin.", "Properties of a WebPlugin; ExampleSettings is the plugin's own React component.", `
 import { useState } from "react";
 function ExampleSettings() {

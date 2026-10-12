@@ -267,8 +267,8 @@ function CapabilityList({ grants }: { grants: RunCapabilityGrant[] }) {
           grant.usable === false ? "pass on only" : undefined,
         ].filter(Boolean).join(", ");
         return (
-          <span className="rounded-full border border-border-soft px-2 py-0.5 text-[0.68rem] [&>small]:text-muted-foreground" key={`${grant.capability}-${position}`} title={scope}>
-            {grant.capability}
+          <span className="rounded-full border border-border-soft px-2 py-0.5 text-[0.68rem] [&>small]:text-muted-foreground" key={`${grant.capability}-${position}`} aria-description={scope}>
+            {grant.capability}<small> ({scope})</small>
             {suffix && <small> {suffix}</small>}
           </span>
         );
@@ -369,12 +369,12 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
         {lifecycle && <StatusPill status={lifecycle} />}
         <span>{primary ? "Primary actor" : ACTOR_KIND_LABELS[actor.kind]}</span>
         <span>{driverLabel}</span>
-        {config?.model && <span className="max-w-[220px] truncate" title={config.model}>{config.model}</span>}
+        {config?.model && <span className="max-w-[220px] whitespace-normal wrap-anywhere" aria-label={config.model}>{config.model}</span>}
         {config?.thinking && <span>Thinking level {thinkingLabel(config.thinking)}</span>}
         <span>{pendingInputCount} open</span>
         <span>{turns.length} Turns</span>
         {primary && runCost !== undefined && (
-          <span title="Total cost of the run across all turns">{formatCostUsd(runCost)}</span>
+          <span aria-label="Total cost of the run across all turns">{formatCostUsd(runCost)}</span>
         )}
       </div>
     ) },
@@ -511,13 +511,13 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
       {error && <p className={errorClass}>{error}</p>}
       <SectionTabs sections={inspect ? sections : []} toolbar={<>
         <BackButton canGoBack={props.canGoBack} onBack={props.onBack} />
-        <span className="max-w-28 flex-none truncate text-xs font-semibold" title={`${actor.displayName} @${actorAddress(actor)}${inspect && actor.createdBy ? ` - created by ${actorLabel(index, actor.createdBy)}` : ""}`}>{actor.displayName}</span>
+        <span className="max-w-28 flex-none truncate text-xs font-semibold" aria-label={`${actor.displayName} @${actorAddress(actor)}${inspect && actor.createdBy ? ` - created by ${actorLabel(index, actor.createdBy)}` : ""}`}>{actor.displayName}</span>
         {active && writable && (
           <Button
             className="flex-shrink-0"
             onClick={() => void stopActor(view.id, actor.id, STOP_REASON).catch((caught: Error) => setError(caught.message))}
             size="sm"
-            title={`Stop @${actorAddress(actor)} and its assigned children permanently; the chat input, in contrast, only interrupts the running turn`}
+            aria-description={`Stop @${actorAddress(actor)} and its assigned children permanently; the chat input, in contrast, only interrupts the running turn`}
             variant="destructive"
           >
             Stop

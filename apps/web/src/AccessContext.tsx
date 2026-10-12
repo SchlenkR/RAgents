@@ -129,7 +129,7 @@ export function UserMenu() {
   const [error, setError] = useState<string>();
   if (!access.enabled || !access.user) return null;
   return <div className="flex flex-none items-stretch text-sm">
-    <ToolbarItem as="button" aria-label={`Sign out ${access.user.label}`} className="max-w-[160px] max-sm:max-w-[100px]" disabled={pending} title={access.user.id} type="button" onClick={() => {
+    <ToolbarItem as="button" aria-label={`Sign out ${access.user.label}`} className="max-w-[160px] max-sm:max-w-[100px]" disabled={pending} aria-description={access.user.id} type="button" onClick={() => {
       setPending(true); setError(undefined);
       void access.logout().catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause))).finally(() => setPending(false));
     }}><ToolbarCopy><ToolbarLabel className="normal-case [overflow-wrap:anywhere]">{access.user.label}</ToolbarLabel><ToolbarText>Sign out</ToolbarText></ToolbarCopy></ToolbarItem>

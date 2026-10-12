@@ -8435,6 +8435,17 @@ export interface DataGridProps<T> {
 export declare function DataGrid<T>(props: DataGridProps<T>): React.JSX.Element;
 ```
 
+#### apps/web/src/ui/detail-row.d.ts
+
+```typescript
+import type { ReactNode } from "react";
+export declare function DetailRow({ label, explanation, children }: {
+    label: string;
+    explanation?: ReactNode;
+    children: ReactNode;
+}): import("react").JSX.Element;
+```
+
 #### apps/web/src/ui/dialog.d.ts
 
 ```typescript
@@ -8640,6 +8651,7 @@ export { Button, buttonVariants } from "./button";
 export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./card";
 export { Checkbox } from "./checkbox";
 export { DataGrid, type DataGridProps, type DataGridColumn, type DataGridSort, type DataGridValue } from "./data-grid";
+export { DetailRow } from "./detail-row";
 export { ChoiceSelect, type ChoiceSelectProps } from "./choice-select";
 export { Combobox, ComboboxContent, ComboboxGroup, ComboboxItem, ComboboxLabel, ComboboxSeparator, ComboboxTrigger, ComboboxValue } from "./combobox";
 export { type ControlSize } from "./control-size";
@@ -8763,7 +8775,7 @@ export interface OverflowTabsProps extends Omit<TabsPrimitive.Root.Props, "value
 export interface OverflowTabsListProps {
     items: readonly OverflowTabItem[];
     "aria-label": string;
-    /** Every tab shows only its icon; the label stays its accessible name and tooltip. */
+    /** Every tab shows only its icon; the label stays its accessible name. */
     iconOnly?: boolean;
     className?: string;
     listClassName?: string;
@@ -8965,7 +8977,7 @@ import type { ComponentProps } from "react";
 import { Button } from "./button";
 /** The one stop glyph: a filled red square; a state icon never carries it. */
 export declare function StopGlyph({ className, ...props }: Omit<ComponentProps<typeof SquareIcon>, "fill">): import("react").JSX.Element;
-/** Every stop button looks the same: the glyph as the icon, the word in the tooltip, red at rest and on hover. */
+/** Every stop button uses the same red glyph and an accessible name. */
 export declare function StopButton({ label, busy, className, title, ...props }: Omit<ComponentProps<typeof Button>, "children" | "variant"> & {
     label: string;
     busy?: boolean;

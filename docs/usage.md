@@ -150,7 +150,7 @@ The global coordinator remains in the header with its own conversation, draft, a
 In VS Code, Home and Runs stay within the selected environment; "Switch environment" in the
 view title bar chooses another server or local profile.
 Settings and Help are buttons at the top right, shown according to your permissions; next to
-them, Sign out names your account in its tooltip, and VS Code adds Open in browser. A guided template opens
+them, Sign out names your account for assistive technology, and VS Code adds Open in browser. A guided template opens
 only its guide as a dialog over Start; closing it leaves Start as it was.
 
 ## Run chat and inspection
@@ -381,6 +381,8 @@ extension, label = first `# ` heading. In the preparation chat you switch them o
 SEVERAL at the same time are allowed, the order in the prompt follows the catalog, not the
 click order. The text goes into the prompt IN ADDITION to the preamble and is frozen with the first message.
 `SYSTEM_PROMPT_DEFAULT` accordingly takes a list of IDs.
+"Show prompt text" opens the catalog's complete prompt texts below the selection;
+"Hide prompt text" closes them. Reading these texts does not change the chosen prompts.
 
 The "Also pass on to the agents" checkbox in the preparation chat decides the scope:
 without the check mark, the prompt applies only to the coordinator; with the check mark, it is also in the
@@ -488,8 +490,8 @@ status or "Load more" below the rows.
 In grids and tables with resize handles, drag the right edge of a column header with a mouse
 or touch to change its width, or double-click the handle to fit the visible content. Columns
 retain their minimum width; a flexible grid column fills the remaining space. The browser
-remembers widths for that list at the same server address. Hover truncated cell text to read
-the full value; columns that allow wrapping grow their rows instead. From a focused resize
+remembers widths for that list at the same server address. Widen a column to read
+the full value of truncated text; columns that allow wrapping grow their rows instead. From a focused resize
 handle, Left and Right change the
 width (Shift makes larger steps), Home sets the minimum, and Enter or End fits the content.
 If saved widths are damaged or saving fails, an error and "Reset column widths" remain
@@ -821,11 +823,10 @@ the agent's usable, delegable `actor.input`; an app without that grant cannot be
 
 ## Open and stop services and background processes
 
-The process rail shows the run's background processes and services with open ports, on
+Run details lists the run's background processes and services with open ports, on
 the machine where the run works: with a workstation its processes, otherwise those of the
 server. With write permission, the small stop icon ends exactly the selected process instance.
-In a narrow header, process labels shrink while ports, stop controls, and "All N" stay reachable.
-Long port lists scroll within the strip.
+Every process name appears in full. Names, commands, and port controls wrap in narrow panels.
 During the request its button is blocked; errors stay visible at the entry. The next
 process state removes ended entries. When stopping and before deleting a run, the
 run's executor also cleans up marked processes without an open port, on the workstation as on the
@@ -838,8 +839,8 @@ A click on the port of a service, such as a dev server an agent started, opens i
 where the run works:
 
 - In the browser, a run on the server shows its port as a link to the same host name as the page,
-  so `http://<server>:5173/`. A run on a workstation shows only the port; its tooltip names the
-  workstation and that the VS Code extension can forward it. Nothing is opened on the wrong machine.
+  so `http://<server>:5173/`. A run on a workstation shows the port and explains below it which
+  workstation runs the service and that the VS Code extension can forward it.
 - In VS Code, every port is a button that opens the service in your browser. If the run works on
   this window's workstation, or on the server the extension started itself, it opens
   `http://localhost:<port>/` directly. Otherwise the extension forwards it, as VS Code Remote does:
@@ -911,9 +912,18 @@ The browser docking layout and addressee are stored per run in the browser. Star
 a run focuses its visible chat input once it is ready, including a remembered chat partner.
 Clicking or typing elsewhere while it loads cancels that focus request.
 
-The run title opens "Run details". Its panel contains all run metadata, start option badges (an option
-that a metadata cell already shows appears once), and contributed detail controls in cells that wrap as the
-panel narrows. "Run details", "Run script", and "Share" use the same square dropdown below the header,
+The run title opens "Run details". Its panel reads as one column of labelled rows: label on the
+left, full value on the right, with a short explanation below it. A contributed branch can appear
+first, ahead of workspace and other facts. It includes all run metadata and start option badges
+(an option already shown as metadata appears once), the full run title, and any connection
+error or sharing access. Branches, paths, process names, and errors wrap as the panel narrows.
+The workspace says where files and commands run; sandbox protection explains whether commands
+are isolated from other work on that machine; system prompts name their instructions and who receives them.
+Running work shows the agent and elapsed time without overlapping. Processes appear as ordinary
+rows with their full names, open ports, and individual stop controls.
+"Stop run" sits in a separate footer below the facts and asks "Really stop everything?" before
+ending all work and background commands. "Cancel" leaves the run running; a failure stays visible
+in full and can be retried. "Run details", "Run script", and "Share" use the same square dropdown below the header,
 up to 800 pixels wide with a small inset on the side of their button. Each dims the page below the header and keeps
 its content within the available width. The close button, Escape, or clicking outside closes it. Focus returns
 to its button unless it has moved elsewhere.
@@ -964,9 +974,10 @@ exists. If the group was removed, it splits the largest visible window by the sa
 Clicking a window that waits as a background tab brings that tab to the front.
 Clicking a visible window focuses its area. All window buttons, "Empty space", and "Reset layout" remain directly available. They fill
 the space between the fixed controls first, then continue across the full header width when
-needed. Adding apps keeps the title and actions such as "Share", Stop, and Settings
+needed. Adding apps keeps the title and actions such as "Share", "Run script", and Settings
 in place. The title, and after it the global coordinator, shrinks before the fixed actions wrap on
-desktop widths. The title and long button labels truncate; full labels remain available on hover.
+desktop widths. The title and long button labels truncate; Run details shows the full run title,
+and each window shows its own title. Controls retain complete accessible names.
 Narrow panels can also wrap fixed controls. The header grows and pushes the workspace down;
 its controls are never clipped, hidden in a window menu, or placed in a horizontal scroll area.
 Each window button has a grip at its left edge, shown on hover or focus and always on touch
@@ -1011,7 +1022,7 @@ keys, Home, and End, and focused dividers support arrow keys.
 
 Inspection puts its actor selector in the window title row. A second, horizontally scrollable
 row holds the actor name, Stop or Restart, chat display switches, and detail-view icons with
-tooltips. The conversation has no separate bottom toolbar.
+accessible names. The conversation has no separate bottom toolbar.
 
 The inspection rail on the right contains files, documents, functions, executions, and
 language-server diagnostics according to the run and your permissions. A small blue dot at the
@@ -1078,9 +1089,9 @@ from the program definition, never input JSON or repeated messages. Without defi
 the card says "Program definition unavailable". The state icon and name are vertically centered
 in both kinds.
 The ring spins while the actor works and also shows idle, waiting for your input, paused,
-stopped, or failed work; its tooltip and accessible label name the state. An agent's task is the
+stopped, or failed work; its accessible label names the state. An agent's task is the
 description given when the actor was created, otherwise its full first assignment, otherwise
-its display name. Hover over the task or program facts to read the full text. Lines into working
+its display name. Open the actor's chat or Inspection to read its complete task or program facts. Lines into working
 actors are highlighted.
 The same cards appear in the Agents window, this chooser, and VS Code. Four or more similar siblings, such as 37 rule reviewers named
 `review-...`, appear as one stacked group card with their shared handle prefix, their number,
@@ -1178,7 +1189,7 @@ pending inputs in the selected environment, and Refresh refreshes that environme
 
 "Switch environment" opens VS Code's native Quick Pick for configured servers and local profiles.
 The title `RAgents: <name>` and the header pill showing the name identify the selection;
-the pill's tooltip reads `Environment <name>`.
+the pill's accessible name reads `Environment <name>`.
 The choice is remembered per workspace; reopening selects it again when still configured,
 otherwise the first configured environment. Switching changes the interface without stopping
 runs or disconnecting other servers or workstations. The selected server supplies its plugin
@@ -1316,8 +1327,8 @@ own place, and the rest of Start keeps working.
 **Runs**, "All runs", shows this server's complete list in the same card, with search, "Hide ended", and a
 selection mode that deletes several runs after a dialog confirmation. Checkboxes occupy an
 additional first column; row actions disappear during selection. A run the
-server has locked, for example because its journal uses an older format, shows a warning icon whose
-tooltip names the cause; it does not open, but the selection mode deletes it.
+server has locked, for example because its journal uses an older format, shows a warning icon
+whose accessible name identifies the cause; it does not open, but the selection mode deletes it.
 "Shared by me" shows your outgoing shares, recipient access, and direct revocation; the same
 tabs and actions are available in the browser.
 
@@ -1349,7 +1360,7 @@ with equal numbers it reads "RAgents revision does not match the server, the wor
 registered: ...". The notification appears once per server and message; "Show extension" opens
 the extension page for the update, and "Show servers" opens the Server page.
 
-Every status uses a colored icon and a tooltip with the same vocabulary everywhere. A run is
+Every status uses a colored icon and an accessible name with the same vocabulary everywhere. A run is
 "running", "paused", "waiting for input" (with the number of open inputs),
 "idle", "ended", "failed", or "cancelled". A
 server is "connected", "ready", "starting", "sign-in required",
@@ -1357,7 +1368,7 @@ server is "connected", "ready", "starting", "sign-in required",
 `3h`, `2d`, then a date after seven days. A function or mini-app name never appears as a status.
 Status icons never resemble a stop button: paused is a circle with a pause sign, cancelled a
 slashed circle, ended a check mark, and idle or stopped an empty circle. Actual stop buttons consistently use a filled red square: "Stop
-run" in the run-panel header and run menu, "Stop work" beside the
+run" in the Run details footer and run menu, "Stop work" beside the
 chat input, and the stop controls for run processes.
 
 "Stop work" pauses the whole run and is not the end of it. It appears in every chat input
@@ -1417,9 +1428,9 @@ header. A new empty run offers "Share" before its first message; the choice appl
 run is created. The "Share run" dropdown opens below the header or the row's share action and
 uses the same panel and content in both places. It names the run and shows a list: "Everyone"
 first, then every other user of the profile, each row with the segmented choice "Off", "View", or
-"Operate". Names and controls line up in two columns; a long name truncates with a tooltip in a
-narrow panel, while its control stays on the same line. View's tooltip says "Sees the run";
-Operate's says "Also works in it, within the user's own permissions". A user gets the higher of
+"Operate". Names and controls line up in two columns; a long name wraps in a
+narrow panel, while its control stays on one line.
+View lets the user see the run; Operate also lets them work in it within their own permissions. A user gets the higher of
 "Everyone" and their own row. Every choice saves the whole sharing immediately and keeps the
 dropdown open with the saved state. Access controls are briefly disabled while saving. If the
 server refuses, the reason appears inline and the choices return to the server's saved state.

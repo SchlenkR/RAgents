@@ -258,7 +258,7 @@ function GridLayout<T>({ stored, onRetry, columns, rows, rowKey, grouping, ...pr
             const column = columns.find((entry) => entry.id === head.id)!;
             const sorted = head.column.getIsSorted();
             return <div role="columnheader" aria-sort={sorted ? sorted === "asc" ? "ascending" : "descending" : undefined} data-grid-column={column.id} className={cn("group/column relative flex min-w-0 items-center", tableHeadStyle)} key={head.id}>
-              <div data-slot="data-grid-cell-content" className={cn("min-w-0 flex-1", !head.column.getCanSort() && "truncate")} title={column.label}>
+              <div data-slot="data-grid-cell-content" className={cn("min-w-0 flex-1", !head.column.getCanSort() && "truncate")} aria-label={column.label}>
                 {head.column.getCanSort() ? <button type="button" className={cn("group/sort flex w-full min-w-0 items-center gap-1 rounded-sm text-left hover:text-foreground", focusRing)} onClick={head.column.getToggleSortingHandler()}>
                   <span className="truncate">{column.label}</span>
                   {sorted === "asc" ? <ArrowUpIcon className="size-3.5 shrink-0" /> : sorted === "desc" ? <ArrowDownIcon className="size-3.5 shrink-0" /> : <ArrowUpIcon data-sort-hint className="hidden size-3.5 shrink-0 opacity-60 group-hover/sort:block group-focus-visible/sort:block" />}
@@ -341,7 +341,7 @@ function GridRow<T>({ row, index, columns, template, virtualizer, start, selecta
     {grouped ? <div role="gridcell" aria-colspan={columns.length + Number(selectable)} className="col-span-full flex min-w-0 items-center py-(--grid-cell-y) pr-(--grid-cell-x)" style={{ paddingLeft: `calc(var(--grid-cell-x) + ${row.depth * 16}px)` }}>
       <button type="button" aria-label={`${row.getIsExpanded() ? "Collapse" : "Expand"} ${displayGridValue(row.getValue(row.groupingColumnId!))}`} onClick={() => row.toggleExpanded()} className={cn("flex min-w-0 items-center gap-2 rounded-sm text-left", focusRing)}>
         <ChevronRightIcon className={cn("size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none", row.getIsExpanded() && "rotate-90")} />
-        <span className="truncate" title={displayGridValue(row.getValue(row.groupingColumnId!))}>{displayGridValue(row.getValue(row.groupingColumnId!))}</span><Badge variant="outline">{row.getLeafRows().length}</Badge>
+        <span className="truncate" aria-label={displayGridValue(row.getValue(row.groupingColumnId!))}>{displayGridValue(row.getValue(row.groupingColumnId!))}</span><Badge variant="outline">{row.getLeafRows().length}</Badge>
       </button>
     </div> : <>
       {selectable && <div role="gridcell" className="flex items-center justify-center"><Checkbox aria-label={`Select row ${row.id}`} checked={row.getIsSelected()} disabled={loading} onCheckedChange={() => row.toggleSelected()} /></div>}
@@ -355,6 +355,6 @@ function GridCell<T>({ column, children }: { column: DataGridColumn<T>; children
   const [text, setText] = React.useState<string>();
   React.useEffect(() => { setText(content.current?.textContent ?? undefined); }, [children]);
   return <div role="gridcell" data-grid-column={column.id} className="flex min-w-0 items-center px-(--grid-cell-x) py-(--grid-cell-y)">
-    <div ref={content} data-slot="data-grid-cell-content" title={text} className={cn("min-w-0 flex-1", column.wrap ? "whitespace-normal break-words" : "truncate")}>{children}</div>
+    <div ref={content} data-slot="data-grid-cell-content" aria-label={text} className={cn("min-w-0 flex-1", column.wrap ? "whitespace-normal break-words" : "truncate")}>{children}</div>
   </div>;
 }

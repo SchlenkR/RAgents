@@ -274,7 +274,7 @@ test("actor view keeps polling past 512 requests, rejects recent duplicates and 
   await page.frameLocator("iframe").getByText("Bridge-Fixture", { exact: true }).waitFor();
   const frame = await contentFrame(page);
   assert.equal(await page.locator("iframe").getAttribute("sandbox"), "allow-scripts allow-forms allow-downloads");
-  assert.equal(await page.locator("iframe").getAttribute("title"), "");
+  assert.equal(await page.locator("iframe").getAttribute("title"), null);
   assert.equal(await page.locator("iframe").getAttribute("aria-label"), "Status check");
   const completed = await frame.evaluate(async () => {
     const probe = window as ProbeWindow;

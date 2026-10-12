@@ -47,7 +47,7 @@ export const webPlugin: WebPlugin = {
   needsRunView: true,
   sessionStatus: [{ id: "ragents.orchestration.journal", readRight: "runs.inspect", order: 20, Status: JournalStatus }],
   sessionHeaders: [
-    { id: "ragents.orchestration.stop", readRight: "runs.write", order: 100, Header: StopRunHeader },
+    { id: "ragents.orchestration.stop", placement: "actions", readRight: "runs.write", order: 100, Header: StopRunHeader },
   ],
   surface: { RunPanel: OrchestrationRunPanel },
   cardSections: [{

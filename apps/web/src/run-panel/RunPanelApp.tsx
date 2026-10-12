@@ -346,7 +346,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
   return <WorkspaceModalContext.Provider value={workspaceContainer}><div className="flex h-full flex-col">
     <RunHeader leading={<>
       <div className={globalBarClass}>
-        <Button aria-label="Back to Start" className="self-center" onClick={showStart} size="icon" title="Back to Start" variant="ghost">
+        <Button aria-label="Back to Start" className="self-center" onClick={showStart} size="icon" aria-description="Back to Start" variant="ghost">
           <BrandLogo className="size-6 text-foreground" title={registry.brand.title} />
         </Button>
         <div className="flex min-w-0 flex-1 items-center empty:hidden">
@@ -358,10 +358,10 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
           : <div aria-label="Run title bar" className="flex min-w-0 flex-1 items-stretch" ref={setHeaderContainer} role="region" />}
       </div>}
     </>} trailing={<div className={actionsBarClass}>
-        {connection && <span className={connectionClass} title={`Environment ${connection}`}>{connection}</span>}
+        {connection && <span className={connectionClass} aria-label={`Environment ${connection}`}>{connection}</span>}
         {readRuns && runId && <>
           <RunStateIcon className="self-center px-1.5" state={session?.state === "paused" ? "paused" : session?.running ? "running" : "idle"} />
-          {session?.sharedAccess !== "read" && <StopButton className="self-center" disabled={!writeRuns} label="Stop run" onClick={stop} size="icon-lg" title="Stop the run with all agents and flows" />}
+          {session?.sharedAccess !== "read" && <StopButton className="self-center" disabled={!writeRuns} label="Stop run" onClick={stop} size="icon-lg" aria-description="Stop the run with all agents and flows" />}
         </>}
         <RunPanelActions onOpenSettings={openSettings} onOpenHelp={() => setHelpOpen(true)} />
     </div>}>
