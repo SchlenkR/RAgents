@@ -90,18 +90,12 @@ npm install -g @schlenkr/ragents
   ragents journal 7f3c1e64-9a2b-4d11-8c30-1f5e9a77c001 --tools
   ```
 
-- `stop <run>` - pause the whole run: the running turns end and nothing starts until `send` or
-  `resume` continues it. `--turn` ends only the running turn of the primary actor, `--run` is the
-  emergency stop, `stop --host` stops the remembered host process.
+- `stop <run>` - end all running turns, a running start, processes, and other external work.
+  Actors stay active, incoming inputs wait, and the next `send` continues the run. `--turn`
+  ends only the running turn of the primary actor; `stop --host` stops the remembered host process.
 
   ```sh
   ragents stop 7f3c1e64-9a2b-4d11-8c30-1f5e9a77c001
-  ```
-
-- `resume <run>` - continue a paused run without a message.
-
-  ```sh
-  ragents resume 7f3c1e64-9a2b-4d11-8c30-1f5e9a77c001
   ```
 
 - `--version` or `-v` - print the installed version.

@@ -26,7 +26,7 @@ import * as actions from "./decisions/actions.ts";
 import * as actors from "./decisions/actors.ts";
 import * as artifacts from "./decisions/artifacts.ts";
 import * as inputs from "./decisions/inputs.ts";
-import * as pause from "./decisions/pause.ts";
+import * as runStop from "./decisions/run-stop.ts";
 import { recoverTurn, type RestartPolicy } from "./decisions/restart.ts";
 import * as subscriptions from "./decisions/subscriptions.ts";
 import * as turns from "./decisions/turns.ts";
@@ -416,20 +416,14 @@ export class Orchestration {
         return this.#run(context, runId, "run.share", input, actors.shareRun(input));
     }
 
-    /** From now on no turn starts; the running ones end through the scheduler. An already paused run writes nothing. */
-    pauseRun(context: CommandContext, runId: string, input: { reason: string; userId?: string }) {
-        if (this.select(runId, (state) => state.pause !== null))
+    /** Writes the stop marker before cancellation; an already stopped run writes nothing. */
+    stopRun(context: CommandContext, runId: string, input: { reason: string; userId?: string }) {
+        if (this.select(runId, (state) => state.stopped !== null)) {
+            runStop.assertStopOwner(this.state(runId), context);
             return this.view(runId);
+        }
 
-        return this.#run(context, runId, "run.pause", input, pause.pauseRun(input));
-    }
-
-    /** Lifts the pause without an input; a run that is not paused writes nothing. */
-    resumeRun(context: CommandContext, runId: string, input: { userId?: string }) {
-        if (this.select(runId, (state) => state.pause === null))
-            return this.view(runId);
-
-        return this.#run(context, runId, "run.resume", input, pause.resumeRun({ trigger: "resume", ...input }));
+        return this.#run(context, runId, "run.stop", input, runStop.stopRun(input));
     }
 
     spawnAgent(

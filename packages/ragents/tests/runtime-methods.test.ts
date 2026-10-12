@@ -29,7 +29,6 @@ const fixture = (overrides: Partial<Pick<RuntimeMethodOptions, "abortTurns" | "a
     runtime,
     assertRunRights: (_access, runId, kind) => { rights.push(`${runId}:${kind}`); },
     interruptTurn: async (runId, actorId, interruption) => { interruptions.push({ runId, actorId, interruption }); },
-    pauseRun: async (runId, pause) => { runtime.pauseRun(pause.context, runId, { reason: pause.reason }); },
     projectView: (view) => view,
     hasRun: (runId) => journal.stateOf(runId) !== null,
     ...overrides,
@@ -122,7 +121,7 @@ test("the run guard protects reads and mutations", async () => {
   }
 });
 
-test("run stop preserves the primary actor and stops all other actors even when cleanup fails", async () => {
+test("run stop keeps every actor active and the run stopped even when cleanup fails", async () => {
   const externallyStopped: string[] = [];
   const f = fixture({ abortTurns: async (runId) => { externallyStopped.push(runId); throw new DomainError("external-cleanup", "External cleanup failed.", 500); } });
   try {
@@ -131,11 +130,14 @@ test("run stop preserves the primary actor and stops all other actors even when 
     run = f.spawn(run.id, "worker");
     const primary = run.actors.find((entry) => entry.handle === "primary")!;
     f.runtime.selectPrimaryActor({ actorId: run.ownerId, commandId: "select-primary" }, run.id, primary.id);
-    await assert.rejects(f.method(runContracts.stopAll)({ runId: run.id, commandId: "stop-all", reason: "Stop." }, context()));
+    await assert.rejects(f.method(runContracts.stop)({ runId: run.id, commandId: "stop-run", reason: "Stop." }, context()));
     assert.deepEqual(externallyStopped, [run.id]);
     const actors = f.runtime.view(run.id).actors.filter((entry) => entry.kind !== "human");
     assert.equal(actors.find((entry) => entry.id === primary.id)?.lifecycle.kind, "idle");
-    assert.equal(actors.find((entry) => entry.handle === "worker")?.lifecycle.kind, "stopped");
+    assert.equal(actors.find((entry) => entry.handle === "worker")?.lifecycle.kind, "idle");
+    assert.ok(actors.every((actor) => actor.held));
+    assert.equal(f.runtime.view(run.id).stopped?.reason, "Stop.");
+    assert.equal(f.runtime.events(run.id).some((event) => event.type === "actor.stopped"), false);
   } finally {
     f.close();
   }
@@ -147,7 +149,7 @@ test("a run stop that is still running does not hold up the writes of another ru
     const stopping = f.createRun("Stopping");
     const other = f.spawn(f.createRun("Other").id, "worker");
     const worker = other.actors.find((entry) => entry.handle === "worker")!;
-    void f.method(runContracts.stopAll)({ runId: stopping.id, commandId: "stop-all", reason: "Stop." }, context());
+    void f.method(runContracts.stop)({ runId: stopping.id, commandId: "stop-run", reason: "Stop." }, context());
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_resolve, reject) => {
       timer = setTimeout(() => reject(new Error("The input for the other run waits for the foreign stop.")), 1_000);

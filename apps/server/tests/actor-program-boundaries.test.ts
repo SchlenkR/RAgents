@@ -10,7 +10,7 @@ import { runtimeFor, writeAppFiles, invocationResult } from "./actor-runtime-fix
 
 const fixture = async (t: Parameters<Parameters<typeof test>[1]>[0], operations = new OperationContributionRegistry()) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-native-hardening-"));
-  const setup = setupRun();
+  const setup = setupRun({ runId: path.basename(directory).toLowerCase() });
   const runtime = runtimeFor(setup, directory, operations);
   t.after(async () => { await runtime.shutdown(); await rm(directory, { recursive: true, force: true }); });
   return { directory, setup, runtime, runId: setup.view.id, context: { actorId: setup.view.ownerId, commandId: "activate" } };

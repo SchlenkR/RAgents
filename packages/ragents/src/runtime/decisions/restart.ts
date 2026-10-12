@@ -17,7 +17,7 @@ const recoveryReason: Record<RestartRecoveryOutcome, string> = {
     disabled: "Server restarted. Automatic continuation is disabled.",
     guarded: "Server restarted. Continuation stopped by the 60-second restart guard.",
     unsupported: "Server restarted. This actor runtime does not support automatic continuation.",
-    paused: "Server restarted. The run remains paused.",
+    stopped: "Server restarted. The run remains stopped.",
     unavailable: "Server restarted. The run is unavailable for continuation.",
 };
 
@@ -34,7 +34,7 @@ export const recoverTurn = (actorId: string, turnId: string, policy: RestartPoli
         && input.lifecycle.kind === "claimed" && input.lifecycle.turnId === turnId);
     const elapsed = Date.parse(turn.finishedAt ?? services.now()) - Date.parse(turn.startedAt);
     const outcome: RestartRecoveryOutcome = policy.available && !policy.available(state.id) ? "unavailable"
-        : state.pause || actor.held ? "paused"
+        : state.stopped || actor.held ? "stopped"
         : policy.enabled && !policy.enabled(state) ? "disabled"
         : actor.execution.driver.kind !== "agent" && actor.execution.driver.kind !== "script" ? "unsupported"
         : wasContinuation && elapsed < restartGuardMs ? "guarded"

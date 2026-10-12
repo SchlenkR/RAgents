@@ -2248,8 +2248,6 @@ Generated automatically from the registered contracts; the host checks methods w
 
 | ragents.chat.start | per run |
 
-| ragents.chat.stop | per run |
-
 | ragents.external.set | settings.write |
 
 | ragents.plugins.bootstrap | per run |
@@ -2274,15 +2272,11 @@ Generated automatically from the registered contracts; the host checks methods w
 
 | ragents.runs.markViewed | runs.read |
 
-| ragents.runs.pause | per run |
-
 | ragents.runs.prepare | runs.read, runs.write, runs.create |
 
 | ragents.runs.resolveAction | per run |
 
 | ragents.runs.restartActor | per run |
-
-| ragents.runs.resume | per run |
 
 | ragents.runs.revoke | per run |
 
@@ -2294,9 +2288,9 @@ Generated automatically from the registered contracts; the host checks methods w
 
 | ragents.runs.startScript | per run |
 
-| ragents.runs.stopActor | per run |
+| ragents.runs.stop | per run |
 
-| ragents.runs.stopAll | per run |
+| ragents.runs.stopActor | per run |
 
 | ragents.runs.view | per run |
 

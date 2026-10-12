@@ -24,7 +24,7 @@ export const unavailableActorPrograms: ActorProgramsService = {
 
 export const actorProgramFixture = async (t: TestContext) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-actor-program-"));
-  const setup = setupRun({grants: allGrants()});
+  const setup = setupRun({runId: path.basename(directory).toLowerCase(), grants: allGrants()});
   const runtime = runtimeFor(setup, directory);
   const runId = setup.view.id;
   t.after(async () => {

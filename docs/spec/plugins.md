@@ -1161,7 +1161,7 @@ build does not see its names.
    module.
 5. An entry without users drops out at the next version jump, as does a name.
 
-**Version contract.** `HOST_API_VERSION` is 17 for package copies without capability allow lists, now that triggers and permissions belong to every actor program. It increases with every incompatible change of a
+**Version contract.** `HOST_API_VERSION` is 18 for the single run stop. It increases with every incompatible change of a
 list entry, a listed name, or a fully allowed library, not with every
 package version; whatever else a host module exports changes without a new number. The manifest names it
 in `api`; the host requires equality and otherwise aborts with a cause and the command to rebuild;
@@ -1325,9 +1325,9 @@ caller who sees the run through a share for reading gets `run-read-only` (403), 
 option has reserved the run for its owner with `ownerOnly`, the dispatcher rejects every other
 access with `run-owner-only` (403) before the method runs, even one with `runs.read.all`. This
 applies without own code to every contribution, such as answering a question, a mini-app action,
-or ending a single process; `ragents.chat.stop` and `ragents.runs.stopAll` stop the whole run,
-`ragents.runs.pause` pauses it, and `ragents.runs.interruptTurn` interrupts an actor's running
-turn. `ragents.runs.resume` operates the run and therefore needs `runs.write`. A channel with `runId` ends as
+or ending a single process. `ragents.runs.stop` stops the whole run and
+`ragents.runs.interruptTurn` interrupts an actor's running turn; both use the run right `stop`,
+which remains available on a run reserved for its owner. A channel with `runId` ends as
 soon as its caller no longer sees the run because a share was taken back.
 A contribution that shows one run's content inside another run, such as the read-only display of an
 app, checks the viewer against the other run itself with the host service `runReadGuardToken`: the
@@ -1946,10 +1946,10 @@ or focuses one editor per server, run, and app. Questions and news remain in the
 app tabs have no additional notifications.
 
 `ragents.orchestration` provides "Stop run" in the Run details footer for users with
-write rights. Its tool `run_stop` allows the
-primary actor with `execution.stopOwned` to stop its own run completely through the same run management.
-The run identity comes from the call context. The call does not wait
-for its own turn end; the host reports cleanup errors in the server log.
+write rights. It calls `ragents.runs.stop` directly, without confirmation. Its tool `run_stop`
+allows the primary actor with `execution.stopOwned` to use the same stop boundary, preserving
+actors and waiting for the owner's next message. The run identity comes from the call context.
+The call does not wait for its own turn end; the host reports cleanup errors in the server log.
 
 Programs do not arrange the host interface. Activated visible views enter the app catalog through
 their actor ownership, including views created by embedded starts. There is no layout function
@@ -2515,7 +2515,7 @@ github.com/SchlenkR/quassel, MIT): `ChatPanel`, `ChatMessages`, `ChatInputToolba
 `DetailModeSwitch`, `TimestampSwitch`, `Markdown`, and their helpers from `quassel`, the wire contract
 of the ChatEvents including `applyEvent` and the attachment check from `quassel/events`, which server and
 web import alike. They know no product. What knows the run stays in RAgents:
-`useChat`, `requests`, `useAttachmentCapabilities`, `StoppedActorNotice`, `PausedRunNotice`, `chat-target`, and
+`useChat`, `requests`, `useAttachmentCapabilities`, `StoppedActorNotice`, `StoppedRunNotice`, `chat-target`, and
 `user-location` under `apps/web/src/chat/`, on the server `chat-handler.ts`. `QuasselHost`
 (`apps/web/src/chat/QuasselHost.tsx`) gives quassel the host's basic building blocks as slots
 (`Button`, `Toggle`, `Card`, `StopButton`, `Popover`, `PopoverContent` from `apps/web/src/ui`) and
@@ -2700,23 +2700,23 @@ While the chat's own actor runs a turn and the input is empty, the run chat (the
 primary actor) and the actor chats in the run panel show "Stop work". The button interrupts only
 that turn through `ragents.runs.interruptTurn` (`interruptActorTurn` from `@ragents/web/api`); the
 actor, its sub-agents, and the run stay active, and work of other actors offers no stop in this
-chat. The global coordinator shows it while its own turn runs and pauses its own run through
-`ragents.runs.pause` (`pauseRun`). While `RunView.pause` is set, for example after
-`ragents stop <run>`, `PausedRunNotice` shows one line above the input, "Paused",
-"Paused - 1 input waiting", or "Paused - 3 inputs waiting" (the waiting inputs of all actors that
-are not stopped), with "Resume" (`ragents.runs.resume`, disabled without `runs.write`); a message
-from the input resumes the run as well. The global coordinator loads no RunView and shows no such
-line; its next message continues it. With text or attachments, the send action stays available.
+chat. The global coordinator uses the same `interruptActorTurn` helper for its own actor,
+whose identifier comes from the server's coordinator view. While `RunView.stopped` is set,
+`StoppedRunNotice` shows one line above the input, "Stopped", "Stopped - 1 input waiting", or
+"Stopped - 3 inputs waiting" (the waiting inputs of all actors that are not individually stopped).
+It offers no continuation button: the next human message continues the run. With text or
+attachments, the send action stays available.
 Errors while stopping appear in the chat concerned and allow a retry. Stopping an actor
 permanently is offered only by the actor card ("Stop"), stopping the whole run only by "Stop run"
-in the title bar; no chat input calls `ragents.chat.stop`.
+in the title bar or Run details footer through `ragents.runs.stop`, directly without confirmation. The header button
+uses the filled red square `StopGlyph`; a run stop keeps every active actor available.
 
 The run chat marks every turn of the primary actor that no human input started with a line
 before its output: "New turn, triggered by turn.finished of @implementer" for a subscription
 delivery or an automatic notice with a source event, "New turn, triggered by a message from
 @implementer" for an input another actor enqueued, and "New turn, triggered by an automatic
-input" for other inputs under the owner. `run.paused` and `run.resumed` appear as "Run paused by
-alice" and "Run resumed by alice" (without sign-in without the name).
+input" for other inputs under the owner. `run.stopped` and `run.continued` appear as "Run stopped
+by alice" and "Run continued by alice" (without sign-in without the name).
 
 If a chat's actor is stopped, `StoppedActorNotice` takes the place of the input
 (`@ragents/web/chat/StoppedActorNotice`): `@handle stopped: <reason>` and, for accesses with
@@ -3209,7 +3209,8 @@ error, sharing access, and attention when present. The host-owned workspace, san
 prompt, turn, and process details include short concrete explanations. Active turns put the
 actor and elapsed time beside each other when space permits and wrap without overlap.
 The process contribution lists every process with its full name and controls, without a
-remainder counter. "Stop run" and its wrapping confirmation stay in the footer below the facts.
+remainder counter. "Stop run" stays in the footer below the facts and calls `ragents.runs.stop`
+directly without confirmation; errors wrap inside the footer.
 The system prompt control uses "Show prompt text" and "Hide prompt text" to toggle the catalog's
 complete texts inline below its choices; reading them changes neither selection nor scope.
 With `runs.write`, "Run script" (`RunScriptMenu`) sits in the fixed trailing controls behind a
@@ -3310,10 +3311,11 @@ and view counts. The existing program slot supplies this run-view metadata witho
 requests. Without definition metadata, the card says "Program definition unavailable"; it never
 substitutes actor input, raw JSON, or messages for program facts. Both card kinds vertically center
 the state icon and name. `graphActorState` maps working actors to
-`running`, open actions to `waiting`, otherwise waiting actors to `idle`, held or paused actors
-to `paused`, stopped actors to `cancelled`, and the latest failed or interrupted turn to `failed`
-or `cancelled`. Current work and open actions take precedence over old turn results; stopped
-actors retain their state during a pause. The ring's accessible label names the state,
+`running`, open actions to `waiting`, otherwise waiting actors to `idle`, held actors or actors
+of a stopped run to `stopped`, individually stopped actors to `cancelled`, and the latest failed
+or interrupted turn to `failed` or `cancelled`. Current work and open actions take precedence
+over old turn results; individually stopped actors retain their state during a run stop.
+The ring's accessible label names the state,
 with "stopped" for a stopped actor. Status rows, times, and pending-input badges do not occupy
 actor cards; group cards retain their existing counts and controls. An agent's description is
 its `description`, otherwise its full first own input, otherwise a differing display name.
@@ -3472,7 +3474,8 @@ templates from `ragents.plugins.bootstrap` of its server; operation and limits a
 
 **Extension interface.** The extension's interface comes from the server; across releases only
 a small contract between extension and server must match. `EXTENSION_API_VERSION` in
-`apps/server/src/extension-api.ts` numbers it, and the server reports it as `extensionApi` in
+`apps/server/src/extension-api.ts` is 2 for the stopped-run view, event pair, and run-list state;
+these replace the old pause contract and require both sides to update. The server reports it as `extensionApi` in
 `ragents.plugins.bootstrap`. `scripts/vscode/extension-api.ts` lists the contract: every
 operation the extension and its workstation call or serve and every channel they subscribe to
 (bootstrap, run list, deleting and sharing runs, the run and run-list channels, journal events,
@@ -3509,7 +3512,7 @@ cause.
 **One vocabulary for all pages.** Per state there is exactly one word and exactly one colored icon;
 in the panel the icon is shown, with the word in its accessible name. The words are in
 `apps/web/src/ui/state-vocabulary.ts` (without React, so that the extension can read them too), the
-icons and colors in `ui/state-icon.tsx`. A run is running, waiting for input (with the number of open
+icons and colors in `ui/state-icon.tsx`. A run is running, stopped, waiting for input (with the number of open
 inputs next to it), idle, ended, failed, or cancelled; a server is connected,
 ready, starting, sign-in required, unreachable, or stopped, plus failed and
 no access as the two error cases. `panel/connection-state.ts` maps `ConnectionView` onto this: a
@@ -3517,8 +3520,10 @@ connected local profile is **ready**, a connected server **connected**. No plugi
 tool, or mini-app name ever appears as a state. The time is compact and without "ago"
 (`ui/relative-time.ts`): `now` under one minute, then `5min`, `3h`, `1d`, `2d`, from seven
 days on the date `09/13`; the written-out form is in the accessible name. No state icon ever carries
-the stop glyph (a square, alone or in a circle): cancelled and unreachable are a
-circle with a slash, ended a check mark in a circle, idle and stopped an empty circle. Every
+the stop glyph (a square, alone or in a circle): a stopped run uses `CircleSlashIcon` in the
+warning tone, cancelled work the same circle with a slash in the muted tone, and an unreachable
+server the slash in the destructive tone. Ended work has a check mark in a circle; idle work and
+a stopped server have an empty circle. Every
 real stop button comes from `ui/stop-button.tsx`: `StopGlyph` is the filled square in
 `--destructive`, `StopButton` the button for it (icon, accessible action name, same hover and disabled state),
 and `RunPanelApp`, `ChatInputToolbar`, `ragents.processes`, and the menu entry "Stop run" of

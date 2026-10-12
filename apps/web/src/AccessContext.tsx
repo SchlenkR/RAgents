@@ -12,13 +12,13 @@ const fieldClasses = "mb-4 grid gap-2 text-[0.85rem] font-semibold";
 
 interface AccessValue extends UserAccess {
   logout: () => Promise<void>;
-  /** Stopping or pausing the run needs runs.write but not operating it; set only below a run its viewer may not operate. */
+  /** Stopping the run needs runs.write but not operating it; set only below a run its viewer may not operate. */
   canStopRun?: boolean;
 }
 
 export const AccessContext = createContext<AccessValue>({ ...unrestrictedAccess, logout: async () => {} });
 
-/** Whether the viewer may stop or pause the run: with runs.write, unless a share for viewing excludes it. */
+/** Whether the viewer may stop the run: with runs.write, unless a share for viewing excludes it. */
 export const canStopRun = (access: AccessValue): boolean => access.canStopRun ?? access.can("runs.write");
 export const useAccess = () => useContext(AccessContext);
 

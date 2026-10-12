@@ -2836,9 +2836,6 @@
   .\[stroke-linejoin\:round\] {
     stroke-linejoin: round;
   }
-  .paused {
-    animation-play-state: paused;
-  }
   .ring-inset {
     --tw-ring-inset: inset;
   }

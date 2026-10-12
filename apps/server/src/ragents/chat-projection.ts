@@ -75,9 +75,9 @@ export const chatEventsOf = (event: JournalEvent, scope: ChatProjectionScope, cu
   if (event.type === "turn.interrupted" || event.type === "turn.restart-recovered")
     return scope.turnOf(event.payload.turnId).actorId === scope.primaryActorId ? journalChatEventsOf(event, cursor, interruptedIn(scope)) : [];
 
-  if (event.type === "run.paused") return [{ kind: "system", text: `Run paused${byUser(event.payload.userId)}`, at }];
+  if (event.type === "run.stopped") return [{ kind: "system", text: `Run stopped${byUser(event.payload.userId)}`, at }];
 
-  if (event.type === "run.resumed") return [{ kind: "system", text: `Run resumed${byUser(event.payload.userId)}`, at }];
+  if (event.type === "run.continued") return [{ kind: "system", text: `Run continued${byUser(event.payload.userId)}`, at }];
 
   if (event.type === "runtime.output.recorded" && event.actorId !== scope.primaryActorId) {
     const handle = scope.scriptActorHandle?.(event.actorId);

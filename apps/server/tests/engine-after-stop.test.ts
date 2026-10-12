@@ -30,6 +30,7 @@ const eventually = async (check: () => boolean) => {
 const fixture = async (runId: string, hooks: {
   settlement: () => Promise<void>; early: () => Promise<void>;
   final: (signal: AbortSignal) => Promise<void>; timeoutMs?: number;
+  abortStart?: (runId: string) => void;
 }) => {
   let turns = 0;
   const driver: AgentDriver<"script"> = {
@@ -58,7 +59,9 @@ const fixture = async (runId: string, hooks: {
     serverProcessContextFor: async (runId: string) => ({ runId, cwd: directory }) as never,
   }));
   workspaces.remember(runId, directory);
-  const engine = await createEngine({ plugins, workspaces, assertAvailable: () => {}, assertRunUsable: () => {} });
+  const engine = await createEngine({ plugins, workspaces, assertAvailable: () => {}, assertRunUsable: () => {},
+    ...(hooks.abortStart ? { abortRunStart: hooks.abortStart } : {}),
+  });
   let view = engine.runtime.createRun({ commandId: `create:${runId}` }, { runId, title: "Test", ownerHandle: "owner", ownerDisplayName: "Owner" });
   view = engine.runtime.createScriptActor({ actorId: view.ownerId, commandId: "install" }, runId, {
     handle: "primary", displayName: "Primary", grants: [], toolNames: [],
@@ -68,7 +71,7 @@ const fixture = async (runId: string, hooks: {
   engine.start();
   let command = 0;
   return { engine, actorId: actor.id, turns: () => turns,
-    input: () => engine.runtime.enqueueInput({ actorId: view.ownerId, commandId: `input:${++command}` }, runId, { actorId: actor.id, content: "next" }),
+    input: (origin?: "human") => engine.runtime.enqueueInput({ actorId: view.ownerId, commandId: `input:${++command}` }, runId, { actorId: actor.id, content: "next", ...(origin ? { origin } : {}) }),
     stop: () => engine.stopRun(runId, { commandId: `stop:${++command}`, reason: "Test" }),
   };
 };
@@ -79,7 +82,7 @@ const enqueueThroughMethod = (engine: Awaited<ReturnType<typeof createEngine>>, 
   return method.execute({ runId, actorId, commandId, content } as never, methodContext()) as Promise<{ inputs: Array<{ lifecycle: { kind: string } }> }>;
 };
 
-test("an input accepted during quarantine starts after release without replaying an old input", async () => {
+test("a human message accepted during quarantine starts after release without replaying an old input", async () => {
   const settled = deferred();
   let early = false;
   const runId = "queued-cleanup";
@@ -105,7 +108,7 @@ test("an input accepted during quarantine starts after release without replaying
   } finally { settled.resolve(); await f.engine.shutdown(); }
 });
 
-test("the engine sweeps late driver work before releasing the primary actor", async () => {
+test("the engine sweeps late driver work and keeps the run stopped until a human message", async () => {
   const settled = deferred(); const releaseFinal = deferred();
   let childAlive = false; let early = 0; let final = 0;
   const f = await fixture("late-cleanup", {
@@ -124,11 +127,14 @@ test("the engine sweeps late driver work before releasing the primary actor", as
     assert.equal(childAlive, true); assert.equal(f.turns(), 0);
     releaseFinal.resolve(); await stopped;
     assert.equal(childAlive, false);
-    f.input(); await eventually(() => f.turns() > 0);
+    await tick();
+    assert.equal(f.turns(), 0);
+    assert.ok(f.engine.runtime.view("late-cleanup").stopped);
+    f.input("human"); await eventually(() => f.turns() > 0);
   } finally { settled.resolve(); releaseFinal.resolve(); await f.engine.shutdown(); }
 });
 
-test("a failed final sweep is reported and releases the run once it has settled; a retry sweeps again", async () => {
+test("a failed final sweep is reported and permits human continuation once it has settled; a retry sweeps again", async () => {
   let fail = true; let final = 0;
   const f = await fixture("failed-cleanup", {
     settlement: async () => {}, early: async () => {},
@@ -137,9 +143,9 @@ test("a failed final sweep is reported and releases the run once it has settled;
   try {
     await assert.rejects(f.stop(), /cleanup failed/);
     assert.equal(final, 1); await tick();
-    f.input(); await eventually(() => f.turns() === 1);
+    f.input("human"); await eventually(() => f.turns() === 1);
     fail = false; await f.stop(); await eventually(() => final === 2); await tick();
-    f.input(); await eventually(() => f.turns() === 2);
+    f.input("human"); await eventually(() => f.turns() === 2);
   } finally { fail = false; await f.engine.shutdown(); }
 });
 
@@ -176,7 +182,8 @@ test("a final-hook timeout keeps the run quarantined while ignored abort work is
     await stopped;
     f.input(); await tick(); assert.equal(f.turns(), 0);
     finish.resolve(); await tick();
-    f.input(); await eventually(() => f.turns() > 0);
+    assert.equal(f.turns(), 0);
+    f.input("human"); await eventually(() => f.turns() > 0);
   } finally { finish.resolve(); await f.engine.shutdown(); }
 });
 
@@ -196,6 +203,43 @@ test("the engine bounds the stop response while an unsettled driver keeps the ru
     f.input(); await tick(); assert.equal(f.turns(), 0);
     t.mock.timers.reset();
     settled.resolve(); await eventually(() => final === 1); await tick();
-    f.input(); await eventually(() => f.turns() > 0);
+    assert.equal(f.turns(), 0);
+    f.input("human"); await eventually(() => f.turns() > 0);
   } finally { t.mock.timers.reset(); settled.resolve(); await f.engine.shutdown(); }
+});
+
+test("the stop marker precedes start cancellation and external cleanup and keeps every actor active", async () => {
+  const runId = "start-cleanup";
+  const called: string[] = [];
+  const f = await fixture(runId, {
+    settlement: async () => {},
+    abortStart: (id) => {
+      assert.equal(id, runId);
+      assert.ok(f.engine.runtime.view(id).stopped);
+      called.push("start");
+    },
+    early: async () => {
+      assert.ok(f.engine.runtime.view(runId).stopped);
+      called.push("external");
+    },
+    final: async () => { called.push("final"); },
+  });
+  try {
+    const view = f.engine.runtime.view(runId);
+    f.engine.runtime.createScriptActor({ actorId: view.ownerId, commandId: "worker" }, runId, {
+      handle: "worker", displayName: "Worker", grants: [], toolNames: [],
+    });
+    await f.stop();
+    const stopped = f.engine.runtime.view(runId);
+    assert.deepEqual(called, ["start", "external", "final"]);
+    assert.equal(stopped.primaryActorId, f.actorId);
+    assert.ok(stopped.actors.filter((actor) => actor.kind !== "human").every((actor) => actor.lifecycle.kind === "idle" && actor.held));
+    assert.equal(f.engine.runtime.events(runId).some((event) => event.type === "actor.stopped"), false);
+    f.input();
+    await tick();
+    assert.equal(f.turns(), 0);
+    f.input("human");
+    await eventually(() => f.turns() > 0);
+    assert.equal(f.engine.runtime.view(runId).stopped, null);
+  } finally { await f.engine.shutdown(); }
 });

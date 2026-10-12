@@ -15,16 +15,6 @@ export const interruptActorTurn = async (runId: string, actorId: string, client:
   await client.call(runContracts.interruptTurn, { runId, commandId: crypto.randomUUID(), actorId });
 };
 
-/** Pauses the whole run with the server's reason: no turn starts any more, the running ones end; a message or resumeRun continues it. */
-export const pauseRun = async (runId: string, client: RpcClient = rpc): Promise<void> => {
-  await client.call(runContracts.pause, { runId, commandId: crypto.randomUUID() });
-};
-
-/** Continues a paused run without a message; its primary actor gets everything that waited. */
-export const resumeRun = async (runId: string, client: RpcClient = rpc): Promise<void> => {
-  await client.call(runContracts.resume, { runId, commandId: crypto.randomUUID() });
-};
-
 export const restartChatActor = async (runId: string, actorId: string, client: RpcClient = rpc): Promise<void> => {
   await client.call(runContracts.restartActor, { runId, commandId: crypto.randomUUID(), actorId });
 };
@@ -33,8 +23,8 @@ export const sendActorMessage = async (runId: string, actorId: string, text: str
   await client.call(coreContracts.chat.sendToActor, { runId, actorId, text, attachments });
 };
 
-export const stopRun = async (runId: string, reason: string, client: RpcClient = rpc): Promise<void> => {
-  await client.call(runContracts.stopAll, { runId, commandId: crypto.randomUUID(), reason });
+export const stopRun = async (runId: string, reason?: string, client: RpcClient = rpc): Promise<void> => {
+  await client.call(runContracts.stop, { runId, commandId: crypto.randomUUID(), ...(reason === undefined ? {} : { reason }) });
 };
 
 export const dismissAction = async (runId: string, actionId: string, client: RpcClient = rpc): Promise<void> => {

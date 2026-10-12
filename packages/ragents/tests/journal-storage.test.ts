@@ -43,7 +43,7 @@ test("compact records reconstruct every envelope field without changing inline r
     const record = recordFor({ sha256: "a".repeat(64), bytes: 8000, payloadRefs: { state: "ordinary data" } });
     const line = serializeJournalRecord(record, directory);
     const stored = JSON.parse(line);
-    assert.equal(stored.formatVersion, 15);
+    assert.equal(stored.formatVersion, 16);
     assert.equal(stored.occurredAt, record.events[0]!.occurredAt);
 
     for (const field of ["runId", "commandId", "schemaVersion", "occurredAt", "actorId"])
@@ -53,20 +53,52 @@ test("compact records reconstruct every envelope field without changing inline r
     assert.equal(existsSync(join(directory, "payloads")), false);
 });
 
-test("file formats 7 to 15 are readable, older ones without model context and a newer one are rejected by name", (t) => {
+test("file formats 7 to 16 are readable, older ones without model context and a newer one are rejected by name", (t) => {
     const directory = directoryFor(t);
     const record = recordFor({ value: 1 });
     const stored = JSON.parse(serializeJournalRecord(record, directory));
 
-    assert.equal(stored.formatVersion, 15);
-    for (const version of [7, 8, 9, 10, 11, 12, 13, 14])
+    assert.equal(stored.formatVersion, 16);
+    for (const version of [7, 8, 9, 10, 11, 12, 13, 14, 15])
         assert.deepEqual(parseJournalRecord(JSON.stringify({ ...stored, formatVersion: version }), directory, `test:${version}`), record);
-    for (const version of [4, 5, 6, 16]) {
+    for (const version of [4, 5, 6, 17]) {
         const hint = version < 7 ? " Journals before format 7 hold no model context and are not migrated." : "";
         assert.throws(
             () => parseJournalRecord(JSON.stringify({ ...stored, formatVersion: version }), directory, `test:${version}`),
             { message: `test:${version} has unsupported journal format version ${version}.${hint}` },
         );
+    }
+});
+
+test("old pause, resume and paused recovery events decode only in their original file formats", (t) => {
+    const directory = directoryFor(t);
+    const stored = JSON.parse(serializeJournalRecord(recordFor({ value: 1 }), directory));
+    const lineFor = (formatVersion: number, type: string, payload: object) => JSON.stringify({
+        ...stored, formatVersion, events: [{ ...stored.events[0], type, payload }],
+    });
+
+    for (const version of [11, 12, 13, 14, 15]) {
+        const stopped = parseJournalRecord(lineFor(version, "run.paused", { reason: "Paused", userId: "alice" }), directory, "legacy").events[0]!;
+        assert.equal(stopped.type, "run.stopped");
+        assert.deepEqual(stopped.payload, { reason: "Paused", userId: "alice" });
+        for (const trigger of ["input", "resume"]) {
+            const continued = parseJournalRecord(lineFor(version, "run.resumed", { trigger, userId: "bob" }), directory, "legacy").events[0]!;
+            assert.equal(continued.type, "run.continued");
+            assert.deepEqual(continued.payload, { userId: "bob" });
+            assert.deepEqual(parseJournalRecord(lineFor(version, "run.resumed", { trigger }), directory, "legacy").events[0]!.payload, {});
+        }
+        const recovered = parseJournalRecord(lineFor(version, "turn.restart-recovered", { turnId: "turn-1", outcome: "paused", reason: "Paused" }), directory, "legacy").events[0]!;
+        assert.equal(recovered.type, "turn.restart-recovered");
+        assert.deepEqual(recovered.payload, { turnId: "turn-1", outcome: "stopped", reason: "Paused" });
+        assert.throws(() => parseJournalRecord(lineFor(version, "run.resumed", { trigger: "button" }), directory, "legacy"), /trigger must be input or resume/);
+        assert.throws(() => parseJournalRecord(lineFor(version, "run.resumed", { trigger: "input", unexpected: true }), directory, "legacy"), /unexpected is not supported/);
+        assert.throws(() => parseJournalRecord(lineFor(version, "run.stopped", { reason: "Stopped" }), directory, "legacy"), /requires journal format 16/);
+        assert.throws(() => parseJournalRecord(lineFor(version, "run.continued", {}), directory, "legacy"), /requires journal format 16/);
+    }
+    for (const version of [7, 8, 9, 10, 16]) {
+        assert.throws(() => parseJournalRecord(lineFor(version, "run.paused", { reason: "Paused" }), directory, "invalid"));
+        assert.throws(() => parseJournalRecord(lineFor(version, "run.resumed", { trigger: "input" }), directory, "invalid"));
+        assert.throws(() => parseJournalRecord(lineFor(version, "turn.restart-recovered", { turnId: "turn-1", outcome: "paused", reason: "Paused" }), directory, "invalid"));
     }
 });
 

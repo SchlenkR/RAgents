@@ -218,7 +218,6 @@ test("every core method, every channel and every plugin contribution with runId 
     [coreContracts.chat.send.id, { runId, text: "Hello" }],
     [coreContracts.chat.sendToActor.id, { runId, actorId: "helper", text: "Hello" }],
     [coreContracts.chat.start.id, { runId, entry: "example.allowed" }],
-    [coreContracts.chat.stop.id, { runId }],
     [coreContracts.chat.capabilities.id, { runId }],
     [coreContracts.chat.actorHistory.id, { runId }],
     [coreContracts.startOptions.list.id, { runId }],
@@ -290,7 +289,6 @@ test("the runtime methods of the engine reject foreign runs and keep working for
       projectView: (view) => view,
       hasRun: (runId) => journal.stateOf(runId) !== null,
       interruptTurn: async () => undefined,
-      pauseRun: async () => undefined,
     });
     const call = async (id: string, input: unknown, context: AccessContext) => {
       const found = methods.find((entry) => entry.contract.id === id)!;
@@ -303,7 +301,7 @@ test("the runtime methods of the engine reject foreign runs and keep working for
       [runContracts.restartActor.id, { runId: OWN, commandId: "c2", actorId: "helper" }],
       [runContracts.stopActor.id, { runId: OWN, commandId: "c3", actorId: "helper", reason: "End" }],
       [runContracts.resolveAction.id, { runId: OWN, commandId: "c4", actionId: "a1", decision: "approved" }],
-      [runContracts.stopAll.id, { runId: OWN, commandId: "c5", reason: "End" }],
+      [runContracts.stop.id, { runId: OWN, commandId: "c5", reason: "End" }],
       [runContracts.interruptTurn.id, { runId: OWN, commandId: "c6", actorId: "helper" }],
     ] as const;
     for (const [id, input] of inputs) {
@@ -476,7 +474,6 @@ test("a run bound to a workstation is only readable and stoppable for someone el
       projectView: (view) => view,
       hasRun: (runId) => journal.stateOf(runId) !== null,
       interruptTurn: async () => undefined,
-      pauseRun: async () => undefined,
     });
     const outcome = async (id: string, input: unknown, context: AccessContext): Promise<string> => {
       const found = methods.find((entry) => entry.contract.id === id)!;
@@ -501,7 +498,7 @@ test("a run bound to a workstation is only readable and stoppable for someone el
       [runContracts.view.id, { runId: BOUND }],
       [runContracts.events.id, { runId: BOUND }],
       [runContracts.stopActor.id, { runId: BOUND, commandId: "s1", actorId: "helper", reason: "End" }],
-      [runContracts.stopAll.id, { runId: BOUND, commandId: "s2", reason: "End" }],
+      [runContracts.stop.id, { runId: BOUND, commandId: "s2", reason: "End" }],
       [runContracts.interruptTurn.id, { runId: BOUND, commandId: "s3", actorId: "helper" }],
     ] as const) {
       assert.notEqual(await outcome(id, input, admin), "run-owner-only", id);
@@ -552,13 +549,12 @@ test("chat, templates and plugins with runs.write operate such a run only for it
         return true;
       });
     }
-    await call(coreContracts.chat.stop.id, { runId: BOUND });
     await call(coreContracts.chat.capabilities.id, { runId: BOUND });
     await call(extensionContracts.method.id, { runId: BOUND });
     await call(RPC_METHODS.subscribe, { channel: extensionContracts.channel.id, params: { runId: BOUND } });
   }
-  const observed = ["stop", `extension:${BOUND}`, `channel:${BOUND}`];
-  assert.deepEqual(reached, [...observed, ...observed], "reading and stopping reach the run, operating never does");
+  const observed = [ `extension:${BOUND}`, `channel:${BOUND}`];
+  assert.deepEqual(reached, [...observed, ...observed], "reading reaches the run, operating never does");
   const call = dispatcher(methods, channels, alice);
   for (const [method, params] of operating) await call(method, params);
   assert.deepEqual(reached.slice(observed.length * 2), ["send", "sendToActor", "start", `answer:${BOUND}`]);

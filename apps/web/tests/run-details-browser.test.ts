@@ -147,7 +147,7 @@ test("Run details show ordered, wrapping rows and all process names at wide and 
   assert.deepEqual(errors, []);
 });
 
-test("Run details preserve workspace badges, full errors, and footer stop confirmation", browserOnly, async (context) => {
+test("Run details preserve workspace badges, full errors, and direct footer stop", browserOnly, async (context) => {
   const { page, url } = await fixturePage(context);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -158,23 +158,24 @@ test("Run details preserve workspace badges, full errors, and footer stop confir
   assert.equal(await detailRow(page, "Branch").isVisible(), false, "an absent contribution creates no empty row");
   await assertFullText(detailRow(page, "Workspace").getByText(/\/home\/user\/project\/worktrees\/example-run/));
   const footer = page.locator('[data-slot="run-details-footer"]');
-  await footer.getByRole("button", { name: "Stop run", exact: true }).click();
-  await footer.getByText("Really stop everything?", { exact: true }).waitFor();
-  assert.equal(await page.evaluate(() => window.runDetailsFixture.calls.filter((call) => call.method === "ragents.runs.stopAll").length), 0);
-  await footer.getByRole("button", { name: "Cancel", exact: true }).click();
-  await footer.getByRole("button", { name: "Stop run", exact: true }).click();
   await page.evaluate(() => window.runDetailsFixture.setStopError(window.runDetailsFixture.stopError));
-  await footer.getByRole("button", { name: "Yes", exact: true }).click();
+  await footer.getByRole("button", { name: "Stop run", exact: true }).click();
   const error = await page.evaluate(() => window.runDetailsFixture.stopError);
   const refusal = footer.getByText(error, { exact: true });
   await refusal.waitFor();
   await assertFullText(refusal);
   const footerGeometry = await footer.evaluate((element) => ({ width: element.clientWidth, scrollWidth: element.scrollWidth }));
-  assert.ok(footerGeometry.scrollWidth <= footerGeometry.width + 1, "the confirmation and full error wrap inside the footer");
+  assert.ok(footerGeometry.scrollWidth <= footerGeometry.width + 1, "the action and full error wrap inside the footer");
+  assert.equal(await footer.getByRole("button", { name: "Yes", exact: true }).count(), 0, "the stop is immediate");
+  assert.equal(await footer.getByRole("button", { name: "Cancel", exact: true }).count(), 0);
+  const firstStop = await page.evaluate(() => window.runDetailsFixture.calls.filter((call) => call.method === "ragents.runs.stop"));
+  assert.equal(firstStop.length, 1);
+  assert.deepEqual(Object.keys(firstStop[0]!.input as Record<string, unknown>).sort(), ["commandId", "reason", "runId"]);
+  assert.equal((firstStop[0]!.input as { reason: string }).reason, "Stopped by the operator");
   await page.evaluate(() => window.runDetailsFixture.setStopError(undefined));
-  await footer.getByRole("button", { name: "Yes", exact: true }).click();
+  await footer.getByRole("button", { name: "Stop run", exact: true }).click();
   await footer.getByRole("button", { name: "Stop run", exact: true }).waitFor();
-  assert.equal(await page.evaluate(() => window.runDetailsFixture.calls.filter((call) => call.method === "ragents.runs.stopAll").length), 2);
+  assert.equal(await page.evaluate(() => window.runDetailsFixture.calls.filter((call) => call.method === "ragents.runs.stop").length), 2);
   await page.evaluate(() => window.runDetailsFixture.monitoringError(window.runDetailsFixture.stopError));
   await assertFullText(detailRow(page, "Processes").getByText(error, { exact: true }));
   await assertSheetGeometry(page.locator('[data-slot="run-details-sheet"]'));

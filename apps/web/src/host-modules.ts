@@ -15,7 +15,7 @@ import * as webActorConversation from "@ragents/web/actor-conversation";
 import * as webApi from "@ragents/web/api";
 import * as webChatViewSettings from "@ragents/web/chat-view-settings";
 import * as webChatContextUsage from "@ragents/web/chat/ChatContextUsage";
-import * as webChatPausedRunNotice from "@ragents/web/chat/PausedRunNotice";
+import * as webChatStoppedRunNotice from "@ragents/web/chat/StoppedRunNotice";
 import * as webChatStoppedActorNotice from "@ragents/web/chat/StoppedActorNotice";
 import * as webChatChatTarget from "@ragents/web/chat/chat-target";
 import * as webChatUseAttachmentCapabilities from "@ragents/web/chat/useAttachmentCapabilities";
@@ -64,7 +64,7 @@ export const hostModules: Readonly<Record<string, object>> = {
   "@ragents/web/api": webApi,
   "@ragents/web/chat-view-settings": webChatViewSettings,
   "@ragents/web/chat/ChatContextUsage": webChatContextUsage,
-  "@ragents/web/chat/PausedRunNotice": webChatPausedRunNotice,
+  "@ragents/web/chat/StoppedRunNotice": webChatStoppedRunNotice,
   "@ragents/web/chat/StoppedActorNotice": webChatStoppedActorNotice,
   "@ragents/web/chat/chat-target": webChatChatTarget,
   "@ragents/web/chat/useAttachmentCapabilities": webChatUseAttachmentCapabilities,

@@ -131,6 +131,7 @@ export interface EngineOptions {
   plugins: PluginHost;
   workspaces: SessionWorkspaces;
   modelRuntime?: Promise<ModelRuntime>;
+  abortRunStart?: (runId: string) => void;
   assertAvailable: () => void;
   assertRunUsable: (runId: string) => void;
 }
@@ -395,51 +396,47 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
       ? globalChat.inputOrientation(runtime, runId, input) : "",
     onError: (error) => console.error(`Turn failed: ${error instanceof Error ? error.stack ?? error.message : String(error)}`),
   });
-  const stopExternal: RunStopBoundary = (runId, stopJournal) => scheduler.haltRun(runId, async (
-    runtimeStopped,
-    runtimeSettled,
-  ) => {
-    const pluginStop = options.plugins.lifecycle.beginStopSession(runId);
-    const cleanupSettled = Promise.allSettled([runtimeStopped, pluginStop.bounded]).then(() => undefined);
-    const journalStopped = stopJournal(cleanupSettled);
-    const boundedStop = settleRunStop(runId, [journalStopped, pluginStop.bounded]);
-    let followFinalStop!: (bounded: Promise<void>) => void;
-    const finalBounded = new Promise<void>((resolve) => { followFinalStop = resolve; });
-    void finalBounded.catch((error: unknown) => console.error("Final plugin stop failed", error));
-    const quarantine = (async () => {
-      await Promise.allSettled([runtimeSettled, pluginStop.settled, journalStopped]);
-      const afterStop = options.plugins.lifecycle.beginAfterStopSession(runId);
-      followFinalStop(afterStop.bounded);
-      const finalCleanup = await Promise.allSettled([afterStop.settled]);
-      const finalJournal = await Promise.allSettled([stopJournal(Promise.resolve())]);
-      afterStop.release();
-      pluginStop.release();
-
-      throwRejected([...finalCleanup, ...finalJournal], `Plugin follow-up for run ${runId} could not be cleaned up safely`);
-    })();
-    scheduler.quarantineRun(runId, quarantine);
-    await boundedStop;
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-    try {
-      await Promise.race([
-        Promise.all([quarantine, finalBounded]),
-        new Promise<never>((_, reject) => {
-          timeout = setTimeout(() => reject(new Error(
-            `The final stop of run ${runId} exceeded the time limit of ${FINAL_RUN_STOP_TIMEOUT_MS} ms; the run stays locked until cleanup.`,
-          )), FINAL_RUN_STOP_TIMEOUT_MS);
-        }),
-      ]);
-    } finally {
-      if (timeout) clearTimeout(timeout);
-    }
-  });
+  const stopExternal: RunStopBoundary = (runId) => {
+    options.abortRunStart?.(runId);
+    return scheduler.haltRun(runId, async (runtimeStopped, runtimeSettled) => {
+      const pluginStop = options.plugins.lifecycle.beginStopSession(runId);
+      const boundedStop = settleRunStop(runId, [runtimeStopped, pluginStop.bounded]);
+      let followFinalStop!: (bounded: Promise<void>) => void;
+      const finalBounded = new Promise<void>((resolve) => { followFinalStop = resolve; });
+      void finalBounded.catch((error: unknown) => console.error("Final plugin stop failed", error));
+      const quarantine = (async () => {
+        await Promise.allSettled([runtimeSettled, pluginStop.settled]);
+        const afterStop = options.plugins.lifecycle.beginAfterStopSession(runId);
+        followFinalStop(afterStop.bounded);
+        const finalCleanup = await Promise.allSettled([afterStop.settled]);
+        afterStop.release();
+        pluginStop.release();
+        throwRejected(finalCleanup, `Plugin follow-up for run ${runId} could not be cleaned up safely`);
+      })();
+      scheduler.quarantineRun(runId, quarantine);
+      await boundedStop;
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          Promise.all([quarantine, finalBounded]),
+          new Promise<never>((_, reject) => {
+            timeout = setTimeout(() => reject(new Error(
+              `The final stop of run ${runId} exceeded the time limit of ${FINAL_RUN_STOP_TIMEOUT_MS} ms; the run stays locked until cleanup.`,
+            )), FINAL_RUN_STOP_TIMEOUT_MS);
+          }),
+        ]);
+      } finally {
+        if (timeout) clearTimeout(timeout);
+      }
+    });
+  };
   const settleRunStop = async (runId: string, operations: readonly Promise<void>[]): Promise<void> => {
     const results = await Promise.allSettled(operations);
     throwRejected(results, `Run ${runId} could not be stopped completely`);
   };
   const runStopper = new RunStopper({
     runtime,
-    primaryActorId: (view) => view.primaryActorId,
+    interruptTurns: (runId, interruption) => scheduler.interruptRun(runId, interruption),
     stopExternal,
   });
   const runAccess = {
@@ -460,7 +457,6 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     ...runtimeOptions,
     stopRun: runStopper.stop,
     interruptTurn: (runId, actorId, interruption) => scheduler.interruptTurn(runId, actorId, interruption),
-    pauseRun: (runId, pause) => scheduler.pauseRun(runId, pause),
   });
   const artifactRoute = artifactContentRoute(runtimeOptions);
   options.plugins.optionalService(runtimeBridgeToken)?.bind(runtime);

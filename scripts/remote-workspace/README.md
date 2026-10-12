@@ -70,8 +70,8 @@ With `--vscode` a separate VS Code window opens.
 - Rights: `bob` does not see the run (`run-not-found`); `admin` sees it and its journal, but reads neither
   files nor processes of the workspace (`run-workspace-owner-only`), does not write into it and ends
   no process (`run-owner-only`).
-- Stop: the emergency stop by `admin` cleans up the marked processes in the container and on the server;
-  `ragents.runs.stopAll` is allowed for them.
+- Stop: `admin` stops the run through `ragents.runs.stop`, which cleans up the marked processes
+  in the container and on the server while keeping the actors active.
 - Disconnect: `docker stop` removes the workspace from the registry, the files tab and a tool call
   fail because of it; after `docker start` it registers again and the tools run again.
 - Stream loss: `docker network disconnect` takes the network away from the container, the workspace inside lives on;

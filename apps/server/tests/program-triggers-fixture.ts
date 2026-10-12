@@ -59,7 +59,7 @@ const persistentRun = (journalDirectory: string): ReturnType<typeof setupRun> =>
 export const triggerFixture = async (t: TestContext, options: TriggerFixtureOptions = {}) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-program-triggers-"));
   const journalDirectory = path.join(directory, "journal");
-  const setup = options.persistent ? persistentRun(journalDirectory) : setupRun({ grants: options.grants ?? allGrants() });
+  const setup = options.persistent ? persistentRun(journalDirectory) : setupRun({ runId: path.basename(directory).toLowerCase(), grants: options.grants ?? allGrants() });
   let time = Date.parse("2026-08-16T12:00:00.000Z");
   setup.services.now = () => new Date(time).toISOString();
   let wake: (() => void) | undefined;

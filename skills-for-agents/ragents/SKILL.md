@@ -24,16 +24,14 @@ side, for example two solutions, and `<language>_close` shuts one of them down a
 The `developer` profile runs without sign-in on port 4715, with data under
 `~/.local/share/ragents/developer`. `PORT` and `DATA_DIR` override both.
 
-## The seven commands
+## The six commands
 
 ```sh
 ragents run /path/to/project "Fix the type error in src/broken.ts and run typescript_diagnostics"
 ragents send 7f3c1e64-... "Read README.md and name the password"
 ragents journal 7f3c1e64-... --tools
-ragents stop 7f3c1e64-...        # pause the whole run: running turns end, nothing starts until send or resume
-ragents resume 7f3c1e64-...      # continue a paused run without a message (send continues it with one)
+ragents stop 7f3c1e64-...        # stop all run work; actors stay active and the next send continues it
 ragents stop 7f3c1e64-... --turn # interrupt only the running turn of the primary actor, the run stays active
-ragents stop 7f3c1e64-... --run  # emergency stop: cancel all turns, stop all actors
 ragents stop --host              # shut down the remembered host
 ragents script 7f3c1e64-... demo.review  # start a run script inside the running run (ragents script <run> lists them)
 ragents share 7f3c1e64-... bob:write     # replace whom the run is shared with (ragents share <run> prints it)
@@ -78,7 +76,7 @@ The type error came from greet(42); now it says greet("42").
 run: 7f3c1e64-9a2b-4d11-8c30-1f5e9a77c001
 ```
 
-The last line is always `run: <id>` - `send`, `journal`, `stop`, and `resume` continue with it.
+The last line is always `run: <id>` - use it with `send`, `journal`, and `stop`.
 If the agent needs a decision, the turn ends with one line per question
 `? [<header>] <question> Options: "<label>" (<description>), ...`, the last one followed by
 `- answer with: ragents send <id> "<answer>"`; answer all of them with that one `send`, as text

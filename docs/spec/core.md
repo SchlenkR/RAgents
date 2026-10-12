@@ -123,13 +123,13 @@ additional decision point for this.
 
 Startup recognizes work lost to a server stop in two ways: a turn still recorded as running,
 or a `turn.interrupted` carrying `cause: "server-stop"` from orderly shutdown. A user
-interruption, actor or run stop, pause, emergency stop, failure, inactivity timeout, or deletion
-does not request continuation. A paused run stays paused.
+interruption, actor or run stop, failure, inactivity timeout, or deletion does not request
+continuation. A stopped run stays stopped.
 
 For each affected turn, the atomic `recover:<turnId>` command interrupts it if still running,
 records `turn.restart-recovered`, and queues a new input only when continuation is allowed.
 The recovery outcome and reason remain in the journal, including disabled, guarded,
-unsupported, paused, and unavailable outcomes. Each turn is recovered at most once; a later
+unsupported, stopped, and unavailable outcomes. Each turn is recovered at most once; a later
 startup or settings change cannot revive a suppressed turn.
 
 For a built-in agent, the new input explains that the server restarted while it was working.
@@ -686,19 +686,21 @@ work, and only then release resources. The exact boundary differs:
 The stop button in a chat input ("Stop work") interrupts only the running turn of that chat's
 actor: the turn ends as `interrupted`, the visible text of an unfinished answer stays, and the
 actor, its sub-agents, and the run keep running. A later input, such as a sub-agent's report,
-starts a new turn of the actor. Pausing the run (`ragents stop <run>`), stopping an actor for
-good, and stopping the whole run are separate actions.
+starts a new turn of the actor. Stopping an actor for good and stopping the whole run are
+separate actions.
 
-In the run title bar, a user with write permission can request a complete stop through "Stop
-run" and a confirmation. The primary actor can also trigger it with `run_stop`. Both use the
-same host stop boundary; the chat and files remain intact. The function call initiates
-the stop but does not wait for cleanup of its own turn. Acceptance is not proof of completion.
+In the run title bar and Run details footer, a user with stop permission requests a complete stop through "Stop run",
+without confirmation. The primary actor can also trigger it with `run_stop`. Both use the same
+host stop boundary; the chat, files, actors, and model contexts remain intact. The function call
+initiates the stop but does not wait for cleanup of its own turn. Acceptance is not proof of
+completion.
 Cleanup errors are reported in the server log while the stop path's normal quarantine remains
 in effect.
 
-- Run pause (`ragents.runs.pause`, `ragents stop <run>`): No turn starts
-  any more and the running turns of all actors end; inputs keep arriving and wait. A human input
-  or `ragents.runs.resume` continues the run (section Pausing a run).
+- Run stop (`ragents.runs.stop`, `ragents stop <run>`): The journal first blocks new turns and
+  steering, then all running turns end, a running start is aborted, and processes and other
+  external work are stopped. Active actors remain active; inputs keep arriving and wait. Only
+  the next human message continues the run (section Stopping and continuing a run).
 - Turn interruption (`ragents.runs.interruptTurn`, the chat's stop button): Ends the running turn of one actor and
   nothing else; the actor, its model runtime, its children, and the run stay as they are.
 - `actor_stop`: Stops the actor, interrupts its running turn, and disposes its model runtime
@@ -711,13 +713,6 @@ in effect.
   accepts inputs again. Subscriptions removed by the stop stay removed. The button "Restart"
   (`ragents.runs.restartActor`, in the owner's name) and the actor-program plugin, when it activates
   or ensures a package whose actor is stopped, use the same restart.
-- Run stop: The scheduler temporarily accepts no new work for this run; concurrent stop calls
-  are handled together. The primary actor remains, but its running work is interrupted. All
-  other executable actors in the user's ownership tree are stopped. Their runtimes
-  and plugins receive their abort signals in parallel. The actor-program plugin also cancels
-  pending app actions. An open confirmation question is discarded through `ragents.ask` in the
-  journal and the domain operation is no longer invoked; the open `ask_user` questions of all
-  agents, including the primary actor, are withdrawn. The run can be reused afterward.
 - Run deletion: The scheduler stops the run. Its agent runtimes are then disposed and plugin
   deletion hooks run. The chat, recovery data, and journal are archived; run-bound plugin
   data, including its logs, is removed afterward.
@@ -726,14 +721,12 @@ in effect.
   data remains intact; the next startup applies restart recovery (section Continue after a
   server restart).
 
-After active actor work ends and the first plugin cleanup completes, the host releases remaining
-resources. The run stays locked until this cleanup finishes, even if the stop request has already
-returned. If cleanup fails, the stop reports the error and the server log records it. The run
-then accepts work again instead of remaining permanently stuck, and another stop retries cleanup.
-
-Inputs accepted for the still-active primary actor during this lock are processed automatically
-after a successful release. The scheduler checks the remaining open inputs again; inputs that
-were already claimed or discarded are not repeated.
+Concurrent stop calls share the cleanup boundary. After active actor work ends and the first
+plugin cleanup completes, the host releases remaining resources. The run stays locked until this
+cleanup finishes, even if the stop request has already returned. If cleanup fails, the stop
+reports the error and the server log records it; another stop retries cleanup. Releasing the
+cleanup lock does not clear the journaled stop. A human message accepted during cleanup continues
+the run only after cleanup has finished. Inputs already claimed or discarded are not repeated.
 <!-- /guide:runtime -->
 
 ### Interrupting a turn
@@ -765,67 +758,61 @@ owner or an actor with `run.configure` restarts it, `restartActor` writes `actor
 `run.primary-actor-selected` in the same command; the chat is bound to it again. Any other restart
 leaves it a plain actor.
 
-### Pausing a run
+### Stopping and continuing a run
 
-`ragents.runs.pause` (`runId`, optional `reason`, default "Paused by the operator") requires the
-rights of a stop (kind `stop`, as for the turn interruption). `TurnScheduler.pauseRun` first writes
-`run.paused` (`reason`, `userId` of the signed-in user, missing without sign-in) in the name of the
-owner and only then interrupts the running turns of all actors in parallel, each with its own
-command (`<command>:interrupt:<actor>`) and the pause reason, exactly like a turn interruption:
-the abort signal reaches running function calls and the model request, which the agent runtime
-cancels down to the provider's HTTP request. Because the pause comes first, no turn can start
-between two interruptions, also not when an interrupted sub-agent triggers a subscription of the
-coordinator, and a crash during the interruptions leaves the run paused. A run that is already
-paused is paused again without an error and without an event.
+`ragents.runs.stop` (`runId`, optional `reason`, default "Stopped by the operator") requires the
+rights of a stop (kind `stop`, as for the turn interruption). The stop boundary first writes
+`run.stopped` (`reason`, `userId` of the signed-in user, missing without sign-in) in the name of
+the owner and only then interrupts every running actor turn, aborts a running start, and stops
+external work. Turn interruption preserves unfinished visible model output and propagates the
+abort signal through running function calls to the provider's HTTP request. Because the marker
+comes first, no turn starts between interruptions, even if an interrupted sub-agent delivers a
+subscription or an automatic notice to the coordinator. A crash during cleanup leaves the run
+stopped. Repeating the stop writes no duplicate marker and retries external cleanup.
 
-While `RunState.pause` is set, the scheduler starts no turn and feeds no input into a turn that
-is still ending; `turn.started` is rejected in the decision (`run-paused`, 409) and in the journal
-check. Every input is still written as `actor.input.enqueued`: subscription deliveries, automatic
-notices to creators (the interrupted sub-agent reports "was interrupted" to its creator), wake-ups
-of `ragents.watch`, ends of background commands of `bash`, run-script results, and messages. Nothing
-is discarded.
+While `RunState.stopped` is set, the scheduler starts no turn and feeds no input into a turn that
+is still ending; `turn.started` is rejected in the decision (`run-stopped`, 409) and in the
+journal check. Every input is still written as `actor.input.enqueued`: subscription deliveries,
+automatic notices to creators, wake-ups of `ragents.watch`, ends of background commands of
+`bash`, run-script results, and messages. Queued inputs are not discarded.
 
-The pause holds the actors: `run.paused` marks every active executable actor with `held`, and an
-actor created during the pause is held too. `run.resumed` lifts the pause and releases the
-primary actor. Every other actor stays held until it is addressed directly after the pause: by a
-human input (`origin: "human"`) or by an input that another executable actor enqueues
-(`actor_input`). Automatic inputs under the owner and subscription deliveries leave it held and
-wait; `actor.restarted` releases it too. A held actor starts no turn (`actor-held`). Sub-agents
-and TypeScript actors therefore do not continue by themselves after a resume; the coordinator
-learns from the waiting notices what was interrupted and addresses them again.
+`run.stopped` holds every active executable actor with `held`; an actor created while stopped
+is held too. It writes no `actor.stopped`, removes no subscription, and preserves every actor's
+state, history, and model context. `run.continued` clears the run's stop and releases the primary
+actor. Other actors stay held until directly addressed by a human input (`origin: "human"`) or
+an input another executable actor enqueues (`actor_input`); `actor.restarted` releases one too.
+Automatic inputs under the owner and subscription deliveries leave them held. A held actor
+starts no turn (`actor-held`), so the coordinator decides which interrupted work to start again.
 
-A human input into a paused run first resumes it: the decision of `enqueueInput` writes
-`run.resumed` with `trigger: "input"` and the signed-in user before the `actor.input.enqueued`, in
-the same command. This applies to `ragents.chat.send`, `ragents.chat.sendToActor`, and
-`ragents.runs.enqueueInput`. `ragents.runs.resume` (rights of `write`) writes `run.resumed` with
-`trigger: "resume"` without an input; a run that is not paused stays as it is. Only the owner
-writes `run.paused` and `run.resumed` (`run-pause-denied`, 403).
+A human input into a stopped run first continues it: `enqueueInput` writes `run.continued`
+with the signed-in user before `actor.input.enqueued` in the same command. This applies to
+`ragents.chat.send`, `ragents.chat.sendToActor`, and `ragents.runs.enqueueInput`. There is no
+separate continuation method or button. Only the owner writes the stop and continuation events
+(`run-stop-denied`, 403); the host acts in the owner's name after checking the caller's access.
 
-After the resume, the primary actor's next turn claims its oldest waiting input, and all further
-waiting inputs join the same turn as steering before the first model request, in journal order.
-The human input was enqueued last and is therefore the last message, the current instruction.
-An input over the steering limit of 30,000 characters waits for the next turn, as always.
+The primary actor's next turn claims its oldest waiting input, and further waiting inputs join
+the same turn as steering before the first model request, in journal order. The human input
+was enqueued last and is therefore the last message, the current instruction. An input over
+the steering limit of 30,000 characters waits for the next turn, as always.
 
-TypeScript actors and run scripts pause like agents: a running turn of their program ends as
-interrupted, its claimed input is consumed, and after the resume the actor stays held like a
-sub-agent unless it is the primary actor. Actor-program processes are not stopped. Functions and
-app actions that a person calls from a view are no turns and keep working during the pause;
-inputs they enqueue wait. Background processes of the Processes tab, background commands of `bash`
-among them, keep running; they end with their own stop or with the run stop.
+TypeScript actors and run scripts stop like agents: running turns end as interrupted and their
+claimed inputs remain consumed. They stay active but held, except for the primary actor after
+continuation. Plugin cleanup ends actor-program work, pending app actions, background commands,
+run processes, browsers, and other external work through the same run boundary. Open `ask_user`
+questions of every actor are withdrawn. The next human message can ask the primary actor to
+create fresh external work; the stop never restarts it automatically.
 
 ### Stop procedure, cleanup, and deletion
 
-A stop is always a decision about the whole branch: `stopActor` produces `turn.interrupted` (if a
+An actor stop is a decision about the whole branch: `stopActor` produces `turn.interrupted` (if a
 turn is running), `actor.stopped`, and the removal of their subscriptions for the actor and all its
 active descendants in a single command, in the name of whoever stops (`actor_stop` in the caller's
 turn, `ragents.runs.stopActor` in the name of the owner). If the check fails for one of them, the
-whole branch stays untouched. Within the scheduler lock, the `RunStopper` stops all active
-descendants of the owner except the primary actor with one command (`stopActors`). After the
-external scheduler, agent, and plugin cleanup completes, a second command of this kind follows. It
-also covers children that a turn already running at the stop still created late. The identifier of
-such a command is composed of the identifier of the stop, the step, and a hash of the stopped
-actors: a repeated stop with the same identifier thus also reaches actors that have appeared in the
-meantime and writes nothing twice. Chat and the shared panel use the same stop operation.
+whole branch stays untouched. A run stop instead writes the durable run marker before the
+scheduler, agent, and plugin cleanup, and leaves the actors active. The actor-program plugin
+cancels pending app actions; an open confirmation question is discarded through `ragents.ask`
+without invoking its domain operation. Final cleanup also covers external work created late
+by a turn that was already running when the stop began.
 
 If a chat or run is stopped, the already visible text of the primary actor's open model message
 stays. The agent runtime collects the live deltas and writes them once as
@@ -964,13 +951,13 @@ ActorInput of the projection. The field is set by the host's chat path, `ragents
 with their access. Whoever writes through these methods with a user's access, such as the global
 coordinator or a mini-app, counts as that human. Decision and journal check allow the field only
 for a human acting actor (the decision otherwise rejects with `input-origin-invalid`, status 403)
-and never on a subscription input. The core evaluates it for the pause: a human input resumes a
-paused run and releases a held actor (section Pausing a run). Plugins read it too, for example
+and never on a subscription input. The core evaluates it for a run stop: a human input continues
+a stopped run and releases a held actor (section Stopping and continuing a run). Plugins read it too, for example
 `ragents.ask` uses it to close the open questions of the message's addressee (`plugins.md`).
 
 Restart recovery instead sets `origin: { kind: "restart", turnId }` in the same enqueue event
 and projection. This identifies a continuation and its interrupted source turn; it does not
-count as a human message, resume a paused run, or release a held actor. Only the recovery
+count as a human message, continue a stopped run, or release a held actor. Only the recovery
 command creates this origin.
 
 ### Delivery of subscriptions
@@ -1411,7 +1398,7 @@ programs of its app rooms the run list of the space's owner, exactly as the owne
 it (own runs, runs shared with the owner, all runs with `runs.read.all`, never a global
 coordinator), newest first by last activity: at most `limit` runs, 5 by default and at most 20,
 each with `title` on one line, shortened with `...` beyond 200 characters,
-`status` (`paused`, `running`, `waiting`, `idle`, `ended`, or `locked` for an unreadable journal),
+`status` (`stopped`, `running`, `waiting`, `idle`, `ended`, or `locked` for an unreadable journal),
 and `lastActivity` as ISO time, plus `hasMore`. The result contains summaries without identifiers;
 it provides no navigation contract. It is available only to executable actors in a global
 coordinator run whose owner has `runs.read` and checks both again on every call with the owner's
@@ -1481,7 +1468,7 @@ every LLM agent is part of the journal as well; working files are stored separat
 
 ### File format, write boundaries, and replay
 
-Every run has a readable `journal.jsonl` in file format 15 and, for large contents, a neighboring
+Every run has a readable `journal.jsonl` in file format 16 and, for large contents, a neighboring
 folder `payloads/`. A line contains one command with all the events that resulted from it. Format
 version, run ID, command, and timestamp are stored once in the shared envelope; actor and command
 ID as well as the internal event schema version are added when reading. The command holds
@@ -1524,20 +1511,23 @@ already have been written. The restart reads complete lines and discards an inco
 Other runs stay writable. Errors when preparing a content file before the journal append, in
 contrast, allow an immediate retry.
 
-The journal writes file format 15 and reads formats 7 to 15, all with internal event schema 3. Format
+The journal writes file format 16 and reads formats 7 to 16, all with internal event schema 3. Format
 7 brings the model context (`model.input.presented`, `model.step.completed`,
 `model.tool-result.presented`, `context.compacted`); older journals carry none and are rejected with
 this cause, without migration, for the affected run. Format 8 brings `origin` on
 `actor.input.enqueued` (section Origin of an input), format 9 `threshold` on `context.compacted`
 (section Retries and compaction), format 10 the event `run.sharing-changed` (`profiles.md`, Sharing
-in detail), format 11 the events `run.paused` and `run.resumed` (section Pausing a run), format 12
+in detail), format 11 the legacy events `run.paused` and `run.resumed`, format 12
 the event `room.opened` and `room` on `agent.spawned` and `script.created` (section Rooms), format
 13 the external execution kind and standalone output observations (section External runtimes),
 format 14 retained tool-result IDs on `context.compacted` (section Projection), format 15 restart
 origins, server-stop interruption causes, and `turn.restart-recovered` (section Continue after a
-server restart). A
-line of an older format never carries the respective addition and therefore stays readable; a
-format after 15 is rejected. The encoding has been unchanged since
+server restart), and format 16 `run.stopped` and `run.continued` (section Stopping and continuing a
+run). The reader normalizes legacy pause events to `run.stopped` and `run.continued` and maps
+the legacy restart-recovery outcome `paused` to `stopped`, without rewriting files. Legacy
+actor stops from the old run stop keep their recorded meaning; replay never revives those actors
+or runs cleanup again. A line of an older format never carries the respective addition and
+therefore stays readable; a format after 16 is rejected. The encoding has been unchanged since
 4; the number increases as soon as an older version would reject newly written lines, so that it
 fails at the first such line with the format version instead of at a semantic contradiction. Every
 run is first completely checked and projected before its events, identifiers, and states are taken
@@ -1678,10 +1668,9 @@ at the next tool call.
    until its result; whoever wants to redirect immediately interrupts the turn. A fed-in input
    changes neither the model choice nor the system prompt of the turn; both apply, as determined at
    turn start, until its end.
-6. A held actor that only reacts to subscriptions stays held after a resume until someone
-   addresses it directly or restarts it; its automatic inputs wait. The answer to a question that
-   a person gives in a paused run is an input under the owner without human origin: it waits like
-   any other input and neither resumes the run nor releases the asker.
+6. A held actor that only reacts to subscriptions stays held after the run continues until
+   someone addresses it directly or restarts it; its automatic inputs wait. Plugin inputs under
+   the owner without human origin neither continue a stopped run nor release a held actor.
 7. Windows flushes journal and marker file contents, but skips directory `fsync`, which its file
    API does not support. Directory entries after renames or deletions therefore have no explicit
    power-loss durability guarantee; Linux and macOS retain their directory synchronization.

@@ -58,7 +58,7 @@ export {
     type ToolContributor,
     type ToolProvider,
 } from "./agents/plugins.ts";
-export { TurnScheduler, type RunPauseRequest, type TurnInterruption, type TurnSchedulerOptions } from "./agents/scheduler.ts";
+export { TurnScheduler, type TurnInterruption, type TurnSchedulerOptions } from "./agents/scheduler.ts";
 export {
     agentTools,
     defineToolAvailability,
@@ -143,7 +143,6 @@ export {
     descendantsOf,
     type RunStopCommand,
     type RunStopBoundary,
-    type RunStopJournal,
     type RunStopOperation,
     type RunStopperOptions,
 } from "./runtime/stop.ts";

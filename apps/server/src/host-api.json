@@ -1,5 +1,5 @@
 {
-  "version": 17,
+  "version": 18,
   "server": {
     "@ragents/engine": [
       "DomainError",
@@ -767,8 +767,8 @@
     "@ragents/web/actor-programs/client-ui/contracts": [],
     "@ragents/web/api": [
       "interruptActorTurn",
-      "pauseRun",
-      "sendActorMessage"
+      "sendActorMessage",
+      "stopRun"
     ],
     "@ragents/web/chat-view-settings": [
       "ChatViewSwitches",
@@ -777,16 +777,14 @@
     "@ragents/web/chat/ChatContextUsage": [
       "ChatContextUsage"
     ],
-    "@ragents/web/chat/PausedRunNotice": [
-      "PausedRunNotice"
+    "@ragents/web/chat/StoppedRunNotice": [
+      "StoppedRunNotice"
     ],
     "@ragents/web/chat/StoppedActorNotice": [
       "StoppedActorNotice"
     ],
     "@ragents/web/chat/chat-target": [
-      "programChatNotice",
-      "runIsWorking",
-      "runPausable"
+      "programChatNotice"
     ],
     "@ragents/web/chat/useAttachmentCapabilities": [
       "getAttachmentCapabilities",
@@ -896,6 +894,10 @@
       "DialogFooter",
       "DialogHeader",
       "DialogTitle",
+      "DropdownMenu",
+      "DropdownMenuContent",
+      "DropdownMenuItem",
+      "DropdownMenuTrigger",
       "Empty",
       "EmptyContent",
       "EmptyDescription",

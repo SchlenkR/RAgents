@@ -64,19 +64,3 @@ test("the run chat talks to its active primary and shows a stopped primary with 
   assert.deepEqual(primaryChatState(view(running, idle), "other"), { kind: "none" });
   assert.deepEqual(primaryChatState(undefined, "run"), { kind: "none" });
 });
-
-test("the run counts as working while any agent or program turn runs", async () => {
-  const { runIsWorking } = await import("../src/chat/chat-target");
-  const view = (lifecycle: string, kind = "agent") => ({ id: "run", actors: [
-    { id: "owner", kind: "human" },
-    { id: "coordinator", kind: "agent", lifecycle: { kind: "idle" } },
-    { id: "worker", kind, lifecycle: { kind: lifecycle } },
-  ] });
-  assert.equal(runIsWorking(view("running"), "run"), true);
-  assert.equal(runIsWorking(view("running", "script"), "run"), true);
-  assert.equal(runIsWorking(view("idle"), "run"), false);
-  assert.equal(runIsWorking(view("stopped"), "run"), false);
-  assert.equal(runIsWorking(view("running"), "other"), false);
-  assert.equal(runIsWorking(undefined, "run"), false);
-  assert.equal(runIsWorking({ id: "run", actors: [{ id: "owner", kind: "human", lifecycle: { kind: "running" } }] }, "run"), false);
-});

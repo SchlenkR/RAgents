@@ -37,7 +37,7 @@ const eventsOf = (line: string): readonly JournalEvent[] => {
   const actorId = record.command?.actorId ?? "";
   return record.events.map((event) => ({
     sequence: event.sequence,
-    type: event.type,
+    type: event.type === "run.paused" ? "run.stopped" : event.type === "run.resumed" ? "run.continued" : event.type,
     actorId,
     occurredAt: event.occurredAt ?? record.occurredAt ?? "",
     payload: event.payload ?? {},
@@ -135,10 +135,10 @@ export const journalLines = (events: readonly JournalEvent[], mode: JournalMode,
       lines.push(`[${event.sequence}] CONTEXT COMPACTED ${actor}: about ${String(payload.tokensBefore)} tokens summarized${applied}`);
     } else if (type === "turn.input-steered" && mode !== "tools") {
       lines.push(`[${event.sequence}] STEERING -> ${actor}: ${String(payload.inputId ?? "")} in ${String(payload.turnId ?? "")}`);
-    } else if (type === "run.paused" && mode !== "tools") {
-      lines.push(`[${event.sequence}] PAUSED${byUser(payload)}: ${text(payload.reason)}`);
-    } else if (type === "run.resumed" && mode !== "tools") {
-      lines.push(`[${event.sequence}] RESUMED (${String(payload.trigger ?? "")})${byUser(payload)}`);
+    } else if (type === "run.stopped" && mode !== "tools") {
+      lines.push(`[${event.sequence}] STOPPED${byUser(payload)}: ${text(payload.reason)}`);
+    } else if (type === "run.continued" && mode !== "tools") {
+      lines.push(`[${event.sequence}] CONTINUED${byUser(payload)}`);
     } else if (questions.length > 0 && mode !== "tools") {
       lines.push(...questions.map((question) => `[${event.sequence}] QUESTION ${actor}: ${questionLine(question)}`));
     } else if (type.startsWith("tool.call.") && mode !== "chat") {

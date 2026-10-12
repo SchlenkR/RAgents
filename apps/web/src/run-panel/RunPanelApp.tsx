@@ -360,7 +360,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
     </>} trailing={<div className={actionsBarClass}>
         {connection && <span className={connectionClass} aria-label={`Environment ${connection}`}>{connection}</span>}
         {readRuns && runId && <>
-          <RunStateIcon className="self-center px-1.5" state={session?.state === "paused" ? "paused" : session?.running ? "running" : "idle"} />
+          <RunStateIcon className="self-center px-1.5" state={session?.state === "stopped" ? "stopped" : session?.running ? "running" : "idle"} />
           {session?.sharedAccess !== "read" && <StopButton className="self-center" disabled={!writeRuns} label="Stop run" onClick={stop} size="icon-lg" aria-description="Stop the run with all agents and flows" />}
         </>}
         <RunPanelActions onOpenSettings={openSettings} onOpenHelp={() => setHelpOpen(true)} />

@@ -49,6 +49,7 @@ const createFixture = (runId: string, packages: readonly RunScriptStart[], contr
   prepareWorkspace?: (signal?: AbortSignal) => Promise<void>;
   importPackage?: (signal?: AbortSignal) => Promise<void>;
   started?: (signal?: AbortSignal) => Promise<void>;
+  stopping?: () => void;
 } = {}) => {
   const services = testServices();
   const journal = new Journal(":memory:", services);
@@ -92,7 +93,12 @@ const createFixture = (runId: string, packages: readonly RunScriptStart[], contr
     scheduler: { isRunning: () => false },
     catalog: new StaticModelCatalog(catalogModels, profiles),
     startOptions,
-    stopRun: async () => runtime.view(runId),
+    stopRun: async (_runId: string, input: { commandId: string; reason: string }) => {
+      controls.stopping?.();
+      runtime.stopRun({ actorId: runtime.view(runId).ownerId, commandId: input.commandId }, runId, { reason: input.reason });
+      session.abortStart();
+      return runtime.view(runId);
+    },
   } as unknown as Engine;
   const options: RunChatSessionOptions = {
     engine,
@@ -231,10 +237,10 @@ test("all script start entry points synchronously publish preparation, replay ea
 });
 
 test("startup failures retain the actual cause for replay and retries replace the failed state", async (t) => {
-  for (const stage of ["prepare", "prepareWorkspace", "importPackage"] as const) await t.test(stage, async (t) => {
+  for (const operationName of ["prepare", "prepareWorkspace", "importPackage"] as const) await t.test(operationName, async (t) => {
     let failed = false;
-    const cause = `${stage}: unavailable fixture resource`;
-    const f = createFixture(`startup-failed-${stage.toLowerCase()}`, [packageOf()], { [stage]: async () => {
+    const cause = `${operationName}: unavailable fixture resource`;
+    const f = createFixture(`startup-failed-${operationName.toLowerCase()}`, [packageOf()], { [operationName]: async () => {
       if (!failed) { failed = true; throw new Error(cause); }
     } });
     t.after(async () => { await f.session.drain(); f.journal.close(); rmSync(f.files, { recursive: true, force: true }); });
@@ -253,22 +259,21 @@ test("startup failures retain the actual cause for replay and retries replace th
 });
 
 test("stop clears the loader while tracking unfinished preparation and never enqueues late inputs", async (t) => {
-  for (const stage of ["prepare", "prepareWorkspace", "importPackage"] as const) await t.test(stage, async (t) => {
+  for (const operationName of ["prepare", "prepareWorkspace", "importPackage"] as const) await t.test(operationName, async (t) => {
     const blocked = phase();
-    const f = createFixture(`startup-stop-${stage.toLowerCase()}`, [packageOf()], { [stage]: stage === "importPackage" ? blocked.wait : () => blocked.wait() });
+    const f = createFixture(`startup-stop-${operationName.toLowerCase()}`, [packageOf()], { [operationName]: operationName === "importPackage" ? blocked.wait : () => blocked.wait() });
     t.after(async () => { blocked.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, { recursive: true, force: true }); });
     const pending = f.session.startAndWait("test.example", null);
     const rejected = assert.rejects(pending, /start was cancelled/);
     await blocked.entered;
     await f.session.stop();
     assert.equal(replayStatus(f.session).startup?.status, "failed");
-    if (stage !== "importPackage") {
+    if (operationName !== "importPackage") {
       let settled = false;
       void f.session.settle().then(() => { settled = true; });
       await new Promise((resolve) => setImmediate(resolve));
       assert.equal(settled, false);
       assert.equal(f.session.started, true);
-      await assert.rejects(f.session.startAndWait("test.example", null), /is being started/);
       assert.equal(replayStatus(f.session).startup?.status, "failed");
     } else {
       await rejected;
@@ -281,6 +286,107 @@ test("stop clears the loader while tracking unfinished preparation and never enq
     assert.equal(f.journal.stateOf(f.session.id)?.inputs.size ?? 0, 0);
     assert.equal(f.session.started, false);
   });
+});
+
+test("stop marks an installed run before cancelling its unfinished start and leaves its actors usable", async (t) => {
+  const blocked = phase();
+  let startSignal: AbortSignal | undefined;
+  const f = createFixture("installed-start-stop", [packageOf()], {
+    started: (signal) => {
+      startSignal = signal;
+      return blocked.wait(signal);
+    },
+    stopping: () => { assert.equal(startSignal?.aborted, false); },
+  });
+  t.after(async () => { blocked.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, { recursive: true, force: true }); });
+  const pending = assert.rejects(f.session.startAndWait("test.example", null), /start was cancelled/);
+  await blocked.entered;
+  const primaryId = f.runtime.view(f.session.id).primaryActorId;
+  assert.ok(primaryId);
+  assert.ok(startSignal);
+  await f.session.stop();
+  await pending;
+  const stopped = f.runtime.view(f.session.id);
+  assert.equal(startSignal.aborted, true);
+  assert.ok(stopped.stopped);
+  assert.equal(stopped.inputs.length, 0);
+  assert.equal(stopped.primaryActorId, primaryId);
+  assert.ok(stopped.actors.filter((actor) => actor.kind !== "human").every((actor) => actor.lifecycle.kind === "idle"));
+  assert.equal(f.runtime.events(f.session.id).some((event) => event.type === "actor.stopped"), false);
+});
+
+for (const entry of ["send", "ensureStarted"] as const) test(`stop cancels an initial ${entry} during workspace preparation without accepting its old input`, async (t) => {
+  const blocked = phase();
+  let waiting = true;
+  let startSignal: AbortSignal | undefined;
+  const f = createFixture(`initial-${entry.toLowerCase()}-stop`, [], {
+    prepareWorkspace: (signal) => {
+      startSignal = signal;
+      return waiting ? blocked.wait(signal) : Promise.resolve();
+    },
+    stopping: () => { assert.equal(startSignal?.aborted, false); },
+  });
+  t.after(async () => { blocked.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, { recursive: true, force: true }); });
+  const operation = entry === "send" ? f.session.send("Old message.") : f.session.ensureStarted();
+  const outcome = operation.then(() => undefined, (error: unknown) => error);
+  await blocked.entered;
+  assert.equal(f.journal.hasRun(f.session.id), true);
+  await f.session.stop();
+  blocked.release();
+  const cancelled = await outcome;
+  assert.ok(cancelled instanceof Error);
+  assert.match(cancelled.message, entry === "send" ? /message was cancelled/ : /start was cancelled/);
+  assert.equal(startSignal?.aborted, true);
+  const stopped = f.runtime.view(f.session.id);
+  assert.ok(stopped.stopped);
+  assert.equal(stopped.inputs.length, 0);
+  assert.equal(stopped.turns.length, 0);
+  assert.equal(f.runtime.events(f.session.id).some((event) => event.type === "run.continued"), false);
+
+  waiting = false;
+  await f.session.send("New message.");
+  const continued = f.runtime.view(f.session.id);
+  assert.equal(continued.stopped, null);
+  assert.ok(continued.primaryActorId);
+  assert.deepEqual(continued.inputs.map((input) => input.content), ["New message."]);
+  assert.equal(f.runtime.events(f.session.id).filter((event) => event.type === "run.continued").length, 1);
+});
+
+for (const directed of [false, true]) test(`stop cancels a pending ${directed ? "directed " : ""}message before run readiness without letting it continue the run`, async (t) => {
+  const blocked = phase();
+  let waiting = false;
+  let messageSignal: AbortSignal | undefined;
+  const f = createFixture(`pending-${directed ? "directed" : "primary"}-stop`, [], {
+    prepare: (signal) => {
+      messageSignal = signal;
+      return waiting ? blocked.wait() : Promise.resolve();
+    },
+    stopping: () => { assert.equal(messageSignal?.aborted, false); },
+  });
+  t.after(async () => { blocked.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, { recursive: true, force: true }); });
+  const primaryId = await f.session.ensureStarted();
+  waiting = true;
+  const operation = directed ? f.session.sendToActor(primaryId, "Old message.") : f.session.send("Old message.");
+  const outcome = operation.then(() => undefined, (error: unknown) => error);
+  await blocked.entered;
+  await f.session.stop();
+  assert.equal(messageSignal?.aborted, true);
+  assert.ok(f.runtime.view(f.session.id).stopped);
+  assert.equal(f.runtime.view(f.session.id).inputs.length, 0);
+  blocked.release();
+  const cancelled = await outcome;
+  assert.ok(cancelled instanceof Error);
+  assert.match(cancelled.message, /message was cancelled/);
+  assert.ok(f.runtime.view(f.session.id).stopped);
+  assert.equal(f.runtime.events(f.session.id).some((event) => event.type === "run.continued"), false);
+
+  waiting = false;
+  await f.session.send("New message.");
+  const continued = f.runtime.view(f.session.id);
+  assert.equal(continued.stopped, null);
+  assert.equal(continued.primaryActorId, primaryId);
+  assert.deepEqual(continued.inputs.map((input) => input.content), ["New message."]);
+  assert.equal(continued.turns.length, 0);
 });
 
 test("dispose cancels preparation without replaying a stale startup", async (t) => {
@@ -636,9 +742,13 @@ test("cancelled directed messages never enqueue after their workspace check comp
   const pending = method.execute({runId: f.session.id, actorId, text: "Cancelled directed message"}, {...methodContext(), signal: caller.signal});
   const cancelled = assert.rejects(pending, /disconnected/);
   await workspace.entered;
-  assert.equal(workspaceSignal, caller.signal);
-  caller.abort(new Error("Request disconnected"));
+  assert.ok(workspaceSignal);
+  assert.equal(workspaceSignal.aborted, false);
+  const disconnected = new Error("Request disconnected");
+  caller.abort(disconnected);
   await cancelled;
+  assert.equal(workspaceSignal.aborted, true);
+  assert.equal(workspaceSignal.reason, disconnected);
   workspace.release();
   assert.deepEqual(f.runtime.view(f.session.id).inputs.map((input) => input.content), ["Accepted first message"]);
   pause = false;

@@ -5,17 +5,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import type { ChatSessionProvider } from "../src/chat-handler.ts";
-import { coreContracts } from "../src/api/contracts.ts";
-import { coreMethods } from "../src/api/core-methods.ts";
-import { coreSources, methodContext } from "./rpc-fixture.ts";
 import { Journal, LiveBus, Orchestration, RunStopper, TurnScheduler, type RunStopCommand } from "@ragents/engine";
 import { manualExecution, catalog, deferred, executionFor, FakeDriver, noUsage, registryOf, testServices, textStep } from "../../../packages/ragents/tests/support.ts";
 import { applyEvent, type ChatEvent, type Message } from "quassel/events";
 import type { Engine } from "../src/ragents/engine.ts";
 import { RunChatSession } from "../src/ragents/session.ts";
 
-test("the visible chat stop awaits the shared run stop and publishes running false", async () => {
+test("a chat session stop awaits the shared run stop and publishes running false", async () => {
   const services = testServices();
   const journal = new Journal(":memory:", services);
   const runtime = new Orchestration(journal, services);
@@ -88,17 +84,9 @@ test("the visible chat stop awaits the shared run stop and publishes running fal
   live.publish(view.id, coordinator.id, { kind: "turn-started", turnId: "turn-visible" });
   assert.equal(session.running, true);
 
-  const provider: ChatSessionProvider = {
-    get: async () => session,
-    list: async () => [],
-    delete: async () => undefined,
-  };
-  const stop = coreMethods(coreSources(provider))
-    .find((entry) => entry.contract.id === coreContracts.chat.stop.id)!;
-
   try {
     let responseSettled = false;
-    const responsePromise = stop.execute({ runId: view.id } as never, methodContext()).then((result) => {
+    const responsePromise = session.stop().then((result) => {
       responseSettled = true;
       return result;
     });
@@ -108,10 +96,10 @@ test("the visible chat stop awaits the shared run stop and publishes running fal
     assert.equal(session.running, true);
 
     releaseStop.resolve();
-    assert.equal(await responsePromise, null);
+    assert.equal(await responsePromise, undefined);
     assert.equal(stopCall?.runId, view.id);
-    assert.match(stopCall?.input.commandId ?? "", /^chat-stop:/);
-    assert.equal(stopCall?.input.reason, "Emergency stop by the operator");
+    assert.match(stopCall?.input.commandId ?? "", /^run-stop:/);
+    assert.equal(stopCall?.input.reason, "Stopped by the operator");
     assert.equal(session.running, false);
     assert.equal(statuses.at(-1), false);
   } finally {
@@ -146,8 +134,11 @@ test("chat stop preserves partial text once in live, mid-turn and disk-replayed 
   });
   const live = new LiveBus();
   const scheduler = new TurnScheduler(runtime, journal, { drivers: registryOf(driver), catalog, live });
-  const stopper = new RunStopper({ runtime, stopExternal: (runId, stopJournal) =>
-    scheduler.haltRun(runId, (settled) => stopJournal(settled)) });
+  const stopper = new RunStopper({
+    runtime,
+    interruptTurns: (runId, interruption) => scheduler.interruptRun(runId, interruption),
+    stopExternal: (runId) => scheduler.haltRun(runId),
+  });
   const engine = { journal, runtime, live, scheduler, stopRun: stopper.stop } as unknown as Engine;
   const sessions: RunChatSession[] = [];
   const openSession = (engine: Engine) => {

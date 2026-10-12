@@ -4,7 +4,7 @@ import { interruptActorTurn, sendActorMessage } from "@ragents/web/api";
 import { ChatViewSwitches, useChatViewSettings } from "@ragents/web/chat-view-settings";
 import { ChatInputToolbar } from "quassel";
 import { ChatContextUsage } from "@ragents/web/chat/ChatContextUsage";
-import { PausedRunNotice } from "@ragents/web/chat/PausedRunNotice";
+import { StoppedRunNotice } from "@ragents/web/chat/StoppedRunNotice";
 import { StoppedActorNotice } from "@ragents/web/chat/StoppedActorNotice";
 import { useAttachmentCapabilities } from "@ragents/web/chat/useAttachmentCapabilities";
 import { programChatNotice } from "@ragents/web/chat/chat-target";
@@ -41,7 +41,7 @@ export function ActorChatControls({ actor, autoFocus, onAutoFocusSettled, view, 
     <StoppedActorNotice actor={actor} runId={view.id} toolbar={<>{toolbarLeft}{switches}</>} />
   </div>;
   return <div className={presentation === "inspector" ? "mx-auto w-[calc(100%_-_16px)] max-w-[var(--chat-max-width)] flex-shrink-0 pt-3 pb-4" : undefined}>
-    <PausedRunNotice runId={view.id} view={view} />
+    <StoppedRunNotice runId={view.id} view={view} />
     <ChatInputToolbar
       {...attachments}
       autoFocus={autoFocus}

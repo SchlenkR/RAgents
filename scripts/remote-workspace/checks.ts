@@ -753,9 +753,9 @@ const checkStreamLoss = async (env: CheckEnvironment): Promise<void> => {
   }
   await report.check("Stream loss", titles[0]!, async () => {
     const begun = Date.now();
-    await env.users.alice.call(coreContracts.chat.stop, { runId: env.runId });
+    await env.users.alice.call(runContracts.stop, { runId: env.runId, commandId: randomUUID() });
     expect(await containerProcessAlive(container.name, started.pid), `PID ${started.pid} has already ended although the container has no network`);
-    return passed(`ragents.chat.stop after ${Math.round((Date.now() - begun) / 1000)} s, PID ${started.pid} keeps running`);
+    return passed(`ragents.runs.stop after ${Math.round((Date.now() - begun) / 1000)} s, PID ${started.pid} keeps running`);
   });
   await report.check("Stream loss", titles[1]!, async () => {
     await connectNetwork(container.name);
@@ -765,21 +765,15 @@ const checkStreamLoss = async (env: CheckEnvironment): Promise<void> => {
   });
 };
 
-/** The emergency stop stops the run; both executors clean up, the one in the container and the server's one that carries the run's TypeScript platform. */
+/** The run stop ends external work; both executors clean up, the one in the container and the server's one that carries the run's TypeScript platform. */
 const checkRunStop = (env: CheckEnvironment): Promise<true | undefined> =>
   env.report.check("Stop", "admin stops the run; that cleans up in the container and on the server", async () => {
     const entry = await markedContainerProcess(env, "3142");
     expect(alive(env.decoyPid), `The marked process ${env.decoyPid} on the server had already ended before the stop`);
-    await env.users.admin.call(coreContracts.chat.stop, { runId: env.runId });
+    await env.users.admin.call(runContracts.stop, { runId: env.runId, commandId: randomUUID() });
     await waitFor(async () => await containerProcessAlive(env.container.name, entry.pid) ? undefined : true, 30_000, "The end of sleep 3142 in the container");
     await waitFor(async () => alive(env.decoyPid) ? undefined : true, 15_000, `The end of the marked process ${env.decoyPid} on the server`);
-    return passed(`ragents.chat.stop; sleep 3142 (PID ${entry.pid}) in the container and PID ${env.decoyPid} on the server ended`);
-  });
-
-const checkStopAll = (env: CheckEnvironment): Promise<true | undefined> =>
-  env.report.check("Stop", "admin may stop the whole run with ragents.runs.stopAll", async () => {
-    await env.users.admin.call(runContracts.stopAll, { runId: env.runId, commandId: randomUUID(), reason: "Check run ended" });
-    return passed("succeeds");
+    return passed(`ragents.runs.stop; sleep 3142 (PID ${entry.pid}) in the container and PID ${env.decoyPid} on the server ended`);
   });
 
 /** The domain checks in fixed order; if a prerequisite is missing, the dependent checks are skipped. */
@@ -805,5 +799,4 @@ export const runChecks = async (env: CheckEnvironment): Promise<void> => {
   await checkRunStop(env);
   await checkDisconnect(env);
   await checkStreamLoss(env);
-  await checkStopAll(env);
 };

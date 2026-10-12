@@ -1,5 +1,30 @@
 # Decisions
 
+## 2026-10-12: One run stop replaces pause and emergency stop
+
+Chapters: `spec/core.md` (Interrupting a turn, stopping an actor, stopping a run, journal),
+`spec/plugins.md` (run rights, chat composer, run panel, host API), `spec/profiles.md` (sharing);
+usage: `usage.md` (Run chat, Run panel and VS Code extension, Control RAgents as an agent);
+operations: `operations.md` (Restart the server, actor-program triggers).
+
+Two run-wide controls made it unclear whether stopping preserved actors or required restarting
+them. "Stop" now means stopping all running turns, a running start, processes, and other
+external work while keeping every active actor available. `ragents.runs.stop` records
+`run.stopped` before interrupting work, so deliveries cannot start a turn in between. Incoming
+inputs wait until the next human message writes `run.continued`; the primary actor receives
+the waiting inputs with that message last and decides which other actors to address again.
+
+"Stop run" calls this boundary directly, without confirmation. The chat shows "Stopped" and
+the waiting-input count, with no separate continuation control. "Stop work" still interrupts
+only the chat partner's turn, including the global coordinator. The CLI uses `stop <run>` for
+the run and retains `--turn`; `resume` and `--run` are removed. Journal file format 16 keeps
+reading formats 7 through 16, normalizes legacy pause events on reading, and preserves old
+actor stops without rewriting files. Removing the old run-control exports raises the host API
+from 17 to 18. Replacing `RunView.pause` and the old event pair, and changing `RunListState`
+from `paused` to `stopped`, raises the extension API from 1 to 2 because older extensions depend
+on that contract. The stopped-state icon is a circle with a slash in the warning tone; a stop
+button keeps the filled red square.
+
 ## 2026-10-12: Preserve reasoning on the wire and cut oversized tool loops
 
 Chapters: `spec/core.md` (Projection, Retries and compaction), `spec/profiles.md` (model aliases);
@@ -44,6 +69,7 @@ short cause without provider JSON. A failed summary blocks requests that still l
 Tests reproduce reasoning exhausting the old budget, recover overfull history and split turns,
 enforce request and output limits, and verify startup errors and server logging.
 
+
 ## 2026-10-12: Run details use labelled rows and explicit explanations
 
 Chapter: `spec/plugins.md` (Web host, shared UI, Run panel, Workspace, sandbox tools, and processes);
@@ -61,7 +87,7 @@ host and plugin web elements and checked in the web sources. Chat and Markdown b
 also remove titles supplied by foreign markup. Accessible names and visible details preserve
 their information; prompt texts open explicitly inline. Browser coverage
 checks 1600, 700, and 360 pixel widths, full process names, ordering, elapsed time, wrapping
-errors, and footer confirmation.
+errors, and direct footer stop requests.
 
 ## 2026-10-12: Stop in the chat interrupts only the chat partner's turn
 

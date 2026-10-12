@@ -65,7 +65,7 @@ type ExecutableActorBase = ActorBase & {
     usage: TurnUsage;
     toolNames: readonly string[] | null;
     openedToolNames: readonly string[];
-    /** Held since a pause: no turn starts until the run resumes as its primary actor or someone addresses it directly. */
+    /** Held since a run stop: no turn starts until the run continues as its primary actor or someone addresses it directly. */
     held?: true;
 };
 
@@ -142,7 +142,7 @@ export type Turn = {
     restartRecovery?: { outcome: RestartRecoveryOutcome; reason: string };
 };
 
-export type RestartRecoveryOutcome = "continued" | "disabled" | "guarded" | "unsupported" | "paused" | "unavailable";
+export type RestartRecoveryOutcome = "continued" | "disabled" | "guarded" | "unsupported" | "stopped" | "unavailable";
 
 export type EventSubscription = {
     id: SubscriptionId;
@@ -243,9 +243,9 @@ export type Room = {
     openedAt: string;
 };
 
-/** Who paused the run, when and why; userId is the signed-in user, null without sign-in. */
-export type RunPause = {
-    pausedAt: string;
+/** Who stopped the run, when and why; userId is the signed-in user, null without sign-in. */
+export type RunStopped = {
+    stoppedAt: string;
     reason: string;
     userId: string | null;
 };
@@ -262,8 +262,8 @@ export type RunState = {
     primaryActorId: ActorId | null;
     /** The primary actor that was stopped as such, until a primary actor is chosen; its restart by the owner makes it primary again. */
     stoppedPrimaryActorId: ActorId | null;
-    /** Set from run.paused to run.resumed; while it is set, no turn starts. */
-    pause: RunPause | null;
+    /** Set from run.stopped to run.continued; while it is set, no turn starts. */
+    stopped: RunStopped | null;
     createdAt: string;
     forkedFrom: { runId: RunId; sequence: number } | null;
     /** The rooms opened besides the main room, by name. */

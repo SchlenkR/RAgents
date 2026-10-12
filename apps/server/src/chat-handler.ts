@@ -15,8 +15,8 @@ export interface SessionInfo {
   locked?: string;
 }
 
-/** What a run list row shows as its state: paused until a person continues it, running, waiting for the owner's input, ended once every actor stopped, otherwise idle. */
-export type RunListState = "paused" | "running" | "waiting" | "idle" | "ended";
+/** What a run list row shows as its state: stopped until a person continues it, running, waiting for the owner's input, ended once every actor stopped, otherwise idle. */
+export type RunListState = "stopped" | "running" | "waiting" | "idle" | "ended";
 
 /** What the caller of the run list learns about a run's sharing. */
 export interface ListedSharing {

@@ -258,7 +258,8 @@ A warning about JavaScript bundle size does not prevent startup.
 Stop the server normally, then start the same profile. By default, actors that were working
 continue automatically in new turns. The journal preserves completed steps, and agents receive
 a restart note asking them to check unfinished work before continuing. Existing queued inputs
-keep their order. User stops, failures, timeouts, paused runs, and deleted runs do not resume.
+keep their order. User stops, failures, timeouts, stopped runs, and deleted runs do not continue
+automatically. A stopped run waits for the next human message.
 External runtime actors stay interrupted; TypeScript actors re-evaluate from journaled state.
 
 Set `host.RESUME_AFTER_RESTART: false` in the profile, or `RESUME_AFTER_RESTART=false` in the
@@ -929,7 +930,7 @@ records stay visible for the affected app, with "Retry" and "Remove", while heal
 
 Engine restart recovery interrupts open turns and can re-evaluate a TypeScript actor's original
 input in a new turn, preserving completed journaled program steps. Triggers finalize their
-recorded journal result without queuing the accepted occurrence again. Pause or stop of a run
+recorded journal result without queuing the accepted occurrence again. A run stop
 holds its automatic triggers, and the host never undoes a deliberate operator stop. Shutdown
 clears timers and file watches and cancels managed work through the existing execution lifecycle.
 

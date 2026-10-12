@@ -432,16 +432,15 @@ const payloadOf = (type: EventType, value: unknown, path: string) => {
             return;
         }
 
-        case "run.paused": {
+        case "run.stopped": {
             const payload = exactObject(value, path, ["reason"], ["userId"]);
             nonEmptyStringOf(payload.reason, `${path}.reason`);
             if (Object.hasOwn(payload, "userId")) nonEmptyStringOf(payload.userId, `${path}.userId`);
             return;
         }
 
-        case "run.resumed": {
-            const payload = exactObject(value, path, ["trigger"], ["userId"]);
-            if (payload.trigger !== "input" && payload.trigger !== "resume") fail(`${path}.trigger`, "must be input or resume");
+        case "run.continued": {
+            const payload = exactObject(value, path, [], ["userId"]);
             if (Object.hasOwn(payload, "userId")) nonEmptyStringOf(payload.userId, `${path}.userId`);
             return;
         }
@@ -556,8 +555,8 @@ const payloadOf = (type: EventType, value: unknown, path: string) => {
         case "turn.restart-recovered": {
             const payload = exactObject(value, path, ["turnId", "outcome", "reason"]);
             stringOf(payload.turnId, `${path}.turnId`);
-            if (!["continued", "disabled", "guarded", "unsupported", "paused", "unavailable"].includes(String(payload.outcome)))
-                fail(`${path}.outcome`, "must be continued, disabled, guarded, unsupported, paused or unavailable");
+            if (!["continued", "disabled", "guarded", "unsupported", "stopped", "unavailable"].includes(String(payload.outcome)))
+                fail(`${path}.outcome`, "must be continued, disabled, guarded, unsupported, stopped or unavailable");
             nonEmptyStringOf(payload.reason, `${path}.reason`);
             return;
         }

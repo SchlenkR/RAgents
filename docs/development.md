@@ -33,14 +33,14 @@ The terms are described in more detail in `docs/spec/overview.md`.
 
 One line of JSON per command decision, append-only. The line contains the command, its time,
 and an array of its events. `sequence` counts up over all events of the run without gaps.
-The following example shows a line as it is stored in `journal.jsonl` on disk (file format 15),
+The following example shows a line as it is stored in `journal.jsonl` on disk (file format 16),
 indented for reading; IDs, hash, and usage numbers are shortened. It is a completed model step:
 the text as an observable `model.output.completed`, followed by the step itself, which does not
 repeat the text:
 
 ```json
 {
-  "formatVersion": 15,
+  "formatVersion": 16,
   "runId": "example-run",
   "command": {
     "id": "scheduler:review-turn:context:step:4",
@@ -963,7 +963,7 @@ sign-in and visibility of the workstation, binding, `bash`, `read`, `write`, and
 attachment in the container, `typescript_eval` in the server's folder, system prompt with the platform and folder
 of the workstation, an actor program and a skill through the server's roots (`@actors`,
 `@skills`) including Bash with an alias on the server, the Files tab, process display and termination, permissions of `bob` and `admin`, the
-emergency stop including cleanup on both machines, disconnecting and re-registering, and a stop while the
+run stop including cleanup on both machines, disconnecting and re-registering, and a stop while the
 container has no network that takes effect after it returns. Switches:
 `--shared-path` also creates the same path with different contents on this machine (instead of
 `/work/project`, which must not exist here), `--browser` opens a page with `browser_navigate`

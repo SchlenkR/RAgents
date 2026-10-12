@@ -12,7 +12,7 @@ import { runtimeFor } from "./actor-runtime-fixture.ts";
 
 const fixture = async (t: TestContext) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-actor-create-"));
-  const setup = setupRun();
+  const setup = setupRun({ runId: path.basename(directory).toLowerCase() });
   const runtime = runtimeFor(setup, directory);
   t.after(async () => { await runtime.shutdown(); await rm(directory, { recursive: true, force: true }); });
   const executor = setup.services.nativeTypeScriptExecutor!;

@@ -183,7 +183,7 @@ export const startStubServer = async (options: {
     }),
     implement(runContracts.events, () => JOURNAL as JournalEvent[]),
     // As in the server, the stop goes to the workspace first and is only answered afterwards.
-    implement(runContracts.stopAll, async ({ runId }) => {
+    implement(runContracts.stop, async ({ runId }) => {
       for (const [id, connection] of workspaceConnections) {
         const cwd = workspaceClients.get(id)?.folders[0];
         if (cwd) await connection.call(workspaceClientContracts.execute, { runId, operation: "stop", cwd, env: {}, input: null });

@@ -69,24 +69,24 @@ test("journalLines prints every question of ragents.ask with header and options,
   assert.deepEqual(journalLines(asked, "tools", 0), ["-- last sequence: 4"]);
 });
 
-test("journalLines names who paused and resumed the run, without a user only the reason and the trigger", () => {
+test("journalLines names who stopped and continued the run, with the reason and optional signed-in user", () => {
   const at = "2026-09-21T10:00:00.000Z";
-  const paused: readonly JournalEvent[] = [
-    { sequence: 1, type: "run.paused", actorId: "human_alice", occurredAt: at, payload: { reason: "Paused in the chat", userId: "alice" } },
-    { sequence: 2, type: "run.resumed", actorId: "human_alice", occurredAt: at, payload: { trigger: "input", userId: "alice" } },
-    { sequence: 3, type: "run.paused", actorId: "human_alice", occurredAt: at, payload: { reason: "Paused with ragents stop" } },
-    { sequence: 4, type: "run.resumed", actorId: "human_alice", occurredAt: at, payload: { trigger: "resume" } },
+  const stopped: readonly JournalEvent[] = [
+    { sequence: 1, type: "run.stopped", actorId: "human_alice", occurredAt: at, payload: { reason: "Stopped by the operator", userId: "alice" } },
+    { sequence: 2, type: "run.continued", actorId: "human_alice", occurredAt: at, payload: { userId: "alice" } },
+    { sequence: 3, type: "run.stopped", actorId: "human_alice", occurredAt: at, payload: { reason: "Stopped with ragents stop" } },
+    { sequence: 4, type: "run.continued", actorId: "human_alice", occurredAt: at, payload: {} },
   ];
   const lines = [
-    "[1] PAUSED by alice: Paused in the chat",
-    "[2] RESUMED (input) by alice",
-    "[3] PAUSED: Paused with ragents stop",
-    "[4] RESUMED (resume)",
+    "[1] STOPPED by alice: Stopped by the operator",
+    "[2] CONTINUED by alice",
+    "[3] STOPPED: Stopped with ragents stop",
+    "[4] CONTINUED",
     "-- last sequence: 4",
   ];
-  assert.deepEqual(journalLines(paused, "chat", 0), lines);
-  assert.deepEqual(journalLines(paused, "all", 0), lines);
-  assert.deepEqual(journalLines(paused, "tools", 0), ["-- last sequence: 4"]);
+  assert.deepEqual(journalLines(stopped, "chat", 0), lines);
+  assert.deepEqual(journalLines(stopped, "all", 0), lines);
+  assert.deepEqual(journalLines(stopped, "tools", 0), ["-- last sequence: 4"]);
 });
 
 test("the reader returns only what was added since the last call", async (t) => {

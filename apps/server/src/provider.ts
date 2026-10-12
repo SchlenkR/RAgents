@@ -162,6 +162,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       plugins: this.plugins,
       workspaces: this.workspaces,
       modelRuntime: this.getModelRuntime(),
+      abortRunStart: (runId) => this.sessions.get(runId)?.abortStart(),
       assertAvailable: () => this.ensureAvailable(),
       assertRunUsable: (runId) => this.ensureUsable(runId),
     });

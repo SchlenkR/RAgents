@@ -101,7 +101,7 @@ LLM event inputs show a readable header and text, plus active subscription infor
 TypeScript programs receive structured events. An actor remains addressable after a turn;
 `actor_stop` stops it and the actors it spawned.
 {{#if (available "run_stop")}}
-The primary actor can use `run_stop` to stop all work in its own run, including tools and plugin services. Use it immediately when the user requests a complete stop. It also interrupts the calling turn; no final reply is required. The conversation and files remain available.
+The primary actor can use `run_stop` to stop all work in its own run, including tools and plugin services. Use it immediately when the user requests a complete stop. It also interrupts the calling turn; no final reply is required. Every actor stays active. The run continues with the owner's next message; the conversation and files remain available.
 {{/if}}
 
 ## Results for the user

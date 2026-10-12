@@ -13,7 +13,7 @@ const MAX_ACTIVE = 4;
 const DEFAULT_TIMEOUT_SECONDS = 30;
 const DEADLINE_REASON = "The trigger input exceeded its time limit.";
 const backoffMs = (failures: number): number => Math.min(60000 * 2 ** (failures - 1), 3600000);
-const pumpEvents = new Set(["turn.started", "turn.finished", "turn.interrupted", "actor.stopped", "actor.restarted", "run.paused", "run.resumed"]);
+const pumpEvents = new Set(["turn.started", "turn.finished", "turn.interrupted", "actor.stopped", "actor.restarted", "run.stopped", "run.continued"]);
 
 const nullableText = Type.Union([Type.String(), Type.Null()]);
 const occurrenceSchema = Type.Object({
@@ -110,7 +110,7 @@ export const triggerProgressOf = (runtime: Orchestration, view: RunView, actorId
   const state = stored.kind === "valid" ? stored.state : undefined;
   const summary = program?.stateAware ? programSummaryOf(programValuesOf(view, actorId)) : undefined;
   const programProblem = summary?.status === "blocked" ? summary.error : null;
-  const problem = state?.problem ?? programProblem ?? runProblem ?? (view.pause ? "The run is paused." : null);
+  const problem = state?.problem ?? programProblem ?? runProblem ?? (view.stopped ? "The run is stopped." : null);
   const running = state?.accepted ? turnFor(runtime, view, state.accepted.commandId)?.status === "running" : false;
   const times = [state?.nextDueAt ? Date.parse(state.nextDueAt) : null, wakeTimeOf(view, program, now)].filter((time): time is number => time !== null);
   const next = times.length > 0 ? Math.max(Math.min(...times), state?.backoffUntil ? Date.parse(state.backoffUntil) : 0) : null;
@@ -273,7 +273,7 @@ export class ProgramTriggers {
   }
 
   async #accept(runId: string, program: ActorProgramDefinition, state: TriggerState, reason: ActorTriggerReason, scheduledAt: string, view = this.#view(runId)): Promise<void> {
-    if (this.#closed || this.#stopped.has(runId) || view.pause) fail("trigger-blocked", "The run is paused or stopped.");
+    if (this.#closed || this.#stopped.has(runId) || view.stopped) fail("trigger-blocked", "The run is paused or stopped.");
     if (!program.input) fail("trigger-without-input", "This program has no onInput handler for trigger inputs.");
     if (state.accepted) fail("trigger-busy", "The program already has an accepted trigger input.");
     if (this.#activeCount(view) >= MAX_ACTIVE) fail("triggers-busy", `${MAX_ACTIVE} trigger inputs are already active in this run.`);
@@ -362,7 +362,7 @@ export class ProgramTriggers {
       this.#write(runId, program.actorId, this.#planned(program, stored.kind === "valid" ? stored.state : undefined));
     }
     const view = this.#view(runId);
-    if (!view.pause) {
+    if (!view.stopped) {
       const due = programs.flatMap((program) => {
         const stored = storedOf(view, program.actorId);
         const at = stored.kind === "valid" ? this.#due(view, program, stored.state) : null;
@@ -384,7 +384,7 @@ export class ProgramTriggers {
 
   async #syncWatches(runId: string): Promise<void> {
     const view = this.#view(runId);
-    const enabled = this.#closed || this.#stopped.has(runId) || view.pause ? [] : this.#options.programsOf(view).filter((program) => {
+    const enabled = this.#closed || this.#stopped.has(runId) || view.stopped ? [] : this.#options.programsOf(view).filter((program) => {
       const stored = storedOf(view, program.actorId);
       return stored.kind === "valid" && !stored.state.paused && !stored.state.problem;
     });
@@ -422,7 +422,7 @@ export class ProgramTriggers {
           onChange: () => {
             void this.#serial(runId, async () => {
               const current = this.#current(runId, actorId);
-              if (this.#closed || this.#stopped.has(runId) || this.#view(runId).pause || !current || current.paused || current.problem) return;
+              if (this.#closed || this.#stopped.has(runId) || this.#view(runId).stopped || !current || current.paused || current.problem) return;
               if (file !== null && !await this.#fileChanged(runId, actorId, file)) return;
               this.#write(runId, actorId, { ...current, filePending: true });
               await this.#pump(runId);
@@ -476,7 +476,7 @@ export class ProgramTriggers {
             const turn = turnFor(this.#runtime(), view, stored.state.accepted.commandId);
             return turn?.status === "running" && !stored.state.problem ? [Date.parse(turn.startedAt) + timeoutOf(program)] : [];
           }
-          const due = full || view.pause ? null : this.#due(view, program, stored.state);
+          const due = full || view.stopped ? null : this.#due(view, program, stored.state);
           return due === null ? [] : [due];
         });
       } catch (error) { this.#failures.set(runId, errorText(error)); return []; }

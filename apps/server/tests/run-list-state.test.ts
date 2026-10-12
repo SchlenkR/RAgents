@@ -35,22 +35,22 @@ test("a pending input keeps the run from ending, a running turn makes it run", (
   assert.deepEqual(runListStateOf(runtime.state(view.id), false), { state: "running", pendingActions: 0 }, "a running turn in the journal counts even without the scheduler flag");
 });
 
-test("a paused run shows paused before running work and open actions, but a run whose actors all stopped is not paused", (t) => {
+test("a stopped run shows stopped before running work and open actions, but a run whose actors all stopped has ended", (t) => {
   const { journal, runtime, view, agent } = setupRun();
   t.after(() => journal.close());
   const of = (running = false) => runListStateOf(runtime.state(view.id), running);
   const input = postTo(runtime, view, agent.id, "post", "Task").inputs.at(-1)!;
   runtime.startTurn({ actorId: agent.id, commandId: "turn" }, view.id, agent.id, input.id);
   const proposed = runtime.proposeAction({ actorId: view.ownerId, commandId: "propose" }, view.id, { owner: "ragents.ask", title: "Continue?" });
-  runtime.pauseRun({ actorId: view.ownerId, commandId: "pause" }, view.id, { reason: "Paused" });
-  assert.deepEqual(of(true), { state: "paused", pendingActions: 1 }, "the pause comes before the turn that is still being interrupted and the open question");
+  runtime.stopRun({ actorId: view.ownerId, commandId: "stop" }, view.id, { reason: "Stopped" });
+  assert.deepEqual(of(true), { state: "stopped", pendingActions: 1 }, "the stop comes before the turn that is still being interrupted and the open question");
 
-  runtime.resumeRun({ actorId: view.ownerId, commandId: "resume" }, view.id, {});
+  runtime.enqueueInput({ actorId: view.ownerId, commandId: "continue" }, view.id, { actorId: agent.id, content: "Continue.", origin: "human" });
   assert.deepEqual(of(), { state: "running", pendingActions: 1 });
 
-  runtime.pauseRun({ actorId: view.ownerId, commandId: "pause-again" }, view.id, { reason: "Paused again" });
-  runtime.stopActor({ actorId: view.ownerId, commandId: "stop" }, view.id, agent.id, "Done");
-  assert.deepEqual(of(), { state: "waiting", pendingActions: 1 }, "with every actor stopped the pause holds nobody; the open question still waits");
+  runtime.stopRun({ actorId: view.ownerId, commandId: "stop-again" }, view.id, { reason: "Stopped again" });
+  runtime.stopActor({ actorId: view.ownerId, commandId: "stop-actor" }, view.id, agent.id, "Done");
+  assert.deepEqual(of(), { state: "waiting", pendingActions: 1 }, "with every actor stopped the run stop holds nobody; the open question still waits");
   runtime.resolveAction({ actorId: view.ownerId, commandId: "resolve" }, view.id, proposed.actions[0]!.id, { decision: "dismissed" });
-  assert.deepEqual(of(), { state: "ended", pendingActions: 0 }, "ended comes before paused");
+  assert.deepEqual(of(), { state: "ended", pendingActions: 0 }, "ended comes before the run stop");
 });

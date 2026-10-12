@@ -80,7 +80,7 @@ export class GlobalAppsService {
     return this.#serial(runId, async () => {
       signal?.throwIfAborted();
       const view = this.#runtime().view(runId);
-      if (view.pause) fail("global-apps-run-paused", "Resume the global space before creating an app.");
+      if (view.stopped) fail("global-apps-run-stopped", "Send a message to continue the global space before creating an app.");
       const markers = markersOf(view);
       const existing = markers.find((marker) => marker.name === input.name);
       if (!existing && markers.length >= MAX_APPS) fail("app-limit", `A user may have at most ${MAX_APPS} global apps.`);

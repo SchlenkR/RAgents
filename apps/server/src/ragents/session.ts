@@ -148,6 +148,7 @@ export class RunChatSession implements ChatSessionLike {
   } | undefined;
   #scriptQueue: Promise<unknown> = Promise.resolve();
   readonly #scriptStarts = new Set<AbortController>();
+  readonly #messagePreparations = new Set<AbortController>();
   #startup: ChatStartupStatus | undefined;
   #startCancellation: AbortController | undefined;
   #unsubscribeJournal: (() => void) | undefined;
@@ -421,24 +422,31 @@ export class RunChatSession implements ChatSessionLike {
     return operation;
   }
 
-  async stop(): Promise<void> {
-    this.#assertUsable(this.id);
-    return this.#track(() => this.#stop(), false);
-  }
-
-  async #stop(): Promise<void> {
+  abortStart(): void {
+    for (const controller of this.#messagePreparations) controller.abort(new DomainError("run-input-aborted", "The message was cancelled by the operator.", 409));
+    this.#startingPreparation?.cancel(new DomainError("run-start-aborted", "The start was cancelled by the operator.", 409));
     if (this.#startCancellation && !this.#startCancellation.signal.aborted) {
       const message = "The start was cancelled by the operator.";
       this.#startCancellation.abort(new DomainError("run-start-aborted", message, 409));
       if (this.#startup?.status === "preparing") this.#setStartup({ status: "failed", message });
     }
     for (const controller of this.#scriptStarts) controller.abort(new DomainError("run-start-aborted", "The start was cancelled by the operator.", 409));
+  }
+
+  async stop(): Promise<void> {
+    this.#assertUsable(this.id);
+    return this.#track(() => this.#stop(), false);
+  }
+
+  async #stop(): Promise<void> {
     try {
       if (this.#engine.journal.hasRun(this.id)) {
         await this.#engine.stopRun(this.id, {
-          commandId: `chat-stop:${randomUUID()}`,
-          reason: "Emergency stop by the operator",
+          commandId: `run-stop:${randomUUID()}`,
+          reason: "Stopped by the operator",
         });
+      } else {
+        this.abortStart();
       }
     } finally {
       this.#liveTurns.clear();
@@ -495,6 +503,7 @@ export class RunChatSession implements ChatSessionLike {
     this.#startCancellation?.abort(new Error("The run was deleted"));
     this.#startCancellation = undefined;
     for (const controller of this.#scriptStarts) controller.abort(new Error("The run was deleted"));
+    for (const controller of this.#messagePreparations) controller.abort(new Error("The run was deleted"));
     this.#startup = undefined;
     this.#unsubscribeJournal?.();
     this.#unsubscribeLive?.();
@@ -518,6 +527,17 @@ export class RunChatSession implements ChatSessionLike {
   }
 
   async #send(text: string, supplied?: ChatAttachmentInput[], target?: string, userLocation?: unknown, user?: ChatUser, entryId?: string, signal?: AbortSignal): Promise<void> {
+    const cancellation = new AbortController();
+    const combined = signal ? AbortSignal.any([signal, cancellation.signal]) : cancellation.signal;
+    this.#messagePreparations.add(cancellation);
+    try {
+      await this.#deliver(text, supplied, target, userLocation, user, entryId, combined);
+    } finally {
+      this.#messagePreparations.delete(cancellation);
+    }
+  }
+
+  async #deliver(text: string, supplied?: ChatAttachmentInput[], target?: string, userLocation?: unknown, user?: ChatUser, entryId?: string, signal?: AbortSignal): Promise<void> {
     signal?.throwIfAborted();
     if (userLocation !== undefined && !this.#inputContext) throw new DomainError("chat-context-unavailable", "This run does not accept UI context.", 400);
     const choice = entryId === undefined ? freeChoice(userIdOf(user)) : this.#startChoice(this.#skillEntry(entryId), userIdOf(user));

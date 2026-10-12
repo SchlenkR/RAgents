@@ -25,6 +25,7 @@ export const sharedPreparation = <T>(work: (signal: AbortSignal) => Promise<T>) 
   return {
     promise,
     signal: controller.signal,
+    cancel: (reason: unknown) => controller.abort(reason),
     async wait(signal?: AbortSignal): Promise<T> {
       signal?.throwIfAborted();
       const waiter = Symbol();

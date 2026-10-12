@@ -9,8 +9,8 @@ import { setupRun } from "../../../packages/ragents/tests/support.ts";
 import { runtimeFor, writeAppFiles } from "./actor-runtime-fixture.ts";
 
 test("native project checks use exact capability types and file tests use explicit mocks", async (t) => {
-  const setup = setupRun();
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-mini-app-contracts-"));
+  const setup = setupRun({ runId: path.basename(directory).toLowerCase() });
   const operations = new OperationContributionRegistry();
   let calls = 0;
   operations.register("demo", [{ id: "demo_echo", label: "Echo", description: "Repeat text", schema: Type.Object({ text: Type.String() }),

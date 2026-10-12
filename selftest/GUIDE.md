@@ -25,7 +25,7 @@ roughly 1 million subagent tokens plus a few cents of DeepSeek via OpenRouter.
    session ID via uuidgen, calls as JSON-RPC to `POST /rpc` (`{"jsonrpc":"2.0","id":1,
    "method":"ragents.chat.send","params":{"runId":"<id>","text":...}}`), observation via
    `${DATA_DIR}/runs/<id>/journal.jsonl` and `ragents.runs.view`. Limits: 10 minutes per
-   variant; after 4 minutes of event silence, `ragents.chat.stop` and count it as aborted. An
+   variant; after 4 minutes of event silence, `ragents.runs.stop` and count it as aborted. An
    open question (`action.proposed` with status pending in the RunView) is NOT silence:
    the agent answers it via `ragents.ask.answer` with `{"runId", "actionId", "answers"}`,
    one `{"selected": [<label>]}` or `{"text": <free answer>}` per question in their order,

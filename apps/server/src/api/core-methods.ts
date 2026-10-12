@@ -155,11 +155,6 @@ export const coreMethods = (sources: CoreMethodSources): MethodContribution[] =>
       if (!current.startAndWait) throw new DomainError("script-start-unavailable", "This run cannot start run scripts.", 404);
       return current.startAndWait(trimmed, input === undefined ? null : input, userOf(access), undefined, signal);
     }),
-    implement(coreContracts.chat.stop, async ({ runId }, { access }) => {
-      const current = await session(access, runId, "stop");
-      await current.stop();
-      return null;
-    }),
     implement(coreContracts.chat.capabilities, async ({ runId, actor }, { access }) => {
       const current = await session(access, runId, "read");
       if (!current.capabilities) throw new DomainError("capabilities-unavailable", "Model capabilities are not available", 404);
