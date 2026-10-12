@@ -1,5 +1,17 @@
 # Decisions
 
+## 2026-10-12: Virtual grid measurements do not force nested Start updates
+
+Chapter: `spec/plugins.md` (DataGrid, Start).
+
+Hiding or resizing a virtual grid on Start could measure many rows in one ResizeObserver batch.
+Forcing a synchronous React render for each row reached the nested update limit. Both DataGrid
+virtualizers now let React batch updates (`useFlushSync: false`). Packing also writes grown width
+labels only when they change, and the empty-content observer watches only widget bodies' direct
+children, avoiding redundant updates. Growth and stored minimum widths remain unchanged.
+Browser expectations now account for New filling the sixth column, Planner already reaching its
+maximum after adding, and resizing New back from six shown columns rather than four configured ones.
+
 ## 2026-10-12: Templates can be unlisted without losing ID starts
 
 Chapter: `spec/plugins.md` (PluginHost registrations, start tiles); usage: `usage.md` (Create your first run).

@@ -134,6 +134,7 @@ function GridLayout<T>({ stored, onRetry, columns, rows, rowKey, grouping, ...pr
   const stickyOffset = props.height === undefined ? props.stickyOffset ?? 0 : 0;
   const virtualOptions = {
     count: visible.length, getItemKey, estimateSize: () => 42, overscan: 8,
+    useFlushSync: false,
     scrollMargin: geometry.margin, scrollPaddingStart: stickyOffset + geometry.header,
     initialRect: { width: 0, height: 900 },
   };
