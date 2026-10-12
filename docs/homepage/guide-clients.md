@@ -370,7 +370,9 @@ The gear opens connection and profile management for all configured environments
 
 Start uses the full available width with wider side padding at desktop widths. Runs in both hosts and Server in
 VS Code share a centered content area up to 1280 pixels wide. The Runs search field and rows
-stay within this area, including on ultrawide displays. The outer header remains full width.
+stay within this area, including on ultrawide displays. All panel pages leave 8 spacing units (`pb-8`,
+the block step, about 2.7 times the former space) below their last content, including narrow
+Start tabs; this space scales with zoom. The outer header remains full width.
 All three pages begin their content at the same distance below the header, with more space at
 desktop widths, and on Start every
 widget stands well apart from

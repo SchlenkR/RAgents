@@ -1,5 +1,13 @@
 # Decisions
 
+## 2026-10-12: Panel pages leave more room at the scroll end
+
+Chapter: `spec/plugins.md` (Shared page width); usage: `usage.md` (Shared panel pages).
+
+The last widget sat too close to the scroll end. `PanelPage` now uses `pb-8`, the existing
+scale's largest block step, in both hosts and at narrow widths, following their zoom. This is
+about 2.7 times the previous `pb-3` space. The spacing scale and its guard remain unchanged.
+
 ## 2026-10-12: Mini-app frames provide semantic defaults and compact fact rows
 
 Chapters: `spec/actor-programs.md` (Reusable UI building blocks), `spec/plugins.md` (UI library);

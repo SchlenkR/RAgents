@@ -359,6 +359,39 @@ test("without runs.inspect the chat shows no model choice, neither in the browse
 });
 
 
+for (const host of ["browser", "vscode"] as const) {
+  for (const width of [380, 1600]) {
+    test(`panel pages retain their bottom clearance at ${width}px in ${host}`, browserOnly, async () => {
+      await withPage(`view=${host === "browser" ? "web" : "panel"}&host=${host}`, width, async (page) => {
+        await page.setViewportSize({ width, height: 200 });
+        await openStart(page);
+        const checkBottom = async () => {
+          const metrics = await page.locator("main[data-page]").evaluate((main) => {
+            main.scrollTop = main.scrollHeight;
+            return {
+              padding: parseFloat(getComputedStyle(main).paddingBottom),
+              expected: 8 * parseFloat(getComputedStyle(main).getPropertyValue("--spacing")) * parseFloat(getComputedStyle(document.documentElement).fontSize),
+              gap: main.getBoundingClientRect().bottom - main.firstElementChild!.getBoundingClientRect().bottom,
+              scrollable: main.scrollHeight > main.clientHeight,
+              overflow: main.scrollWidth > main.clientWidth,
+            };
+          });
+          assert.ok(Math.abs(metrics.padding - metrics.expected) < 0.01, JSON.stringify(metrics));
+          assert.equal(metrics.scrollable, true, "the check reaches the actual scroll end");
+          assert.ok(Math.abs(metrics.gap - metrics.expected) < 1, JSON.stringify(metrics));
+          assert.equal(metrics.overflow, false);
+        };
+        assert.equal(await page.locator('[data-dashboard="tabs"]').count(), width < 700 ? 1 : 0);
+        await checkBottom();
+        await recentRuns(page);
+        await page.getByRole("button", { name: /All .* runs/ }).click();
+        await page.getByRole("searchbox", { name: "Search runs" }).waitFor();
+        await checkBottom();
+      });
+    });
+  }
+}
+
 for (const view of ["web", "start"] as const) {
   for (const width of [220, 380, 900, 1600, 2600, 6000]) {
     test(`panel content stays bounded at ${width}px (${view})`, browserOnly, async (context) => {

@@ -154,6 +154,9 @@ test("panel text and spacing follow ragents.zoom alone, not VS Code's font setti
         const title = (await hosted.getByText("Night bus round").boundingBox())!.height;
         const body = await hosted.locator("body").evaluate((element) => getComputedStyle(element).fontSize);
         const overflow = await hosted.locator("main").evaluate((element) => element.scrollWidth - element.clientWidth);
+        const bottom = await hosted.locator("main").evaluate((element) => ({ padding:parseFloat(getComputedStyle(element).paddingBottom),
+          expected:8 * parseFloat(getComputedStyle(element).getPropertyValue("--spacing")) * parseFloat(getComputedStyle(document.documentElement).fontSize) }));
+        assert.ok(Math.abs(bottom.padding - bottom.expected) < 0.01, JSON.stringify(bottom));
         await post({ type: "ragents.panel.state", state: { ...filled, page: "runs" } });
         await hosted.getByRole("button", { name: "Back to Start" }).waitFor();
         const runs = await firstBlock();

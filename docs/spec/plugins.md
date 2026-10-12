@@ -3449,7 +3449,11 @@ work".
 **Shared page width.** `PanelPage` owns the content column with side padding. The Start dashboard
 uses the full available width in both hosts, with wider side padding at desktop widths. Runs
 in both hosts and Server in VS Code use a centered column of at most 1280 pixels. All panel
-pages have more top padding at desktop widths. The browser
+pages have more top padding at desktop widths. The page scroller ends with 8 spacing units (`pb-8`,
+the block step, about 2.7 times the former `pb-3` space)
+below the content in both hosts and at every width, including Start's
+tabs mode. This clearance follows the host's spacing unit and zoom.
+The browser
 page host adds no second padding; the outer header remains full width. The Runs search field
 and run rows use the same bounded column. The page scroller (`main[data-page]`) is the containing
 block of its content, so visually hidden labels further down cannot extend the document and moving

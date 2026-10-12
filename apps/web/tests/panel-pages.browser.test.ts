@@ -336,7 +336,8 @@ for (const width of [380, 900, 1600, 2600]) {
       const metrics = await page.locator("main ul").first().evaluate((list) => {
         const rect = list.getBoundingClientRect();
         const main = document.querySelector("main")!;
-        return {width:rect.width, left:rect.left, hostWidth:main.clientWidth,
+        return {width:rect.width, left:rect.left, hostWidth:main.clientWidth, bottomPadding:parseFloat(getComputedStyle(main).paddingBottom),
+          expectedPadding:8 * parseFloat(getComputedStyle(main).getPropertyValue("--spacing")) * parseFloat(getComputedStyle(document.documentElement).fontSize),
           overflow:main.scrollWidth > main.clientWidth || document.documentElement.scrollWidth > innerWidth};
       });
       await mkdir(shots, {recursive:true});
@@ -344,6 +345,7 @@ for (const width of [380, 900, 1600, 2600]) {
       assert.ok(metrics.width > 0 && metrics.width <= 1280);
       assert.ok(Math.abs(metrics.left - (metrics.hostWidth - metrics.width) / 2) < 2);
       assert.equal(metrics.overflow, false);
+      assert.ok(Math.abs(metrics.bottomPadding - metrics.expectedPadding) < 0.01, JSON.stringify(metrics));
     } finally { await browser.close(); }
   });
 }
