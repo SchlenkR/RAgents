@@ -1064,12 +1064,18 @@ While it names another actor than the run's first chat partner, usually the coor
 next to the name ("Back to @coordinator") returns to that actor at once without opening anything.
 Clicking the chip opens a graph of who created whom drawn from top to bottom, like the
 agent view of a coding assistant: the coordinator at the top, one level below and connected by
-lines the executable actors it started, below those their own subagents. Each card shows a
-state ring beside `@handle`, followed by up to three lines of its task in the same card size.
+lines the executable actors it started, below those their own subagents. An agent card shows a
+state ring beside `@handle`, followed by up to three lines of its task.
+TypeScript actors appear as program boxes with square corners, a dashed border, and a thin
+code-icon band. They show their display name, active program name, and function and view counts
+from the program definition, never input JSON or repeated messages. Without definition metadata,
+the card says "Program definition unavailable". The state icon and name are vertically centered
+in both kinds.
 The ring spins while the actor works and also shows idle, waiting for your input, paused,
-stopped, or failed work; its tooltip and accessible label name the state. The task is the
+stopped, or failed work; its tooltip and accessible label name the state. An agent's task is the
 description given when the actor was created, otherwise its full first assignment, otherwise
-its display name. Hover over it to read the full text. Lines into working actors are highlighted.
+its display name. Hover over the task or program facts to read the full text. Lines into working
+actors are highlighted.
 The same cards appear in the Agents window, this chooser, and VS Code. Four or more similar siblings, such as 37 rule reviewers named
 `review-...`, appear as one stacked group card with their shared handle prefix, their number,
 and a count per state; click it to show the members in a frame below it, click again to hide

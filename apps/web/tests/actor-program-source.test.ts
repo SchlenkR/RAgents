@@ -11,6 +11,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { actorProgramSourceFrom, type ActorProgramsApi } from "../../../plugins/ragents.actor-programs/web/api.ts";
 import { actorProgramSourceView } from "../../../plugins/ragents.actor-programs/web/ProgramSource";
+import { actorProgramSummary } from "../../../plugins/ragents.actor-programs/web/program-state";
 import { ProgramSlotContext, type ProgramSlot } from "../../../plugins/ragents.orchestration/web/program-slot";
 import { ACTOR_PROGRAMS_STATE_ID } from "../../../apps/server/src/plugin-support/actor-programs/contract";
 import { FlowInspector } from "../../../plugins/ragents.orchestration/web/FlowInspector";
@@ -48,7 +49,7 @@ const view = {
 const props = { view, selection: { type: "actor" as const, id: actor.id }, canGoBack: false, composerVisible: false,
   onNavigate: () => {}, onBack: () => {}, primaryMessages: [], primaryRunning: false };
 const api = { source: () => assert.fail("Source is loaded only after opening its tab") } as unknown as ActorProgramsApi;
-const slot: ProgramSlot = { runId: view.id, source: (current, actorId) => actorProgramSourceView(api, current, actorId) };
+const slot: ProgramSlot = { runId: view.id, source: (current, actorId) => actorProgramSourceView(api, current, actorId), summary: actorProgramSummary };
 const withProgram = (children: ReactNode) => createElement(ProgramSlotContext.Provider, { value: slot }, children);
 
 test("headless TypeScript actors expose their installed source without views, tools or actor.source", () => {

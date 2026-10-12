@@ -103,11 +103,19 @@ test("the full description comes from the spawn, else the first assignment, else
   const summary = addresseeSummaries(view);
   const byId = (id: string) => view.actors.find((entry) => entry.id === id)!;
   assert.equal(summary(byId("reviewer-5")), "checks rule 5");
-  assert.equal(summary(byId("formatter")), "formats changed files");
+  assert.equal(summary(byId("formatter")), undefined);
   assert.equal(summary(byId("implementer")), "Rebuild the   addressee list as a tree.\nDetails follow.");
   assert.equal(summary(byId("test-a")), `Write tests for ${"very ".repeat(30)}many cases`);
   assert.equal(summary(byId("test-b")), undefined, "background inputs and equal display names give no description");
   assert.equal(summary(byId("coordinator")), "Run coordinator");
+});
+
+test("TypeScript actors never use descriptions or messages as chat summaries", () => {
+  const script = actor("program", "script", "coordinator", { displayName: "Program", description: "An echoed message" });
+  const inputs = [input(script.id, 1, '{"input":null,"options":{"ragents.workspace.binding":{"kind":"server"}}}'),
+    input(script.id, 2, "Please echo this message")];
+  assert.equal(addresseeSummaries({ ...view, actors: [...view.actors, script], inputs })(script), undefined);
+  assert.equal(addresseeSummaries({ ...view, inputs })({ ...script, description: null }), undefined);
 });
 
 test("states read as working, waiting for input, waiting or stopped and add up per group", () => {

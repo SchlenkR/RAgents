@@ -1,5 +1,16 @@
 # Decisions
 
+## 2026-10-12: TypeScript actor cards show their program
+
+Chapter: `spec/plugins.md` (Run panel); usage: `usage.md` (Run panel and VS Code extension).
+
+TypeScript actors looked like chat agents and exposed their input JSON as a task. The shared
+graph card now distinguishes programs with square corners, a dashed frame, and a code-icon band
+in the script tone. It shows the actor's display name, active program name, and definition
+function/view counts from the existing program slot; missing definitions are explicit. Agent
+cards keep their task summaries. State icons and names align in both kinds, and the Agents view
+and addressee chooser retain selection, dragging, keyboard focus, tooltips, and accessible names.
+
 ## 2026-10-12: Templates can be unlisted without losing ID starts
 
 Chapter: `spec/plugins.md` (PluginHost registrations, start tiles); usage: `usage.md` (Create your first run).

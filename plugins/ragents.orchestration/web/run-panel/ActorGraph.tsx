@@ -1,8 +1,9 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { ChevronDownIcon, CodeIcon, UsersIcon } from "lucide-react";
+import { ChevronDownIcon, CodeIcon, CodeXmlIcon, UsersIcon } from "lucide-react";
 import { Badge, cn, InteractiveItem, RobotHeadIcon, RunStateIcon, Spinner, SvgEdge, type SvgEdgeProps } from "@ragents/web/ui";
 import { actorAddress, actorTone, type RunActor, type RunView } from "@ragents/web/run-view";
 import { useDockPanelDrag } from "@ragents/web/run-panel/DockWorkspace";
+import { useProgramSlot } from "../program-slot";
 import { pendingInputCount } from "./run-panel-actors";
 import { addresseeNodeContains, addresseeStatusCounts, addresseeSummaries, addresseeTree, type AddresseeGroupNode, type AddresseeStatus } from "./addressee-tree";
 import { actorGraphLayout, clampGraphPan, GRAPH_CARD_HEIGHT, GRAPH_CARD_WIDTH, graphActorState, graphColumns, graphNodeStatus, graphPannable, graphPanTo, graphViewport, type GraphSize } from "./actor-graph";
@@ -195,19 +196,31 @@ function ActorCard({ actor, current, onDragStart, onPick, summary, view }: {
   view: RunView;
 }) {
   const drag = useDockPanelDrag();
+  const programs = useProgramSlot();
+  const script = actor.kind === "script";
+  const program = script && programs?.runId === view.id ? programs.summary(view, actor.id) : undefined;
+  const facts = program ? `${program.functionCount} function${program.functionCount === 1 ? "" : "s"}, ${program.viewCount} view${program.viewCount === 1 ? "" : "s"}` : "Program definition unavailable";
   const state = graphActorState(view, actor);
   const label = actor.lifecycle?.kind === "stopped" ? "stopped" : state === "waiting" ? "waiting for input" : state;
-  return <InteractiveItem aria-current={current || undefined} className={cn(cardClass, "p-2", drag && "touch-none cursor-grab active:cursor-grabbing")} data-actor-handle={actorAddress(actor)}
+  return <InteractiveItem aria-current={current || undefined} aria-label={script ? `${label} @${actorAddress(actor)} ${actor.displayName} ${program?.name ?? ""} ${facts}` : undefined}
+    className={cn(cardClass, "p-2", script && "relative gap-0.5 rounded-none border-dashed border-border-strong pt-6", drag && "touch-none cursor-grab active:cursor-grabbing")}
+    data-actor-handle={actorAddress(actor)} data-actor-kind={actor.kind}
     onClick={(event) => { if (!drag || event.detail === 0) onPick(actor); }}
     onPointerDown={drag && ((event) => { event.stopPropagation(); drag(event, `actor:${actor.id}`, () => onPick(actor), onDragStart); })}
     title={`Address messages to @${actorAddress(actor)}`} type="button">
+    {script && <span aria-hidden className="absolute inset-x-0 top-0 flex h-5 items-center gap-1 border-b border-border-strong/50 bg-glass-script px-2 text-[0.58rem] font-medium text-foreground" data-actor-program-band>
+      <CodeXmlIcon className="size-3 flex-none" />TypeScript
+    </span>}
     <span className="flex min-w-0 items-center gap-2">
-      <span aria-label={label} data-actor-state={state} role="img" title={label}>
-        <span aria-hidden><RunStateIcon className="pointer-events-none" state={state} /></span>
+      <span aria-label={label} className="flex flex-none items-center" data-actor-state={state} role="img" title={label}>
+        <span aria-hidden className="flex"><RunStateIcon className="pointer-events-none" state={state} /></span>
       </span>
-      <span className="min-w-0 flex-1 truncate font-semibold">@{actorAddress(actor)}</span>
+      <span className="min-w-0 flex-1 truncate font-semibold" data-actor-name title={script ? actor.displayName : undefined}>{script ? actor.displayName : `@${actorAddress(actor)}`}</span>
     </span>
-    {summary && <span className="line-clamp-3 min-w-0 text-[0.66rem] wrap-anywhere whitespace-pre-line text-muted-foreground" data-actor-description title={summary}>{summary}</span>}
+    {script ? <>
+      {program && <span className="min-w-0 truncate font-mono text-[0.66rem] text-muted-foreground" data-actor-program title={program.name}>{program.name}</span>}
+      <span className="min-w-0 truncate text-[0.66rem] text-muted-foreground" data-actor-description title={facts}>{facts}</span>
+    </> : summary && <span className="line-clamp-3 min-w-0 text-[0.66rem] wrap-anywhere whitespace-pre-line text-muted-foreground" data-actor-description title={summary}>{summary}</span>}
   </InteractiveItem>;
 }
 
