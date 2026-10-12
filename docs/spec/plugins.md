@@ -158,7 +158,7 @@ narrower contract.
 
 The host independently bounds every result before model input, after hooks and on replay
 (`core.md`, Model context and agent runtime). An oversized result becomes an excerpt with a
-notice and a workspace file for reading its full text in parts. This guard covers all blocks of
+notice and a file under `@attachments` for reading its full text in parts. This guard covers all blocks of
 one result and does not replace a function's own pagination or per-line limits.
 
 ## Implementation sequence
@@ -740,7 +740,7 @@ on the server is called the project folder on the server machine, one on a works
 there including that workstation's name; the new folder on the server is the run's private, initially empty folder
 with the path the resolver provided, the new one on a workstation the same
 there, with the contribution's `workstation.description` in its place. If the server has roots with
-an alias (`WorkspaceSandboxHost.serverRoots()`: the registered ones and `@skills`),
+an alias (`WorkspaceSandboxHost.serverRoots()`: the registered ones, `@skills`, and `@attachments`),
 `ragents.workspace` appends a paragraph about them to each of these descriptions, per binding: on the server
 it names the aliases with access, that file tools and language servers take a path with an alias,
 that `bash` runs in it with the path as `cwd`, and which variables `bash` has for that; on a
@@ -770,7 +770,11 @@ Its `actors/` collection is a server root with the alias `@actors`
 (`registerWorkspaceRoot`): file tools and language servers reach it in every binding through
 the alias and run at the server's executor for that, as does a bash with `@actors/...` as `cwd`,
 and only there is `RAGENTS_ACTORS_DIR` available (section Workspace, sandbox tools, and
-processes). The host reserves the alias `@skills` for the skill folders. Authorization and
+processes). The host reserves the alias `@skills` for the skill folders and `@attachments`
+for the run's attachment folder, both read-only. Attachments live under
+`sessions/<runId>/attachments/`, regardless of the working folder's binding. File tools read
+them as `@attachments/<name>`; a bash with `cwd: "@attachments"` runs on the server, including
+for a workstation binding. Authorization and
 resolution of these plugin workspaces happen through the shared workspace contract;
 the model does not need to carry private storage paths over from responses.
 Other plugins consume the workspace services through typed tokens.
@@ -3977,7 +3981,8 @@ This contract is the only seam to the workspace: `WorkspaceRuntime` resolves the
 folder per run, and `SandboxServices.execute(runId, operation, input, options)` is the plugins' only access
 to it. Every root belongs to one machine: the run's root to the machine of its
 binding, the additional roots with an alias (`@actors` of the actor programs, `@documents` of the
-document store, `@skills/<name>` of the skills, section Skills and starting tasks) to the server. An operation runs at the executor of the
+document store, `@skills/<name>` of the skills, section Skills and starting tasks, and
+`@attachments` of the run's stored attachments) to the server. An operation runs at the executor of the
 machine that owns the addressed root; the binding (`executorFor`) determines only the run's root
 and thus where an operation without an alias runs: on the server in the server's executor, on
 a workstation in its executor, regardless of whether in the new or in an existing folder. Which roots
@@ -4120,9 +4125,13 @@ a server folder there would name a different path to the agent than its tools
 use. For the server it is only a name. On the server, for such a run, the
 separate folder for work that runs there is created only when needed (above, the `cwd` of `serverProcessContextFor`). The
 agent runtime needs no folder; its model context is in the journal; only the workspace description
-names a path for the prompt. An attached chat attachment that the
-model is to read with its file tools goes through the operation `files.attach` to the run's executor
-and lies under `attachments/` in the workspace, so for a workstation there.
+names a path for the prompt. A chat attachment that the model is to read with its file tools
+goes through the operation `files.attach` to the server's executor and lies under
+`sessions/<runId>/attachments/`. Its note references `@attachments/<name>`; the same root stores
+full oversized tool results. The host writes into this read-only root through `files.attach`;
+model file tools cannot change it, and restricted server processes receive read-only access.
+Existing `attachments/<name>` references still address files in the working folder; nothing
+rewrites or moves those files.
 Actor programs keep their own folder under the run storage. The resolution never fails
 because of a missing client or folder, because the server resolves all workspaces at startup; only
 the individual tool call reports `workspace-client-disconnected` (409) or
@@ -4281,7 +4290,7 @@ server comes only what is location-independent:
 run marker, `CI`, `GIT_OPTIONAL_LOCKS`, and the sandbox's Git rules. The server's Git credentials and
 toolchain paths do not travel into a foreign bash. An executor sees exclusively
 the folders of its machine: in the server the run's root (for a run on a workstation
-its server folder) plus the server's roots (`@actors`, `@documents`, `@skills/<name>`), in the
+its server folder) plus the server's roots (`@actors`, `@documents`, `@skills/<name>`, `@attachments`), in the
 extension the offered project folder. Aliases exist only on the server, and a call
 always reaches exactly one machine: which one is decided by the root its input addresses,
 not by a comparison of absolute paths. An absolute path therefore applies on the binding's machine;

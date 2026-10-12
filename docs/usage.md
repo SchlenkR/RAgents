@@ -265,8 +265,11 @@ the actor view, and chat controls in actor views.
 A message takes up to eight files with a total of 20 MiB. Images, videos, and native PDFs
 need a suitable model; the input reports missing capabilities and keeps the selection.
 Text files are read as UTF-8. Other files are available to the agent through its file tools:
-they are stored under `attachments/` in the run's workspace, so with a workstation
-on its machine; their further processing depends on these tools. On errors,
+their notes name `@attachments/<name>`. The files stay in the run's storage on the server,
+outside the project's folder, including when the project is on a workstation. The root is
+read-only for file tools; the agent can also inspect it with `bash` and `cwd: "@attachments"`,
+which runs on the server. Earlier `attachments/<name>` references keep addressing the original
+files in the project's folder. On errors,
 the message and files stay in the composer. You can download sent attachments again from the history.
 
 <!-- guide:clients -->
@@ -364,7 +367,7 @@ to this agent's conversation, including context inherited by a fork, and survive
 restart. A restored file excerpt is a historical snapshot. Read the file again for its current
 contents. An incomplete summary leaves the original active context intact.
 
-Oversized tool results carry a truncation notice and a workspace file containing the full text.
+Oversized tool results carry a truncation notice and an `@attachments/<name>` reference to the full text.
 The agent reads that file in parts. This also applies to old results after restart. If context
 recovery cannot finish a summary, the chat reports its short cause, such as an output limit or an
 empty summary; send another message to retry. Compaction reserves room for the next model response,

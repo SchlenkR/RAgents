@@ -157,7 +157,7 @@ narrower contract.
 
 The host independently bounds every result before model input, after hooks and on replay
 (`core.md`, Model context and agent runtime). An oversized result becomes an excerpt with a
-notice and a workspace file for reading its full text in parts. This guard covers all blocks of
+notice and a file under `@attachments` for reading its full text in parts. This guard covers all blocks of
 one result and does not replace a function's own pagination or per-line limits.
 
 ## Implementation sequence

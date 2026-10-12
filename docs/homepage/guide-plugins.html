@@ -876,7 +876,7 @@ Measure result sizes in real runs; a result that regularly exceeds a few kilobyt
 narrower contract.</p>
 <p>The host independently bounds every result before model input, after hooks and on replay
 (<code>core.md</code>, Model context and agent runtime). An oversized result becomes an excerpt with a
-notice and a workspace file for reading its full text in parts. This guard covers all blocks of
+notice and a file under <code>@attachments</code> for reading its full text in parts. This guard covers all blocks of
 one result and does not replace a function&#39;s own pagination or per-line limits.</p>
 <h2 id="implementation-sequence">Implementation sequence</h2>
 <ol>

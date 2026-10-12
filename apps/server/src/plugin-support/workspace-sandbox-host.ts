@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, realpath } from "node:fs/promises";
+import { chmod, lstat, mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import { Value } from "typebox/value";
 import type { ImageContent, TextContent } from "@ragents/ai";
@@ -53,6 +53,7 @@ import { SKILLS_ALIAS, skillRootAlias } from "./skills.js";
 import { alwaysAvailable } from "./tool-availability.js";
 import { syncWorkspaceOwnership } from "./workspace-ownership.js";
 import { withoutPrivateEnvironment } from "@ragents/workspace-executor/src/safe-environment.ts";
+import { ATTACHMENT_ALIAS, ATTACHMENT_DIRECTORY } from "@ragents/workspace-executor/src/files.ts";
 
 export interface RegisteredWorkspaceRoot {
   id: string;
@@ -261,7 +262,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
     if (!root.id.trim() || this.#workspaceRoots.some((entry) => entry.id === root.id)) {
       throw new Error(`Working directory ${root.id} is empty or already registered`);
     }
-    if (root.alias && (!/^@[a-z][a-z0-9-]*$/.test(root.alias) || root.alias === SKILLS_ALIAS
+    if (root.alias && (!/^@[a-z][a-z0-9-]*$/.test(root.alias) || root.alias === SKILLS_ALIAS || root.alias === ATTACHMENT_ALIAS
       || this.#workspaceRoots.some((entry) => entry.alias === root.alias))) {
       throw new Error(`Working directory alias ${root.alias} is invalid, reserved for the host or already registered`);
     }
@@ -319,7 +320,8 @@ export class WorkspaceSandboxHost implements SandboxServices {
       alias, writable: true, ...(environmentVariable === undefined ? {} : { environmentVariable }),
     }]);
     const skills = (await this.#options.skillPaths()).length > 0 ? [{ alias: SKILLS_ALIAS, writable: false }] : [];
-    return [...registered, ...skills];
+    const attachments = this.#options.storageRootFor ? [{ alias: ATTACHMENT_ALIAS, writable: false }] : [];
+    return [...registered, ...skills, ...attachments];
   }
 
   /** For a run with its own executor a folder of the run on the server, otherwise the same context as for its tools. */
@@ -365,7 +367,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
   /** The context of this server's executor; without its own folder the workspace itself, which must then lie on the server. */
   async #contextFor(runId: string, serverDirectory?: string, suppliedWorkspace?: SessionWorkspace): Promise<WorkspaceProcessContext> {
     const workspace = suppliedWorkspace ?? await this.#options.workspaceFor(runId);
-    const { ident, home: suppliedHome, readOnlyRoots, temporary } = suppliedWorkspace
+    const { ident, home: suppliedHome, readOnlyRoots: stableReadOnlyRoots, temporary } = suppliedWorkspace
       ? await this.#resolveStableParts(runId, workspace)
       : await this.#stableParts(runId, workspace);
     const root = await resolvedWorkspacePath(serverDirectory ?? await workspace.currentRoot());
@@ -375,6 +377,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
       ...(suppliedHome.nugetPackages ? { nugetPackages: await resolvedWorkspacePath(suppliedHome.nugetPackages) } : {}),
     };
     const additionalRoots = suppliedWorkspace ? [] : await this.#additionalRoots(runId, ident);
+    const readOnlyRoots = [...stableReadOnlyRoots, ...await this.#attachmentRoots(runId)];
     const folders = workspace.sandboxFolders ?? [];
     const writableFolders = await Promise.all(sandboxFoldersWith(folders, "write").map(resolvedWorkspacePath));
     const readableFolders = await Promise.all(sandboxFoldersWith(folders, "read").map(resolvedWorkspacePath));
@@ -415,6 +418,16 @@ export class WorkspaceSandboxHost implements SandboxServices {
       ...(this.#options.bash === undefined ? {} : { bash: this.#options.bash }),
       ...(this.#options.rg === undefined ? {} : { rg: this.#options.rg }),
     });
+  }
+
+  async #attachmentRoots(runId: string): Promise<ResolvedWorkspaceRoot[]> {
+    const storageRoot = this.#options.storageRootFor?.(runId);
+    if (storageRoot === undefined) return [];
+    const directory = path.join(storageRoot, ATTACHMENT_DIRECTORY);
+    await mkdir(directory, { recursive: true, mode: 0o755 });
+    if (!(await lstat(directory)).isDirectory()) throw new Error("The attachments directory is not a regular directory.");
+    await chmod(directory, 0o755);
+    return [{ directory: await realpath(directory), alias: ATTACHMENT_ALIAS }];
   }
 
   /** A run's temp folder lies in its storage so that it vanishes with the run and no other run sees it. */

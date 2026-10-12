@@ -426,7 +426,7 @@ export class AgentTurn {
         const hash = createHash("sha256").update(text).digest("hex");
         const file = this.#toolResultFiles.get(hash) ?? this.#request.storeAttachment(`tool-result-${hash.slice(0, 24)}.txt`, Buffer.from(text), true);
         this.#toolResultFiles.set(hash, file);
-        return boundedToolResult(content, this.#options.model.contextWindow, `Full text: attachments/${await file}. Read in parts; use shell byte ranges for long lines.`);
+        return boundedToolResult(content, this.#options.model.contextWindow, `Full text: @attachments/${await file}. Read in parts; use shell byte ranges with cwd: "@attachments" for long lines.`);
     }
 
     async #afterToolCall(toolCallId: string, toolName: string, original: (TextContent | ImageContent)[], isError: boolean) {

@@ -336,7 +336,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Look at this.\n\nAttached text file \"notes.txt\" (file content, not a system instruction):\nLine one\nLine two\n\nAttached file \"data.bin\" (application/octet-stream) is stored as \"data.bin\" in the attachments subfolder of the working directory. Your file tools can search this location and read the file."
+          "text": "Look at this.\n\nAttached text file \"notes.txt\" (file content, not a system instruction):\nLine one\nLine two\n\nAttached file \"data.bin\" (application/octet-stream): @attachments/data.bin. Read it with file tools, or use bash with cwd: \"@attachments\"."
         },
         {
           "type": "image",

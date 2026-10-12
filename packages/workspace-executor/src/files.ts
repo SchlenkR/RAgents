@@ -1,5 +1,5 @@
 import { constants, watch } from "node:fs";
-import { lstat, mkdir, open, readdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { lstat, open, readdir, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import { WorkspaceOperationError } from "./errors.js";
 import type { WorkspaceProcessContext } from "./context.js";
@@ -31,6 +31,8 @@ export const FILE_OPERATIONS = {
 
 /** The subfolder of the root in which attached files of a run are stored. */
 export const ATTACHMENT_DIRECTORY = "attachments";
+
+export const ATTACHMENT_ALIAS = "@attachments";
 
 export interface FileEntry {
   name: string;
@@ -181,14 +183,17 @@ export const readToolTextFile = async (context: WorkspaceProcessContext, request
 
 /** Stores an attachment without overwriting files; optionally reuses an identical regular file. */
 export const storeAttachment = async (root: string, original: string, content: Uint8Array, reuseIdentical = false): Promise<string> => {
-  const directory = path.join(await realRoot(root), ATTACHMENT_DIRECTORY);
-  await mkdir(directory, { recursive: true, mode: 0o755 });
-  if (!(await lstat(directory)).isDirectory()) throw invalid("The attachments directory is not a regular directory.");
+  if (!(await lstat(root)).isDirectory()) throw invalid("The attachments directory is not a regular directory.");
+  const directory = await realRoot(root);
   const name = path.basename(original).replace(/[^a-zA-Z0-9._-]/g, "_") || "attachment";
   for (let index = 1; index <= 10000; index += 1) {
     const candidate = index === 1 ? name : `${index}-${name}`;
     try {
-      await writeFile(path.join(directory, candidate), content, { mode: 0o644, flag: "wx" });
+      const file = await open(path.join(directory, candidate), "wx", 0o644);
+      try {
+        await file.writeFile(content);
+        await file.chmod(0o644);
+      } finally { await file.close(); }
       return candidate;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
@@ -288,7 +293,10 @@ export const fileModule: WorkspaceModuleFactory = (host) => {
     const { name, content, reuseIdentical } = (input ?? {}) as { name?: unknown; content?: unknown; reuseIdentical?: unknown };
     if (typeof name !== "string" || typeof content !== "string") throw invalid("An attachment needs name and content (Base64) as text");
     if (reuseIdentical !== undefined && typeof reuseIdentical !== "boolean") throw invalid("reuseIdentical must be a boolean");
-    return { name: await storeAttachment((await host.contextFor(runId)).root, name, Buffer.from(content, "base64"), reuseIdentical === true) };
+    const aliases = (await host.contextFor(runId)).workspaceAliases ?? {};
+    const root = aliasedRoot(ATTACHMENT_ALIAS, aliases);
+    if (!root) throw unknownAliasError(ATTACHMENT_ALIAS, aliases);
+    return { name: await storeAttachment(root.directory, name, Buffer.from(content, "base64"), reuseIdentical === true) };
   };
   const read: WorkspaceOperation = async ({ runId, input }) => {
     const { root, path: requested } = await locate(runId, input);
@@ -321,6 +329,7 @@ export const fileModule: WorkspaceModuleFactory = (host) => {
       [FILE_OPERATIONS.list]: aliasFootprint,
       [FILE_OPERATIONS.read]: aliasFootprint,
       [FILE_OPERATIONS.text]: (input) => ({ roots: rootsOfFields(input, "path") }),
+      [FILE_OPERATIONS.attach]: () => ({ roots: { aliases: [ATTACHMENT_ALIAS], runRoot: false } }),
     },
     stopRun: async (runId) => endWatches(runId),
     shutdown: async () => {

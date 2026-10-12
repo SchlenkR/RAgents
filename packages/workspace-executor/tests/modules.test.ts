@@ -114,6 +114,7 @@ test("the footprint of an input names its roots and its running time, declared b
   const roots = (operation: string, input: unknown) => executor.footprintOf(operation, input).roots;
   assert.deepEqual(roots("read", { file_path: "@actors/app/src/index.ts" }), { aliases: ["@actors"], runRoot: false });
   assert.deepEqual(roots("write", { file_path: "src/index.ts", content: "" }), { aliases: [], runRoot: true });
+  assert.deepEqual(roots(FILE_OPERATIONS.attach, { name: "data.bin", content: "" }), { aliases: ["@attachments"], runRoot: false });
   assert.deepEqual(roots("edit", { file_path: "/abs/src/index.ts" }), { aliases: [], runRoot: true });
   assert.deepEqual(roots("bash", { command: "ls" }), { aliases: [], runRoot: false });
   assert.deepEqual(executor.footprintOf("bash", { command: "ls", cwd: "@skills/notes", timeout: 30_000 }), { roots: { aliases: ["@skills"], runRoot: false }, durationMs: 30_000 });
@@ -264,10 +265,12 @@ test("files: text comes back, a binary or too large file names the reason, an al
   }
 });
 
-test("files: an attachment is stored under a free name in attachments, never over an existing file or behind a symlink", async () => {
+test("files: an attachment is stored under a free name in its root, never over an existing file or behind a symlink", async () => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-attach-")));
   const outside = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-attach-outside-")));
-  const executor = new WorkspaceOperationExecutor({ contextFor: contextIn(directory), modules: [fileModule] });
+  const attachments = path.join(directory, "storage", "attachments");
+  await mkdir(attachments, { recursive: true });
+  const executor = new WorkspaceOperationExecutor({ contextFor: contextIn(directory, { "@attachments": attachments }), modules: [fileModule] });
   const attach = (name: string, content: Buffer, reuseIdentical = false) =>
     executor.execute("run-1", FILE_OPERATIONS.attach, { name, content: content.toString("base64"), reuseIdentical }) as Promise<{ name: string }>;
   try {
@@ -276,17 +279,20 @@ test("files: an attachment is stored under a free name in attachments, never ove
     assert.deepEqual(await attach("data.bin", content), { name: "2-data.bin" });
     assert.deepEqual(await attach("data.bin", content, true), { name: "data.bin" });
     assert.deepEqual(await attach("data.bin", Buffer.from("changed"), true), { name: "3-data.bin" });
-    assert.deepEqual(await readFile(path.join(directory, "attachments", "data.bin")), content);
+    assert.deepEqual(await readFile(path.join(attachments, "data.bin")), content);
     await writeFile(path.join(outside, "linked.bin"), content);
-    await symlink(path.join(outside, "linked.bin"), path.join(directory, "attachments", "linked.bin"));
+    await symlink(path.join(outside, "linked.bin"), path.join(attachments, "linked.bin"));
     assert.deepEqual(await attach("linked.bin", content, true), { name: "2-linked.bin" });
     await rm(path.join(outside, "linked.bin"));
     assert.deepEqual(await attach("../Report (final).zip", content), { name: "Report__final_.zip" });
-    assert.deepEqual(await readFile(path.join(directory, "attachments", "2-data.bin")), content);
+    assert.deepEqual(await readFile(path.join(attachments, "2-data.bin")), content);
     await assert.rejects(executor.execute("run-1", FILE_OPERATIONS.attach, { name: "x.bin" }), coded("workspace-path-invalid", /name and content/));
     await assert.rejects(executor.execute("run-1", FILE_OPERATIONS.attach, { name: "x.bin", content: "", reuseIdentical: "yes" }), coded("workspace-path-invalid", /reuseIdentical must be a boolean/));
-    await rm(path.join(directory, "attachments"), { recursive: true });
-    await symlink(outside, path.join(directory, "attachments"));
+    const missingRoot = new WorkspaceOperationExecutor({ contextFor: contextIn(directory), modules: [fileModule] });
+    await assert.rejects(missingRoot.execute("run-1", FILE_OPERATIONS.attach, { name: "x.bin", content: "" }), coded("workspace-alias-unknown", /@attachments/));
+    await missingRoot.shutdown();
+    await rm(attachments, { recursive: true });
+    await symlink(outside, attachments);
     await assert.rejects(attach("data.bin", content), coded("workspace-path-invalid", /not a regular directory/));
     assert.deepEqual(await readdir(outside), []);
   } finally {

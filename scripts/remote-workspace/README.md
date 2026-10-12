@@ -44,9 +44,9 @@ With `--vscode` a separate VS Code window opens.
   `write` writes there and nowhere on the server; `typescript_eval` works in a folder in the
   server's data folder; the system prompt names Linux and the workspace's folder, but no
   raw line `Current working directory` and not the folder in which the agent runtime works on the
-  server; the workspace logs the calls; a binary chat attachment is under
-  `attachments/` in the container, where `bash` reads it, and neither in the data folder nor in the
-  server's copy.
+  server; the workspace logs the calls; a binary chat attachment stays in the run's server
+  storage and `bash` reads it with `cwd: "@attachments"`, without writing into the container's
+  project or the server's copy.
 - Server roots: another run of `alice` on the folder in the container creates an
   actor program with `actor_program_create`, reads the template's `package.json`, writes and edits it
   under `@actors/...` and activates it; its domain test passes only after editing, and the activated function returns

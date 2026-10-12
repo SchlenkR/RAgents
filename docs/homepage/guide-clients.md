@@ -42,7 +42,7 @@ to this agent's conversation, including context inherited by a fork, and survive
 restart. A restored file excerpt is a historical snapshot. Read the file again for its current
 contents. An incomplete summary leaves the original active context intact.
 
-Oversized tool results carry a truncation notice and a workspace file containing the full text.
+Oversized tool results carry a truncation notice and an `@attachments/<name>` reference to the full text.
 The agent reads that file in parts. This also applies to old results after restart. If context
 recovery cannot finish a summary, the chat reports its short cause, such as an output limit or an
 empty summary; send another message to retry. Compaction reserves room for the next model response,

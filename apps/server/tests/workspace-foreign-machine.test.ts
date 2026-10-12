@@ -469,7 +469,7 @@ test("file tools with @actors run on the server in a workstation run, without an
   assert.match(textOf(await execute("read", { file_path: "README.md" })), /From the workstation/);
   assert.deepEqual(workstation.operations, ["read"]);
   await assert.rejects(execute("read", { file_path: "@apps/list.ts" }), (error: unknown) =>
-    error instanceof DomainError && error.code === "workspace-alias-unknown" && /@apps \(known: @actors\)/.test(error.message));
+    error instanceof DomainError && error.code === "workspace-alias-unknown" && /@apps \(known: @actors, @attachments\)/.test(error.message));
 });
 
 test("a bash without an alias runs on the workstation, with @actors as cwd on the server, and only there is RAGENTS_ACTORS_DIR set", async (t) => {
@@ -537,6 +537,29 @@ test("skills are readable under @skills in a workstation run, including the file
   assert.deepEqual(workstation.operations, []);
 });
 
+test("a workstation run stores and reads attachments through the server root while old paths stay on the workstation", async (t) => {
+  const server = await serverFixture(t);
+  const { offered, project } = await workstationProject(server);
+  const workstation = await foreignWorkstation(t, server.url, "notebook-attachments", "Notebook", { [offered]: project }, [sandboxToolsModule, fileModule]);
+  const runId = "attachments";
+  server.bindings.set(runId, { machine: { client: "notebook-attachments", label: "Notebook" }, folder: { path: offered } });
+  const execute = (operation: string, input: unknown) => server.runtime.sandbox.execute(runId, operation, input);
+  const content = "Attachment on the server\n";
+  assert.deepEqual(await execute(FILE_OPERATIONS.attach, { name: "data.bin", content: Buffer.from(content).toString("base64") }), { name: "data.bin" });
+  assert.equal(await readFile(path.join(server.root, "server", "sessions", runId, "attachments", "data.bin"), "utf8"), content);
+  assert.match(textOf(await execute("read", { file_path: "@attachments/data.bin" })), /Attachment on the server/);
+  assert.match(textOf(await execute("bash", { command: "cat data.bin", cwd: "@attachments" })), /Attachment on the server/);
+  const listed = await execute(FILE_OPERATIONS.list, { path: "", alias: "@attachments" }) as FileListing;
+  assert.deepEqual(listed.entries.map((entry) => entry.name), ["data.bin"]);
+  await assert.rejects(execute("write", { file_path: "@attachments/data.bin", content: "no" }), /outside/);
+  await missingOnServer(path.join(project, "attachments"));
+  assert.deepEqual(workstation.operations, []);
+  await mkdir(path.join(project, "attachments"));
+  await writeFile(path.join(project, "attachments", "legacy.txt"), "Legacy on the workstation\n");
+  assert.match(textOf(await execute("read", { file_path: "attachments/legacy.txt" })), /Legacy on the workstation/);
+  assert.deepEqual(workstation.operations, ["read"]);
+});
+
 test("the self-description names the server roots per binding, and in a workstation run their variables only for the bash there", async (t) => {
   const skills = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-foreign-skills-")));
   t.after(() => rm(skills, { recursive: true, force: true }));
@@ -549,7 +572,7 @@ test("the self-description names the server roots per binding, and in a workstat
 
   const remote = (await server.runtime.resolve("foreign", () => undefined)).description ?? "";
   assert.match(remote, /## Roots on the server/);
-  assert.match(remote, /`@actors` \(read and write\), `@documents` \(read and write\) and `@skills` \(read only\)/);
+  assert.match(remote, /`@actors` \(read and write\), `@documents` \(read and write\), `@skills` \(read only\) and `@attachments` \(read only\)/);
   assert.match(remote, /with a `cwd` that starts with an alias it runs on the server instead and sees only the server, and only that bash has `\$RAGENTS_ACTORS_DIR` for `@actors` and `\$RAGENTS_DOCUMENTS_DIR` for `@documents`/);
   assert.match(remote, /never combine a path with an alias and a path in the working directory/);
   const local = (await server.runtime.resolve("here", () => undefined)).description ?? "";

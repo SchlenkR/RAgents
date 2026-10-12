@@ -33,11 +33,11 @@ test("driver passes native images, videos and PDFs, includes UTF-8 text and hand
     assert.ok(pdf?.type === "file");
     assert.equal(pdf.filename, "paper.pdf");
     assert.match(prepared.prompt, /Text with diacritics: naïve café/);
-    assert.match(prepared.prompt, /data.bin.*attachments subfolder/);
+    assert.match(prepared.prompt, /@attachments\/data.bin/);
     assert.equal(/[a-f0-9]{64}/.test(prepared.prompt), false);
     assert.deepEqual(stored, [{ name: "data.bin", content }]);
     const again = await prepareInputAttachments({ ...request, attachments: [request.attachments[4]!] }, ["text"]);
-    assert.match(again.prompt, /is stored as "2-data.bin"/);
+    assert.match(again.prompt, /@attachments\/2-data.bin/);
     await assert.rejects(prepareInputAttachments(request, ["text"]), /does not support image/);
     await assert.rejects(prepareInputAttachments({ ...request, tools: [], attachments: [request.attachments[4]!] }, ["text"]), /neither read nor bash/);
     assert.equal(stored.length, 2);

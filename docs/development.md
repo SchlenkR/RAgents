@@ -960,7 +960,7 @@ this machine with `--port 0`, its own data folder under `/tmp`, and a test profi
 `bob`, and `admin`; instead of a language model, a scripted model drives the tools, without cloud and
 without randomness. The runner writes one line per check: `ok`, `FAILED` with the cause, or `--`:
 sign-in and visibility of the workstation, binding, `bash`, `read`, `write`, and a binary
-attachment in the container, `typescript_eval` in the server's folder, system prompt with the platform and folder
+attachment through `@attachments` on the server, `typescript_eval` in the server's folder, system prompt with the platform and folder
 of the workstation, an actor program and a skill through the server's roots (`@actors`,
 `@skills`) including Bash with an alias on the server, the Files tab, process display and termination, permissions of `bob` and `admin`, the
 run stop including cleanup on both machines, disconnecting and re-registering, and a stop while the

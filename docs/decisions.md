@@ -1,5 +1,21 @@
 # Decisions
 
+## 2026-10-13: Store run attachments outside the working folder
+
+Chapters: `spec/core.md` (Model context and agent runtime, Artifacts, attachments, and ownership),
+`spec/plugins.md` (workspace roots, Workspace, sandbox tools, and processes);
+usage: `usage.md` (Run chat, Keep and restore context);
+operations: `operations.md` (Compaction of the model context, Data storage and logs, Isolation per run).
+
+Chat files and full oversized tool results previously created `attachments/` inside the run's
+working folder. A run bound to a project checkout therefore left untracked files that blocked
+clean-tree checks and could enter a later commit. New files live in the run's own server storage,
+under `sessions/<runId>/attachments/`, and notes name the host-reserved read-only root
+`@attachments/<name>`. File tools and Bash with this root as `cwd` route to the server in every
+binding, including a project on a workstation. Text and native media delivery stay unchanged.
+Existing journal references to `attachments/<name>` keep addressing the original workspace
+files; no file moves or journal rewrites are needed.
+
 ## 2026-10-12: One run stop replaces pause and emergency stop
 
 Chapters: `spec/core.md` (Interrupting a turn, stopping an actor, stopping a run, journal),

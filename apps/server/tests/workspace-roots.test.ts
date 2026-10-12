@@ -46,9 +46,9 @@ test("server process contexts and sandbox allowances share canonical workspace, 
   assert.equal(context.env.USERPROFILE, context.home);
   assert.equal(context.env.NUGET_PACKAGES, path.join(target, "home", "new-cache"));
   assert.equal(context.env.RAGENTS_APPS_DIR, path.join(target, "apps"));
-  assert.deepEqual(context.workspaceAliases, { "@apps": path.join(target, "apps") });
+  assert.deepEqual(context.workspaceAliases, { "@apps": path.join(target, "apps"), "@attachments": path.join(target, "attachments") });
   assert.deepEqual(policy?.writable, [context.root, path.join(target, "apps"), context.home, context.env.NUGET_PACKAGES, path.join(target, "extra-write")]);
-  assert.deepEqual(policy?.readable, [target, path.join(target, "read-only")]);
+  assert.deepEqual(policy?.readable, [path.join(target, "attachments"), target, path.join(target, "read-only")]);
   assert.equal(context.env.TMPDIR, path.join(target, "tmp"));
   assert.equal(context.env.TMP, context.env.TMPDIR);
   assert.equal(context.env.TEMP, context.env.TMPDIR);

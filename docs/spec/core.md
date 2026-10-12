@@ -221,7 +221,7 @@ to that conversation. The context is part of the run's journal: every input as t
 it, every completed model step, every tool result as the model saw it, and every compaction are
 recorded there, and the context is read back from those records before each model request. After
 a restart the actor therefore continues with the same bounded projection. Oversized tool results
-become excerpts with a truncation notice and a workspace file for reading the full text in parts.
+become excerpts with a truncation notice and a file under `@attachments` for reading the full text in parts.
 A new actor starts with its
 own context or, when spawned with `forkOf`, with an unchanged copy of the context another LLM actor
 of the same run had at the end of its last finished turn before the spawn. Updating the system
@@ -270,8 +270,10 @@ one byte as a conservative token allowance. The notice counts toward the limit. 
 without a selected model applies the absolute cap; the driver also applies the relative limit.
 Original journal entries stay unchanged, including legacy oversized results, inherited contexts,
 interrupted-call repairs and retained results. The driver stores oversized full text under
-`attachments/tool-result-<content-reference>.txt` in the actual run workspace and names it in the
-excerpt. A failed file write is a hard error. Tool-result attachment writes explicitly reuse
+`attachments/tool-result-<content-reference>.txt` in the run's server storage and names it as
+`@attachments/tool-result-<content-reference>.txt` in the excerpt. The read-only root works with
+file tools and `bash` with `cwd: "@attachments"` in every workspace binding; these operations
+run on the server even when the project's folder is on a workstation. A failed file write is a hard error. Tool-result attachment writes explicitly reuse
 identical regular files without overwriting a changed file or following a link; ordinary
 attachments still receive a free name. Replay uses the same result file and bounded model
 projection without executing the tool.
@@ -1016,9 +1018,12 @@ Chat attachments are stored as binary artifacts and assigned to the ActorInput t
 `artifactIds`. The run journal contains metadata and references, no Base64 file contents. The agent
 driver reads the assigned bytes and passes images, videos, and native PDFs to the model runtime as
 media content. UTF-8 text files extend the input text; the host stores other files through
-`Workspaces.storeAttachment` under `attachments/` in the workspace, on the machine where the file
-tools work (for a workstation there, not on the server); the driver writes nothing into the working
-directory itself. The driver checks the required model and tool capabilities also for delivery
+`Workspaces.storeAttachment` under `sessions/<runId>/attachments/` in the run's server storage.
+The attachment note names `@attachments/<name>`, a host-reserved read-only root reachable by
+file tools and by `bash` with `cwd: "@attachments"` in every binding. New attachments never
+enter the project's working directory, including on a workstation. Existing journal references
+to `attachments/<name>` remain ordinary paths in that working directory; their files stay
+unchanged and are not moved. The driver checks the required model and tool capabilities also for delivery
 outside the chat API. The model context holds the media as the SHA-256 of their bytes under
 `artifacts/` (`model.input.presented`) and reads them anew for every model request; the run
 projection instead delivers download metadata for the chat history.

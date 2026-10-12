@@ -71,7 +71,7 @@ export class SessionWorkspaces implements Workspaces {
   readonly #sandbox: () => Pick<SandboxServices, "execute" | "serverProcessContextFor">;
   readonly #ready: (runId: string, signal: AbortSignal) => Promise<void>;
 
-  /** The access to the runs' workspace; through it, attachments lie where the tools work, and the runtime gets its server folder. */
+  /** The access to the runs' workspace, attachment storage and server execution folder. */
   constructor(sandbox: () => Pick<SandboxServices, "execute" | "serverProcessContextFor">, ready: (runId: string, signal: AbortSignal) => Promise<void> = async () => {}) {
     this.#sandbox = sandbox;
     this.#ready = ready;

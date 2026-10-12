@@ -180,7 +180,7 @@ for (const kind of ["native", "typescript_eval", "plugin", "hook", "error"] as c
             assert.ok(Buffer.byteLength(text) <= toolResultLimit(setup.faux.getModel().contextWindow));
             assert.ok(Buffer.byteLength(text) <= TOOL_RESULT_MAX_BYTES);
             assert.match(text, /Tool result truncated/);
-            const file = /Full text: attachments\/(tool-result-[a-f0-9]+\.txt)/.exec(text)?.[1];
+            const file = /Full text: @attachments\/(tool-result-[a-f0-9]+\.txt)/.exec(text)?.[1];
             assert.ok(file);
             assert.ok(readFileSync(join(attachments, file), "utf8").includes(original));
             const events = harness.runtime.events(harness.runId);

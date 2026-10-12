@@ -499,21 +499,22 @@ const checkFreshFolder = async (env: CheckEnvironment): Promise<void> => {
 
 const ATTACHED_FILE = "data.bin";
 
-/** A binary attachment lands in the workspace's attachments folder, i.e. in the container; the server does not store it itself. */
+/** A binary attachment belongs to the run's server storage and is reached through its alias. */
 const checkAttachment = (env: CheckEnvironment): Promise<true | undefined> =>
-  env.report.check("Tools", "a binary attachment is in the container, where bash reads it, not on the server", async () => {
+  env.report.check("Tools", "a binary attachment is read through @attachments without files in the container's project", async () => {
     const content = Buffer.concat([Buffer.from([0, 255, 0]), Buffer.from(`Attachment ${env.nonce}`)]);
-    const turn = await runScript(env, "Read the attachment.", { id: "attachment", steps: [{ tool: "bash", input: { command: `tail -c +4 attachments/${ATTACHED_FILE}` } }] },
+    const turn = await runScript(env, "Read the attachment.", { id: "attachment", steps: [{ tool: "bash", input: { command: `tail -c +4 ${ATTACHED_FILE}`, cwd: "@attachments" } }] },
       [{ name: ATTACHED_FILE, mediaType: "application/octet-stream", data: content.toString("base64") }]);
     const text = completedText(stepOf(turn, 0, "bash"));
-    expect(text.includes(`Attachment ${env.nonce}`), `bash does not read the attachment from the container: ${text.slice(0, 200)}`);
+    expect(text.includes(`Attachment ${env.nonce}`), `bash does not read the attachment through its root: ${text.slice(0, 200)}`);
     const inside = await containerExec(env.container.name, ["test", "-f", path.join(env.folder, "attachments", ATTACHED_FILE)]);
-    expect(inside.code === 0, `${ATTACHED_FILE} is missing under attachments in the container`);
+    expect(inside.code !== 0, `${ATTACHED_FILE} was written into the container's project`);
     const strays = filesNamed(env.dataDirectory, ATTACHED_FILE);
-    expect(strays.length === 0, `The attachment is also in the server's data folder: ${strays.join(", ")}`);
+    expect(strays.length === 1 && strays[0] === path.join(env.dataDirectory, "sessions", env.runId, "attachments", ATTACHED_FILE),
+      `The attachment is not in its run's server storage: ${strays.join(", ")}`);
     const onServer = env.serverCopy ? path.join(env.folder, "attachments") : env.folder;
     expect(!existsSync(onServer), `${onServer} now also exists on the server`);
-    return passed(`attachments/${ATTACHED_FILE} in the container, not on the server`);
+    return passed(`@attachments/${ATTACHED_FILE} on the server, project unchanged in the container`);
   });
 
 const PAGE_SERVER = "const [port, nonce] = process.argv.slice(1);"

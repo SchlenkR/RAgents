@@ -994,8 +994,9 @@ threshold that applied and its origin (`model` or `catalog`); the chat shows a s
 `pnpm driver journal <runId>` shows both.
 
 Tool results are bounded before entering the model, including after replay; original journal
-entries stay intact. Oversized text is also stored in the run workspace under `attachments/`
-for paged reads. Summary requests use bounded chunks even when the original history exceeds the
+entries stay intact. Oversized text is also stored under `sessions/<runId>/attachments/` on
+the server and reached through the read-only `@attachments` root for paged reads, independent
+of the project's folder. Summary requests use bounded chunks even when the original history exceeds the
 model window. A failed overflow recovery leaves the actor available for the next message and
 shows a short cause in the chat. Failed compaction diagnostics, including provider details, reach
 the server log with run and actor. An unsafe request is never sent after a failed summary.
@@ -1070,6 +1071,8 @@ ${DATA_DIR}/
   artifacts/<sha256>              immutable artifact contents, including the media of the model contexts
   sessions/                       0711 root: traversable, but not listable
     <runId>/                      0711 root
+      attachments/                chat files and full oversized tool results (`@attachments`),
+                                  read-only to model file tools and restricted server processes
       plugins/                    0711 root - exactly one subfolder per plugin
         ragents.documents/
           documents/              the run's document store (`@documents`), without DOCUMENTS_DIR
@@ -1153,7 +1156,11 @@ and then offers it only where it can provide it. An existing folder is never tou
 is deleted, a new one disappears with it; if the workstation is not connected at deletion, its
 folder stays. With a workstation, everything that touches the folder runs where it is located:
 tools, language servers, the Files tab, the process rail, and the browser of the browser check.
-The server's roots, `@actors` of the actor programs and `@skills/<name>` of the skills, are still
+New attachments and full oversized tool results stay in the run's storage on the server;
+they create no files in an existing project checkout. Old files under the working folder's
+`attachments/` stay where they are, and existing journal references remain valid without migration.
+The server's roots, `@actors` of the actor programs, `@skills/<name>` of the skills, and the
+read-only `@attachments` of stored attachments, are still
 reached by file tools and language servers through their alias, and a Bash with such an alias as
 `cwd` runs on the server in the run's process sandbox.
 Path checks, ownership of a workstation, sign-in over the network, and the errors on a

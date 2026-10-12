@@ -127,7 +127,7 @@ to that conversation. The context is part of the run's journal: every input as t
 it, every completed model step, every tool result as the model saw it, and every compaction are
 recorded there, and the context is read back from those records before each model request. After
 a restart the actor therefore continues with the same bounded projection. Oversized tool results
-become excerpts with a truncation notice and a workspace file for reading the full text in parts.
+become excerpts with a truncation notice and a file under `@attachments` for reading the full text in parts.
 A new actor starts with its
 own context or, when spawned with `forkOf`, with an unchanged copy of the context another LLM actor
 of the same run had at the end of its last finished turn before the spawn. Updating the system

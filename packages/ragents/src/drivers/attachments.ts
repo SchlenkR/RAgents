@@ -29,7 +29,7 @@ export const prepareInputAttachments = async (
                 throw new Error(`The file ${attachment.name} needs file access, but this actor has neither read nor bash.`);
             }
             const name = await request.storeAttachment(attachment.name, attachment.content);
-            sections.push(`Attached file ${JSON.stringify(attachment.name)} (${attachment.mediaType}) is stored as ${JSON.stringify(name)} in the attachments subfolder of the working directory. Your file tools can search this location and read the file.`);
+            sections.push(`Attached file ${JSON.stringify(attachment.name)} (${attachment.mediaType}): @attachments/${name}. Read it with file tools, or use bash with cwd: "@attachments".`);
         }
     }
     return { prompt: sections.filter(Boolean).join("\n\n"), attachments };

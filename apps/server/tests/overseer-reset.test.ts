@@ -65,7 +65,8 @@ test("confirmed reset preserves global apps and recovers durably across server r
     host.provideHost(runWorkspaceProviderToken, (runId) => bridges.sessionWorkspaceFor!(runId));
     host.provideHost(workspaceGuardToken, bridges.ensureWorkspaceAccess!);
     const sandbox = new WorkspaceSandboxHost({ contributorName: "test.workspace", contributions: [], workspaceFor: bridges.sessionWorkspaceFor,
-      identFor: async () => undefined, homeFor: async () => ({ home: directory }), skillPaths: async () => [] });
+      identFor: async () => undefined, homeFor: async () => ({ home: directory }), skillPaths: async () => [],
+      storageRootFor: (runId) => path.join(directory, "sessions", runId) });
     host.register({ manifest: { id: "test.product" }, register: (registration) => {
       registration.script({ id: "typescript", create: (context) => ({ driver: new ScriptDriver({ runtime: context.runtime }) }) });
       registration.provide(sandboxServicesToken, sandbox);
@@ -120,7 +121,7 @@ test("confirmed reset preserves global apps and recovers durably across server r
     (context) => {
       const results = context.messages.filter((message) => message.role === "toolResult");
       assert.equal(results.length, 3);
-      assert.ok(results.every((result) => !result.isError));
+      assert.ok(results.every((result) => !result.isError), JSON.stringify(results.filter((result) => result.isError)));
       assert.match(JSON.stringify(results), /Old conversation/);
       assert.doesNotMatch(JSON.stringify(results), /reset-test-only-token/);
       return fauxAssistantMessage("Old answer");
@@ -136,7 +137,11 @@ test("confirmed reset preserves global apps and recovers durably across server r
     const observed: ChatEvent[] = [];
     const unsubscribe = global.subscribe((event) => observed.push(event));
     await global.send("Old conversation");
-    await until(() => management!.view(G).turns[0]?.status === "completed");
+    await until(() => {
+      const turn = management!.view(G).turns[0];
+      assert.notEqual(turn?.status, "failed", JSON.stringify(turn));
+      return turn?.status === "completed";
+    });
     const toolPolicy = provider.plugins.service(globalChatToken);
     const currentTools = Object.getOwnPropertyDescriptor(toolPolicy, "toolNames")!;
     Object.defineProperty(toolPolicy, "toolNames", { configurable: true, value: ["legacy-management-tool"] });

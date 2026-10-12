@@ -527,7 +527,8 @@ test("a contribution brings its own kind of workspace and the host prepares no f
     workspaceRoot = path.join(root, "worktrees", "run-1");
     assert.equal(workspace.cwd, workspaceRoot);
     assert.deepEqual(notes, ["Creating the run's worktree ..."]);
-    assert.equal(workspace.description, "# Working directory\n\nYour worktree.");
+    assert.ok(workspace.description?.startsWith("# Working directory\n\nYour worktree.\n\n"));
+    assert.match(workspace.description!, /`@attachments` \(read only\)/);
     assert.deepEqual(workspace.extraEnv, { EXAMPLE_BRANCH_PREFIX: "example/" });
     assert.deepEqual(workspace.gitEnv, { GIT_OBJECT_DIRECTORY: path.join(workspaceRoot, ".git/objects") });
     assert.equal(await workspace.runOperation(async () => "done"), "done");
@@ -562,7 +563,10 @@ test("the sandbox of a contributed workspace runs under its account with its rea
     assert.equal(context.uid, ident.uid);
     assert.equal(context.gid, ident.gid);
     assert.equal(context.home, home);
-    assert.deepEqual(context.readOnlyRoots, [root]);
+    const attachments = path.join(root, "sessions", "run-1", "attachments");
+    assert.deepEqual(context.readOnlyRoots, [root, attachments]);
+    assert.equal(context.workspaceAliases?.["@attachments"], attachments);
+    if (process.getuid) assert.equal((await stat(attachments)).uid, process.getuid());
   } finally {
     await remove();
   }
@@ -737,7 +741,8 @@ test("a contribution fills the new folder on the workstation once, and a failed 
     const notes: string[] = [];
     const workspace = await runtime.resolve("remote", (text) => notes.push(text));
     assert.deepEqual(notes, [`Workspace: ${folder} (Git worktree per run on the workstation Laptop)`]);
-    assert.equal(workspace.description, `# Working directory\n\nYour worktree ${folder} on Laptop.`);
+    assert.ok(workspace.description?.startsWith(`# Working directory\n\nYour worktree ${folder} on Laptop.\n\n`));
+    assert.match(workspace.description!, /`@attachments` \(read only\)/);
     assert.deepEqual(runtime.placementOf("remote"), { machine: "client", workstation: { client: CLIENT, label: "Laptop" }, folder: "fresh", kind: "example.worktree" });
     await assert.rejects(agentTool(runtime, "remote", "read", { file_path: "a.txt" }), /git fails/);
     assert.deepEqual(calls.map((call) => call.operation), ["runFolder.create", "commands.run", "runFolder.remove"]);
