@@ -54,9 +54,10 @@ export function ActorIcon({ actor, className, view }: { actor: RunActor; classNa
   </span>;
 }
 
-/** The actors of a run top-down by creator, as cards with state, running time and task; as large as the graph up to the pop-out's room, panned by dragging beyond. */
-export function ActorGraph({ actors, onDragStart, onPick, selectedId, technical, view }: {
+/** Actors by creator, filling a panel or growing within a pop-out, with panning when the cards exceed the available room. */
+export function ActorGraph({ actors, fill = false, onDragStart, onPick, selectedId, technical, view }: {
   actors: readonly RunActor[];
+  fill?: boolean;
   onDragStart?: () => void;
   onPick: (actor: RunActor) => void;
   selectedId: string;
@@ -77,7 +78,7 @@ export function ActorGraph({ actors, onDragStart, onPick, selectedId, technical,
   const open = useCallback((group: AddresseeGroupNode) => addresseeNodeContains(group, selectedId) !== toggled.has(group.key), [selectedId, toggled]);
   const columns = room === undefined ? undefined : graphColumns(room.width);
   const layout = useMemo(() => columns === undefined ? undefined : actorGraphLayout(tree, open, columns, cardHeight), [cardHeight, columns, open, tree]);
-  const viewport = useMemo(() => layout && room && graphViewport(layout, room), [layout, room]);
+  const viewport = useMemo(() => layout && room && graphViewport(layout, room, fill), [fill, layout, room]);
   const pannable = viewport !== undefined && graphPannable(viewport);
   const statuses = useMemo(() => new Map(layout?.cards.map((card) => [card.key, graphNodeStatus(view, card.node)] as const)), [layout, view]);
   const edges = useMemo(() => [...layout?.edges ?? []].sort((left, right) => edgeLayer[statuses.get(left.target) ?? "waiting"] - edgeLayer[statuses.get(right.target) ?? "waiting"]), [layout, statuses]);
@@ -169,10 +170,10 @@ export function ActorGraph({ actors, onDragStart, onPick, selectedId, technical,
     setScrollTarget(undefined);
   }, [cardHeight, layout, scrollTarget, selectedId, viewport]);
 
-  return <div className={cn("no-scrollbar relative min-h-0 min-w-0 flex-none overflow-auto overscroll-contain select-none", pannable && "cursor-grab", panning && "cursor-grabbing **:cursor-grabbing")}
-    onKeyDown={stopCentering} onPointerDown={pan} onWheel={stopCentering} ref={scroller} style={viewport && { width: viewport.width, height: viewport.height }}>
-    <div aria-hidden className="pointer-events-none invisible absolute top-0 left-0 size-0 overflow-hidden">
-      <div className="h-(--popout-body-height) w-(--popout-body-width)" ref={probe} />
+  return <div className={cn("no-scrollbar relative min-h-0 min-w-0 overflow-auto overscroll-contain select-none", fill ? "size-full flex-1" : "flex-none", pannable && "cursor-grab", panning && "cursor-grabbing **:cursor-grabbing")}
+    onKeyDown={stopCentering} onPointerDown={pan} onWheel={stopCentering} ref={scroller} style={!fill && viewport ? { width: viewport.width, height: viewport.height } : undefined}>
+    <div aria-hidden className={cn("pointer-events-none invisible absolute top-0 left-0 overflow-hidden", fill ? "size-full" : "size-0")}>
+      <div className={fill ? "size-full" : "h-(--popout-body-height) w-(--popout-body-width)"} ref={probe} />
       <div ref={cardProbe} style={{ height: `${GRAPH_CARD_HEIGHT / 16}rem` }} />
     </div>
     {layout && viewport && <div className="relative" style={{ width: viewport.scrollWidth, height: viewport.scrollHeight }}>

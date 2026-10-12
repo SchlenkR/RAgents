@@ -9,6 +9,18 @@ The shared addressee control now uses tight spacing (1 unit) in both hosts, keep
 accessible count and action. Browser coverage measures the gap and outer spacing at larger
 root fonts and page zoom without adding a spacing exception.
 
+## 2026-10-12: Agents joins the run's workspace tools
+
+Chapter: `spec/plugins.md` (Web as plugin host, docking workspace, run panel); usage: `usage.md`
+(Run chat and inspection, Run panel and VS Code extension); homepage: agent graph.
+
+The header dropdown kept the actor graph outside the workspace. Agents now uses the existing
+workspace-tab contribution with window placement, so the browser opens or focuses one movable,
+dockable, resizable graph and remembers its layout. Window buttons also focus a visible window
+in another area. Actor selection, actor-bound chat drags, and live state use the shared graph.
+VS Code keeps this contribution in its existing inspection rail and tool popout, consistent with
+other run tools. The small composer graph remains unchanged; the unused header contribution is removed.
+
 ## 2026-10-12: Page spacing separates independent dashboard regions
 
 Chapter: `spec/plugins.md` (Spacing, Shared page width, Start); usage: `usage.md` (Shared panel pages).

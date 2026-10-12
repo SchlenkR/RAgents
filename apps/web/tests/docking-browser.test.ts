@@ -27,7 +27,7 @@ async function fixturePage(context: test.TestContext) {
   const root = fileURLToPath(new URL("../../../", import.meta.url));
   await build({ entryPoints: [fileURLToPath(new URL("docking-fixture.tsx", import.meta.url))], bundle: true,
     platform: "browser", format: "iife", jsx: "automatic", outfile: join(directory, "fixture.js"),
-    plugins: [tailwindPlugin([`${root}apps/web/src`])], logLevel: "silent" });
+    plugins: [tailwindPlugin([`${root}apps/web/src`, `${root}plugins/ragents.orchestration/web`])], logLevel: "silent" });
   await writeFile(join(directory, "index.html"), '<!doctype html><html><head><link rel="stylesheet" href="fixture.css"></head><body><div id="root" style="height:700px;display:flex"></div><script src="fixture.js"></script></body></html>');
   const browser = await chromium.launch({ headless: true, executablePath: process.env.BROWSER_EXECUTABLE_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
   context.after(() => browser.close());
@@ -436,5 +436,68 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   await page.reload();
   await tab("Chat").waitFor();
   assert.equal(await sidebar.count(), 0, "hover previews do not survive reload");
+  assert.deepEqual(errors, []);
+});
+
+test("Agents opens a movable dock window, focuses it without duplication, remembers its layout and selects actors", browserOnly, async (context) => {
+  const { page, url } = await fixturePage(context);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto(`${url}?header&agents`);
+  const id = "tab:ragents.orchestration.agents";
+  const agents = page.locator(`[data-dock-panel="${id}"]`);
+  const trigger = page.getByRole("button", { name: "Agents", exact: true });
+  const groups = page.locator("[data-dock-group]");
+  const saved = () => page.evaluate(() => JSON.parse(Object.entries(localStorage).find(([key]) => key.startsWith("ragents.docking:"))![1]));
+  const bounds = async (locator: Locator) => { const rect = await locator.boundingBox(); assert.ok(rect); return rect; };
+  const dragToGuide = async (source: Locator, target: Locator, guide: string) => {
+    const from = await bounds(source);
+    const to = await bounds(target);
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2 + 60, { steps: 8 });
+    const drop = page.locator(`[data-dock-guide="${guide}"]`);
+    await drop.waitFor();
+    const rect = await bounds(drop);
+    await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    await page.locator("[data-dock-preview]").waitFor();
+    await page.mouse.up();
+  };
+  await agents.locator('button[data-actor-handle="worker"]').waitFor();
+  await page.getByRole("button", { name: "Close Agents", exact: true }).click();
+  await agents.waitFor({ state: "hidden" });
+  await trigger.click();
+  await agents.locator('button[data-actor-handle="worker"]').waitFor();
+  assert.equal(await page.getByRole("dialog", { name: "Agents", exact: true }).count(), 0);
+  const graph = await agents.locator('ul[aria-label="Actors by creator"]').elementHandle();
+  await dragToGuide(page.getByRole("button", { name: "Move Agents", exact: true }), groups.filter({ has: page.getByRole("tab", { name: "Chat", exact: true }) }), "group-bottom");
+  const moved = await saved();
+  const area = await page.getByRole("tab", { name: "Agents", exact: true }).evaluate((tab) => tab.closest<HTMLElement>("[data-dock-group]")!.dataset.dockGroup);
+  const divider = page.getByRole("separator", { name: "Resize areas" }).filter({ has: page.locator("[data-dock-grip]") }).last();
+  await divider.focus();
+  await page.keyboard.press("ArrowRight");
+  const resized = await saved();
+  assert.notDeepEqual(resized.root, moved.root);
+  await page.getByRole("tab", { name: "Chat", exact: true }).click();
+  await trigger.click();
+  assert.equal((await saved()).focused, area);
+  assert.deepEqual((await saved()).root, resized.root);
+  assert.equal(await agents.count(), 1);
+  assert.equal(await agents.locator('ul[aria-label="Actors by creator"]').evaluate((element, original) => element === original, graph), true);
+  await trigger.click();
+  assert.equal((await saved()).focused, area);
+  await agents.locator('button[data-actor-handle="worker"]').click();
+  assert.equal(await page.getByLabel("Chat addressee", { exact: true }).textContent(), "@worker");
+  assert.equal(await agents.isVisible(), true);
+  await page.evaluate(() => window.dockingFixture.startWorker!());
+  await agents.locator('button[data-actor-handle="worker"] [data-addressee-status="running"]').waitFor();
+  const layout = await saved();
+  await page.reload();
+  await agents.locator('button[data-actor-handle="worker"]').waitFor();
+  assert.deepEqual((await saved()).root, layout.root);
+  await dragToGuide(agents.locator('button[data-actor-handle="worker"]'), groups.filter({ has: page.getByRole("tab", { name: "Chat", exact: true }) }), "group-right");
+  await page.getByRole("textbox", { name: "Message to @worker", exact: true }).waitFor();
+  assert.equal(await agents.isVisible(), true);
+  assert.equal(await page.getByRole("tab", { name: "@worker", exact: true }).count(), 1);
   assert.deepEqual(errors, []);
 });

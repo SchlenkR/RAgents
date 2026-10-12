@@ -55,7 +55,7 @@ function RunPanel({ autoFocusChat, onAutoFocusChatSettled, surfaceElements, card
   const focusedActor = host.kind === "browser" ? actors.find((actor) => `view:actor:${actor.id}` === activePanel) ?? selectedActor : selectedActor;
   const selectedId = selectedActor?.id;
   const [visitedActors, setVisitedActors] = useState<ReadonlySet<string>>(() => new Set(stored.actor ? [stored.actor] : []));
-  // The header's agents view chooses the addressee through the stored state; its chat then stays mounted too.
+  // The agents panel chooses the addressee through the stored state; its chat then stays mounted too.
   useEffect(() => {
     if (selectedId !== undefined) setVisitedActors((current) => current.has(selectedId) ? current : new Set([...current, selectedId]));
   }, [selectedId]);

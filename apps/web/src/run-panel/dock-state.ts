@@ -155,7 +155,7 @@ export function selectDockPanel(state: DockState, id: string): DockState {
 export function revealDockPanel(state: DockState, id: string, split: boolean, newId: () => string): DockState {
   const groups = dockGroups(state.root);
   const owner = groups.find((entry) => entry.tabs.includes(id));
-  if (owner) return owner.active === id && (state.maximized === null || state.maximized === owner.id) ? state : selectDockPanel(state, id);
+  if (owner) return owner.active === id && state.focused === owner.id && !state.side.focused && (state.maximized === null || state.maximized === owner.id) ? state : selectDockPanel(state, id);
   if (state.side.tab === id) return state.side.focused ? state : transitionDockSide(state, { type: "open", id });
   const target = groups.find((entry) => entry.id === state.focused) ?? groups[0];
   const restored = { ...state, automatic: false, maximized: null };
