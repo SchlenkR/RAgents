@@ -209,7 +209,7 @@ const modeTokens = (mode: PaletteMode, seed: PaletteSeed): Tokens => {
 
   tokens["glass-agent"] = ok(dark ? 0.34 : 0.88, dark ? 0.04 : 0.05, 45);
   tokens["glass-primary"] = ok(dark ? 0.33 : 0.88, dark ? 0.05 : 0.04, accentHue);
-  tokens["glass-script"] = ok(dark ? 0.34 : 0.9, dark ? 0.05 : 0.08, 95);
+  tokens["glass-script"] = ok(dark ? 0.34 : 0.9, dark ? 0.045 : 0.05, 170);
   tokens["glass-app"] = ok(dark ? 0.31 : 0.92, dark ? 0.03 : 0.025, 235);
   tokens["glass-edge"] = ok(dark ? 0.6 : 0.62, 0.03, neutralHue);
   tokens["glass-icon"] = ok(dark ? 0.33 : 0.91, 0.03, accentHue);

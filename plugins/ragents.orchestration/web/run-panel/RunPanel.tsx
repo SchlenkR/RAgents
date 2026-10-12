@@ -8,7 +8,7 @@ import { ChatPanel } from "quassel";
 import { useRunPanelHost } from "@ragents/web/run-panel/host";
 import { useSurfaceController, type SurfaceCenterContext, type CardSectionContribution, type SessionContext, type SessionNavigation } from "@ragents/web/PluginRegistry";
 import { INSPECTION_TAB_ID } from "../InspectionPanel";
-import { Button, StartupNotice } from "@ragents/web/ui";
+import { Button, RobotHeadIcon, StartupNotice } from "@ragents/web/ui";
 import { ActorChat } from "../ActorChat";
 import { ActorChatControls } from "../ActorChatControls";
 import { surfaceStartupState, type SurfaceStartupState } from "../surface-startup";
@@ -91,7 +91,7 @@ function RunPanel({ autoFocusChat, onAutoFocusChatSettled, surfaceElements, card
       })}
     </section>
   );
-  if (host.kind === "browser") return <DockWorkspace additions={additions} apps={elements} chat={chat} chatIcon={view && selectedActor ? <ActorIcon actor={selectedActor} className="size-5" view={view} /> : undefined}
+  if (host.kind === "browser") return <DockWorkspace additions={additions} apps={elements} chat={chat} chatIcon={<span className="grid size-5 flex-none place-items-center rounded-full bg-glass-primary text-foreground [&>svg]:size-3"><RobotHeadIcon /></span>}
     navigation={navigation} session={session} panels={view ? actors.map((actor) => ({
       id: `actor:${actor.id}`,
       title: `@${actorAddress(actor)}`,

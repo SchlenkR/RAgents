@@ -1,5 +1,13 @@
 # Decisions
 
+## 2026-10-12: The main chat window carries the RAgents icon; script tone is teal
+
+Chapter: `spec/plugins.md` (Docking workspace, Theme tokens).
+
+The main chat window showed the icon of the actor it addresses, so a run script turned it into a
+code glyph in an olive tone. The main chat keeps the robot head in the primary tone; the script
+glass tone moves from olive to teal in every palette.
+
 ## 2026-10-12: Templates can be unlisted without losing ID starts
 
 Chapter: `spec/plugins.md` (PluginHost registrations, start tiles); usage: `usage.md` (Create your first run).
