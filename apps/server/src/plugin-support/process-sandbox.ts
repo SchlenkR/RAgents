@@ -1,12 +1,12 @@
 import { spawn } from "node:child_process";
-import { existsSync, lstatSync, readdirSync, realpathSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { isIP } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { SandboxManager, type SandboxRuntimeConfig } from "@anthropic-ai/sandbox-runtime";
 import { wrapCommandWithSandboxMacOS } from "@anthropic-ai/sandbox-runtime/dist/sandbox/macos-sandbox-utils.js";
 import { wrapCommandWithSandboxLinux } from "@anthropic-ai/sandbox-runtime/dist/sandbox/linux-sandbox-utils.js";
-import { containsWorkspacePath, type ProcessLaunch, type ProcessSandbox } from "@ragents/workspace-executor";
+import { containsWorkspacePath, safeProcessEnvironment, type ProcessLaunch, type ProcessSandbox } from "@ragents/workspace-executor";
 import { hostRoot } from "../host-version.js";
 
 /** Public web access; explicit targets and the own server are allowed separately. */
@@ -53,6 +53,35 @@ const SELF_TEST_TIMEOUT_MS = 30_000;
 const shellWord = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`;
 
 const shellCommand = (words: readonly string[]): string => words.map(shellWord).join(" ");
+
+const ancestorsOf = (entry: string): readonly string[] => path.dirname(entry) === entry ? [entry] : [entry, ...ancestorsOf(path.dirname(entry))];
+
+const sandboxLaunch = (command: string, platform: NodeJS.Platform, directories: readonly string[]): ProcessLaunch => {
+  if (platform !== "darwin") return { command: "/bin/sh", args: ["-c", command] };
+  const prefix = "/usr/bin/sandbox-exec -p ";
+  const start = command.indexOf(prefix) + prefix.length;
+  const quoted = /^'(?:[^']|'"'"')*'/.exec(command.slice(start))?.[0];
+  if (start < prefix.length || !quoted) throw new Error("The macOS process sandbox command has no recognized quoted profile.");
+  const profile = quoted.slice(1, -1).replaceAll("'\"'\"'", "'");
+  const taskPermission = "(allow mach-priv-task-port (target same-sandbox))";
+  if (!profile.startsWith("(version 1)") || !profile.includes(taskPermission))
+    throw new Error("The process sandbox profile has no recognized Mach task-port restriction.");
+  const metadata = [...new Set(directories.flatMap(ancestorsOf))].map((entry) => JSON.stringify(entry)).join(" ");
+  const protectedProfile = profile
+    .replace("(version 1)", `(version 3)\n(import ${JSON.stringify("dyld-support.sb")})`)
+    .replace(taskPermission, "(deny mach-priv-task-port)")
+    .replace("(allow ipc-posix-shm)", "(allow ipc-posix-shm*)")
+    .replace("(allow ipc-posix-sem)", "(allow ipc-posix-sem*)")
+    .replace("(allow iokit-open", "(allow iokit-open*")
+    .replace("(allow process-exec)", "(allow process-exec*)")
+    .replace(/\bfile-read\*/g, "file-read* file-test-existence")
+    .replace("(allow file-read-metadata", "(allow file-read-metadata file-test-existence")
+    .replace(/\((?:local|remote) unix-socket (\((?:subpath|path-regex) [^\n]+?\))\)/g, "$1")
+    .replace(/\(sysctl-name-prefix "kern\.proc[^"\n]*"\)/g, "")
+    + `\n(allow file-read-metadata file-test-existence (literal ${metadata}))`
+    + '\n(allow mach-bootstrap syscall* system-fcntl socket-option*)\n(deny syscall-unix (syscall-number 202) (with errno 1))\n(allow file-map-executable dynamic-code-generation)\n(allow system-socket (socket-domain AF_INET AF_INET6))\n(allow system-mac-syscall (mac-policy-name "AMFI"))';
+  return { command: "/bin/sh", args: ["-c", command.slice(0, start) + shellWord(protectedProfile) + command.slice(start + quoted.length)] };
+};
 
 /** The environment inside the sandbox: its own temp folder, and every network call goes through the proxy, including the one to the own server. */
 const insideEnvironment = (temporary: string, searchPath: string, platform: NodeJS.Platform): readonly string[] => [
@@ -203,6 +232,8 @@ class SharedSandboxRuntime {
         ...process.platform === "linux" ? { allowAllUnixSockets: true } : {},
       },
       filesystem: { denyRead: [], allowWrite: [], denyWrite: [], allowGitConfig: true },
+      credentials: { envVars: [{ name: "JAVA_TOOL_OPTIONS", mode: "deny" }] },
+      enableWeakerNestedSandbox: false,
       // On macOS .NET and Go check certificates via trustd; without this service every TLS connection fails.
       ...process.platform === "darwin" ? { enableWeakerNetworkIsolation: true } : {},
     };
@@ -286,7 +317,7 @@ export class ServerProcessSandbox implements RunProcessSandboxes {
     if (this.#platform !== "darwin" && this.#platform !== "linux") throw unsupported(this.#platform, options.disableSetting);
     this.#protected = protectedRoots(options, this.#platform);
     this.#readable = [options.hostRoot ?? hostRoot(), ...toolchainDirectories(options, this.#protected)];
-    this.#searchPath = resolvedSearchPath(options.environment ?? process.env);
+    this.#searchPath = resolvedSearchPath(safeProcessEnvironment(options.environment ?? process.env));
   }
 
   /** Checks the prerequisites, starts the network proxy and starts one process in the sandbox once; every failure is a start error. */
@@ -299,7 +330,11 @@ export class ServerProcessSandbox implements RunProcessSandboxes {
     });
     try {
       const probe = this.forRun({ writable: [], readable: [], temporary: path.join(this.#options.dataDirectory, "sandbox-self-test") });
-      await runSelfTest(await probe.wrap({ command: "true", args: [] }), this.#options.environment ?? process.env, this.#options.disableSetting);
+      const check = this.#platform === "linux" ? {
+        command: realpathSync(process.execPath),
+        args: ["-e", `if (require('node:fs').statSync('/proc').dev === ${statSync("/proc").dev}) throw new Error('The sandbox exposes the server proc filesystem');`],
+      } : { command: "true", args: [] };
+      await runSelfTest(await probe.wrap(check), safeProcessEnvironment(this.#options.environment ?? process.env), this.#options.disableSetting);
     } catch (error) {
       await sharedRuntime.release(this);
       throw error;
@@ -328,9 +363,11 @@ export class ServerProcessSandbox implements RunProcessSandboxes {
           readConfig: { denyOnly: ["/"], allowWithinDeny: readable },
           writeConfig: { allowOnly: [...folders.writable, temporary].map(realOrGiven), denyWithinAllow: [] },
           allowAllUnixSockets: false,
+          enableWeakerNestedSandbox: false,
+          unsetEnvVars: ["JAVA_TOOL_OPTIONS"],
         };
         const wrapped = this.#platform === "darwin" ? wrapCommandWithSandboxMacOS(parameters) : await wrapCommandWithSandboxLinux(parameters);
-        return { command: "/bin/sh", args: ["-c", wrapped] };
+        return sandboxLaunch(wrapped, this.#platform, readable);
       },
     };
     const bridges = [SandboxManager.getLinuxHttpSocketPath(), SandboxManager.getLinuxSocksSocketPath()]
@@ -350,7 +387,7 @@ export class ServerProcessSandbox implements RunProcessSandboxes {
         };
         const inner = shellCommand(["env", ...environment, commandFor(launch), ...launch.args]);
         const wrapped = await SandboxManager.wrapWithSandbox(inner, undefined, { filesystem });
-        return { command: "/bin/sh", args: ["-c", wrapped] };
+        return sandboxLaunch(wrapped, this.#platform, [...readable, ...writable]);
       },
     };
   }

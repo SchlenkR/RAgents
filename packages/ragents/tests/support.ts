@@ -133,6 +133,7 @@ export const setupRun = (
         grants?: CapabilityGrant[];
         execution?: AgentExecution;
         toolNames?: readonly string[] | null;
+        exactTools?: boolean;
     } = {},
 ) => {
     const services = testServices();
@@ -149,6 +150,7 @@ export const setupRun = (
         execution: options.execution ?? executionFor("worker", { profile: "agent", isolateWorkspace: false }),
         grants: options.grants ?? [],
         toolNames: options.toolNames ?? null,
+        ...(options.exactTools === undefined ? {} : { exactTools: options.exactTools }),
     });
     const agent = view.actors.find((entry) => entry.kind === "agent");
 

@@ -734,6 +734,9 @@ snippet-only functions available to it with names and short descriptions. This a
 coordinators and subagents. Both update even during a turn, including functions that an actor
 program activates. Neither grants additional functions or permissions; plain LLMs with
 <code>tools: []</code> receive neither.</p>
+<p>An explicit <code>tools</code> array with <code>exactTools: true</code> receives no automatic TypeScript tools.
+<code>typescript_api</code> and <code>typescript_eval</code> must be named explicitly to remain available; an omitted
+tool cannot be called. This selection does not change grants (<a href="../spec/core.md#equipping-subagents">core.md</a>).</p>
 <h3 id="short-descriptions-and-details">Short descriptions and details</h3>
 <p>A function registered with <code>defineRunFunction</code> has a technical <code>name</code> for calls and a readable
 <code>label</code> for people. <code>description</code> briefly explains its purpose and appears in the automatic

@@ -981,6 +981,13 @@ last and next run, last result, problem), the committed state, and a recent log 
 lines of 1000 characters. The log comes from the ordinary output and failure events of the actor&#39;s
 inputs; nothing is stored twice.</p>
 <h2 id="permissions">Permissions</h2>
+<p>Backends and domain tests use the same allowlisted server process environment as snippets,
+without server provider keys or profile environment references. With process protection they
+cannot inspect the environment or memory of the server or other processes outside their sandbox.
+Package isolation additionally narrows file and network access
+(<a href="../spec/typescript-platform.md#build-and-process-lifecycle">TypeScript platform</a>).
+Without process protection, native Node code runs with the server account&#39;s file, process, and
+network access; the declared function permissions do not restrict direct Node access.</p>
 <p><code>ragents.permissions</code> grants a program bounded external access:</p>
 <pre><code class="language-json">&quot;permissions&quot;: {
   &quot;files&quot;: { &quot;read&quot;: [&quot;/srv/inbox&quot;], &quot;write&quot;: [&quot;/srv/reports&quot;] },

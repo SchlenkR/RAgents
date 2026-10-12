@@ -255,7 +255,9 @@ test("bash of the global coordinator cannot read a foreign journal but writes it
     assert.match(denied, /Operation not permitted|No such file or directory/);
     assert.match(await f.bash(`ls ${JSON.stringify(path.join(f.data, "runs"))} 2>&1; echo listed`), /listed/);
     assert.doesNotMatch(await f.bash(`ls ${JSON.stringify(path.join(f.data, "runs"))} 2>&1`), /foreign-run/);
-    assert.match(await f.bash(`ls ${JSON.stringify(homedir())} 2>&1`), /Operation not permitted|No such file or directory/);
+    assert.match(await f.bash(`ls ${JSON.stringify(homedir())} 2>&1`), process.platform === "linux"
+      ? /Operation not permitted|No such file or directory|^\(no output\)$/
+      : /Operation not permitted|No such file or directory/);
     assert.match(await f.bash(`echo tampered > ${JSON.stringify(f.foreignJournal)} 2>&1; echo done`), /done/);
     assert.equal(await readFile(f.foreignJournal, "utf8"), '{"secret":"foreign history"}\n');
     assert.match(await f.bash("echo written > own.txt && cat own.txt && touch \"$TMPDIR/scratch\" && echo temp-ok"), /written\s+temp-ok/);

@@ -96,6 +96,7 @@ export type EventPayloads = {
         execution: AgentExecution;
         grants: CapabilityGrant[];
         toolNames: string[] | null;
+        exactTools?: boolean;
         forkOf?: ActorId;
         description?: string;
         /** Absent for the main room. */

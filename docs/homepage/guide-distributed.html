@@ -986,10 +986,11 @@ unit tests that simulate the platform. A first real run should verify <code>pnpm
 Credential Manager and over SSH.</p>
 <h2 id="server-process-sandbox">Server process sandbox</h2>
 <p>What a restricted run starts on the server (Bash, commands, language servers, TypeScript snippets,
-actor programs) runs in a process sandbox: it reads and writes only the permitted folders of its run, sees
-neither other runs nor the home of the server account, and can reach public web domains by
-default. Rules and limits are in <a href="../spec/plugins.md">plugins.md</a> under &quot;Server process sandbox&quot;. It
-does not apply on a workstation; there the run works with the developer&#39;s Bash and credentials.
+actor programs) runs in a process sandbox: it reads and writes only the permitted folders of its
+run, cannot inspect other runs or the server account&#39;s home, environment, and memory, and can
+reach public web domains by default. Rules and limits are in <a href="../spec/plugins.md">plugins.md</a> under
+&quot;Server process sandbox&quot;. It does not apply on a workstation; there the run works with the
+developer&#39;s Bash and credentials.
 Only what such a run starts on the server, such as a Bash in <code>@actors</code>, runs inside it.</p>
 <p>Nonadministrators always get this protection. Administrators keep unrestricted execution by
 default and can select &quot;Sandbox protection&quot; before starting a run. A server can force it for
@@ -997,6 +998,21 @@ everyone with <code>PROCESS_SANDBOX: &quot;on&quot;</code>. The setting is fixed
 run&#39;s owner, including when someone else operates a shared run. Existing server folders can
 only be bound by administrators; nonadministrators use a new folder per run or their own
 workstation. Restricted runs have their own NuGet cache.</p>
+<p>Embedded chat and multi-user servers must set <code>ragents.workspace.PROCESS_SANDBOX: &quot;on&quot;</code>, even
+when conversations belong to a service account with <code>*</code>. Run the server under its own operating
+system account and use scoped provider keys with a credit limit. The forced &quot;Sandbox protection&quot;
+switch is on and locked; the server rejects attempts to turn it off. Limit permitted network
+destinations and extra folders to what the deployment needs.</p>
+<p>With the default <code>&quot;auto&quot;</code>, an owner with <code>*</code> can run unrestricted code. This is an explicit
+choice for trusted local work: native Node and shell code can read everything the server account
+can, including other users&#39; runs, secrets through the server&#39;s environment or process memory,
+and the network. A prompt injection in a message or document has the same access. Every model-code
+child still starts with a clean allowlisted environment, including paths, home, temporary folder,
+locale, and required run variables; provider keys, profile <code>env(&quot;NAME&quot;)</code> sources and values, and
+configuration containing references or declared secrets are absent. Allowlisted literal
+operational settings may remain. That environment alone cannot protect unrestricted runs.
+Trusted MCP and ACP adapters receive only their explicitly configured credentials in addition
+to this environment. Workstations use their own credentials and permissions.</p>
 <p>The first restricted execution checks these prerequisites; <code>&quot;on&quot;</code> checks them at startup:</p>
 <ul>
 <li><strong>macOS</strong>: nothing extra, <code>sandbox-exec</code> is part of the system.</li>
@@ -1026,7 +1042,9 @@ does not distinguish downloads from uploads or destructive API calls. File isola
 active for restricted runs. If isolation cannot be initialized, their execution fails with a
 cause instead of starting without protection.
 On macOS, pnpm through corepack needs a <code>packageManager</code> in the workspace&#39;s
-<code>package.json</code>, because corepack otherwise aborts at a blocked folder above it.</p>
+<code>package.json</code>, because corepack otherwise aborts at a blocked folder above it.
+Tools requiring numeric sysctl calls receive <code>EPERM</code> on macOS; safe named sysctl queries remain
+allowed, and a failure never retries without protection.</p>
 <p>The browser check has a separate network policy for protected runs. It reaches public
 websites on ports 80 and 443; local or internal applications require exact permitted
 origins in the browser section, independently of the process-network list:</p>

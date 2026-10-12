@@ -1,5 +1,37 @@
 # Decisions
 
+## 2026-10-12: Exact agent tools and server process isolation
+
+Chapters: `spec/core.md` (Equipping subagents), `spec/typescript-platform.md` (Build and process
+lifecycle, One-off snippets), `spec/actor-programs.md` (Permissions), `spec/profiles.md`
+(Profiles, Function selection and actor grants), `spec/plugins.md` (Web as plugin host, Server process sandbox),
+`spec/overview.md` (Course); operations: `operations.md` (Server process sandbox); usage:
+`usage.md` (Create your first run).
+
+A nonempty agent function list automatically enabled arbitrary TypeScript execution, and an
+owner with `*` could execute outside process protection. Prompt injection could then inspect the
+server environment and other users' run data. `exactTools: true` now keeps an explicit array
+without automatic TypeScript tools; rights and grants stay unchanged. All server-side model-code
+processes use one allowlisted environment excluding profile environment names and values,
+configuration containing references or declared secrets, and provider credentials. Allowlisted
+literal operational settings may remain. Trusted adapter credentials stay local to their launches.
+
+Sandboxed and package-isolated execution retain Linux PID isolation with a private `/proc`;
+weaker nested mode is disabled and startup verifies a separate proc mount. Real macOS probes
+exposed Mach memory access and raw `KERN_PROCARGS2` despite the library's named restrictions.
+The shared launcher now produces one version-3 Seatbelt profile denying Mach task ports,
+`kern.proc*` queries, and numeric sysctl syscall 202, with runtime library and ancestor metadata
+allowances that preserve ordinary execution. The sandbox library cannot restore ambient
+`JAVA_TOOL_OPTIONS`. Embedded and multi-user servers require the existing
+`ragents.workspace.PROCESS_SANDBOX: "on"`, including for service accounts with `*`; its start
+option is forced and enforced on the server. Default `"auto"` preserves trusted local unrestricted
+execution and its full server-account access, which a clean child environment alone cannot limit.
+
+The optional `exactTools` event and actor field is compatible with older extensions: they do not
+interpret or send it, and omission retains the existing behavior. The `ragents.runs.events`
+contract record is refreshed with `EXTENSION_API_VERSION` unchanged at 1; host API exports and
+version stay unchanged.
+
 ## 2026-10-12: Start fills free rectangles above lower widgets
 
 Chapter: `spec/plugins.md` (Start, Arranging Start, Open limits); usage: `usage.md` (Start dashboard).

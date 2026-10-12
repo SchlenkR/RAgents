@@ -158,7 +158,7 @@ export class TurnToolset {
             throw new Error(`Actor ${actor.id} contains duplicate tool names.`);
         const requested = actor.toolNames === null ? null : new Set(actor.toolNames);
         const selected = requested === null ? resolved : resolved.filter((tool) => requested.has(tool.name));
-        const infrastructure = actor.toolNames?.length === 0 ? [] : resolved.filter((tool) =>
+        const infrastructure = actor.toolNames?.length === 0 || (actor.kind !== "script" && actor.exactTools === true) ? [] : resolved.filter((tool) =>
             nativeInfrastructure.has(tool.name) && !selected.some((entry) => entry.name === tool.name));
         this.functions.splice(0, this.functions.length, ...selected, ...infrastructure);
         this.tools.splice(0, this.tools.length, ...this.functions.filter(isNativeTool));

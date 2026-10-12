@@ -82,6 +82,41 @@ test("tools empty creates a plain model turn without runtime tools", async () =>
     }
 });
 
+for (const explicitlyIncluded of [false, true]) {
+    test(`an exact tool selection controls TypeScript tools in model requests and calls (${explicitlyIncluded})`, async () => {
+        const selected = ["counter_read", ...(explicitlyIncluded ? ["typescript_api", "typescript_eval"] : [])];
+        const setup = setupRun({ toolNames: selected, exactTools: true });
+        const functions = ["counter_read", "typescript_api", "typescript_eval"].map((name) => defineRunFunction({
+            name, label: name, description: "Return the selected value.", schema: Type.Object({}),
+            resultSchema: Type.Null(), available: () => true, run: () => null,
+        }));
+        const registry = new ToolRegistry().register({ name: "exact", dynamic: true, descriptors: [], tools: () => functions });
+        const driver = new FakeDriver(async (request) => {
+            assert.deepEqual(request.tools.map((tool) => tool.name), selected);
+            for (const name of ["typescript_api", "typescript_eval"]) {
+                if (explicitlyIncluded) assert.equal((await request.invoke(name, name, {})).output, null);
+                else {
+                    await assert.rejects(request.invoke(name, name, {}), /is not available/);
+                }
+            }
+            const refreshed = await request.refreshTools!();
+            assert.deepEqual(refreshed.tools.map((tool) => tool.name), selected);
+            return { failure: null, usage: noUsage() };
+        });
+        const scheduler = new TurnScheduler(setup.runtime, setup.journal, { drivers: registryOf(driver), catalog, registry });
+        try {
+            postTo(setup.runtime, setup.view, setup.agent.id, "exact-input", "Read the selected value.");
+            scheduler.start();
+            await scheduler.waitForIdle();
+            assert.equal(driver.requests.length, 1);
+            assert.equal(setup.runtime.view(setup.view.id).turns[0]?.status, "completed");
+        } finally {
+            await scheduler.stop();
+            setup.journal.close();
+        }
+    });
+}
+
 for (const selection of [null, ["counter_read"], []]) {
     test(`function overview follows actor selection ${JSON.stringify(selection)} and refreshes during the turn`, async () => {
         const setup = setupRun({ toolNames: selection });

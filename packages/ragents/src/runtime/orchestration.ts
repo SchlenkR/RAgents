@@ -436,6 +436,7 @@ export class Orchestration {
             execution: AgentExecution;
             grants: readonly CapabilityGrant[];
             toolNames: readonly string[] | null;
+            exactTools?: boolean;
             forkOf?: string;
             description?: string;
             /** The agent's first input, enqueued in the same command. */

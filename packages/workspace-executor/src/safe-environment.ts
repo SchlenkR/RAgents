@@ -38,12 +38,25 @@ const SAFE_ENVIRONMENT_NAMES = [
   "HOMEPATH",
 ] as const;
 
+const privateNames = new Set<string>();
+const privateValues = new Set<string>();
+
+export const excludeProcessEnvironment = (source: NodeJS.ProcessEnv): void => {
+  for (const [name, value] of Object.entries(source)) {
+    privateNames.add(name);
+    if (value) privateValues.add(value);
+  }
+};
+
+export const withoutPrivateEnvironment = (source: NodeJS.ProcessEnv): NodeJS.ProcessEnv => Object.fromEntries(
+  Object.entries(source).filter(([name, value]) => !privateNames.has(name) && (value === undefined || !privateValues.has(value))));
+
 export const safeProcessEnvironment = (source: NodeJS.ProcessEnv): NodeJS.ProcessEnv => {
   const environment: NodeJS.ProcessEnv = {};
   for (const name of SAFE_ENVIRONMENT_NAMES) {
     if (source[name] !== undefined) environment[name] = source[name];
   }
-  return environment;
+  return withoutPrivateEnvironment(environment);
 };
 
 /** The variables of the surrounding editor; a child process that inherits them attaches itself to VS Code or Electron. */

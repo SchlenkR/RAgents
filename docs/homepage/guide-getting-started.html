@@ -1042,7 +1042,10 @@ the template sets its own workspace.</p>
 <p>Before starting, &quot;Sandbox protection&quot; lets administrators restrict the run&#39;s server-side
 code execution. For other users, or when the server requires it, the switch is on and locked.
 The choice cannot change after the run starts. Workstation tools use that workstation&#39;s
-permissions; server-side code still follows the run&#39;s protection.</p>
+permissions; server-side code still follows the run&#39;s protection.
+Leaving protection off allows model-written code to access the server account&#39;s files, other
+runs, process environment and memory, and network. Embedded and multi-user servers require
+protection for everyone (<a href="../operations.md#server-process-sandbox">operations.md</a>).</p>
 <p>A click shows its effect at once: either the run&#39;s progress appears, or the chosen entry shows
 a spinner and &quot;Starting ...&quot; at the top right while the other entries stay locked until the
 run opens or the start fails; a run script in the run header&#39;s &quot;Run script&quot; list does the same. While a template starts,

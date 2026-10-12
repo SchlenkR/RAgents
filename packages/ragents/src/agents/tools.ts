@@ -560,7 +560,7 @@ export const agentTools: RunFunction[] = [
             "It creates exactly one agent in this run: never a new run, never a TypeScript actor, and never a prepared setup, which run_script_start starts where it is offered. "
             + "Check actor_list first when available: actor_input gives a further task to an existing actor, while the same name here creates another actor with a suffix. "
             + "Read model_list before the first spawn. For an LLM actor pass a model-bearing profile or an explicit model; the caller's model is not inherited. For an external actor select a configured runtime, pass tools: null, and omit host model settings and forkOf. It owns its coding tools and receives no RAgents functions. "
-            + "The agent inherits your delegable capabilities, but its function selection is required and never inherited: exact names, [] for a plain LLM without runtime, workspace or host functions, or null for the open, dynamically resolved set; drivers without plain-LLM isolation are rejected. "
+            + "The agent inherits your delegable capabilities, but its function selection is required and never inherited: named tools with TypeScript tools added by default, an array with exactTools: true for only those names, [] for a plain LLM without runtime, workspace or host functions, or null for the open, dynamically resolved set; drivers without plain-LLM isolation are rejected. "
             + "Nothing waits for the agent: the call returns its reference at once. Its answers are model.output.completed events of its turns and reach you only as later inputs of a subscription made with event_subscribe; failed or interrupted turns reach you as automatic notices. "
             + "A task given here starts at once, so a subscription made afterwards can miss its first answer: when you need that answer, create the agent without a task, subscribe to its events, then send the task with actor_input. "
             + "A fork starts with an unchanged copy of the model context of an LLM agent of this run up to the end of that agent's last finished turn; nothing of its running turn is copied, a source without a finished turn is rejected, and the fork still gets its own instructions, functions and model, with its first task after the copy.",
@@ -571,7 +571,8 @@ export const agentTools: RunFunction[] = [
             instructions: Type.Optional(Type.String({ minLength: 1, description: "Lasting role and working rules for the agent's system prompt in all its turns, such as output format and limits; omitted, it has none of its own, and a profile from model_list supplies none" })),
             displayName: Type.Optional(Type.String({ minLength: 1, description: "Display name; defaults to the name" })),
             forkOf: Type.Optional(Type.String({ minLength: 1, description: "Handle or ID of an LLM agent of this run whose model context up to the end of its last finished turn is copied into the new agent" })),
-            tools: Type.Union([Type.Array(Type.String({ minLength: 1 }), { uniqueItems: true }), Type.Null()], { description: "Required explicit selection: [] for plain text-only work including app-mediated conversations; an array for exact existing tool names; null only when the task needs an open, dynamically resolved toolset. Never inherits the caller's tools. Names of future, not yet activated actor functions are invalid; choose null when those must become available later." }),
+            tools: Type.Union([Type.Array(Type.String({ minLength: 1 }), { uniqueItems: true }), Type.Null()], { description: "Required selection: [] for plain text-only work; an array for existing tool names, with TypeScript tools added unless exactTools is true; null for an open, dynamically resolved toolset. Never inherits the caller's tools. Names of future actor functions are invalid; choose null when those must become available later." }),
+            exactTools: Type.Optional(Type.Boolean({ description: "Only with a tools array: true prevents automatically adding typescript_api and typescript_eval. Explicitly listed tools still require the actor's capabilities. Omit with tools: null." })),
             withoutCapabilities: Type.Optional(Type.Array(capabilitySchema, { uniqueItems: true, description: "Capabilities the new agent does not inherit; otherwise it gets every delegable capability of this actor" })),
             ...executionSchema,
         }, { additionalProperties: false }),
@@ -611,6 +612,7 @@ export const agentTools: RunFunction[] = [
                 execution,
                 grants: inheritedGrants(actor, input.withoutCapabilities),
                 toolNames: input.tools,
+                ...(input.exactTools === undefined ? {} : { exactTools: input.exactTools }),
                 ...(input.forkOf === undefined ? {} : { forkOf: input.forkOf }),
                 ...(input.prompt === undefined ? {} : { task: input.prompt }),
             });

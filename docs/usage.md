@@ -27,6 +27,9 @@ Before starting, "Sandbox protection" lets administrators restrict the run's ser
 code execution. For other users, or when the server requires it, the switch is on and locked.
 The choice cannot change after the run starts. Workstation tools use that workstation's
 permissions; server-side code still follows the run's protection.
+Leaving protection off allows model-written code to access the server account's files, other
+runs, process environment and memory, and network. Embedded and multi-user servers require
+protection for everyone ([operations.md](operations.md#server-process-sandbox)).
 
 A click shows its effect at once: either the run's progress appears, or the chosen entry shows
 a spinner and "Starting ..." at the top right while the other entries stay locked until the

@@ -1,7 +1,7 @@
 import { withGitConfigPairs, type GitConfigPairs } from "./git-config-environment.js";
 import type { ProcessSandbox } from "./process-sandbox.js";
 import { RUN_MARKER_ENV } from "./run-marker.js";
-import { inheritedProcessEnvironment, safeProcessEnvironment } from "./safe-environment.js";
+import { inheritedProcessEnvironment, safeProcessEnvironment, withoutPrivateEnvironment } from "./safe-environment.js";
 import type { SessionIdent } from "./session-ident.js";
 import type { ResolvedWorkspaceRoot } from "./paths.js";
 
@@ -84,7 +84,7 @@ const accountEnvironment = (source: NodeJS.ProcessEnv, ident: { name: string } |
 export const sandboxEnvironment = (
   source: NodeJS.ProcessEnv,
   { base = "safe", home, ident, pathVariables, additions }: SandboxEnvironmentOptions,
-): NodeJS.ProcessEnv => ({
+): NodeJS.ProcessEnv => withoutPrivateEnvironment({
   ...(base === "inherited" ? inheritedProcessEnvironment(source) : safeProcessEnvironment(source)),
   HOME: home.home,
   USERPROFILE: home.home,

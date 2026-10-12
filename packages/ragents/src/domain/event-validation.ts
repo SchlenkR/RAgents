@@ -462,7 +462,7 @@ const payloadOf = (type: EventType, value: unknown, path: string) => {
                 "execution",
                 "grants",
                 "toolNames",
-            ], ["forkOf", "description", "room"]);
+            ], ["forkOf", "description", "room", "exactTools"]);
             actorIdOf(payload.agentId, `${path}.agentId`);
             if (payload.room !== undefined) roomNameOf(payload.room, `${path}.room`);
             if (payload.forkOf !== undefined) actorIdOf(payload.forkOf, `${path}.forkOf`);
@@ -473,6 +473,10 @@ const payloadOf = (type: EventType, value: unknown, path: string) => {
             executionOf(payload.execution, `${path}.execution`);
             grantsOf(payload.grants, `${path}.grants`);
             nullableStringArrayOf(payload.toolNames, `${path}.toolNames`);
+            if (payload.exactTools !== undefined) {
+                booleanOf(payload.exactTools, `${path}.exactTools`);
+                if (payload.toolNames === null) fail(`${path}.exactTools`, "requires an explicit toolNames array");
+            }
             return;
         }
 

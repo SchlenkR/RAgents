@@ -2,6 +2,7 @@ import { statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { pluginToolsDirectory } from "@ragents/workspace-executor/src/tools.ts";
+import { excludeProcessEnvironment } from "@ragents/workspace-executor/src/safe-environment.ts";
 import { isAccessRight, type AccessUser } from "../../../packages/ragents/src/access.js";
 import {
   isEnvironmentReference,
@@ -30,6 +31,7 @@ interface ConfigFileEntry {
   value: string;
   viaReference: boolean;
   overriddenByEnvironment: boolean;
+  containsReference?: boolean;
 }
 
 interface LoadedConfigFile {
@@ -243,7 +245,7 @@ const parseEntries = (source: string, raw: RAgentsConfig): readonly ConfigFileEn
   const entries: ConfigFileEntry[] = [];
   for (const [section, sectionValue] of sections) {
     for (const [key, value] of Object.entries(sectionValue)) {
-      entries.push(entryFor(source, section, key, value, dataDirectory));
+      entries.push({ ...entryFor(source, section, key, value, dataDirectory), containsReference: environmentReferences(value).length > 0 });
     }
   }
   const byKey = new Map<string, ConfigFileEntry>();
@@ -256,6 +258,12 @@ const parseEntries = (source: string, raw: RAgentsConfig): readonly ConfigFileEn
     byKey.set(entry.key, entry);
   }
   return entries;
+};
+
+const environmentReferences = (value: unknown): readonly string[] => {
+  if (isEnvironmentReference(value)) return [value.name];
+  if (Array.isArray(value)) return value.flatMap(environmentReferences);
+  return value !== null && typeof value === "object" ? Object.values(value).flatMap(environmentReferences) : [];
 };
 
 const PROFILE_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -288,6 +296,8 @@ const readProfileConfiguration = async (root: string): Promise<LoadedConfigFile 
   const source = profileFilePath(root);
   if (!source || !statSync(source, { throwIfNoEntry: false })?.isFile()) return undefined;
   const module = await import(pathToFileURL(source).href) as Record<string, unknown>;
+  const references = [...environmentReferences(module.config), ...environmentReferences(module.users)];
+  excludeProcessEnvironment(Object.fromEntries(references.map((name) => [name, process.env[name]])));
   const loadedConfig = module.config;
   if (typeof loadedConfig !== "object" || loadedConfig === null) {
     throw new Error(`${source} does not export a constant config with the configuration sections`);
@@ -314,6 +324,9 @@ export const loadConfigFile = async (root = rootDir): Promise<void> => {
     process.env[entry.key] = entry.value;
     applied++;
   }
+  excludeProcessEnvironment(Object.fromEntries(loadedConfigFile.entries.filter((entry) => entry.containsReference)
+    .map((entry) => [entry.key, process.env[entry.key]])));
+  for (const user of loadedConfigFile.users ?? []) excludeProcessEnvironment({ password: user.password, token: user.token });
   const overridden = loadedConfigFile.entries.length - applied;
   console.log(`Configuration ${loadedConfigFile.path} loaded `
     + `(${applied} values applied, ${overridden} overridden by the environment)`);
@@ -342,6 +355,7 @@ export const validateConfigFileSections = (context: ConfigFileValidationContext)
   const known = new Set(context.knownPluginIds);
   const active = new Set(context.activePluginIds);
   const secret = new Set(context.secretKeys);
+  excludeProcessEnvironment(Object.fromEntries([...secret].map((name) => [name, process.env[name]])));
   for (const section of new Set(loadedConfigFile.entries.map((entry) => entry.section))) {
     if (section === "host") continue;
     if (!known.has(section)) {

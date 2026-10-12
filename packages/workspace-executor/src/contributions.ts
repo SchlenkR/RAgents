@@ -10,7 +10,7 @@ import { resolveRootDirectory, resolveRootFile } from "./language-server/roots.j
 import type { WorkspaceModuleFactory } from "./module.js";
 import { startManagedService, type ManagedService, type ManagedServiceOptions } from "./managed-process.js";
 import { RUN_MARKER_ENV } from "./run-marker.js";
-import { safeProcessEnvironment } from "./safe-environment.js";
+import { safeProcessEnvironment, withoutPrivateEnvironment } from "./safe-environment.js";
 import { allowedWorkspacePath } from "./paths.js";
 
 /** Where a bundle carries its contribution to the executor: a self-contained file that every Node process loads without host resolution. */
@@ -89,7 +89,7 @@ export const executorMachine = (toolsDirectory: string): WorkspaceExecutorMachin
   resolveRootDirectory,
   resolveRootPath: (root, requested) => allowedWorkspacePath(path.resolve(root, requested), [root]),
   operationError: (code, message, status) => new WorkspaceOperationError(code, message, status),
-  processEnvironment: (runId) => ({ ...safeProcessEnvironment(process.env), HOME: homedir(), [RUN_MARKER_ENV]: runId }),
+  processEnvironment: (runId) => withoutPrivateEnvironment({ ...safeProcessEnvironment(process.env), HOME: homedir(), [RUN_MARKER_ENV]: runId }),
   startManagedService,
 });
 

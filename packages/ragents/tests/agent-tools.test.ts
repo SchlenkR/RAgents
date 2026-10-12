@@ -65,6 +65,31 @@ test("tools empty exposes no runtime tools", async () => {
     }
 });
 
+test("agent_spawn journals an exact tool choice without changing its grants", async () => {
+    const setup = setupRun({ grants: allGrants(), toolNames: ["agent_spawn"] });
+    try {
+        const { toolset } = await turnToolset(setup, "exact-spawn");
+        await toolset.invoke("spawn", "agent_spawn", {
+            name: "reader", description: "Reads selected information", profile: "agent",
+            tools: ["actor_list"], exactTools: true,
+        });
+        const child = setup.runtime.view(setup.view.id).actors.find((actor) => actor.handle === "reader");
+        assert.ok(child && child.kind === "agent");
+        assert.equal(child.exactTools, true);
+        assert.deepEqual(child.toolNames, ["actor_list"]);
+        assert.deepEqual(child.grants, setup.agent.grants);
+        const event = setup.runtime.events(setup.view.id).find((entry) => entry.type === "agent.spawned" && entry.payload.handle === "reader");
+        assert.ok(event?.type === "agent.spawned");
+        assert.equal(event.payload.exactTools, true);
+        await assert.rejects(toolset.invoke("dynamic", "agent_spawn", {
+            name: "dynamic", description: "Reads dynamic information", profile: "agent",
+            tools: null, exactTools: true,
+        }), /exactTools requires an explicit tools array/);
+    } finally {
+        setup.journal.close();
+    }
+});
+
 test("a completed tool call replays within the same turn without acting twice", async () => {
     let calls = 0;
     const countingTool = defineRunFunction({
