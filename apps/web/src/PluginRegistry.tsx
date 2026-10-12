@@ -309,6 +309,8 @@ export interface WorkspaceTabContribution {
   hosts?: readonly ("browser" | "vscode")[];
   /** In the sidebar rail (default) or, in the browser, among the run's windows in the header like a mini-app. */
   placement?: "sidebar" | "window";
+  /** Browser windows open on first availability and layout reset unless false; saved places are preserved. */
+  openByDefault?: boolean;
   readRight?: string;
   id: string;
   label: string;

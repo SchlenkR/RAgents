@@ -91,6 +91,8 @@ workspace down.
 Drag a button between the sidebar rail and header to choose where it lives, or right-click it
 and choose "Move to header" or "Move to sidebar". Shift+F10 opens the same menu from the keyboard.
 Moving a button keeps its panel's open state; "Reset layout" restores the plugin defaults.
+Plugins can keep optional windows closed at first and after reset; their header buttons still
+open them. Every visible window updates live, including while another window has focus.
 "Agents" shows or focuses the live actor graph in its own window. Pick an actor to address its
 chat, or drag it onto the docking guides to open a separate chat for that actor.
 

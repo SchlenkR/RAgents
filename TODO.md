@@ -4,6 +4,7 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
+- Reproduce the reported actor-view update delay with both window contents visible (12.10.2026): dock browser coverage passes through the actor-program provider and frame bridge across focus changes, and inactive tabs catch up when revealed; identify the affected setup and upstream state delivery before changing subscriptions.
 - Check live (12.10.2026): restart a working run with a real model on the server and on a disconnected workstation, verify the restart note and unfinished-effect checks, the short chat line, queued steering, the 60-second repeated-restart guard, and profile/run opt-outs; engine and server journal tests cover deterministic recovery.
 - Actor backend idle lifecycle (12.10.2026): add configurable idle shutdown and restart on the next input without losing committed actor state; make `/health` report process and memory pressure or resource exhaustion.
 - Session cookies behind a TLS proxy (12.10.2026): add explicit trusted-proxy configuration and set `Secure` from the trusted forwarded protocol; reject untrusted forwarded headers.

@@ -101,7 +101,7 @@ function pruneEmptied(root: DockNode, before: DockNode, preserve?: string): Dock
 }
 
 /** Adds the available panels that were never known; a known panel that is unavailable keeps its place, `visibleDockState` hides it. */
-export function reconcileDockState(state: DockState, panels: readonly string[], tools: readonly string[], placement: DockPlacement, newId: () => string): DockState {
+export function reconcileDockState(state: DockState, panels: readonly string[], tools: readonly string[], placement: DockPlacement, newId: () => string, openByDefault: readonly string[] = panels): DockState {
   const added = panels.filter((id) => !state.known.includes(id));
   const addedTools = tools.filter((id) => !state.known.includes(id));
   const reconciled = normalize({ ...state,
@@ -109,7 +109,7 @@ export function reconcileDockState(state: DockState, panels: readonly string[], 
     closed: [...state.closed, ...added],
     bar: [...state.bar, ...addedTools],
   });
-  const opened = added.reduce((next, id) => revealDockPanel(next, id, placement, newId), reconciled);
+  const opened = added.filter((id) => openByDefault.includes(id)).reduce((next, id) => revealDockPanel(next, id, placement, newId), reconciled);
   const result = normalize({ ...opened, focused: reconciled.focused, side: { ...opened.side, focused: reconciled.side.focused } });
   return JSON.stringify(result) === JSON.stringify(state) ? state : result;
 }

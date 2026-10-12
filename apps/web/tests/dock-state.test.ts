@@ -9,10 +9,33 @@ let serial = 0;
 const newId = () => `node-${++serial}`;
 const bounds = { left: 0, top: 0, width: 1200, height: 700 };
 const placement = (state: DockState, rectangle: DockRect = bounds): DockPlacement => ({ bounds: rectangle, available: state.known, loaded: true });
-const reconcileDockState = (state: DockState, panels: readonly string[], tools: readonly string[], rectangle: DockRect = bounds) =>
-  reconcileDockStateWithPlacement(state, panels, tools, { bounds: rectangle, available: [...panels, ...tools], loaded: true }, newId);
+const reconcileDockState = (state: DockState, panels: readonly string[], tools: readonly string[], rectangle: DockRect = bounds, openByDefault: readonly string[] = panels) =>
+  reconcileDockStateWithPlacement(state, panels, tools, { bounds: rectangle, available: [...panels, ...tools], loaded: true }, newId, openByDefault);
 const move = (state: DockState, ids: readonly string[], target: DockTarget) => moveDockPanels(state, ids, target, () => `node-${++serial}`);
 const roundtrip = (state: DockState) => assert.deepEqual(parseDockState(JSON.stringify(state)), state);
+
+test("optional windows stay in the catalog until opened and preserve explicit places during reconciliation", () => {
+  const panels = ["chat", "tab:preview", "app:notes"];
+  const defaults = ["chat", "app:notes"];
+  const first = reconcileDockState(initialDockState(), panels, [], bounds, defaults);
+  assert.deepEqual(first.known, panels);
+  assert.deepEqual(first.closed, ["tab:preview"]);
+  assert.deepEqual(dockWindowOrder(first, panels), panels);
+  assert.deepEqual(dockGroups(first.root).map((entry) => entry.tabs), [["chat"], ["app:notes"]]);
+  assert.equal(reconcileDockState(first, panels, [], bounds, panels), first, "changing the default does not override a known closed window");
+  const opened = revealDockPanel(first, "tab:preview", placement(first), newId);
+  const owner = dockGroups(opened.root).find((entry) => entry.active === "tab:preview")!;
+  const absent = reconcileDockState(opened, defaults, [], bounds, defaults);
+  assert.equal(reconcileDockState(absent, panels, [], bounds, defaults), opened);
+  assert.equal(dockGroups(opened.root).find((entry) => entry.id === owner.id)?.active, "tab:preview");
+  const closed = closeDockPanels(opened, ["tab:preview"]);
+  assert.equal(reconcileDockState(closed, panels, [], bounds, defaults), closed);
+  const reset = reconcileDockState(initialDockState(), panels, [], bounds, defaults);
+  assert.deepEqual(reset.closed, ["tab:preview"]);
+  const late = reconcileDockState(reconcileDockState(initialDockState(), defaults, []), panels, [], bounds, defaults);
+  assert.deepEqual(late.closed, ["tab:preview"]);
+  for (const state of [first, opened, closed, reset, late]) roundtrip(state);
+});
 
 test("a dragged view joins only on a valid drop and keeps one window across moves and reopening", () => {
   const state = initialDockState();

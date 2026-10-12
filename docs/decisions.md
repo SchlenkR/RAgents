@@ -1,5 +1,19 @@
 # Decisions
 
+## 2026-10-12: Optional workspace windows remain available without opening
+
+Chapter: `spec/plugins.md` (Docking workspace); usage: `usage.md` (Use chat and mini-apps).
+
+Always opening a plugin window crowded runs that did not need it. Workspace tabs can now set
+`openByDefault: false` to stay closed on first availability and layout reset while keeping their
+header button and ordinary navigation. Reconciliation preserves saved placements and explicit
+openings. The optional field is additive, so the host API version stays unchanged.
+Browser coverage exercises the actor-program provider and iframe bridge with another visible
+window focused, hidden-panel catch-up, retained drafts, and frame identity.
+A hidden app tab updates when the other tab closes because `Activity` pauses its forwarding
+effects until reveal. Separate visible areas keep
+updating; the reported delay of a visible app still needs an affected run to identify its cause.
+
 ## 2026-10-12: TypeScript actor cards show their program
 
 Chapter: `spec/plugins.md` (Run panel); usage: `usage.md` (Run panel and VS Code extension).
