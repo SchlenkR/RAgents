@@ -96,20 +96,21 @@ export interface Packing {
 /** Tops closer than this count as equal, so that a fraction of a pixel never moves a widget away from the left. */
 const SAME_TOP = 0.5;
 
-/** Places widgets in order, each at the lowest top that any range of its columns offers below the widgets placed before, leftmost among equal tops; widgets keep their own heights, so a short widget leaves no hole beside a tall one. */
+/** Places widgets in order at their topmost free rectangle, leftmost among equal tops; empty widgets take no place. */
 export function packWidgets(items: readonly PackItem[], grid: number, gap: number): Packing {
-  const packed = items.reduce<{ readonly skyline: readonly number[]; readonly widgets: readonly PackedWidget[] }>((state, item) => {
+  const packed = items.reduce<readonly (PackedWidget & { readonly bottom: number })[]>((occupied, item) => {
     if (!Number.isInteger(item.columns) || item.columns < 1 || item.columns > grid) throw new Error(`Start widget ${item.key} cannot take ${item.columns} of ${grid} columns.`);
-    if (!(item.height > 0)) return state;
-    const best = Array.from({ length: grid - item.columns + 1 }, (_, column) => ({ column, top: Math.max(...state.skyline.slice(column, column + item.columns)) }))
+    if (!(item.height > 0)) return occupied;
+    const best = Array.from({ length: grid - item.columns + 1 }, (_, column) => ({
+      column,
+      top: occupied.filter((widget) => widget.column < column + item.columns && column < widget.column + widget.columns)
+        .sort((a, b) => a.top - b.top)
+        .reduce((top, widget) => top >= widget.bottom + gap || top + item.height + gap <= widget.top ? top : widget.bottom + gap, 0),
+    }))
       .reduce((chosen, candidate) => candidate.top < chosen.top - SAME_TOP ? candidate : chosen);
-    const bottom = best.top + item.height + gap;
-    return {
-      skyline: state.skyline.map((level, column) => column >= best.column && column < best.column + item.columns ? bottom : level),
-      widgets: [...state.widgets, { key: item.key, column: best.column, columns: item.columns, top: best.top }],
-    };
-  }, { skyline: Array.from({ length: grid }, () => 0), widgets: [] });
-  return { widgets: packed.widgets, height: Math.max(0, ...packed.skyline.map((level) => level - gap)) };
+    return [...occupied, { key: item.key, column: best.column, columns: item.columns, top: best.top, bottom: best.top + item.height }];
+  }, []);
+  return { widgets: packed.map(({ key, column, columns, top }) => ({ key, column, columns, top })), height: Math.max(0, ...packed.map((widget) => widget.bottom)) };
 }
 
 /** A widget's box in the grid's own pixels, from its top left corner. */

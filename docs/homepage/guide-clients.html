@@ -1066,9 +1066,10 @@ workspace. Narrow panels can also wrap fixed controls.</p>
 all of them widgets of the same kind. What fits
 depends on the width of Start itself, not of the window, so a narrow VS Code panel behaves like a
 narrow window. From 1100 pixels Start has six columns and every widget is as many of them wide as
-it is set to, New two and Continue four. Every widget is as tall as its content and moves up as far as
-its columns are free, in its order from the top left, so a short widget leaves no gap below it next to
-a tall one: when New and a tall widget stand side by side, the next widget follows right below New. From
+it is set to, New two and Continue four. In the saved order, every widget takes the topmost free place
+where its width and content height fit, then the leftmost. Later widgets can fill room above a wider
+widget placed lower: with Continue three columns wide and a global app four columns wide below it,
+New two columns wide fits at columns four and five beside Continue. Empty widgets take no room. From
 700 pixels Start has three columns and every widget takes half its columns, rounded up, so New and
 Continue still share a row. When a widget&#39;s content grows, the widgets below it move down with it. Below 700 pixels Start shows one widget at a time with tabs at the top;
 the chosen tab is remembered for this server address. A plugin widget without a title follows

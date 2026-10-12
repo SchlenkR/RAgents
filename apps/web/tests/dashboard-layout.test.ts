@@ -100,8 +100,27 @@ test("packing breaks ties to the left and ignores differences below half a pixel
 test("a wide widget goes below every column it spans, and a narrower one after it may fill the room beside an earlier one", () => {
   assert.deepEqual(places([item("new", 2, 100), item("continue", 4, 300), item("board", 6, 200)]), ["new@0,0", "continue@2,0", "board@0,330"]);
   assert.deepEqual(places([item("a", 4, 200), item("b", 4, 50), item("c", 2, 50)]), ["a@0,0", "b@0,230", "c@4,0"], "the leftmost highest place that fits");
-  assert.deepEqual(places([item("a", 3, 100), item("b", 6, 50), item("c", 3, 50)]), ["a@0,0", "b@0,130", "c@0,210"], "the room beside a narrower widget above a full row stays free");
+  assert.deepEqual(places([item("a", 3, 100), item("b", 6, 50), item("c", 3, 50)]), ["a@0,0", "b@0,130", "c@3,0"], "the room beside a narrower widget above a full row is filled");
   assert.deepEqual(places([item("new", 1, 100), item("continue", 2, 300), item("board", 3, 200)], 3), ["new@0,0", "continue@1,0", "board@0,330"], "the same at three columns");
+});
+
+test("the owner's stored order puts New at columns four and five beside Continue above the global app", () => {
+  const owner = [item("continue", 3, 500), item("global-app", 4, 200), item("topics", 3, 0), item("new", 2, 100)];
+  assert.deepEqual(places(owner), ["continue@0,0", "global-app@0,530", "new@3,0"]);
+  assert.equal(packWidgets(owner, 6, GAP).height, 730);
+});
+
+test("a hole above a wide lower widget is filled only when the later widget's own height and gaps fit", () => {
+  const before = [item("tall", 2, 180), item("short", 4, 50), item("wide", 6, 100)];
+  assert.deepEqual(places([...before, item("filler", 2, 100)]), ["tall@0,0", "short@2,0", "wide@0,210", "filler@2,80"]);
+  assert.deepEqual(places([...before, item("filler", 2, 100.1)]), ["tall@0,0", "short@2,0", "wide@0,210", "filler@0,340"], "a fraction beyond the available height cannot overlap the gap");
+  assert.deepEqual(places([item("tall", 2, 180), item("wide", 3, 100), item("filler", 1, 50)], 3), ["tall@0,0", "wide@0,210", "filler@2,0"]);
+});
+
+test("widgets that fit the same hole claim it in their order and break equal tops to the left", () => {
+  const before = [item("tall", 2, 180), item("wide", 6, 100)];
+  assert.deepEqual(places([...before, item("first", 2, 80), item("second", 2, 80)]), ["tall@0,0", "wide@0,210", "first@2,0", "second@4,0"]);
+  assert.deepEqual(places([...before, item("second", 2, 80), item("first", 2, 80)]), ["tall@0,0", "wide@0,210", "second@2,0", "first@4,0"]);
 });
 
 test("packing keeps the order of the widgets, skips those without height, and gives the same result for the same input", () => {

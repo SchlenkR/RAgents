@@ -3457,13 +3457,13 @@ often narrow on a wide screen. `dashboardLayout` in `panel/dashboard-layout.ts` 
 1100 pixels (`DASHBOARD_WIDE_FROM`) the grid has six columns (`DASHBOARD_COLUMNS`) and every widget
 takes exactly its columns; from 700 pixels (`DASHBOARD_TABS_BELOW`) the grid has three columns and a
 widget takes half its columns, rounded up (`shownColumns`); a widget without a title always takes all
-columns. Widgets keep their own content heights and are packed without holes (`packWidgets`): in their
-order, each goes to the lowest top that any range of its columns offers below the widgets placed
-before it, one row gap lower, and to the leftmost range among equal tops (tops within half a pixel
-count as equal). So a short widget beside a tall one leaves no hole below it: with New and a tall
-plugin widget three columns wide each, Continue after them stands one gap below New instead of below
-the taller widget. Room below a narrower widget that a wider one following it spans stays free. A
-widget without height, such as an empty section, takes no place. `packCells` reads the cells as rendered, in order with their
+columns. Widgets keep their own content heights and pack into free rectangles (`packWidgets`): in their
+order, each takes the topmost place where its columns and its own height fit among the rectangles
+already placed, with a row gap above and below widgets in the same columns, then the leftmost place
+among equal tops (tops within half a pixel count as equal). Later widgets can fill room above a lower,
+wider widget. With Continue three columns wide, a global app four columns wide below it, empty Topics,
+and New two columns wide in that order, New takes columns four and five at the top beside Continue.
+A widget without height, such as an empty section, takes no place. `packCells` reads the cells as rendered, in order with their
 columns (`data-columns`) and heights, and writes each cell's `left` and `top` and the grid's height;
 the cells are absolutely positioned in the grid, their width is a share of its width less the column gaps
 (`--start-gap-x`), and their DOM order stays the widget order, which is also the focus order. Packing runs
@@ -3512,8 +3512,8 @@ the others re-pack around it, and a label with its title follows the pointer. Th
 the grid's columns as guides (`data-column-guides`) and a label with the target width
 ("4 of 6 columns") at the pointer, adds the columns the pointer moved to the width at the start of the
 drag, snaps at the middle of each column within `minColumns` and `maxColumns` (`draggedColumns`), and
-re-packs live; a widget that no longer fits beside its neighbors moves to the lowest place where its
-columns fit. At three columns the edge
+re-packs live with the same free-rectangle rule; a widget that no longer fits beside its neighbors
+moves to the topmost place where its columns and height fit. At three columns the edge
 snaps to the columns shown and stores the most of the six columns that show that width, or keeps the
 stored columns when they already do (`resizedColumns`), so every step is visible. Release commits the
 width to the draft. Pointer handling is the
@@ -5630,8 +5630,8 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   trailing `-<number>`, so the first start of a run script whose name itself ends that way has a
   place of its own.
 - Start's packing follows the widget order: a later widget that fills the room beside a tall one can
-  stand above an earlier, wider one, and the focus order stays the widget order there; room below a
-  narrower widget that a following wider one spans stays free. Moving a widget in the order reorders
+  stand above an earlier, wider one, and the focus order stays the widget order there. Room that no
+  remaining widget fits stays free. Moving a widget in the order reorders
   the cells in the DOM, so a frame inside a moved cell, such as a global app's view, can load again.
 - Hidden `Activity` boundaries pause React effects and retain parent-fed panel props. They do not
   suspend scripts inside an iframe; independent context or state updates can still render a

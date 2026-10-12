@@ -87,6 +87,8 @@ function UsageList({ settings }: StartWidgetProps<typeof usageSettings>) {
 /** ?case=owner is the wide screen with New and Topics three columns wide and Continue after them; Topics is much taller than New. */
 const owner = query.get("case") === "owner";
 
+const holes = query.get("case") === "holes";
+
 /** ?case=twins lists one widget and publishes its twin through a factory, with the same fields apart from ID and title. */
 const twins = query.get("case") === "twins";
 
@@ -105,7 +107,7 @@ const twin = (id: string, title: string): StartWidget => ({
 
 const listed: StartWidget[] = owner ? [
   { id: "demo.topics", order: 10, title: "Topics", columns: 3, minColumns: 2, render: () => <TopicCards /> },
-] : twins ? [twin("demo.twin", "Listed twin")] : [
+] : holes ? [{ id: "demo.topics", order: 10, title: "Topics", columns: 3, render: () => null }] : twins ? [twin("demo.twin", "Listed twin")] : [
   { id: "demo.board", order: 10, title: "Work board", description: "Runs in three lanes by their state.", render: (props) => <WorkBoard {...props} /> },
   widget("demo.auto", 20, "New auto items", 2),
   widget("demo.shared", 30, "Shared with the team", 2),
@@ -146,7 +148,8 @@ const dynamic: WebPlugin[] = query.get("dynamic") === "1" ? [
     return [apps.broken!, apps.planner!];
   } },
   { id: "demo.failing", startWidgets: async () => { throw new Error("The app catalog is unreachable."); } },
-] : twins ? [{ id: "demo.twins", startWidgets: async () => [twin("demo.twins:twin", "Published twin")] }] : [];
+] : holes ? [{ id: "demo.apps", startWidgets: async () => [{ ...apps.planner!, columns: 4 }] }]
+  : twins ? [{ id: "demo.twins", startWidgets: async () => [twin("demo.twins:twin", "Published twin")] }] : [];
 
 const registry = new PluginRegistry({
   brand: { title: "Start dashboard check" },
@@ -172,6 +175,9 @@ declare global { interface Window { dashboardFixture: typeof fixture } }
 window.dashboardFixture = fixture;
 if (owner && localStorage.getItem(stored("start.layout")) === null) {
   localStorage.setItem(stored("start.layout"), JSON.stringify({ version: 3, order: ["start.new", "demo.topics", "start.continue"], columns: { "start.new": 3, "start.continue": 3 }, removed: [], settings: {} }));
+}
+if (holes && localStorage.getItem(stored("start.layout")) === null) {
+  localStorage.setItem(stored("start.layout"), JSON.stringify({ version: 3, order: ["start.continue", "demo.apps:planner", "demo.topics", "start.new"], columns: { "start.continue": 3, "demo.apps:planner": 4 }, removed: [], settings: {} }));
 }
 const preferences: PreferenceStore = {
   read: async (key) => {

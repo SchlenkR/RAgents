@@ -1,5 +1,16 @@
 # Decisions
 
+## 2026-10-12: Start fills free rectangles above lower widgets
+
+Chapter: `spec/plugins.md` (Start, Arranging Start, Open limits); usage: `usage.md` (Start dashboard).
+
+The column skyline hid room above a wide widget placed below a tall one, so a later widget left a
+hole even when its width and height fit. Packing now places widgets in their order at the topmost
+free rectangle among those already occupied, then the leftmost, keeping the row gaps and skipping
+empty widgets. Rendered measurements, content growth, moving, resizing, and slides use this same
+packing; three-column widths and narrow tabs retain their existing rules. Unit and browser tests
+cover the stored order Continue, global app, empty Topics, New, with New at columns four and five.
+
 ## 2026-10-11: Sandboxed processes launch with canonical folder paths
 
 Chapters: `spec/typescript-platform.md` (Build and process lifecycle), `spec/plugins.md`

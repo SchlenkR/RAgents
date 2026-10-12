@@ -87,7 +87,7 @@ const packedCells = (page: Page) => page.locator("[data-dashboard]").evaluate((g
 
 type Packed = Awaited<ReturnType<typeof packedCells>>;
 
-/** Every cell stands on whole columns, rests one gap below the cells before it in its columns, has no higher place where its columns fit, and overlaps no other cell; the grid ends at its lowest cell. */
+/** Every cell takes its first free rectangle in order, keeps the gaps, and stands on whole columns; the grid ends at its lowest cell. */
 const checkPacked = (packed: Packed, label: string) => {
   const cells = packed.cells.map((cell) => {
     const column = Math.round(cell.left / packed.pitch);
@@ -97,10 +97,14 @@ const checkPacked = (packed: Packed, label: string) => {
   });
   cells.forEach((cell, index) => {
     const before = cells.slice(0, index);
-    const lowest = (from: number) => Math.max(0, ...before.filter((other) => other.column < from + cell.columns && from < other.column + other.columns).map((other) => other.top + other.height + packed.gapY));
+    const tops = [0, ...before.map((other) => other.top + other.height + packed.gapY)].sort((a, b) => a - b);
+    const lowest = (from: number) => tops.find((top) => before.every((other) => other.column >= from + cell.columns || from >= other.column + other.columns
+      || top + cell.height + packed.gapY <= other.top + 0.5 || top >= other.top + other.height + packed.gapY - 0.5))!;
     const best = Math.min(...Array.from({ length: packed.columns - cell.columns + 1 }, (_, from) => lowest(from)));
-    assert.ok(Math.abs(cell.top - lowest(cell.column)) < 1, `${cell.key} rests one gap below the widgets above it, at ${cell.top} instead of ${lowest(cell.column)} (${label})`);
+    assert.ok(Math.abs(cell.top - lowest(cell.column)) < 1, `${cell.key} takes its first free rectangle, at ${cell.top} instead of ${lowest(cell.column)} (${label})`);
     assert.ok(cell.top <= best + 1, `${cell.key} has no higher place where its columns fit: ${cell.top} against ${best} (${label})`);
+    assert.ok(before.every((other) => other.column >= cell.column + cell.columns || cell.column >= other.column + other.columns
+      || cell.top + cell.height + packed.gapY <= other.top + 1 || cell.top >= other.top + other.height + packed.gapY - 1), `${cell.key} keeps a gap above and below earlier widgets (${label})`);
     const overlapping = before.filter((other) => other.left < cell.left + cell.width - 0.5 && cell.left < other.left + other.width - 0.5 && other.top < cell.top + cell.height - 0.5 && cell.top < other.top + other.height - 0.5);
     assert.deepEqual(overlapping.map((other) => other.key), [], `${cell.key} overlaps no other widget (${label})`);
   });
@@ -145,8 +149,9 @@ test("a wide dashboard places widgets in six columns by their widths and leaves 
     const board = await box(page, "Work board");
     assert.ok(board.y > more.y && Math.abs(board.width - spanWidth(grid, 6)) < 0.5, "a widget without columns fills its own row");
     const narrow = await Promise.all(["New auto items", "Shared with the team", "Model usage"].map((name) => box(page, name)));
-    assert.ok(narrow.every((entry) => Math.abs(entry.y - narrow[0]!.y) < 1), "three widgets of two columns share one row");
+    assert.ok(narrow.every((entry) => entry.y + entry.height < board.y), "later widgets fill room above the full-width board");
     assert.ok(Math.abs(narrow[0]!.width - start.width) < 1);
+    checkPacked(await packedCells(page), "six-column widgets fill earlier holes");
     assert.equal(await page.getByRole("heading", { name: "Nothing to show" }).count(), 0, "a widget that renders nothing takes no cell");
     const legacy = await page.getByRole("region", { name: "Legacy notes" }).boundingBox();
     assert.ok(legacy && legacy.y > narrow[0]!.y && Math.abs(legacy.width - board.width) < 1, "a section without a title keeps a full row");
@@ -161,6 +166,29 @@ test("a wide dashboard places widgets in six columns by their widths and leaves 
   });
 });
 
+test("the owner's stored order fills the top beside Continue above a wide global app and skips empty Topics", browserOnly, async () => {
+  await withPage(1280, "case=holes", async (page) => {
+    await page.getByRole("region", { name: "Planner", exact: true }).waitFor();
+    const packed = await packedCells(page);
+    checkPacked(packed, "the owner's stored order");
+    assert.deepEqual(packed.cells.map((cell) => cell.key), ["start.continue", "demo.apps:planner", "start.new"]);
+    assert.deepEqual(packed.cells.map((cell) => Math.round((cell.width + packed.gapX) / packed.pitch)), [3, 4, 2]);
+    const [more, app, start] = ["start.continue", "demo.apps:planner", "start.new"].map((key) => placeOf(packed, key));
+    assert.equal(more!.column, 0);
+    assert.equal(more!.top, 0);
+    assert.equal(app!.column, 0);
+    assert.ok(Math.abs(app!.top - (more!.bottom + packed.gapY)) < 1);
+    assert.equal(start!.column, 3, "New starts at column four, occupying columns four and five");
+    assert.equal(start!.top, 0);
+    assert.equal(await page.getByRole("heading", { name: "Topics", exact: true }).count(), 0);
+    assert.deepEqual(await noHorizontalScroll(page), { page: 0, main: 0 });
+    await page.reload();
+    await loaded(page);
+    await page.getByRole("region", { name: "Planner", exact: true }).waitFor();
+    assert.deepEqual(await packedCells(page), packed, "the saved order and widths keep their places after a reload");
+  });
+});
+
 test("medium widths have three columns and halve the widths, rounded up, so New and Continue keep one row", browserOnly, async () => {
   await withPage(900, "", async (page) => {
     const grid = await gridOf(page);
@@ -168,8 +196,11 @@ test("medium widths have three columns and halve the widths, rounded up, so New 
     const [start, more] = [await box(page, "New"), await box(page, "Continue")];
     assert.ok(Math.abs(start.y - more.y) < 1 && Math.abs(start.width - spanWidth(grid, 1)) < 0.5 && Math.abs(more.width - spanWidth(grid, 2)) < 0.5);
     const narrow = await Promise.all(["New auto items", "Shared with the team", "Model usage"].map((name) => box(page, name)));
-    assert.ok(narrow.every((entry) => Math.abs(entry.y - narrow[0]!.y) < 1 && Math.abs(entry.width - start.width) < 1), "three widgets of two columns take one each");
-    assert.ok(Math.abs((await box(page, "Work board")).width - spanWidth(grid, 3)) < 0.5);
+    assert.ok(narrow.every((entry) => Math.abs(entry.width - start.width) < 1), "widgets of two stored columns take one shown column each");
+    const board = await box(page, "Work board");
+    assert.ok(Math.abs(board.width - spanWidth(grid, 3)) < 0.5);
+    assert.ok(narrow.some((entry) => entry.y + entry.height < board.y), "a later widget fills room above the full-width board");
+    checkPacked(await packedCells(page), "three-column widgets fill earlier holes");
     assert.deepEqual(await noHorizontalScroll(page), { page: 0, main: 0 });
   });
 });
@@ -963,11 +994,14 @@ test("a widget whose content grows pushes the widgets below it before the next p
       const problems: string[] = [];
       // An observer made after Start's own one runs after it in the same frame, right before the paint.
       const observer = new ResizeObserver(() => {
-        const bottom = board.getBoundingClientRect().bottom;
-        for (const key of ["demo.auto", "demo.shared", "demo.usage"]) {
-          const top = grid.querySelector(`[data-start-widget="${key}"]`)!.getBoundingClientRect().top;
-          if (top < bottom + gap - 0.5) problems.push(`${key} at ${top} overlaps the board ending at ${bottom}`);
-        }
+        const cells = [...grid.querySelectorAll<HTMLElement>(":scope > [data-pack]")].map((cell) => ({ key: cell.dataset.pack!, box: cell.getBoundingClientRect() }))
+          .filter(({ box }) => box.height > 0);
+        cells.forEach((cell, index) => {
+          for (const other of cells.slice(0, index)) {
+            if (cell.box.left < other.box.right - 0.5 && other.box.left < cell.box.right - 0.5
+              && cell.box.top < other.box.bottom + gap - 0.5 && other.box.top < cell.box.bottom + gap - 0.5) problems.push(`${cell.key} overlaps ${other.key} or its row gap`);
+          }
+        });
         observer.disconnect();
         resolve({ grown: board.getBoundingClientRect().height - height, problems });
       });
@@ -979,8 +1013,11 @@ test("a widget whose content grows pushes the widgets below it before the next p
     const after = await packedCells(page);
     checkPacked(after, "after the board grew");
     const moved = (key: string) => placeOf(after, key).top - placeOf(before, key).top;
-    assert.ok(["demo.auto", "demo.shared", "demo.usage"].every((key) => Math.abs(moved(key) - result.grown) < 1), "the widgets below move down by exactly the growth");
-    assert.equal(moved("start.continue"), 0, "the widgets above stay");
+    const board = placeOf(before, "demo.board");
+    for (const cell of before.cells.filter((cell) => cell.key !== "demo.board")) {
+      const expected = cell.top < board.top ? 0 : result.grown;
+      assert.ok(Math.abs(moved(cell.key) - expected) < 1, `${cell.key} ${expected === 0 ? "stays in its hole above the board" : "moves down by exactly the growth"}`);
+    }
   });
 });
 
