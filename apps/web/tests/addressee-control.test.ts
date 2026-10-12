@@ -23,10 +23,10 @@ const chip = (selected: string) => {
 
 test("the addressee chip offers the way back to the primary actor only while another actor is addressed", () => {
   const primary = chip("coordinator");
-  assert.match(primary, /title="Addressee: @coordinator\./);
+  assert.match(primary, /aria-label="Addressee: @coordinator\./);
   assert.doesNotMatch(primary, /Back to/);
   const other = chip("reviewer");
-  assert.match(other, /title="Addressee: @reviewer\./);
-  assert.match(other, /<button[^>]*aria-label="Back to @coordinator"[^>]*title="Back to @coordinator"/);
+  assert.match(other, /aria-label="Addressee: @reviewer\./);
+  assert.match(other, /<button[^>]*aria-label="Back to @coordinator"[^>]*aria-description="Back to @coordinator"/);
   assert.equal((other.match(/<button/g) ?? []).length, 2, "the x is a button of its own beside the chip, not inside it");
 });

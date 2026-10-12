@@ -58,8 +58,8 @@ export function DockWindowActions({ dragging, dropIndex, extras = [], groupRef, 
       data-header-window style={position(slot)}
       data-dock-window={drag && index !== undefined ? item.id : undefined} data-dragging={drag ? dragging === item.id : undefined} key={item.id}
       onClick={(event) => { if (!drag || event.detail === 0) onOpen(item.id); }} onKeyDown={index === undefined ? undefined : (event) => moveFromKeyboard(event, item.id)}
-      onPointerDown={drag && ((event) => drag(event, item.id))} title={item.hint ?? (item.visible ? item.title : `Show ${item.title}`)} variant="ghost">
-      {drag && <span aria-hidden className={gripClass} data-dock-window-grip title={index === undefined ? "Drag to dock" : "Drag to reorder or dock"}><GripVerticalIcon className="size-2.5" strokeWidth={3} /></span>}
+      onPointerDown={drag && ((event) => drag(event, item.id))} aria-description={item.hint ?? (item.visible ? item.title : `Show ${item.title}`)} variant="ghost">
+      {drag && <span aria-hidden className={gripClass} data-dock-window-grip aria-label={index === undefined ? "Drag to dock" : "Drag to reorder or dock"}><GripVerticalIcon className="size-2.5" strokeWidth={3} /></span>}
       {content(item)}
       {item.badge !== undefined && dot(item.badge, "absolute top-0.5 right-0.5")}
       {index !== undefined && dropIndex === index && <span aria-hidden className={cn(dropClass, "-left-1")} data-dock-window-drop />}
@@ -71,6 +71,6 @@ export function DockWindowActions({ dragging, dropIndex, extras = [], groupRef, 
       ? <DockButtonMenu destination="sidebar" key={item.id} onMove={() => onMoveToSidebar(item.id)}>{windowButton(item, index)}</DockButtonMenu>
       : windowButton(item, index))}
     {extras.map((item, index) => windowButton(item, undefined, items.length + index))}
-    {onReset && <Button aria-label="Reset layout" className={header ? "pointer-events-auto transition-colors" : undefined} data-header-window onClick={onReset} size="icon-lg" style={position(items.length + extras.length)} title="Reset layout" variant="ghost"><RotateCcwIcon /></Button>}
+    {onReset && <Button aria-label="Reset layout" className={header ? "pointer-events-auto transition-colors" : undefined} data-header-window onClick={onReset} size="icon-lg" style={position(items.length + extras.length)} aria-description="Reset layout" variant="ghost"><RotateCcwIcon /></Button>}
   </div>;
 }

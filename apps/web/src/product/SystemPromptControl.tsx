@@ -1,5 +1,4 @@
-import { Checkbox, ToggleGroup, ToggleGroupItem } from "../ui";
-import { ToolbarCopy, ToolbarItem, ToolbarLabel, ToolbarText } from "../Toolbar";
+import { Button, Checkbox, DetailRow, ToggleGroup, ToggleGroupItem } from "../ui";
 import { useMemo, useState } from "react";
 import type { StartOptionBadgeContext, StartOptionControlContext } from "../PluginRegistry";
 
@@ -56,35 +55,37 @@ const parse = (option: StartOptionControlContext["option"]) => {
 };
 
 export function SystemPromptControl({ disabled, error, option, setValue }: StartOptionControlContext) {
-  const [previewId, setPreviewId] = useState<string | undefined>(undefined);
+  const [preview, setPreview] = useState(false);
   const parsed = useMemo(() => parse(option), [option]);
   if ("message" in parsed) return <p className={errorClass} role="alert">{parsed.message}</p>;
   const { presentation, value } = parsed;
-  const preview = presentation.options.find((entry) => entry.id === previewId);
 
   const share = (shareWithAgents: boolean) => {
     void setValue({ promptIds: value.promptIds, shareWithAgents });
   };
 
   return (
-    <div className="flex flex-col items-start gap-2" onMouseLeave={() => setPreviewId(undefined)}>
+    <div className="flex flex-col items-start gap-2">
       <span className="text-[0.72rem] font-semibold text-muted-foreground">System prompts</span>
-      <div className="relative flex justify-center">
+      <div className="flex min-w-0 flex-col items-start gap-2">
         <ToggleGroup aria-label="System prompts" disabled={disabled} multiple size="sm" value={value.promptIds}
           onValueChange={(next) => { void setValue({ promptIds: presentation.options.map((entry) => entry.id).filter((id) => next.includes(id)), shareWithAgents: value.shareWithAgents }); }}>
           {presentation.options.map((entry) => (
             <ToggleGroupItem
               key={entry.id}
-              onBlur={() => setPreviewId(undefined)}
-              onFocus={() => setPreviewId(entry.id)}
-              onMouseEnter={() => setPreviewId(entry.id)}
               value={entry.id}
             >
               {entry.label}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
-        {preview && <div className="absolute top-[calc(100%+6px)] left-1/2 z-3 max-h-[calc(var(--ragents-viewport-height,100dvh)*0.44)] w-max max-w-[min(620px,calc(var(--ragents-viewport-width,100vw)*0.78))] -translate-x-1/2 overflow-y-auto whitespace-pre-wrap rounded-xl border border-border bg-background px-4 py-3 text-left text-sm leading-[1.5] text-foreground shadow-pop" role="tooltip">{preview.text}</div>}
+        {presentation.options.length > 0 && <Button aria-expanded={preview} onClick={() => setPreview((current) => !current)} size="sm" variant="ghost">{preview ? "Hide prompt text" : "Show prompt text"}</Button>}
+        {preview && <div className="flex max-h-80 min-w-0 flex-col gap-3 overflow-y-auto">
+          {presentation.options.map((entry) => <div key={entry.id}>
+            <strong className="text-sm">{entry.label}</strong>
+            <p className="whitespace-pre-wrap text-sm [overflow-wrap:anywhere]">{entry.text}</p>
+          </div>)}
+        </div>}
       </div>
       <label className="flex max-w-[34rem] cursor-pointer items-start gap-2 text-sm">
         <Checkbox
@@ -110,17 +111,17 @@ export function SystemPromptControl({ disabled, error, option, setValue }: Start
 export function SystemPromptBadge({ option }: StartOptionBadgeContext) {
   if (!option.selectable || !option.locked) return null;
   const parsed = parse(option);
-  if ("message" in parsed) return <ToolbarItem title={parsed.message}><ToolbarText>System prompts unreadable</ToolbarText></ToolbarItem>;
+  if ("message" in parsed) return <DetailRow label="System prompts"><span className="text-destructive" role="alert">{parsed.message}</span></DetailRow>;
   const { presentation, value } = parsed;
   const labels = presentation.options
     .filter((entry) => value.promptIds.includes(entry.id))
     .map((entry) => entry.label);
   if (labels.length === 0) return null;
-  const scopeLabel = value.shareWithAgents ? "coordinator and agents" : "coordinator only";
+  const explanation = value.shareWithAgents
+    ? "These instructions guide the coordinator and the agents it starts."
+    : "These instructions guide only the coordinator.";
   const text = labels.join(" + ");
   return (
-    <ToolbarItem title={`System prompts: ${text} (${scopeLabel})`}>
-      <ToolbarCopy><ToolbarLabel>System prompts</ToolbarLabel><ToolbarText>{value.shareWithAgents ? `${text} + agents` : text}</ToolbarText></ToolbarCopy>
-    </ToolbarItem>
+    <DetailRow explanation={explanation} label="System prompts">{text}</DetailRow>
   );
 }

@@ -171,7 +171,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
       "Alert", "AlertDescription", "AlertTitle", "Badge", "Button", "Card", "CardContent", "Checkbox", "ChoiceSelect", "Combobox", "ComboboxContent",
       "ComboboxGroup", "ComboboxItem", "ComboboxLabel", "ComboboxSeparator", "ComboboxTrigger", "ComboboxValue", "Dialog", "DialogBody", "DialogContent",
       "DialogDescription", "DialogFooter", "DialogHeader", "DialogTitle", "Empty", "EmptyContent", "EmptyDescription",
-      "DataGrid", "EmptyHeader", "EmptyMedia", "EmptyTitle", "Field", "FieldDescription", "FieldTitle", "FilterSelect", "HeaderDropdown", "ImagePreview", "ImagePreviewGroup", "ImageViewer", "Input", "InteractiveItem", "Label",
+      "DataGrid", "DetailRow", "EmptyHeader", "EmptyMedia", "EmptyTitle", "Field", "FieldDescription", "FieldTitle", "FilterSelect", "HeaderDropdown", "ImagePreview", "ImagePreviewGroup", "ImageViewer", "Input", "InteractiveItem", "Label",
       "OverflowTabs", "OverflowTabsList", "Popover", "PopoverContent", "PopoverTrigger", "RobotHeadIcon", "RunStateIcon", "SearchInput", "SectionLabel", "Select", "SelectContent", "SelectItem", "SelectTrigger",
       "SelectValue", "Spinner", "StartupNotice", "StopButton", "StopGlyph", "SvgEdge", "Switch", "Table", "TableBody",
       "TableCaption", "TableCell", "TableFooter", "TableHead", "TableHeader", "TableRow", "Tabs", "TabsContent",

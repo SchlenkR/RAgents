@@ -29,7 +29,7 @@ export function ActorPopout({ open, id, label, closeLabel, buttonRef, onClose, p
       <header className="flex h-(--popout-header) flex-none items-center justify-between gap-2 border-b border-border px-3">
         <strong className="shrink-0">{label}</strong>
         {headerContent}
-        <Button aria-label={closeLabel} onClick={() => onClose(true)} size="icon-sm" title={closeLabel} variant="ghost"><XIcon /></Button>
+        <Button aria-label={closeLabel} onClick={() => onClose(true)} size="icon-sm" aria-description={closeLabel} variant="ghost"><XIcon /></Button>
       </header>
       {children}
     </PopoverContent>

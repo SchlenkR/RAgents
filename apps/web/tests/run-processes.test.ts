@@ -15,8 +15,6 @@ import {
   portAction,
   serviceUrl,
   titleOf,
-  visibleProcesses,
-  VISIBLE_PROCESSES,
 } from "../../../plugins/ragents.processes/web/processes.ts";
 
 const process = (values: Partial<RunProcess> & { pid: number }): RunProcess => ({
@@ -65,7 +63,7 @@ test("the browser links only a port on the server, a port on a workstation names
   assert.deepEqual(portAction("vscode", workstation, "server.example", port), { kind: "open", title: "Open port 5173 on workstation Notebook in the browser" });
 });
 
-test("label and tooltip name kind, command, origin and ports", () => {
+test("process descriptions name kind, command, origin and ports", () => {
   const service = process({ pid: 7, ports: [{ port: 5173, address: "*" }, { port: 5173, address: "::1" }] });
   assert.equal(kindLabel(service), "Service");
   assert.equal(kindLabel(process({ pid: 8 })), "Process");
@@ -73,14 +71,6 @@ test("label and tooltip name kind, command, origin and ports", () => {
   assert.ok(title.startsWith("node /work/node_modules/.bin/vite\nPID 7, keeps running in the background, observed since "));
   assert.ok(title.endsWith("\nListening on *:5173, ::1:5173"));
   assert.ok(titleOf(process({ pid: 8, origin: "tool-call" })).includes("runs in a tool call"));
-});
-
-test("the header shows at most the first entries and counts the rest", () => {
-  const many = Array.from({ length: VISIBLE_PROCESSES + 2 }, (_, index) => process({ pid: index + 1 }));
-  const visible = visibleProcesses(many);
-  assert.equal(visible.shown.length, VISIBLE_PROCESSES);
-  assert.equal(visible.hidden, 2);
-  assert.deepEqual(visibleProcesses([]), { shown: [], hidden: 0 });
 });
 
 test("process readers see live services and port links while stopping still requires write and inspection rights", {
@@ -181,7 +171,7 @@ createRoot(document.getElementById("root")).render(createElement(Harness));`, re
   assert.deepEqual(await page.evaluate("window.processFixture.streams.map(stream => stream.url)"), ["/rpc/stream"]);
   assert.deepEqual(await page.evaluate("window.processFixture.channels"), ["ragents.processes"]);
   for (const port of [10520, 10521]) {
-    const link = page.getByRole("link", { name: `:${port}`, exact: true });
+    const link = page.getByRole("link", { name: `Open 127.0.0.1:${port} in a new tab`, exact: true });
     assert.equal(await link.getAttribute("href"), `http://127.0.0.1:${port}/`);
     assert.equal(await link.isVisible(), true);
   }
@@ -191,14 +181,13 @@ createRoot(document.getElementById("root")).render(createElement(Harness));`, re
   await page.screenshot({ path: `${directory}/processes-reader.png` });
   await page.setViewportSize({ width: 320, height: 180 });
   await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-  assert.equal(await page.getByRole("link", { name: ":10520", exact: true }).isVisible(), true);
-  assert.equal(await page.getByText("All 2", { exact: true }).innerText(), "All 2");
+  assert.equal(await page.getByRole("link", { name: "Open 127.0.0.1:10520 in a new tab", exact: true }).isVisible(), true);
+  assert.equal(await page.getByText("dotnet DashboardServer.dll", { exact: true }).isVisible(), true);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-  for (const control of [page.getByRole("link", { name: ":10520", exact: true }), stop, page.getByRole("button", { name: "All 2", exact: true })]) {
+  for (const control of [page.getByRole("link", { name: "Open 127.0.0.1:10520 in a new tab", exact: true }), stop]) {
     const bounds = await control.boundingBox();
-    assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= 320, "ports, stop, and All stay inside the narrow header");
+    assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= 320, "ports and stop controls stay inside the narrow details");
   }
-  await page.getByText("All 2", { exact: true }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${directory}/processes-reader-narrow.png` });
   await page.setViewportSize({ width: 850, height: 180 });
   await page.evaluate("window.processFixture.update(['runs.read', 'runs.inspect', 'ragents.processes.read'])");
@@ -219,7 +208,8 @@ createRoot(document.getElementById("root")).render(createElement(Harness));`, re
   await page.evaluate(`window.processFixture.send(${JSON.stringify({ ...snapshot, machine: { client: "client-0001", label: "Notebook" } })})`);
   const remote = page.getByText(":10520", { exact: true });
   await page.waitForFunction(`document.querySelector('a[href$=":10520/"]') === null`);
-  assert.equal(await remote.getAttribute("title"), "Port 10520 on workstation Notebook. The RAgents extension in VS Code can forward it.");
+  assert.equal(await remote.getAttribute("aria-label"), "Port 10520 on workstation Notebook. The RAgents extension in VS Code can forward it.");
+  await page.getByText("Open these ports through the RAgents extension in VS Code on workstation Notebook.").first().waitFor();
   assert.equal(await page.getByRole("link").count(), 0, "a port on a workstation is no link in the browser");
   assert.deepEqual(errors, []);
   context.diagnostic(`Process header screenshots: ${directory}`);

@@ -1541,16 +1541,22 @@ the header's window buttons compares client coordinates with client rectangles. 
 `vscode` has no such setting, the shell's `ragents.zoom` applies there (`apps/web/tests/zoom.test.ts`,
 `apps/web/tests/zoom-browser.test.ts`).
 
-Menus, header hints, actor popouts, chat step details, and journal use `Popover`, `Tooltip`,
-and `Select` from the UI library. Base UI follows their anchors, scrolling, and layout changes.
+Menus, actor popouts, chat step details, and journal use `Popover` and `Select` from the UI
+library. Base UI follows their anchors, scrolling, and layout changes. Host and plugin web
+elements never set native browser `title` attributes. SVG `<title>` elements and the document
+title remain available for accessibility and page naming. A tooltip needs a stated reason at
+its usage and the shared `Tooltip` component; visible labels are preferred. The web source
+check enforces the attribute rule, with only the shared tooltip implementation allowlisted.
+Shared chat and Markdown boundaries remove native titles supplied by foreign markup and
+keep their hints as accessible descriptions, including chat popovers rendered in a portal.
 Header dropdowns share `HeaderDropdown`, exported through `@ragents/web/ui`: Run details,
 Run script, Share, and the global coordinator use the same square panel, labeled
 heading, close button, 8 px padding, and theme dimming. By default, the panel opens below the nearest
 header, inset 8 px from the header edge on the side of its trigger (the left edge for a trigger in the left half,
 otherwise the right edge); outside a header it follows the calling row or action.
 Its width is `min(800px, max(320px, anchor width - 16px), available width)`, so narrow action
-anchors still give a readable panel and the viewport always limits its width; the tiles of Run details flow into
-two or three columns as the panel widens. Height is limited
+anchors still give a readable panel and the viewport always limits its width. Run details keep
+one column of labelled rows at every width, with actions in a separate footer. Height is limited
 to 70 percent of the viewport, 560 px, and the available space. With `variant="chat"`, it opens
 directly below the calling field, aligned with its left edge and with 8 px collision padding.
 Its width is `min(800px, available width)` and its height is
@@ -1680,12 +1686,17 @@ Instead, plugins fill typed slots for:
   `QuasselProvider`, whose resolver wins. Several active resolvers are an error. quassel resolves an
   address once, when its Markdown mounts, so whatever the resolution needs must be there before.
 - run metadata (`sessionMetadata`): a component for the Run details dropdown opened from the
-  run title; responsive cells contain every metadata contribution, start option badge, and
-  details-placed header contribution. Cells and their text wrap in narrow panels without
-  horizontal clipping. The run list takes its lines from the server-side `listDetail` instead
+  run title; metadata and details-placed header contributions share ascending `order`, then ID,
+  followed by uncovered start option badges. Each fact uses the shared `DetailRow`, with its
+  label on the left and its full wrapping value on the right. The run list takes its lines
+  from the server-side `listDetail` instead
 - run header contributions (`sessionHeaders`): contributions appear in the shared run details;
+  optional `label` and `explanation` let the host place a value component in `DetailRow` and
+  show a short explanation below that value. A component can also render `DetailRow` itself.
+  A component returning `null` leaves no visible empty row. With `placement: "actions"`, contributions
+  appear in the details footer, after the facts;
   with `placement: "bar"` instead in the run's title bar between the window buttons and "Share"
-  (`RunPanelHeader`), where a contribution that has nothing to show renders `null`.
+  (`RunPanelHeader`). Omitted placement and `placement: "details"` both select the fact rows.
 - run providers and surface (`surface.RunPanel`): one component for browser and VS Code
   receives `SurfaceCenterContext`, including chat, catalog, navigation, and card contributions.
 
@@ -1747,7 +1758,7 @@ Inspection requires `runs.inspect`; read-only chats retain their existing restri
 In the actor view (`FlowInspector` in Inspection), a
 single-line toolbar chooses exactly one view. The X on the left shows
 chat and input; the other buttons each show a detail area in the same place
-with the full available height. Tooltips and accessible labels contain names
+with the full available height. Accessible labels contain names
 and, where applicable, counts. The info chip shows status, actor kind, driver, model, thinking level,
 open inputs, turn count, and, where applicable, cost. Chat and input stay mounted but hidden on switching,
 so that the draft is preserved. Arrow keys, Home, and End also choose the
@@ -1934,7 +1945,7 @@ stores layout, not unsent input across a page reload. VS Code keeps chat in the 
 or focuses one editor per server, run, and app. Questions and news remain in the chat; background
 app tabs have no additional notifications.
 
-`ragents.orchestration` provides "Stop run" in the run title bar for users with
+`ragents.orchestration` provides "Stop run" in the Run details footer for users with
 write rights. Its tool `run_stop` allows the
 primary actor with `execution.stopOwned` to stop its own run completely through the same run management.
 The run identity comes from the call context. The call does not wait
@@ -2089,7 +2100,7 @@ copied into the source tree by CLI and styled with Tailwind: `Button`, `Badge`, 
 `DialogContent`, `TabsList`, and so on), plus `cn` and icons from `lucide-react`. Props, variants, and
 composition follow shadcn; `Badge` additionally accepts semantic `tone` (see below).
 The host's own building blocks on top are `DataGrid`, `InteractiveItem`, `ListDetail`, `OverflowTabs`,
-`SectionLabel`, `SvgEdge`, `HeaderDropdown`, `RobotHeadIcon` (the filled robot head that marks an LLM agent,
+`SectionLabel`, `SvgEdge`, `HeaderDropdown`, `DetailRow`, `RobotHeadIcon` (the filled robot head that marks an LLM agent,
 reduced from the product logo, 24 px grid, text color), and, only in the host, the page `Modal` in `modal.tsx`.
 The choice follows the role, not taste:
 
@@ -2099,7 +2110,8 @@ The choice follows the role, not taste:
 - `variant="ghost"`: a quiet action without a surface in bars, rows, and in the composer.
 - `variant="destructive"` for deleting actions; the text says what happens.
 - Icon buttons are `Button` with `size="icon"` (smaller `icon-xs`, small `icon-sm`, large `icon-lg`), a
-  lucide icon as child, and a required `aria-label`; `title` provides the native tooltip.
+  lucide icon as child, and a required `aria-label`; their meaning stays available to assistive technology.
+  Prefer a visible label when the icon alone would be unclear.
   Close and Back in dialog headers are round icon buttons (`rounded-full`) with an X
   or an arrow. The overview corner on the left of the header is deliberately not a
   library button (see below).
@@ -2156,7 +2168,7 @@ items or wraps them uncontrolled: what does not fit moves into a trailing "..." 
 `onValueChange`; its `OverflowTabsList` takes `items` (`OverflowTabItem`: `value`, `label`, optional
 `count`, `icon`, and, for panels the caller renders itself instead of `TabsContent`, the tab's `id`
 and the `controls` panel ID), an `aria-label`, and optionally `iconOnly`, where the label becomes
-the accessible name and tooltip. A hidden ruler renders every tab and the "More tabs" button
+the accessible name. A hidden ruler renders every tab and the "More tabs" button
 (`EllipsisIcon`) with the same classes, and a `ResizeObserver` on the strip and the ruler measures
 them; `splitOverflow` (`ui/overflow-split.ts`) then keeps the leading tabs that fit beside the button,
 always including the active one, which displaces the last of them and alone may truncate. The
@@ -2221,9 +2233,9 @@ double-click fits its header and currently rendered cells. A keyboard resize han
 Left/Right, Shift for larger steps, Home for the minimum, and Enter or End for fitting.
 Column widths persist per browser origin and grid ID through the shared local-setting
 helpers. Invalid saved widths and failed saves show an error with "Reset column widths";
-blocked storage access offers "Retry column widths". Cells truncate with an ellipsis and
-expose their full text as a tooltip; `wrap` allows a column's text to wrap and its measured
-row height to grow.
+blocked storage access offers "Retry column widths". Cells truncate with an ellipsis;
+`wrap` allows a column's full text to wrap and its measured row height to grow. Callers use
+wrapping or an opened detail view where the complete value matters.
 
 Header clicks sort locally from `defaultSorting`, or return changes through
 `onSortingChange` when `sorting` is controlled. `DataGridSort` names a column `id` and its
@@ -2259,8 +2271,9 @@ content. Keyboard handles use Left/Right (10 pixels, Shift for 50), Home for the
 and End or Enter to fit. Widths are stored per browser origin and table ID through the shared
 local-setting helpers. Corrupt values and failed saves show "Reset column widths". If the
 browser denies storage access, the table remains visible at initial widths with disabled
-handles, a visible error, and "Retry column widths". Resizable cells truncate overflow with an ellipsis
-and expose their full text as a tooltip. A table without the opt-in keeps its ordinary layout.
+handles, a visible error, and "Retry column widths". Resizable cells truncate overflow with an ellipsis.
+Callers show important complete values through wrapping or an opened detail view.
+A table without the opt-in keeps its ordinary layout.
 Plugins import these controls and table parts from `@ragents/web/ui`.
 
 Interaction states use the shared `hover`/`hover-foreground`,
@@ -2422,8 +2435,7 @@ late results of the previous requests.
 Dialogs use round icon buttons with an X or an arrow for Close and Back. This
 applies to the start dialog, Settings, Help, and document dialogs, as well as
 the Back actions in narrow `ListDetail` views; otherwise the shared
-`DialogContent` shows shadcn's X at the top right. Accessible names and tooltips
-still name the respective action.
+`DialogContent` shows shadcn's X at the top right. Accessible names identify the respective action.
 
 `@ragents/web/ui` exports `ImageViewer`, `ImagePreview`, and `ImagePreviewGroup` as additive
 host API names; the version remains 12. `ImagePreview` takes an image source and file name;
@@ -2450,8 +2462,8 @@ element, and `backdropClassName` places the dimming surface (header dropdowns st
 
 Settings and Help are icon buttons in the shared header. The run title opens metadata, start
 options, and contributed run controls. The logo at the left of the header is the button
-"Back to Start"; the header also provides Stop run.
-`ShareContent` in `panel/SharePanel.tsx` owns loading, access choices, errors, Save, and Cancel;
+"Back to Start"; Run details provides "Stop run" in its footer.
+`ShareContent` in `panel/SharePanel.tsx` owns loading, access choices, and errors;
 `SharePanel` presents it in the same dropdown shell for run headers and run-list actions.
 Callers without an action anchor use a virtual anchor at the top of their page container.
 
@@ -2828,10 +2840,10 @@ As a result, the start dialog does not hang even with slow responses. Already cl
 start dialogs ignore late send responses, so that these cannot close a newly opened draft.
 
 The shared header contains the brand on Start, or Back and the active run title. In VS Code,
-the pill shows the selected server's name on every page, with the tooltip `Environment <name>`. The global
+the pill shows the selected server's name on every page, with the accessible name `Environment <name>`. The global
 coordinator stays mounted beside it across navigation. Run layout actions share the run header
 and wrap when needed; run details and plugin header contributions without bar placement open
-from the title. Status, Stop, and the menu
+from the title. Status and the menu
 remain on the right. Installed tool shortcuts do not appear here.
 The activity display reads running tool calls of all actors from the `toolCalls` of the
 projected turns. Subagent tools carry the name of their actor; the identity of a
@@ -2843,8 +2855,8 @@ As long as a turn has running tools, no additional turn entry appears for it;
 afterwards its turn entry can appear again. The primary turn stays hidden based on `primaryActorId`;
 its tools stay visible. This selection happens before the limit of
 three entries and the remainder count. Chat histories and their level of detail are not extended by this.
-The run-bound `sessionHeaders` are together with Settings and Help in the same
-bar. `PluginChat` puts its contribution into this bar through a portal and keeps its
+Run-bound `sessionHeaders` open in Run details, except explicit bar contributions.
+`PluginChat` puts its header into the shared slots through a portal and keeps its
 run providers and the `RunModalContext` in doing so. There is no additional title or placeholder bar
 above the surface.
 
@@ -2875,8 +2887,8 @@ therefore appear at the top again. The cards get a subtle colored header area.
 Blue with a running icon means running work of any actor of the run, including
 assigned workers; without active work the status reads Idle or Open, not Done.
 A dot inside the run's state ring replaces the state glyph when the journal revision is newer
-than the last viewed state, or when there is no personal read state; the state's tooltip and
-accessible name then add "new activity" or "not viewed yet", for example "Running, new activity".
+than the last viewed state, or when there is no personal read state; the state's
+accessible name then adds "new activity" or "not viewed yet", for example "Running, new activity".
 The server keeps the read state per user and run (without sign-in for the one access): the run panel
 reports the viewed revision with `ragents.runs.markViewed`, and `ragents.runs.list` returns it to the
 same user as `seenRevision`, so it holds on every device and in both hosts; other users receive no
@@ -3148,8 +3160,8 @@ panel, or opens a hidden tool in its button's chosen place.
 
 Workspace tabs can contribute a `Header` with the same context as `Panel`. Docked group headers,
 the sidebar title row and the VS Code popout render it. Inspection contributes the actor selector
-there. Its second row contains the actor name (handle and creator in the tooltip), Stop or Restart,
-chat detail/timestamp switches, and icon tabs with tooltips. It scrolls horizontally when narrow,
+there. Its second row contains the actor name (handle and creator in its accessible name), Stop or Restart,
+chat detail/timestamp switches, and icon tabs with accessible names. It scrolls horizontally when narrow,
 without adding rows. There is no bottom toolbar in read-only inspection; actor popouts with a
 composer keep their input controls. Inspector transcripts use compact margins and timestamps.
 
@@ -3166,7 +3178,7 @@ closed until available. The browser instead uses the docking state described abo
 tab through the existing navigation and user-location contract.
 The panel header (`RunHeader` in `RunPanelPage`) keeps fixed controls in a leading group (logo,
 global coordinator, and run title) and a trailing group (bar contributions,
-Share, Run script, environment, run state, Stop, Appearance, Settings, Help, browser, and sign-out).
+Share, Run script, environment, run state, Appearance, Settings, Help, browser, and sign-out).
 The coordinator and title have bounded preferred widths; the title truncates. At header widths
 of at least 768px, the title shrinks first, down to its chevron, and then the global coordinator,
 to keep the fixed groups on one row without covering one another. Fixed controls
@@ -3178,13 +3190,28 @@ the remaining first-row gap in order, then uses the full width for continuation 
 necessary rows are reserved. Window positions update without movement animation; existing
 buttons stay mounted, preserving focus and drag state. Resize, changed labels, and newly
 created or removed apps recalculate positions. Window buttons cap their width at 16rem or the
-header width, truncating long labels while keeping their accessible names and tooltips. No window menu or horizontal scrolling
+header width, truncating long labels while keeping their accessible names. The window itself shows its full title. No window menu or horizontal scrolling
 hides controls.
 The header occupies its natural height in the panel layout, so the dock's measured workspace
 begins below it. The title shows a pulsing
 dot during processing, the attention badge, and a chevron; a click opens "Run details" in
-`HeaderDropdown`, with every metadata contribution, start option badge, and header contribution
-without bar placement in responsive cells. Cells and their content wrap without clipping.
+`HeaderDropdown`, with one column of labelled facts and content-sized rows. Metadata and
+detail contributions share ascending `order`, then ID, so a branch contribution can come first
+even when registered after metadata. Uncovered start option badges follow the facts. Labels
+stay on the left, values and optional explanation lines on the right; full branch names,
+paths, process names, and errors wrap without clipping. `DetailRow` from `@ragents/web/ui`
+provides this layout through semantic `dl`, `dt`, and `dd` elements. Its `label`, optional
+`explanation`, and children keep all contributions consistent. `SessionHeaderContribution`
+adds optional `label` and `explanation` strings and `placement: "actions"` for the separate
+footer; these additive web API changes keep `HOST_API_VERSION` unchanged. A contribution
+returning `null` leaves no visible row. The sheet also shows the full run title, connection
+error, sharing access, and attention when present. The host-owned workspace, sandbox, system
+prompt, turn, and process details include short concrete explanations. Active turns put the
+actor and elapsed time beside each other when space permits and wrap without overlap.
+The process contribution lists every process with its full name and controls, without a
+remainder counter. "Stop run" and its wrapping confirmation stay in the footer below the facts.
+The system prompt control uses "Show prompt text" and "Hide prompt text" to toggle the catalog's
+complete texts inline below its choices; reading them changes neither selection nor scope.
 With `runs.write`, "Run script" (`RunScriptMenu`) sits in the fixed trailing controls behind a
 thin divider: an outline button in the primary color whose pop-out lists the run scripts from
 `ragents.runs.scripts` as the Start page's compact `StartTile` items filling their grid cells,
@@ -3202,7 +3229,7 @@ while the run is shared, and opens `SharePanel` (`panel/SharePanel.tsx`) against
 its label stays visible when the header wraps. A run the panel opened under a fresh identifier (a new
 empty run) counts as shareable before its first message when the profile has sign-in and the user
 `runs.write`; the server keeps that choice until the run is created. For a sharee the title carries
-a badge, "View only" for `sharedAccess: "read"` and "Shared" for `"write"`, with the tooltip "Shared
+a badge, "View only" for `sharedAccess: "read"` and "Shared" for `"write"`, with the accessible name "Shared
 with you - view only" or "Shared with you - can operate". The panel hides "Stop run" and the stop
 buttons of the chat inputs for a read share and keeps them for a run only its owner operates
 (`canStopRun` on the access context below the run), and the chat input names why it is disabled ("Shared with you for viewing only", "Only its
@@ -3213,7 +3240,7 @@ The header dropdowns, including sharing, and the recipient popout use the shared
 At the far right of the shared header, `RunPanelActions` shows icon buttons for Settings
 (`settings.read`, the same dialog as in the web app), Help (`runs.inspect`), in the host `vscode`
 "Open in browser", and with a signed-in
-user a sign-out button whose tooltip names the account; there is no menu. `ragents.orchestration` provides the run panel (`web/run-panel/`): mini-apps come from the shared app catalog with `visible !== false`. In VS Code the panel stays on
+user a sign-out button whose accessible name names the account; there is no menu. `ragents.orchestration` provides the run panel (`web/run-panel/`): mini-apps come from the shared app catalog with `visible !== false`. In VS Code the panel stays on
 chat and every app entry opens or focuses its editor tab. In the browser, it renders its chat and
 the shared app catalog through `DockWorkspace`. Questions and news remain in the chat.
 
@@ -3286,13 +3313,13 @@ the state icon and name. `graphActorState` maps working actors to
 `running`, open actions to `waiting`, otherwise waiting actors to `idle`, held or paused actors
 to `paused`, stopped actors to `cancelled`, and the latest failed or interrupted turn to `failed`
 or `cancelled`. Current work and open actions take precedence over old turn results; stopped
-actors retain their state during a pause. The ring's accessible label and tooltip name the state,
+actors retain their state during a pause. The ring's accessible label names the state,
 with "stopped" for a stopped actor. Status rows, times, and pending-input badges do not occupy
 actor cards; group cards retain their existing counts and controls. An agent's description is
 its `description`, otherwise its full first own input, otherwise a differing display name.
 Related padding (2 units) fits three whole description lines inside the unchanged 216-pixel width
-and 5.5rem height, with the full text as a tooltip; program names and facts expose their full text
-as tooltips. The height still follows root font changes through the same rem probe and layout
+and 5.5rem height. The card's accessible name includes its full task or program facts;
+the actor chat and Inspection show their complete values. The height still follows root font changes through the same rem probe and layout
 calculation. Selection, drag, keyboard focus, accessible names, and existing data attributes use
 the same shared card. A click chooses the recipient.
 In browser runs, dragging an actor card in either graph or the addressee chip
@@ -3480,7 +3507,7 @@ number names the side to update (`versionNotice` in `apps/vscode/src/sessions.ts
 cause.
 
 **One vocabulary for all pages.** Per state there is exactly one word and exactly one colored icon;
-in the panel the icon is shown, the word only in the `title`. The words are in
+in the panel the icon is shown, with the word in its accessible name. The words are in
 `apps/web/src/ui/state-vocabulary.ts` (without React, so that the extension can read them too), the
 icons and colors in `ui/state-icon.tsx`. A run is running, waiting for input (with the number of open
 inputs next to it), idle, ended, failed, or cancelled; a server is connected,
@@ -3489,11 +3516,11 @@ no access as the two error cases. `panel/connection-state.ts` maps `ConnectionVi
 connected local profile is **ready**, a connected server **connected**. No plugin,
 tool, or mini-app name ever appears as a state. The time is compact and without "ago"
 (`ui/relative-time.ts`): `now` under one minute, then `5min`, `3h`, `1d`, `2d`, from seven
-days on the date `09/13`; the written-out form is only in the `title`. No state icon ever carries
+days on the date `09/13`; the written-out form is in the accessible name. No state icon ever carries
 the stop glyph (a square, alone or in a circle): cancelled and unreachable are a
 circle with a slash, ended a check mark in a circle, idle and stopped an empty circle. Every
 real stop button comes from `ui/stop-button.tsx`: `StopGlyph` is the filled square in
-`--destructive`, `StopButton` the button for it (icon, word in the `title`, same hover and disabled state),
+`--destructive`, `StopButton` the button for it (icon, accessible action name, same hover and disabled state),
 and `RunPanelApp`, `ChatInputToolbar`, `ragents.processes`, and the menu entry "Stop run" of
 `ragents.orchestration` use only it. The term throughout the web is "run", never a synonym: ending
 the whole run is called "Stop run" everywhere, interrupting the running turn in the chat "Stop
@@ -3699,7 +3726,7 @@ state, title, and time, in selection mode the checkbox in front; every row and i
 button are `grid-cols-subgrid`, so that the columns stand at the same edge in all rows, and
 "All N runs" below the list, at its end, leads to the Runs page. Below the title, inside the same button, a second line
 names the owner (`ConnectionRun.owner`) and then the metadata lines (`ConnectionRun.details`), each
-with its icon (`FolderIcon`, `GitBranchIcon`) and the tooltip "label: text"; hover, focus, and click
+with its icon (`FolderIcon`, `GitBranchIcon`) and accessible name "label: text"; hover, focus, and click
 cover the whole item, in selection mode the click toggles it. `RunCard` is a size container
 (`@container/runs`): in a card narrower than 360 pixels the second line drops, below 280 pixels the
 time as well, on Start and on Runs. The gap to the second line is
@@ -3707,9 +3734,10 @@ smaller than the gap between items. State and pending actions come from `ragents
 derives them from the journal: running while an actor has a running turn or the session works,
 otherwise waiting with pending actions, ended when every non-human actor has stopped, otherwise
 idle (`run-list-state.ts`). The extension loads no run view for the list; its
-badge sums `pendingActions` of the selected environment. A locked run shows its cause as a red notice icon with a tooltip.
+badge sums `pendingActions` of the selected environment. A locked run shows a red notice icon
+whose accessible name identifies the cause.
 The sharing comes from the same list (`connectionRunOf` in `run-overview.ts`): next to the title a
-run with `ConnectionRun.shared` shows `UsersIcon` with the tooltip "Shared", one with
+run with `ConnectionRun.shared` shows `UsersIcon` with the accessible name "Shared", one with
 `sharedAccess` `EyeIcon` ("Shared with you - view only") or `UsersIcon` ("Shared with you - can
 operate"). As soon as a listed row offers sharing or deletion, the list gets one more column
 at the end. A row with `canShare` has the icon button "Share ..." (`aria-label` "Share <title>")
@@ -3720,9 +3748,9 @@ server and run; the host loads `ragents.runs.sharing` into `PanelState.sharing` 
 to the row's share action or the top of the page when that action is unavailable. `ShareContent`
 uses one two-column grid for the whole list: names first, segmented access controls second,
 "Everyone" before the profile's users. The segments are "Off", "View", and "Operate"; View's
-tooltip is "Sees the run", Operate's is "Also works in it, within the user's own permissions".
-Every row stays on one line, also in a 320 px VS Code panel; names truncate with a full-name
-tooltip and the aligned controls never wrap. There is no explanatory paragraph below
+accessible description is "Sees the run", Operate's is "Also works in it, within the user's own permissions".
+Names show their complete text and wrap in narrow panels; the aligned controls never wrap.
+There is no explanatory paragraph below
 the list and no Save or Cancel. Each choice sends `share` with the whole sharing immediately.
 All access controls are disabled while that request is pending. Success keeps the panel open
 with the returned `RunSharingResult`; a refusal shows its error inline and restores the server's
@@ -4503,11 +4531,11 @@ the hint about CAP_SYS_PTRACE. On macOS, `ps -E` does not show the environment o
 system volume (`/bin`, `/usr/bin`, such as `sleep`, `bash`, `sh`, `zsh`, `perl`, `ruby`); such
 a process that survives a tool call cannot be attributed to any run by the table
 (Open limits). `ragents.processes` asks for it through the run's executor, for a workstation
-therefore there, and shows in the header a full bar surface per process
-with kind, label, and port links: background processes always, children of a running tool call
+therefore there, and lists every observed process in Run details
+with its full name, command, origin, and port controls: background processes always, children of a running tool call
 (the process groups of direct children of the executor process) only with an open port; the group of a
-background command of `bash` counts as background (above). Background is recognizable by the dashed
-right divider and in the tooltip, never by a color. This is a runtime resource,
+background command of `bash` counts as background (above). A plain sentence identifies background
+commands and processes running in a tool call. This is a runtime resource,
 not journal state: every two seconds the plugin queries the state of every run whose channel
 `processes:<runId>` a browser has subscribed to, each at its executor, and reports only
 changes; if permission, tool, or the workstation is missing, that is a named error in the
@@ -4520,22 +4548,18 @@ markerless. Vanished processes and explicit `<defunct>` entries are left out as
 ended. Negative system UIDs in macOS process tables are kept as such
 and block neither observation nor cleanup. Access, tool, and format errors trigger no retry.
 
-Every visible process has a compact end button with icon and tooltip.
+Every visible process has a compact end button with an icon and the accessible name "Stop <process name>".
 Process monitoring, its methods, and its channel require `runs.read` and `ragents.processes.read`.
 With pure read access, port links stay usable; a tunnel to a port additionally requires `runs.inspect`,
 ending `runs.write` and `runs.inspect`, and is otherwise disabled. A running
 end request locks only the affected process in all open views; errors appear
 at the entry and allow a new attempt. Only the next observed process state removes
 the entry. The web uses the snapshot's opaque process reference, not just the PID.
-The header shows at most four entries. The remainder counter opens a shared run dialog
-with all processes and the same actions; there the entries stay compact pills with
-a dashed border for background processes. Below 700 pixels, the first process surface stays
-reachable with "All N". The dialog leaves the global header operable. In narrow headers,
-process labels shrink while ports, end controls, and "All N" keep their space; longer port
-lists scroll within the strip instead of widening the page. If the currently
-focused process disappears, focus moves to the next process control, in the empty dialog
-to its empty state, and after closing to the header navigation. If there are no processes
-left, the display is dropped. Escape and background click close the dialog.
+Run details shows a normal row for every process, without a remainder counter or second dialog.
+Names, commands, origin information, errors, and port controls wrap within the value column
+at narrow widths. The Processes inspection panel uses the same rows. If the currently
+focused process disappears, focus moves to the next process control or the header navigation.
+If there are no processes and no monitoring error left, the details row is dropped.
 
 The process plugin ends individual instances through their snapshot reference of PID and start ID.
 The run's executor checks run membership, start ID, and UID again before every signal; the
@@ -4552,8 +4576,8 @@ run works on. A viewer talks only to the server, so the link depends on the host
 the machine (`machine`: `"server"` or `{ client, label }` with the workstation's current label, from
 `WorkspaceRuntime.placementOf`). The browser reaches only the machine of its page: for a run on the
 server the port is a link to `http://<host name of the page>:<port>/`; for a run on a workstation the
-pill shows only the port, and its tooltip names the workstation and that the VS Code extension can
-forward it ("Port 5173 on workstation Notebook. The RAgents extension in VS Code can forward it.").
+row shows the port and names the workstation with a visible explanation that the VS Code extension
+can forward it. The port's accessible name identifies its machine as well.
 In VS Code the port is a button; the run panel hands the service to its host (`openService` with run,
 port, the workstation's ID or `null`, and the tunnel method) and the extension acts like VS Code
 Remote port forwarding. A service on its own machine opens directly as `http://localhost:<port>/`: on

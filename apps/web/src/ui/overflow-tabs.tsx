@@ -28,7 +28,7 @@ export interface OverflowTabsProps extends Omit<TabsPrimitive.Root.Props, "value
 export interface OverflowTabsListProps {
   items: readonly OverflowTabItem[]
   "aria-label": string
-  /** Every tab shows only its icon; the label stays its accessible name and tooltip. */
+  /** Every tab shows only its icon; the label stays its accessible name. */
   iconOnly?: boolean
   className?: string
   listClassName?: string
@@ -101,11 +101,11 @@ function OverflowTabsList({ items, iconOnly = false, className, listClassName, t
   return <div className={cn("relative flex w-full min-w-0 items-center gap-1", className)} data-slot="overflow-tabs" ref={setContainer}>
     <TabsList aria-label={label} className={cn("min-w-0 max-w-full flex-none justify-start", listClassName)} ref={setList} variant="line">
       {shown.map((item) => <TabsTrigger {...(item.id === undefined ? {} : { id: item.id })} {...(item.controls === undefined ? {} : { "aria-controls": item.controls })}
-        {...(iconOnly ? { "aria-label": item.label, title: item.label } : {})} className={cn(item.value === selection.value ? "min-w-0 flex-[0_1_auto]" : "flex-none", triggerClassName)}
+        {...(iconOnly ? { "aria-label": item.label } : {})} className={cn(item.value === selection.value ? "min-w-0 flex-[0_1_auto]" : "flex-none", triggerClassName)}
         key={item.value} value={item.value}><TabContent iconOnly={iconOnly} item={item} /></TabsTrigger>)}
     </TabsList>
     {hidden.length > 0 && <DropdownMenu>
-      <DropdownMenuTrigger render={<Button aria-label="More tabs" className="flex-none text-muted-foreground" size="icon-sm" title="More tabs" variant="ghost" />}>
+      <DropdownMenuTrigger render={<Button aria-label="More tabs" className="flex-none text-muted-foreground" size="icon-sm" aria-description="More tabs" variant="ghost" />}>
         <EllipsisIcon />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-auto max-w-[min(20rem,var(--available-width))]">

@@ -307,11 +307,11 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
     return (
       <div className="flex h-full min-h-0 flex-col">
         <header className={headClass}>
-          <Button aria-label="Back to function overview" onClick={() => navigation.openTab(RUN_TOOLS_TAB_ID, null)} size="icon-sm" title="Back to function overview" variant="outline">
+          <Button aria-label="Back to function overview" onClick={() => navigation.openTab(RUN_TOOLS_TAB_ID, null)} size="icon-sm" aria-description="Back to function overview" variant="outline">
             <ArrowLeftIcon />
           </Button>
           <span className="grid min-w-0 gap-px">
-            <strong className="truncate text-[0.82rem] font-semibold" title={selected.name}>{selected.name}</strong>
+            <strong className="whitespace-normal wrap-anywhere text-[0.82rem] font-semibold" aria-label={selected.name}>{selected.name}</strong>
             <small className="truncate text-xs text-muted-foreground">Function of @{selected.actorHandle}</small>
           </span>
         </header>
@@ -335,11 +335,11 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
           </section>
           <ProgramSource api={api} moduleId={selected.moduleId} revision={selected.revision} runId={runId} />
           <dl className="grid grid-cols-2 gap-2">
-            {[{ label: "Program", value: selected.moduleId, title: undefined },
-              { label: "Source hash", value: selected.sourceHash.slice(0, 12), title: selected.sourceHash }].map((fact) => (
+            {[{ label: "Program", value: selected.moduleId },
+              { label: "Source hash", value: selected.sourceHash }].map((fact) => (
               <div className="grid gap-1 rounded-lg bg-foreground/4 px-3 py-2" key={fact.label}>
                 <dt className="text-[0.61rem] text-muted-foreground uppercase">{fact.label}</dt>
-                <dd className="truncate font-mono text-xs text-foreground" title={fact.title}>{fact.value}</dd>
+                <dd className="whitespace-normal wrap-anywhere font-mono text-xs text-foreground">{fact.value}</dd>
               </div>
             ))}
           </dl>

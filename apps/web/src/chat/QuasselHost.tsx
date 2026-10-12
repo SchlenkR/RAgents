@@ -1,14 +1,24 @@
 import { useMemo, type ReactNode } from "react";
-import { QuasselProvider, type QuasselComponents, type QuasselPopoverContentProps } from "quassel";
+import { QuasselProvider, type QuasselButtonProps, type QuasselComponents, type QuasselPopoverContentProps, type QuasselToggleProps } from "quassel";
 import type { RunUrlResolver } from "../PluginRegistry";
+import { useNoNativeTitles } from "../ui/native-title";
 import { Button, Card, ImagePreviewGroup, Popover, PopoverContent, StopButton, Toggle } from "../ui";
 
 /** quassel's pop-outs (tool call details) keep its own marker, so ui/quassel.css can style their contents. */
 function QuasselPopoverContent({ portalContainer, ...props }: QuasselPopoverContentProps) {
-  return <PopoverContent container={portalContainer} data-quassel-popover="" {...props} />;
+  const root = useNoNativeTitles();
+  return <PopoverContent container={portalContainer} data-quassel-popover="" ref={root} {...props} />;
 }
 
-const components: QuasselComponents = { Button, Toggle, Card, StopButton, Popover, PopoverContent: QuasselPopoverContent };
+function QuasselButton({ title, ...props }: QuasselButtonProps) {
+  return <Button aria-description={title} {...props} />;
+}
+
+function QuasselToggle({ title, ...props }: QuasselToggleProps) {
+  return <Toggle aria-label={title} {...props} />;
+}
+
+const components: QuasselComponents = { Button: QuasselButton, Toggle: QuasselToggle, Card, StopButton, Popover, PopoverContent: QuasselPopoverContent };
 
 /** Long code lines wrap in every chat; a narrow chat would otherwise cut them off without a visible scrollbar. */
 export const chatCodeBlocks = { wrap: true } as const;

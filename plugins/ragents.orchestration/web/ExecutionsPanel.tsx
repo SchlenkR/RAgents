@@ -86,10 +86,10 @@ function ExecutionEntry({ execution, now }: { execution: TypeScriptExecution; no
   const preview = execution.code?.trim().split("\n").find((line) => line.trim()) ?? execution.path ?? "TypeScript snippet";
   return <details className="mt-3 overflow-hidden rounded-sm border border-border bg-card open:[&>summary]:before:rotate-45" onToggle={(event) => setExpanded(event.currentTarget.open)}>
     <summary className={summaryClass}>
-      <span className="truncate font-[650]" title={`${execution.actorName} (${execution.actorId})`}>@{execution.actorHandle}</span>
+      <span className="truncate font-[650]" aria-label={`${execution.actorName} (${execution.actorId})`}>@{execution.actorHandle}</span>
       <Badge tone={statusTones[execution.status]}>{executionStatusLabel(execution.status)}</Badge>
-      <span className="col-span-full truncate font-mono text-[0.75rem]" title={preview}>{preview}</span>
-      <span className="col-span-full flex flex-wrap justify-between gap-x-3 gap-y-2 text-xs tabular-nums text-muted-foreground"><time dateTime={execution.startedAt} title={new Date(execution.startedAt).toLocaleString()}>{new Date(execution.startedAt).toLocaleString(undefined, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time><span>{executionDuration(execution, now)}</span></span>
+      <span className="col-span-full truncate font-mono text-[0.75rem]" aria-label={preview}>{preview}</span>
+      <span className="col-span-full flex flex-wrap justify-between gap-x-3 gap-y-2 text-xs tabular-nums text-muted-foreground"><time dateTime={execution.startedAt} aria-label={new Date(execution.startedAt).toLocaleString()}>{new Date(execution.startedAt).toLocaleString(undefined, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time><span>{executionDuration(execution, now)}</span></span>
     </summary>
     {expanded && <div className={contentClass}>
       {execution.path && <p className="mt-3 grid gap-1 text-[0.68rem] text-muted-foreground"><span>Path</span><code className="[overflow-wrap:anywhere]">{execution.path}</code></p>}

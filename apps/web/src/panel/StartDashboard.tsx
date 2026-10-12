@@ -99,7 +99,7 @@ function packCells(element: HTMLElement, motion: Motion) {
     if (label !== null) {
       const text = `${columns} of ${grid}`;
       if (label.textContent !== text) label.textContent = text;
-      label.title = `${columns} of ${grid} columns`;
+      label.setAttribute("aria-label", `${columns} of ${grid} columns`);
     }
   }
   element.style.height = `${packing.height}px`;
@@ -255,18 +255,18 @@ function EditTitleRow({ widget, columns, grid, list, first, last, resizing, hint
 }) {
   return <div className={cn("flex min-h-control-xs min-w-0 items-center gap-1", !list && "pr-2")}>
     <Button aria-describedby={hint} aria-label={`Move ${widget.title}`} className="flex-none cursor-grab touch-none text-muted-foreground active:cursor-grabbing" data-control="handle"
-      onKeyDown={onHandleKey} onPointerDown={onHandlePointer} size="icon-xs" title="Drag to move" variant="ghost"><GripVerticalIcon /></Button>
+      onKeyDown={onHandleKey} onPointerDown={onHandlePointer} size="icon-xs" aria-description="Drag to move" variant="ghost"><GripVerticalIcon /></Button>
     <h2 className="min-w-0 flex-1 truncate type-label text-muted-foreground">{widget.title}</h2>
     {list
       ? <>
-        <Button aria-label={`Move ${widget.title} up`} className="flex-none text-muted-foreground" data-control="up" disabled={first} onClick={() => onMove(-1)} size="icon-xs" title="Move up" variant="ghost"><ArrowUpIcon /></Button>
-        <Button aria-label={`Move ${widget.title} down`} className="flex-none text-muted-foreground" data-control="down" disabled={last} onClick={() => onMove(1)} size="icon-xs" title="Move down" variant="ghost"><ArrowDownIcon /></Button>
+        <Button aria-label={`Move ${widget.title} up`} className="flex-none text-muted-foreground" data-control="up" disabled={first} onClick={() => onMove(-1)} size="icon-xs" aria-description="Move up" variant="ghost"><ArrowUpIcon /></Button>
+        <Button aria-label={`Move ${widget.title} down`} className="flex-none text-muted-foreground" data-control="down" disabled={last} onClick={() => onMove(1)} size="icon-xs" aria-description="Move down" variant="ghost"><ArrowDownIcon /></Button>
       </>
       : <span className={cn("flex-none type-meta tabular-nums", resizing ? "font-semibold text-primary" : "text-muted-foreground")} data-widget-columns={columns}
-        title={`${shownColumns(columns, grid)} of ${grid} columns`}>{shownColumns(columns, grid)} of {grid}</span>}
+        aria-label={`${shownColumns(columns, grid)} of ${grid} columns`}>{shownColumns(columns, grid)} of {grid}</span>}
     {onConfigure !== undefined && <Button aria-label={`Configure ${widget.title}`} className="flex-none text-muted-foreground" data-control="configure" onClick={onConfigure} size="icon-xs"
-      title="Configure" variant="ghost"><SettingsIcon /></Button>}
-    <Button aria-label={`Remove ${widget.title}`} className="flex-none text-muted-foreground" onClick={onRemove} size="icon-xs" title="Remove from Start" variant="ghost"><XIcon /></Button>
+      aria-description="Configure" variant="ghost"><SettingsIcon /></Button>}
+    <Button aria-label={`Remove ${widget.title}`} className="flex-none text-muted-foreground" onClick={onRemove} size="icon-xs" aria-description="Remove from Start" variant="ghost"><XIcon /></Button>
   </div>;
 }
 
@@ -567,7 +567,7 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Das
   };
 
   const editButton = (compact: boolean) => <Button aria-label={compact ? "Edit" : undefined} className="flex-none text-muted-foreground" data-edit-start disabled={state.kind !== "ready"}
-    onClick={startEditing} size={compact ? "icon-sm" : "xs"} title="Edit Start" variant="ghost">
+    onClick={startEditing} size={compact ? "icon-sm" : "xs"} aria-description="Edit Start" variant="ghost">
     <PencilIcon data-icon={compact ? undefined : "inline-start"} />{!compact && "Edit"}
   </Button>;
   const toolbar = editing
@@ -622,7 +622,7 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Das
           role={mode === "tabs" ? "tabpanel" : undefined} style={cellStyle(widget.key)}>
           <WidgetFrame editing={editing} empty={empty.has(widget.key)} list={mode === "list"} settings={settingsOf(widget)} titleRow={titleRow} widget={widget} />
           {editing && mode === "grid" && resizable && <div aria-hidden className="group/resize absolute inset-y-0 -right-3 z-10 w-5 cursor-ew-resize touch-none"
-            data-resize-handle onPointerDown={(event) => startResize(event, widget.key)} title="Drag to resize">
+            data-resize-handle onPointerDown={(event) => startResize(event, widget.key)} aria-label="Drag to resize">
             <span className={cn("absolute inset-y-0 left-[calc(50%+3px)] w-0.5 -translate-x-1/2 rounded-full", dragging === "resize" ? "bg-primary" : "group-hover/resize:bg-primary")} />
             <span className={cn("absolute top-[min(2.5rem,calc(50%-1.5rem))] left-[calc(50%+3px)] h-12 w-2 -translate-x-1/2 rounded-full shadow-card",
               dragging === "resize" ? "bg-primary" : "bg-border-strong group-hover/cell:bg-primary/70 group-hover/resize:bg-primary")} data-resize-grip />

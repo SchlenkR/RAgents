@@ -148,13 +148,13 @@ test("a run the viewer only watches behaves below it as without runs.write, whil
 
 test("the run header offers Share to whoever may share and tells a sharee what the share permits", () => {
   const owner = headerOf({ id: "run", title: "Review", updatedAt: 0, operable: true, canShare: true });
-  assert.match(owner, /<button(?=[^>]*aria-label="Share")(?=[^>]*title="Share run")[^>]*>/);
-  assert.match(headerOf({ id: "run", title: "Review", updatedAt: 0, operable: true, canShare: true, shared: true }), /title="Shared - change whom the run is shared with"/);
+  assert.match(owner, /<button(?=[^>]*aria-label="Share")(?=[^>]*aria-description="Share run")[^>]*>/);
+  assert.match(headerOf({ id: "run", title: "Review", updatedAt: 0, operable: true, canShare: true, shared: true }), /aria-description="Shared - change whom the run is shared with"/);
   const viewer = headerOf({ id: "run", title: "Review", updatedAt: 0, operable: false, sharedAccess: "read" });
-  assert.match(viewer, /title="Shared with you - view only"[^>]*>View only</);
+  assert.match(viewer, /aria-label="Shared with you - view only"[^>]*>View only</);
   assert.doesNotMatch(viewer, /aria-label="Share"/);
   const member = headerOf({ id: "run", title: "Review", updatedAt: 0, operable: true, sharedAccess: "write" });
-  assert.match(member, /title="Shared with you - can operate"[^>]*>Shared</);
+  assert.match(member, /aria-label="Shared with you - can operate"[^>]*>Shared</);
   assert.doesNotMatch(headerOf({ id: "run", title: "Review", updatedAt: 0, operable: true }), /aria-label="Share"|View only/);
 });
 

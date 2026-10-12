@@ -199,14 +199,14 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
                 data-selected={selected === full}
                 onClick={() => entry.kind === "directory" ? toggleDirectory(full) : openFile(full)}
                 style={indent(depth)}
-                title={`${entry.name} - ${sizeLabel(entry.size)} - ${timeLabel(entry.modifiedAt)}`}
+                aria-description={`${entry.name} - ${sizeLabel(entry.size)} - ${timeLabel(entry.modifiedAt)}`}
                 variant="ghost"
               >
                 <span className={`inline-flex w-3 flex-none items-center justify-center text-muted-foreground${open ? " [&>svg]:rotate-90" : ""}`}>
                   {entry.kind === "directory" ? <ChevronRight size={11} strokeWidth={2} /> : null}
                 </span>
                 <Icon aria-hidden className={`flex-none ${fileToneClass[tone]}`} size={14} strokeWidth={1.7} />
-                <span className="min-w-0 flex-1 truncate text-left font-mono">{entry.name}</span>
+                <span className="min-w-0 flex-1 whitespace-normal wrap-anywhere text-left font-mono">{entry.name}</span>
                 {entry.kind === "file" && <span className="flex-none text-[0.64rem] text-muted-foreground tabular-nums">{sizeLabel(entry.size)}</span>}
               </Button>
               {entry.kind === "directory" && open && renderLevel(full, depth + 1)}
@@ -240,11 +240,11 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
             onPressedChange={setShowHidden}
             pressed={showHidden}
             size="sm"
-            title={showHidden ? "Hide hidden entries" : "Show hidden entries"}
+            aria-description={showHidden ? "Hide hidden entries" : "Show hidden entries"}
           >
             {showHidden ? <Eye size={15} strokeWidth={1.8} /> : <EyeOff size={15} strokeWidth={1.8} />}
           </Toggle>
-          <Button aria-label="Refresh files" onClick={() => { setPreview(undefined); setReload((value) => value + 1); }} size="icon" title="Refresh" variant="ghost">
+          <Button aria-label="Refresh files" onClick={() => { setPreview(undefined); setReload((value) => value + 1); }} size="icon" aria-description="Refresh" variant="ghost">
             <RefreshCw className={pending ? "animate-spin" : undefined} size={15} strokeWidth={1.8} />
           </Button>
         </div>
@@ -254,7 +254,7 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
           {error}
         </Alert>
       )}
-      {rootListing && <div className="truncate px-3 pt-0.5 pb-2 font-mono text-[0.66rem] text-muted-foreground" title={rootListing.location}>{rootListing.location}</div>}
+      {rootListing && <div className="whitespace-normal wrap-anywhere px-3 pt-0.5 pb-2 font-mono text-[0.66rem] text-muted-foreground" aria-label={rootListing.location}>{rootListing.location}</div>}
       {rootListing && rootListing.entries.length === 0 && (
         <Empty className="min-h-30 flex-none gap-2 p-6">
           <EmptyHeader>
@@ -267,7 +267,7 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
       <div className="min-h-0 flex-1 overflow-auto pb-2">{renderLevel("", 0)}</div>
       {selected && (
         <div className="flex min-h-0 flex-1 flex-col border-t border-border-soft">
-          <div className="truncate px-3 py-2 font-mono text-[0.66rem] text-muted-foreground" title={selected}>{selected}</div>
+          <div className="whitespace-normal wrap-anywhere px-3 py-2 font-mono text-[0.66rem] text-muted-foreground" aria-label={selected}>{selected}</div>
           {previewPending && <div className="px-3 pb-2 text-[0.68rem] text-muted-foreground" role="status">Loading preview...</div>}
           {preview && !preview.previewable && <div className="px-3 pb-2 text-[0.68rem] text-muted-foreground">{preview.reason}</div>}
           {preview && preview.previewable && (

@@ -58,7 +58,7 @@ function ConnectionRow({ connection, send, onEdit, onLogin, onRemove }: {
         <span className="flex-none type-caption text-muted-foreground">{kindLabel(connection)}</span>
         <ConnectionStateIcon className="ml-auto" state={connectionState(connection)} />
       </span>
-      <span className="block truncate font-mono type-meta text-muted-foreground" title={connection.address}>{profile ? fileNameOf(connection.address) : connection.address}</span>
+      <span className="block truncate font-mono type-meta text-muted-foreground" aria-label={connection.address}>{profile ? fileNameOf(connection.address) : connection.address}</span>
     </span>
     {progress && <p className="col-span-2 type-body text-muted-foreground [overflow-wrap:anywhere]" role="status">{progress}</p>}
     {detail && <p className="col-span-2 type-body text-destructive [overflow-wrap:anywhere]" role="alert">{detail}</p>}
@@ -82,7 +82,7 @@ function MissingSecrets({ names, send }: { names: readonly string[]; send: (acti
     <ul className="grid grid-cols-1">
       {names.map((name) => <li className="flex items-center gap-2 border-b border-border-soft px-1 py-3 last:border-b-0" key={name}>
         <KeyIcon aria-hidden className="size-3.5 flex-none text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate font-mono type-body" title={name}>{name}</span>
+        <span className="min-w-0 flex-1 truncate font-mono type-body" aria-label={name}>{name}</span>
         <Button aria-label={`Set value for ${name}`} onClick={() => send({ action: "setSecret", name })} size="xs" variant="secondary">Set value</Button>
       </li>)}
     </ul>
@@ -111,7 +111,7 @@ export function ConnectionsPage({ state, send }: PanelPageProps) {
       </section>
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={() => setDialog({ kind: "new" })} size="sm"><PlusIcon data-icon="inline-start" />New server</Button>
-        <Button aria-label="Open setting" onClick={() => send({ action: "settingsFile" })} size="sm" title="Open setting (settings.json)" variant="ghost"><SettingsIcon data-icon="inline-start" />settings.json</Button>
+        <Button aria-label="Open setting" onClick={() => send({ action: "settingsFile" })} size="sm" aria-description="Open setting (settings.json)" variant="ghost"><SettingsIcon data-icon="inline-start" />settings.json</Button>
       </div>
     </div>
     {missingSecrets.length > 0 && <MissingSecrets names={missingSecrets} send={send} />}

@@ -80,7 +80,7 @@ test("every chat shows the timestamp switch and it toggles only its own message 
   const main = panel.locator("section[aria-label=Chat] [data-chat=panel]:visible");
   await expectSwitch(main);
   if (screenshots) await panel.screenshot({ path: `${screenshots}/main-chat.png` });
-  await panel.locator("button[title^=\"Addressee: @coordinator\"]:visible").click();
+  await panel.locator("button[aria-label^=\"Addressee: @coordinator\"]:visible").click();
   await panel.getByRole("dialog", { name: "Addressee" }).getByText("@reviewer").click();
   await panel.getByPlaceholder("Message to @reviewer ...").waitFor();
   await expectSwitch(main);
@@ -167,7 +167,7 @@ test("chat columns stay centered and bounded while their scrollers fill narrow a
         await page.getByRole("button", { name: "Discuss task", exact: true }).click();
       }
       if (mode === "actor-panel") {
-        await page.locator('button[title^="Addressee: @coordinator"]:visible').click();
+        await page.locator('button[aria-label^="Addressee: @coordinator"]:visible').click();
         await page.getByRole("dialog", { name: "Addressee" }).getByText("@reviewer").click();
         await page.getByPlaceholder("Message to @reviewer ...").waitFor();
       }

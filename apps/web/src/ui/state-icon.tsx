@@ -47,7 +47,7 @@ export function RunStateIcon({ state, open = 0, notice, className }: { state: Ru
   const mark = RUN_MARKS[state];
   const word = notice ? `${runStateWord(state, open)}, ${NOTICE_WORDS[notice]}` : runStateWord(state, open);
   const Icon = notice && !mark.spinning ? CircleIcon : mark.Icon;
-  return <span className={cn(markClass, mark.tone, className)} title={word}>
+  return <span className={cn(markClass, mark.tone, className)} aria-label={word}>
     <span className="relative inline-flex">
       <Icon className={cn("size-3.5", mark.spinning && "animate-spin motion-reduce:animate-none")} />
       {notice && <span aria-hidden className="absolute inset-0 m-auto size-1.5 rounded-full bg-info" />}
@@ -61,7 +61,7 @@ export function ConnectionStateIcon({ state, className }: { state: ConnectionSta
   const mark = CONNECTION_MARKS[state];
   const word = connectionStateWord(state);
   const Icon = mark.Icon;
-  return <span className={cn(markClass, mark.tone, className)} title={word}>
+  return <span className={cn(markClass, mark.tone, className)} aria-label={word}>
     <Icon className="size-3.5" {...(mark.filled ? { fill: "currentColor" } : {})} />
     <span className="sr-only">{word}</span>
   </span>;

@@ -42,7 +42,7 @@ function OverseerToolbar(context: OverviewPanelContext) {
   const coordinator = useCoordinator();
   if (!coordinator.runId) {
     return <div className={toolbarClass} data-slot="overseer-toolbar" role="status">
-      {coordinator.error && <span className="text-[0.7rem] font-bold text-destructive" title={coordinator.error} aria-label={coordinator.error}>!</span>}
+      {coordinator.error && <span className="text-[0.7rem] font-bold text-destructive" aria-description={coordinator.error} aria-label={coordinator.error}>!</span>}
     </div>;
   }
   return <ChatStepsProvider policy={overseerChatDisplayPolicy} storageKeyPrefix={overseerChatStorageKeyPrefix}>
@@ -150,7 +150,7 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
             texts={{ placeholder: writable ? "Ask the global coordinator" : "Read access to the global coordinator" }}
             toolbarLeft={<ChatViewSwitches className="max-md:[&>span]:hidden" settings={chatView} />}
             toolbarRight={<><ChatContextUsage runId={runId} revision={JSON.stringify([modelState.settings?.provider, modelState.settings?.model])} /><ModelSettings active={open} compact disabled={resetting} actions={
-              <Button aria-label="Reset conversation" aria-busy={resetting} disabled={!writable || resetting || !chat.connected} onClick={() => setConfirmReset(true)} size="icon-sm" title="Reset conversation ..." variant="ghost">
+              <Button aria-label="Reset conversation" aria-busy={resetting} disabled={!writable || resetting || !chat.connected} onClick={() => setConfirmReset(true)} size="icon-sm" aria-description="Reset conversation ..." variant="ghost">
                 {resetting ? <Spinner /> : <RotateCcwIcon />}
               </Button>
             } /></>}
@@ -165,7 +165,7 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
     </HeaderDropdown>
     <span className="flex min-w-0 flex-none items-center justify-end gap-2 empty:hidden" role="status" aria-live="polite">
       {chat.running && <span className="sr-only">Working</span>}
-      {problem && <span className="text-[0.7rem] font-bold text-destructive" title={problem} aria-label={problem}>!</span>}
+      {problem && <span className="text-[0.7rem] font-bold text-destructive" aria-description={problem} aria-label={problem}>!</span>}
     </span>
   </div>;
 }

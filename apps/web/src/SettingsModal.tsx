@@ -565,7 +565,7 @@ function PluginPage({ group, settings, onOpenPlugin }: {
                   ))}
                 </span>
                 <span className="grid min-w-0 gap-1">
-                  {skill.paths.map((path) => <code className="truncate font-mono text-[0.66rem] text-muted-foreground" key={path} title={path}>{path}</code>)}
+                  {skill.paths.map((path) => <code className="whitespace-normal wrap-anywhere font-mono text-[0.66rem] text-muted-foreground" key={path} aria-label={path}>{path}</code>)}
                 </span>
                 <span aria-hidden className="absolute top-1/2 right-3 flex -translate-y-1/2 text-muted-foreground group-hover:text-primary group-focus-visible:text-primary"><ChevronRightIcon size={13} /></span>
               </button>
@@ -594,7 +594,7 @@ function PluginPage({ group, settings, onOpenPlugin }: {
               <div className="flex flex-wrap gap-2">
                 {group.configuration.map((entry) => (
                   <Badge className="max-w-full gap-2" key={entry.key} tone="neutral">
-                    <code className="min-w-0 truncate font-mono text-foreground" title={entry.key}>{entry.key}</code>
+                    <code className="min-w-0 whitespace-normal wrap-anywhere font-mono text-foreground" aria-label={entry.key}>{entry.key}</code>
                     <small>{entry.secret ? `${entry.source} (secret)` : entry.source}</small>
                   </Badge>
                 ))}
@@ -624,7 +624,7 @@ function PluginPage({ group, settings, onOpenPlugin }: {
                   {contribution.details.length > 0 && (
                     <span className="flex flex-wrap gap-2">
                       {contribution.details.map((detail) => (
-                        <Badge className="max-w-full" key={detail} tone="neutral"><code className="min-w-0 truncate font-mono text-foreground" title={detail}>{detail}</code></Badge>
+                        <Badge className="max-w-full" key={detail} tone="neutral"><code className="min-w-0 whitespace-normal wrap-anywhere font-mono text-foreground" aria-label={detail}>{detail}</code></Badge>
                       ))}
                     </span>
                   )}
@@ -859,7 +859,7 @@ function SettingsValue({ copy = false, label, value }: { copy?: boolean; label: 
   return (
     <div className={cn(insetClass, "grid min-h-[38px] grid-cols-[12rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 max-[520px]:grid-cols-[minmax(0,1fr)_auto]")}>
       <span className={cn(valueLabelClass, "max-[520px]:col-span-full")}>{label}</span>
-      <code className="min-w-0 truncate font-mono text-[0.7rem] text-foreground" title={value}>{value}</code>
+      <code className="min-w-0 whitespace-normal wrap-anywhere font-mono text-[0.7rem] text-foreground" aria-label={value}>{value}</code>
       {copy && <CopyButton label={`Copy ${label}`} text={value} />}
     </div>
   );
@@ -898,7 +898,7 @@ function CopyButton({ className, label, text }: { className?: string; label: str
       className={cn("flex-shrink-0", className)}
       onClick={copy}
       size="sm"
-      title={statusLabel}
+      aria-description={statusLabel}
       variant="outline"
     >
       {status === "copied" ? <CheckIcon /> : status === "failed" ? <CircleAlertIcon /> : <CopyIcon />}

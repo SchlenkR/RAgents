@@ -21,6 +21,7 @@ export function RunPanelRail({ navigation, onClose, open, pendingTabIds, session
     {tabs.map((tab) => {
       const active = open && tab.id === navigation.activeTabId;
       const pending = pendingTabIds.includes(tab.id);
+      // The icon-only rail needs visible tab names on hover and focus.
       return <Tooltip key={tab.id}>
         <div className="relative flex">
           <TooltipTrigger

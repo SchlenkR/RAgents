@@ -81,7 +81,7 @@ function App(){const[state,setState]=useState(window.fixture.initial);window.fix
     // The extension starts a local profile itself; there is no Start button and no Stop button.
     assert.equal(await page.getByRole('button',{name:'Start',exact:true}).count(),0);
     assert.equal(await page.getByRole('button',{name:'Stop',exact:true}).count(),0);
-    assert.equal(await page.locator('[title="starting"]').count(),1);
+    assert.equal(await page.locator('[aria-label="starting"]').count(),1);
     await page.screenshot({path:`${shots}servers-420.png`,fullPage:true});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 

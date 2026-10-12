@@ -481,7 +481,7 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   assert.equal(await sidebar.getAttribute("data-dock-sidebar"), "flyout");
   assert.equal(await groups.count(), 1, "a rail click keeps the panel in the overlay");
   const moveIntoLayout = page.getByRole("button", { name: "Move into layout", exact: true });
-  assert.equal(await moveIntoLayout.getAttribute("title"), "Move into layout");
+  assert.equal(await moveIntoLayout.getAttribute("aria-label"), "Move into layout");
   assert.equal(await moveIntoLayout.getAttribute("aria-pressed"), null);
   await page.getByRole("textbox", { name: "Files draft" }).fill("File selection");
   assert.equal((await box(page.locator('[data-dock-panel="app:notes"]'))).width, beforeFlyout, "the flyout does not reserve layout space");

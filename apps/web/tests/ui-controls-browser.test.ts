@@ -232,7 +232,7 @@ test("shared control sizes, searchable dropdowns and multi-value filters work in
       const bounds = await page.getByRole("group", { name: label, exact: true }).boundingBox();
       assert.ok(bounds && bounds.width <= available.width && bounds.x + bounds.width <= available.x + available.width, `${label}: fits a narrow pane`);
     }
-    assert.equal(await beta.getAttribute("title"), "Beta follow-up", "truncated segment labels retain the full text on hover");
+    assert.equal(await beta.getAttribute("aria-label"), "Beta follow-up", "segment labels retain their full accessible name");
     await page.setViewportSize({ width: 1560, height: 900 });
   });
 

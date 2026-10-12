@@ -241,7 +241,7 @@ function SolutionSelect({ choice, snapshot }: { choice: SolutionChoice; snapshot
         }}
         value={selectedSolution(solutions, snapshot)}
       >
-        <SelectTrigger aria-label="Choose solution" className="min-w-0 flex-1" size="sm" title={choice.writable ? undefined : "Switching requires write permission"}>
+        <SelectTrigger aria-label="Choose solution" className="min-w-0 flex-1" size="sm" aria-description={choice.writable ? undefined : "Switching requires write permission"}>
           <SelectValue placeholder={instances > 1 ? `${instances} instances open` : "Other root open"} />
         </SelectTrigger>
         <SelectContent>{items.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
@@ -261,7 +261,7 @@ function LanguageServerInstanceView({ instance }: { instance: LanguageServerInst
   return (
     <section className="border-b border-border-soft last:border-b-0">
       <div className="flex items-baseline gap-2 px-3 pt-2 pb-1">
-        <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[0.66rem] text-muted-foreground" title={instance.root}>{instance.root}</span>
+        <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[0.66rem] text-muted-foreground" aria-label={instance.root}>{instance.root}</span>
         <span className="flex-none text-[0.64rem] uppercase tracking-[0.04em] text-muted-foreground">{stateLabel(instance.state)}</span>
       </div>
       {instance.state === "opening" && (
@@ -329,7 +329,7 @@ export function LanguageServerPanelView({ settings, snapshot, error, pending, on
           <span className="text-[0.8rem] font-medium text-foreground">{settings.label}</span>
           <span className="text-xs text-muted-foreground">{headerLabel(snapshot)}</span>
         </div>
-        <Button aria-label="Refresh diagnostics" onClick={onRefresh} size="icon" title="Refresh" variant="ghost">
+        <Button aria-label="Refresh diagnostics" onClick={onRefresh} size="icon" aria-description="Refresh" variant="ghost">
           <IconRefresh className={pending ? "animate-spin" : undefined} />
         </Button>
       </header>

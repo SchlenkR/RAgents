@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ZoomInIcon } from "lucide-react";
+import { createNativeTitleRemover } from "./native-title";
 import { ImageViewer } from "./image-viewer";
 
 const ImageGroupContext = createContext(false);
@@ -26,27 +27,28 @@ function ImageGroup({ children }: { children: ReactNode }) {
   const [opened, setOpened] = useState<{ src: string; alt: string; fileName: string }>();
   const [hint, setHint] = useState<{ x: number; y: number }>();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const element = root.current!;
-    const originals = new Map<HTMLElement, { role: string | null; label: string | null; title: string | null; tabIndex: string | null }>();
+    const removeTitles = createNativeTitleRemover();
+    const originals = new Map<HTMLElement, { role: string | null; label: string | null; tabIndex: string | null }>();
     const images = () => [...element.querySelectorAll<HTMLImageElement>("img")].filter((image) => !image.closest('[data-slot="image-preview"], [data-slot="image-viewer"]'));
     const enhance = () => {
+      removeTitles(element);
       for (const image of images()) {
         const trigger = image.closest<HTMLAnchorElement>("a") ?? image;
-        if (!originals.has(trigger)) originals.set(trigger, { role: trigger.getAttribute("role"), label: trigger.getAttribute("aria-label"), title: trigger.getAttribute("title"), tabIndex: trigger.getAttribute("tabindex") });
+        if (!originals.has(trigger)) originals.set(trigger, { role: trigger.getAttribute("role"), label: trigger.getAttribute("aria-label"), tabIndex: trigger.getAttribute("tabindex") });
         trigger.setAttribute("role", "button");
         trigger.setAttribute("aria-label", `Open image ${fileNameOf(image)}`);
-        trigger.title = "Click to zoom";
         trigger.tabIndex = 0;
       }
     };
     enhance();
     const observer = new MutationObserver(enhance);
-    observer.observe(element, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "alt"] });
+    observer.observe(element, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "alt", "title"] });
     return () => {
       observer.disconnect();
       for (const [image, original] of originals) {
-        for (const [attribute, value] of [["role", original.role], ["aria-label", original.label], ["title", original.title], ["tabindex", original.tabIndex]] as const) {
+        for (const [attribute, value] of [["role", original.role], ["aria-label", original.label], ["tabindex", original.tabIndex]] as const) {
           if (value === null) image.removeAttribute(attribute);
           else image.setAttribute(attribute, value);
         }

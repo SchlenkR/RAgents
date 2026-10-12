@@ -69,7 +69,7 @@ test("Start shows only one server's recent runs and templates and sends each act
     assert.equal(await page.getByRole('heading',{name:'Server',exact:true}).count(),0);
     assert.equal(await page.locator('[data-cell="route"], [data-cell="connection"]').count(),0);
     assert.equal(await page.getByRole('button',{name:/^All 3 runs/}).count(),1);
-    assert.equal(await page.locator('button[title="Editorial workshop: landing page"]').count(),1);
+    assert.equal(await page.locator('button[aria-label="Editorial workshop: landing page"]').count(),1);
     assert.equal(await columnEdges(page,'Recent','time'),1);
     assert.equal(await page.getByLabel('Search templates').count(),0);
     const templates=page.getByRole('list',{name:'Templates',exact:true});
@@ -88,7 +88,7 @@ test("Start shows only one server's recent runs and templates and sends each act
     await tile('New chat').click();
     assert.deepEqual(await sent(page),{action:'newRun',name:'workshop'});
     await page.evaluate(()=>(window as any).fixture.setState((current:any)=>({...current})));
-    await page.locator('button[title="Balcony plan south side"]').click();
+    await page.locator('button[aria-label="Balcony plan south side"]').click();
     assert.deepEqual(await sent(page),{action:'openRun',name:'workshop',runId:'run-b'});
     await page.getByRole('button',{name:/^All 3 runs/}).click();
     assert.deepEqual(await sent(page),{action:'page',page:'runs'});
@@ -106,8 +106,8 @@ test("Start shows only one server's recent runs and templates and sends each act
     assert.equal(await page.getByRole('button',{name:/^Delete /}).count(),0,'the server permission controls deletion');
 
     await setConnections(page,[{...core,defaultEntry:'ragents.reference.circle'}]);
-    await page.locator('button[title="Moderated round: good collaboration"]').waitFor();
-    assert.equal(await page.locator('button[title="Editorial workshop: landing page"]').count(),0,'replacing the server replaces its content');
+    await page.locator('button[aria-label="Moderated round: good collaboration"]').waitFor();
+    assert.equal(await page.locator('button[aria-label="Editorial workshop: landing page"]').count(),0,'replacing the server replaces its content');
     assert.equal(await page.getByRole('button',{name:/^All 2 runs/}).count(),1);
     assert.equal(await templates.locator(':scope > li > button').first().getAttribute('data-tile'),'Discussion circle');
     assert.equal(await tile('Discussion circle').getByText('Default').count(),1);
@@ -138,12 +138,12 @@ test("Runs searches, hides ended runs and deletes confirmed selections on the cu
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 
     await page.getByRole('button',{name:'Hide ended'}).click();
-    await page.waitForFunction(()=>document.querySelectorAll('button[title*="Word game: sun"]').length===0);
+    await page.waitForFunction(()=>document.querySelectorAll('button[aria-label*="Word game: sun"]').length===0);
     assert.equal(await lines(),2);
     await page.getByRole('button',{name:'Hide ended'}).click();
 
     await page.getByLabel('Search runs').fill('balcony');
-    await page.waitForFunction(()=>document.querySelectorAll('button[title*="Editorial workshop"]').length===0);
+    await page.waitForFunction(()=>document.querySelectorAll('button[aria-label*="Editorial workshop"]').length===0);
     assert.equal(await lines(),1);
     await page.getByLabel('Search runs').fill('doesnotexist');
     await page.getByRole('status').filter({hasText:'No matching run.'}).waitFor();
@@ -311,7 +311,7 @@ test("a long run title stays within the panel width and the page scrolls vertica
     await page.getByRole('heading',{name:'Continue'}).waitFor();
 
     const metrics={...templates,...await page.evaluate((title)=>{
-      const span=[...document.querySelectorAll(`button[title="${title}"] span`)].find((item)=>item.childElementCount===0&&item.textContent===title)!;
+      const span=[...document.querySelectorAll(`button[aria-label="${title}"] span`)].find((item)=>item.childElementCount===0&&item.textContent===title)!;
       return {
         documentOverflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
         titleClipped:span.scrollWidth-span.clientWidth,
@@ -369,8 +369,8 @@ test("Runs saves every sharing choice immediately, keeps the returned state open
     assert.equal(await page.getByRole('button',{name:'Share Viewed run'}).count(),0,'a sharee never changes the sharing');
     assert.equal(await page.getByRole('button',{name:'Delete Viewed run'}).count(),0,'a sharee never deletes the run');
     assert.equal(await page.getByRole('button',{name:'Delete Joined run'}).count(),0,'operating a shared run does not allow deleting it');
-    assert.equal(await page.locator('button[title="Viewed run"] [title="Shared with you - view only"]').count(),1);
-    assert.equal(await page.locator('button[title="Own review"] [title="Shared"]').count(),1);
+    assert.equal(await page.locator('button[aria-label="Viewed run"] [aria-label="Shared with you - view only"]').count(),1);
+    assert.equal(await page.locator('button[aria-label="Own review"] [aria-label="Shared"]').count(),1);
     await mkdir(shots,{recursive:true});
     await shoot(page,`${shots}runs-shared-420.png`);
     await page.getByRole('button',{name:'Share Own review'}).focus();
@@ -386,13 +386,13 @@ test("Runs saves every sharing choice immediately, keeps the returned state open
     assert.equal(await dialog.getByRole('button',{name:/^(Save|Cancel)$/}).count(),0,'access choices need no confirmation');
     assert.match(await dialog.innerText(),/Own review/,'the dialog names the run');
     assert.equal(await dialog.getByRole('combobox').count(),0,'the dialog is a list, without dropdowns');
-    assert.deepEqual((await dialog.getByRole('list',{name:'Shared with'}).getByRole('listitem').allInnerTexts()).map((row)=>row.split('\n')[0]),['Everyone','Bob','Carol'],'every user is a row');
+    assert.deepEqual((await dialog.getByRole('list',{name:'Shared with'}).getByRole('listitem').allInnerTexts()).map((row)=>row.split('\n')[0]),['Everyone','Bob (bob)','Carol (carol)'],'every user is a row');
     const access=(name:string,value:string)=>dialog.getByRole('group',{name:`Access for ${name}`,exact:true}).getByRole('button',{name:value,exact:true});
     const choose=(name:string,value:string)=>access(name,value).click();
     const pressed=(name:string,value:string)=>access(name,value).getAttribute('aria-pressed');
     assert.deepEqual(await dialog.getByRole('group',{name:'Access for Everyone',exact:true}).getByRole('button').allTextContents(),['Off','View','Operate']);
-    assert.equal(await access('Everyone','View').getAttribute('title'),'Sees the run');
-    assert.equal(await access('Everyone','Operate').getAttribute('title'),"Also works in it, within the user's own permissions");
+    assert.equal(await access('Everyone','View').getAttribute('aria-description'),'Sees the run');
+    assert.equal(await access('Everyone','Operate').getAttribute('aria-description'),"Also works in it, within the user's own permissions");
     assert.equal(await dialog.getByText("Can view sees the run. Can operate also works in it, within the user's own permissions.",{exact:true}).count(),0);
     await choose('Everyone','View');
     assert.deepEqual(await sent(page),{action:'share',name:'workshop',runId:'own',sharing:{everyone:'read',users:[{userId:'bob',access:'read'}]}});
@@ -476,12 +476,12 @@ for(const width of [1400,360,320]){
         const buttons=[...group.querySelectorAll('button')].map((button)=>button.getBoundingClientRect());
         return{left:Math.round(groupBounds.left),sameRow:Math.abs(nameBounds.top+nameBounds.height/2-groupBounds.top-groupBounds.height/2)<1,
           controlRows:new Set(buttons.map((button)=>Math.round(button.top))).size,nameWrap:getComputedStyle(name).whiteSpace,
-          title:name.getAttribute('title'),truncated:name.scrollWidth>name.clientWidth};
+          name:name.textContent,truncated:name.scrollWidth>name.clientWidth};
       }));
       assert.equal(new Set(rows.map((row)=>row.left)).size,1,'every control shares one grid column');
-      assert.ok(rows.every((row)=>row.sameRow&&row.controlRows===1&&row.nameWrap==='nowrap'),'names and controls stay on one line');
-      assert.equal(rows[2]!.title,`${longName} (carol)`,'a truncated name keeps its full tooltip');
-      if(width<=360)assert.equal(rows[2]!.truncated,true,'narrow panels truncate long names');
+      assert.ok(rows.every((row)=>row.sameRow&&row.controlRows===1&&row.nameWrap==='normal'),'controls stay on one line while names wrap');
+      assert.equal(rows[2]!.name,`${longName} (carol)`,'the full name and account are visible');
+      assert.ok(rows.every((row)=>!row.truncated),'names fit inside narrow panels');
       await mkdir(shots,{recursive:true});
       await page.screenshot({path:`${shots}share-dropdown-${width}.png`});
       await trigger.click();

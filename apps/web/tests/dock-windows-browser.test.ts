@@ -311,7 +311,7 @@ test("the flyout button splits the largest window as a regular tool window by po
   assert.equal(await sidebar.getAttribute("data-dock-sidebar"), "flyout");
   assert.deepEqual((await savedLayout()).root, original.root, "a rail click opens an overlay without inserting a window");
   assert.equal(await groups.count(), 2);
-  assert.equal(await move.getAttribute("title"), "Move into layout");
+  assert.equal(await move.getAttribute("aria-label"), "Move into layout");
   assert.equal(await move.getAttribute("aria-pressed"), null, "placing a window is an action");
   const draft = page.getByRole("textbox", { name: "Files draft", exact: true });
   await draft.fill("Kept tool draft");
@@ -418,7 +418,7 @@ test("browser empty panes come from the header, behave like windows, take a drop
 
   await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 2);
   assert.equal(await entry.getAttribute("aria-pressed"), null, "Empty space is an action, not a window state");
-  assert.equal(await entry.getAttribute("title"), "Add an empty pane");
+  assert.equal(await entry.getAttribute("aria-description"), "Add an empty pane");
   await entry.click();
   await empties.first().waitFor();
   assert.equal(await groups.count(), 3, "a click splits the largest non-chat window for an empty pane");

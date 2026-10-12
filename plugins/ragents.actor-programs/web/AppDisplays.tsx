@@ -60,8 +60,8 @@ export function AppDisplayView({ api, title, snapshot, error, onRetry, onRemove,
   return <article aria-label={title} className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden">
     <div className="flex flex-none items-center gap-2 border-b border-border-soft px-workspace-inset py-1 text-xs text-muted-foreground" data-slot="app-display-source">
       <Badge tone="neutral">Read-only</Badge>
-      <span className="min-w-0 flex-1 truncate" title={from ?? undefined}>{from ? `From ${from}` : "An app from elsewhere"}</span>
-      {onRemove && <Button aria-label="Remove display" disabled={removal.pending} onClick={onRemove} size="xs" title="Remove this display from the run" variant="ghost">{removal.pending && <Spinner />}Remove</Button>}
+      <span className="min-w-0 flex-1 whitespace-normal wrap-anywhere" aria-label={from ?? undefined}>{from ? `From ${from}` : "An app from elsewhere"}</span>
+      {onRemove && <Button aria-label="Remove display" disabled={removal.pending} onClick={onRemove} size="xs" aria-description="Remove this display from the run" variant="ghost">{removal.pending && <Spinner />}Remove</Button>}
     </div>
     {removal.error && <p className="flex-none px-workspace-inset py-1 text-xs text-destructive" role="alert">{removal.error}</p>}
     {body}

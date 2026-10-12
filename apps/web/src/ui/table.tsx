@@ -192,7 +192,7 @@ function TableHead({ className, children, columnId, ref, title, ...props }: Reac
         className
       )}
       {...props}
-      title={title ?? fullText}
+      aria-label={props["aria-label"] ?? title ?? fullText}
     >
       {resize ? <div data-slot="table-head-content" className="truncate pr-2">{children}</div> : children}
       {resize && column && column.resizable !== false && <TableResizeHandle column={column} context={resize} />}
@@ -231,7 +231,7 @@ function TableResizeHandle({ column, context }: { column: TableColumnDefinition;
     aria-valuenow={width}
     aria-disabled={context.disabled || undefined}
     tabIndex={context.disabled ? -1 : 0}
-    title="Drag to resize; double-click to fit content"
+    aria-description="Drag to resize; double-click to fit content"
     className={tableResizeStyle}
     onClick={(event) => event.stopPropagation()}
     onPointerDown={(event) => {
@@ -282,7 +282,7 @@ function TableCell({ className, children, title, ...props }: React.ComponentProp
         className
       )}
       {...props}
-      title={title ?? fullText}
+      aria-label={props["aria-label"] ?? title ?? fullText}
     >{resizing && (props.colSpan ?? 1) === 1 ? <div ref={content} data-slot="table-cell-content" className="truncate">{children}</div> : children}</td>
   )
 }

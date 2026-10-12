@@ -86,10 +86,10 @@ function AccessRow({ label, title, access, strong, disabled, onChange }: {
   onChange: (access: RunShareAccess | null) => void;
 }) {
   return <li className="col-span-2 grid grid-cols-subgrid items-center border-b border-border px-3 py-2 last:border-b-0">
-    <span className={`min-w-0 truncate ${strong ? "type-item" : "type-body"}`} title={title ?? label}>{label}</span>
+    <span className={`min-w-0 whitespace-normal wrap-anywhere ${strong ? "type-item" : "type-body"}`}>{title ?? label}</span>
     <ToggleGroup aria-label={`Access for ${label}`} disabled={disabled} size="sm" value={[access ?? OFF]}
       onValueChange={([value]) => { if (value) onChange(accessOf(value)); }}>
-      {ACCESS_CHOICES.map((choice) => <ToggleGroupItem key={choice.value} title={choice.title} value={choice.value}>{choice.label}</ToggleGroupItem>)}
+      {ACCESS_CHOICES.map((choice) => <ToggleGroupItem key={choice.value} aria-description={choice.title} value={choice.value}>{choice.label}</ToggleGroupItem>)}
     </ToggleGroup>
   </li>;
 }

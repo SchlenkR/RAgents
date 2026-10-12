@@ -1,5 +1,24 @@
 # Decisions
 
+## 2026-10-12: Run details use labelled rows and explicit explanations
+
+Chapter: `spec/plugins.md` (Web host, shared UI, Run panel, Workspace, sandbox tools, and processes);
+usage: `usage.md` (Selectable system prompts, Open and stop services and background processes,
+Run panel and VS Code extension).
+
+Equal cards squeezed process names into narrow columns and let elapsed time overlap its label.
+Run details now uses the shared `DetailRow` with full wrapping values, short explanations, and
+a separate action footer. Metadata and detail contributions share their order so a branch can
+come first; processes show every name. `SessionHeaderContribution` adds optional `label` and
+`explanation` strings and `placement: "actions"`; the shared UI export is additive, so the host
+API version stays unchanged. Host-owned facts explain where files and commands run, which
+instructions apply, and what is working. Native browser `title` attributes are removed from
+host and plugin web elements and checked in the web sources. Chat and Markdown boundaries
+also remove titles supplied by foreign markup. Accessible names and visible details preserve
+their information; prompt texts open explicitly inline. Browser coverage
+checks 1600, 700, and 360 pixel widths, full process names, ordering, elapsed time, wrapping
+errors, and footer confirmation.
+
 ## 2026-10-12: Stop in the chat interrupts only the chat partner's turn
 
 Chapters: `spec/core.md` (Interrupting a turn, stopping an actor, stopping a run),

@@ -33,7 +33,7 @@ test("every run state has exactly one word, a waiting one names the number of op
 
 test("a paused run carries its own glyph and word, never the stop square and never the number of open inputs", () => {
   const paused = renderToStaticMarkup(createElement(RunStateIcon, { state: "paused", open: 2 }));
-  assert.match(paused, /title="paused"/);
+  assert.match(paused, /aria-label="paused"/);
   assert.match(paused, /lucide-circle-pause/);
   assert.doesNotMatch(paused, /lucide-square|>2</);
 });
@@ -93,7 +93,7 @@ test("the time is compact, without ago and without a special case for yesterday"
   assert.equal(shortTime(now + MINUTE, now), "now", "a time in the future stays now");
 });
 
-test("the written-out time appears only in the title", () => {
+test("the written-out time supplies the accessible name", () => {
   const now = new Date(2026, 8, 22, 12, 0, 0).getTime();
   assert.equal(longTime(now, now), "just now");
   assert.equal(longTime(now - MINUTE, now), "1 minute ago");

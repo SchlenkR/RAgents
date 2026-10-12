@@ -5,8 +5,7 @@ import { AccessContext } from "../src/AccessContext";
 import type { PluginActivationState } from "../src/PluginActivation";
 import { PluginRegistry, type SurfaceElementDefinition, type EntryGuideContext, type StartWidgetProps, type WebPlugin } from "../src/PluginRegistry";
 import type { ListedSession } from "../src/api";
-import { ToolbarCopy, ToolbarItem, ToolbarLabel, ToolbarText } from "../src/Toolbar";
-import { Button } from "../src/ui";
+import { Button, DetailRow } from "../src/ui";
 import type { RunSharing, RunSharingResult } from "../src/run-sharing";
 import { RunPanelApp } from "../src/run-panel/RunPanelApp";
 import { RunPanelHostProvider, type RunPanelHost } from "../src/run-panel/host";
@@ -67,11 +66,10 @@ const metadataTexts = {
 const dropdownPlugin: WebPlugin = {
   id: "start.dropdown",
   sessionMetadata: Object.entries(metadataTexts).map(([id, text], order) => ({ id: `start.dropdown.${id}`, order,
-    Metadata: () => <ToolbarItem><ToolbarCopy><ToolbarLabel>{id}</ToolbarLabel><ToolbarText>{text}</ToolbarText></ToolbarCopy></ToolbarItem> })),
-  sessionHeaders: [{ id: "start.dropdown.control", order: 50, Header: () => <ToolbarItem as="button" type="button">
-    <ToolbarCopy><ToolbarLabel>Run controls</ToolbarLabel><ToolbarText>Contributed details action</ToolbarText></ToolbarCopy>
-  </ToolbarItem> }],
-  startOptions: [{ id: "start.dropdown.mode", Badge: () => <ToolbarItem><ToolbarCopy><ToolbarLabel>Mode</ToolbarLabel><ToolbarText>Careful review</ToolbarText></ToolbarCopy></ToolbarItem> }],
+    Metadata: () => <DetailRow label={id}>{text}</DetailRow> })),
+  sessionHeaders: [{ id: "start.dropdown.control", order: 50, placement: "actions",
+    Header: () => <Button type="button" variant="outline">Contributed details action</Button> }],
+  startOptions: [{ id: "start.dropdown.mode", Badge: () => <DetailRow label="Mode">Careful review</DetailRow> }],
 };
 const growingHeaderPlugin: WebPlugin = {
   id: "start.growing-header",

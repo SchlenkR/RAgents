@@ -22,7 +22,7 @@ export function ChoiceToggle({ id, writable, className }: { id: Exclude<Appearan
   const choice = appearanceChoices[id];
   return <ToggleGroup aria-label={choice.label} className={className} disabled={!writable} size="sm" value={[value]}
     onValueChange={([next]) => { if (next && writable && isAppearanceValue(id, next)) getChoiceStore(id).set(next); }}>
-    {(choice.options as readonly ChoiceOption[]).map((option) => <ToggleGroupItem key={option.value} title={option.description} value={option.value}>{option.label}</ToggleGroupItem>)}
+    {(choice.options as readonly ChoiceOption[]).map((option) => <ToggleGroupItem key={option.value} aria-description={option.description} value={option.value}>{option.label}</ToggleGroupItem>)}
   </ToggleGroup>;
 }
 
@@ -36,7 +36,7 @@ export function PaletteChoices({ writable, scheme, compact = false, labelledBy }
 }
 
 function PaletteChoice({ compact, description, label, palette, scheme }: { compact: boolean; description: string; label: string; palette: string; scheme: ResolvedTheme }) {
-  return <Radio.Root value={palette} title={description}
+  return <Radio.Root value={palette} aria-label={label} aria-description={description}
     className={cn("flex cursor-pointer flex-col rounded-xl border border-border bg-card text-left transition-colors hover:border-border-strong data-disabled:cursor-not-allowed data-disabled:opacity-60 selected:border-selected-border selected:ring-1 selected:ring-selected-border", compact ? "gap-2 p-2" : "gap-3 p-3", focusRing)}>
     <span aria-hidden data-palette={palette} data-theme={scheme} className={cn("flex overflow-hidden rounded-lg border border-border bg-background text-foreground", compact ? "h-12" : "h-[76px]")}>
       <span className={cn("flex-none border-r border-border-soft bg-shell", compact ? "w-4" : "w-8")} />
@@ -68,7 +68,7 @@ const quickRows = [
 /** The appearance within reach from the header: the same controls as Settings, Appearance, without leaving the run. */
 export function AppearanceQuickSwitch() {
   return <Popover>
-    <PopoverTrigger render={<Button aria-label="Appearance" className="self-center" size="icon-lg" title="Appearance" variant="ghost"><PaletteIcon /></Button>} />
+    <PopoverTrigger render={<Button aria-label="Appearance" className="self-center" size="icon-lg" aria-description="Appearance" variant="ghost"><PaletteIcon /></Button>} />
     <PopoverContent align="end" aria-label="Appearance" className="w-90 max-w-[calc(100vw_-_2rem)] gap-4 p-4">
       <QuickSwitchControls />
     </PopoverContent>
@@ -90,7 +90,7 @@ function QuickSwitchControls() {
       <SchemeToggle writable={writable} />
     </section>
     {quickRows.map((row) => <section className="flex items-center justify-between gap-3" key={row.id}>
-      <h3 className="type-label" title={row.hint}>{appearanceChoices[row.id].label}</h3>
+      <h3 className="type-label" aria-description={row.hint}>{appearanceChoices[row.id].label}</h3>
       <ChoiceToggle id={row.id} writable={writable} />
     </section>)}
     {!writable && <p className="type-caption text-muted-foreground">With your permissions, the appearance is read-only.</p>}

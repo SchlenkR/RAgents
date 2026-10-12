@@ -88,7 +88,7 @@ test("data grids scroll with the page, retain adjustable columns, virtualize mea
   await handle.dblclick();
   assert.ok(await columnWidth(grid, "Name") > 600, "double-click fits the complete column content");
   const firstName = rows.first().locator('[data-grid-column="name"] [data-slot="data-grid-cell-content"]');
-  assert.equal(await firstName.getAttribute("title"), await firstName.textContent(), "full cell text is available through a tooltip");
+  assert.equal(await firstName.getAttribute("aria-label"), await firstName.textContent(), "full cell text remains accessible");
   const statusHeader = grid.getByRole("columnheader", { name: /^Status/ });
   checkpoint = "header sorting";
   await statusHeader.getByRole("button", { name: "Status", exact: true }).click();

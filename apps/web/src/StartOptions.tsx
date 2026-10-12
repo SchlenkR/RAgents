@@ -260,8 +260,9 @@ const unchangeable = async () => undefined;
 
 function FixedStartOption({ conflict, machines, option, registry }: { conflict: boolean; machines: OfferedMachines; option: StartOptionState; registry: PluginRegistry }) {
   const Control = registry.startOptions.get(option.id)?.Control ?? ChoiceControl;
-  return <span className="contents" data-start-option-fixed={option.id} title="Set by the template">
+  return <span className="contents" data-start-option-fixed={option.id}>
     <Control disabled error={conflict ? "A different value is chosen; the template sets this one." : undefined} machines={machines} option={option} setValue={unchangeable} />
+    <span className="text-xs text-muted-foreground">Set by the template.</span>
   </span>;
 }
 

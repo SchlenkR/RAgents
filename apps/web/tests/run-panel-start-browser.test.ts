@@ -616,7 +616,7 @@ for (const host of ["browser", "vscode"] as const) {
         assert.equal(await longApp.getByText(longAppTitle, { exact: true }).evaluate((element) => element.scrollWidth > element.clientWidth), true,
           "A long app label truncates instead of taking most of the wide header.");
         assert.equal(await longApp.getAttribute("aria-label"), longAppTitle, "The complete app label remains its accessible name.");
-        assert.ok((await longApp.getAttribute("title"))?.includes(longAppTitle), "The complete app label remains available in its tooltip.");
+        assert.equal(await longApp.getAttribute("title"), null, "The app label has no native tooltip.");
         await page.screenshot({ path: join(shots, `header-growing-${width}-${host}.png`) });
 
         for (const nextWidth of width === 1800 ? [800, 920, 420, 320, 1800] : [320, 1800, width]) {
@@ -709,10 +709,27 @@ for (const { host, width } of [{ host: "browser", width: 1400 }, { host: "vscode
           `The whole contribution stays readable: ${text}`);
       }
       const detailBounds = await dropdownBounds(page, details, title);
-      const metadataRows = await details.getByText(texts[0]!, { exact: true }).boundingBox();
-      const nextMetadata = await details.getByText(texts[1]!, { exact: true }).boundingBox();
-      assert.ok(metadataRows && nextMetadata);
-      assert.ok(width > 420 ? Math.abs(metadataRows.y - nextMetadata.y) < 1 : nextMetadata.y > metadataRows.y, "Metadata changes from a grid to wrapped cells in a narrow panel.");
+      const metadataRows = await Promise.all(texts.map((text) => details.getByText(text, { exact: true }).evaluate((element) => {
+        const row = element.closest('[data-slot="detail-row"]')!;
+        const label = row.querySelector("dt")!;
+        const bounds = row.getBoundingClientRect();
+        const valueBounds = element.getBoundingClientRect();
+        const labelBounds = label.getBoundingClientRect();
+        return { top: bounds.top, bottom: bounds.bottom, label: label.textContent, labelRight: labelBounds.right,
+          valueLeft: valueBounds.left, wrapping: getComputedStyle(element).whiteSpace };
+      })));
+      assert.deepEqual(metadataRows.map((row) => row.label), ["workspace", "source", "notes"]);
+      assert.ok(metadataRows.every((row, index) => index === 0 || row.top >= metadataRows[index - 1]!.bottom - 1),
+        "Metadata remains sequential labelled rows without overlap at every width.");
+      assert.ok(metadataRows.every((row) => row.valueLeft >= row.labelRight && row.wrapping === "normal"),
+        "Each full value wraps beside its label.");
+      const footer = details.locator('footer[data-slot="run-details-footer"]');
+      await footer.getByRole("button", { name: "Contributed details action", exact: true }).waitFor();
+      const sheetBounds = await details.locator('[data-slot="run-details-sheet"]').boundingBox();
+      const footerBounds = await footer.boundingBox();
+      assert.ok(sheetBounds && footerBounds && footerBounds.y >= sheetBounds.y + sheetBounds.height - 1,
+        "Contributed actions follow the details sheet in its footer.");
+      assert.equal(await details.locator("[title]").count(), 0, "The details sheet has no native tooltips.");
       assert.equal(await details.evaluate((element) => element.contains(document.activeElement)), true, "Opening details moves focus into the panel.");
       assert.equal(await title.getAttribute("aria-controls"), await details.getAttribute("id"));
       await shoot("run-details");
@@ -754,8 +771,8 @@ for (const { host, width } of [{ host: "browser", width: 1400 }, { host: "vscode
       const choose = (user: string, value: string) => access(user, value).click();
       const selected = (user: string, value: string) => access(user, value).and(share.locator('[aria-pressed="true"]')).waitFor();
       assert.deepEqual(await share.getByRole("group", { name: "Access for Everyone", exact: true }).getByRole("button").allTextContents(), ["Off", "View", "Operate"]);
-      assert.equal(await access("Everyone", "View").getAttribute("title"), "Sees the run");
-      assert.equal(await access("Everyone", "Operate").getAttribute("title"), "Also works in it, within the user's own permissions");
+      assert.equal(await access("Everyone", "View").getAttribute("aria-description"), "Sees the run");
+      assert.equal(await access("Everyone", "Operate").getAttribute("aria-description"), "Also works in it, within the user's own permissions");
       await page.evaluate(() => { window.runStartFixture.holdSharing = true; });
       await choose("Everyone", "View");
       await share.locator('[aria-busy="true"]').waitFor();
