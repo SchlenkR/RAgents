@@ -1,11 +1,12 @@
 /** Context compaction over the context log of one agent; pure functions, the caller persists the result. */
 
 import type { AgentMessage, StreamFn, ThinkingLevel } from "../../loop/index.ts";
-import type { AssistantMessage, Context, Model, ModelCompaction, SimpleStreamOptions, Usage } from "@ragents/ai";
+import type { AssistantMessage, Context, Model, ModelCompaction, SimpleStreamOptions, Usage, UserAttachment } from "@ragents/ai";
 import { completeSimple } from "@ragents/ai";
 import { type ContextCompaction, type ContextLogEntry, contextEntryMessages, contextMessages, latestCompaction } from "../context-log.ts";
 import { convertToLlm } from "../messages.ts";
 import { contextToolResults, retainedToolResultMessage } from "../tool-results.ts";
+import { boundedText } from "../tool-result-limit.ts";
 import {
 	computeFileLists,
 	createFileOps,
@@ -343,7 +344,7 @@ export function findCutPoint(
 		if (accumulatedTokens >= keepRecentTokens) {
 			cutIndex = cutPoints[cutPoints.length - 1];
 			for (let c = 0; c < cutPoints.length; c++) {
-				if (cutPoints[c] >= i) {
+				if (cutPoints[c] >= i && (messageTokens <= keepRecentTokens || cutPoints[c] > i)) {
 					cutIndex = cutPoints[c];
 					break;
 				}
@@ -468,6 +469,67 @@ async function completeSummarization(
 	return stream.result();
 }
 
+export const SUMMARIZATION_WINDOW_FRACTION = 0.9;
+export const SUMMARIZATION_REQUEST_RESERVE_TOKENS = 256;
+const textBytes = (text: string): number => new TextEncoder().encode(text).length;
+const attachmentBytes = (part: UserAttachment): number => Math.max(4_800, part.data.length);
+
+async function summarizeInChunks(
+	messages: AgentMessage[],
+	model: Model<any>,
+	options: SimpleStreamOptions,
+	prompt: string,
+	previousSummary: string | undefined,
+	name: string,
+	streamFn?: StreamFn,
+): Promise<string> {
+	const inputBudget = Math.floor(model.contextWindow * SUMMARIZATION_WINDOW_FRACTION)
+		- (options.maxTokens ?? 0) - SUMMARIZATION_REQUEST_RESERVE_TOKENS;
+	const wrap = (conversation: string, previous?: string) => `<conversation>\n${conversation}\n</conversation>\n\n`
+		+ (previous ? `<previous-summary>\n${previous}\n</previous-summary>\n\nMerge this checkpoint with the next conversation chunk.\n\n` : "") + prompt;
+	const fixedBytes = textBytes(SUMMARIZATION_SYSTEM_PROMPT) + textBytes(wrap("", "checkpoint"));
+	if (inputBudget <= fixedBytes + 128) throw new Error("The model window is too small for the summarization instructions and output budget.");
+	const available = inputBudget - fixedBytes;
+	const previousBudget = Math.floor(available / 3);
+	const conversationBudget = available - previousBudget;
+	const llmMessages = convertToLlm(messages);
+	const chunks: { text: string; attachments: UserAttachment[] }[] = [];
+	let chunk = { text: "", attachments: [] as UserAttachment[] };
+	for (const message of llmMessages) {
+		let text = serializeConversation([message]);
+		const attachments = collectUserAttachments([message]);
+		const mediaBytes = attachments.reduce((sum, part) => sum + attachmentBytes(part), 0);
+		const includeMedia = mediaBytes + textBytes(text) <= conversationBudget;
+		const omittedMedia = !includeMedia && attachments.length > 0;
+		if (omittedMedia) text += "\n[Attachments omitted from this summary request to fit the model window; originals remain in the journal.]";
+		text = boundedText(text, conversationBudget, `Message truncated for summarization${omittedMedia ? "; attachments omitted" : ""}; originals remain in the journal.`);
+		const selected = includeMedia ? attachments : [];
+		const used = textBytes(chunk.text) + chunk.attachments.reduce((sum, part) => sum + attachmentBytes(part), 0);
+		if (used + textBytes(text) + (includeMedia ? mediaBytes : 0) + 2 > conversationBudget && chunk.text) {
+			chunks.push(chunk);
+			chunk = { text: "", attachments: [] };
+		}
+		chunk.text += `${chunk.text ? "\n\n" : ""}${text}`;
+		chunk.attachments.push(...selected);
+	}
+	if (chunk.text || chunks.length === 0) chunks.push(chunk);
+	let summary = previousSummary;
+	for (const part of chunks) {
+		options.signal?.throwIfAborted();
+		const previous = summary ? boundedText(summary, previousBudget, "Previous summary truncated to fit the model window.") : undefined;
+		const context: Context = {
+			systemPrompt: SUMMARIZATION_SYSTEM_PROMPT,
+			messages: [{ role: "user", content: [{ type: "text", text: wrap(part.text, previous) }, ...part.attachments], timestamp: Date.now() }],
+		};
+		const requestBytes = textBytes(SUMMARIZATION_SYSTEM_PROMPT) + textBytes(wrap(part.text, previous))
+			+ part.attachments.reduce((sum, attachment) => sum + attachmentBytes(attachment), 0);
+		if (requestBytes > inputBudget) throw new Error("The summarization request exceeds its bounded input budget.");
+		const response = await completeSummarization(model, context, options, streamFn);
+		summary = completedSummary(response, name);
+	}
+	return summary!;
+}
+
 /**
  * Generate a summary of the conversation using the LLM.
  * If previousSummary is provided, uses the update prompt to merge.
@@ -493,36 +555,8 @@ export async function generateSummary(
 		basePrompt = `${basePrompt}\n\nAdditional focus: ${customInstructions}`;
 	}
 
-	// Serialize conversation to text so model doesn't try to continue it
-	// Convert to LLM messages first (handles custom types like custom and compaction summaries)
-	const llmMessages = convertToLlm(currentMessages);
-	const conversationText = serializeConversation(llmMessages);
-
-	// Build the prompt with conversation wrapped in tags
-	let promptText = `<conversation>\n${conversationText}\n</conversation>\n\n`;
-	if (previousSummary) {
-		promptText += `<previous-summary>\n${previousSummary}\n</previous-summary>\n\n`;
-	}
-	promptText += basePrompt;
-
-	const summarizationMessages = [
-		{
-			role: "user" as const,
-			content: [{ type: "text" as const, text: promptText }, ...collectUserAttachments(llmMessages)],
-			timestamp: Date.now(),
-		},
-	];
-
 	const completionOptions = createSummarizationOptions(model, maxTokens, apiKey, headers, env, signal, thinkingLevel);
-
-	const response = await completeSummarization(
-		model,
-		{ systemPrompt: SUMMARIZATION_SYSTEM_PROMPT, messages: summarizationMessages },
-		completionOptions,
-		streamFn,
-	);
-
-	return completedSummary(response, "Summarization");
+	return summarizeInChunks(currentMessages, model, completionOptions, basePrompt, previousSummary, "Summarization", streamFn);
 }
 
 function completedSummary(response: AssistantMessage, name: string): string {
@@ -768,23 +802,6 @@ async function generateTurnPrefixSummary(
 	streamFn?: StreamFn,
 ): Promise<string> {
 	const maxTokens = Math.min(budgetTokens, model.maxTokens > 0 ? model.maxTokens : Number.POSITIVE_INFINITY);
-	const llmMessages = convertToLlm(messages);
-	const conversationText = serializeConversation(llmMessages);
-	const promptText = `<conversation>\n${conversationText}\n</conversation>\n\n${TURN_PREFIX_SUMMARIZATION_PROMPT}`;
-	const summarizationMessages = [
-		{
-			role: "user" as const,
-			content: [{ type: "text" as const, text: promptText }, ...collectUserAttachments(llmMessages)],
-			timestamp: Date.now(),
-		},
-	];
-
-	const response = await completeSummarization(
-		model,
-		{ systemPrompt: SUMMARIZATION_SYSTEM_PROMPT, messages: summarizationMessages },
-		createSummarizationOptions(model, maxTokens, apiKey, headers, env, signal, thinkingLevel),
-		streamFn,
-	);
-
-	return completedSummary(response, "Turn prefix summarization");
+	return summarizeInChunks(messages, model, createSummarizationOptions(model, maxTokens, apiKey, headers, env, signal, thinkingLevel),
+		TURN_PREFIX_SUMMARIZATION_PROMPT, undefined, "Turn prefix summarization", streamFn);
 }

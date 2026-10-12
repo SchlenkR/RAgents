@@ -156,6 +156,11 @@ to read more. Reading unchanged content again returns a short notice instead of 
 Measure result sizes in real runs; a result that regularly exceeds a few kilobytes needs a
 narrower contract.
 
+The host independently bounds every result before model input, after hooks and on replay
+(`core.md`, Model context and agent runtime). An oversized result becomes an excerpt with a
+notice and a workspace file for reading its full text in parts. This guard covers all blocks of
+one result and does not replace a function's own pagination or per-line limits.
+
 ## Implementation sequence
 
 1. Identify the owner, domain state, and required decisions; inspect existing functions and
@@ -4633,6 +4638,8 @@ or package an error with a cause), the checked resolution of a root in the works
 (`resolveRootFile`, `resolveRootDirectory`, `resolveRootPath`), domain errors (`operationError`, at the caller a
 `DomainError` like every error of the executor), and the environment of a process it starts itself
 (`processEnvironment`: the safe selection of this machine, its `HOME`, and the run's marker).
+`toolResultMaxBytes` and `boundToolResult(text, notice)` supply the shared absolute model-result
+limit without importing the host runtime into a contribution.
 `machine.startManagedService(options)` starts a managed child process from `ManagedServiceOptions`
 and returns `ManagedService`. The contribution first wraps its launch with
 `context.sandbox.wrap` when present, merges `machine.processEnvironment(runId)` with `context.env`,
@@ -4641,8 +4648,8 @@ and closes the service through `kill` and `finished` in its module's `stopRun` a
 operations locally, including their cancellation and progress. `resolveRootPath` also checks paths
 for files that do not exist yet and refuses links or paths outside the supplied root. The
 contribution function touches neither disk nor network; resolution and checks happen only in the
-call. `WORKSPACE_EXECUTOR_VERSION` is 14 because older machines cannot carry the browser's
-run-owner network policy. The server supplies this policy in the executor request, separately
+call. `WORKSPACE_EXECUTOR_VERSION` is 15 because result limiting on the machine is part of the
+contribution contract. The server supplies the run-owner network policy in the executor request, separately
 from the operation's input, and the workstation adds it to `WorkspaceProcessContext`.
 
 The build tool turns it into a self-contained file `executor/index.mjs` that imports only `node:*`
@@ -5267,6 +5274,12 @@ connection, adapter process, and terminals on their owning machine; executor shu
 same. The adapter's conversation remains its own persistent context, while the RAgents journal
 restores the actor and its observable history without executing it.
 
+Host-provided ACP file reads and terminal output use the same 32 KiB absolute result cap because
+ACP does not report the adapter's selected model window. File reads name line/limit paging and
+byte-range terminal reads for long lines; terminal output marks truncation and names file
+redirection for reading more. The adapter owns direct MCP connections and its own coding tools;
+their conversation limits remain the external runtime's responsibility.
+
 ## Browser checks
 
 `ragents.browser` adds a real browser controlled through Playwright and requires
@@ -5353,7 +5366,7 @@ only for the proxy; an origin's HTTP authentication challenge cannot obtain its 
 `BROWSER_ALLOWED_ORIGINS` in the server's `ragents.browser` section is a list of exact
 HTTP(S) origins such as `http://127.0.0.1:8080`. An entry allows that scheme, hostname,
 and port, including internal addresses; paths, credentials, queries, and fragments are
-invalid. This allowance travels to a workstation through executor protocol 14. It is
+invalid. This allowance travels to a workstation through executor protocol 15. It is
 separate from `PROCESS_SANDBOX_NETWORK`. Administrators' unrestricted runs keep ordinary
 HTTP(S) browser access. Every browser uses Chromium's sandbox unless its machine turns it
 off, and a fresh run context; no personal Chrome profile or sign-in is inherited.

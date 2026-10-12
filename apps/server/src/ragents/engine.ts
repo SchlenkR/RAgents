@@ -97,8 +97,8 @@ export class SessionWorkspaces implements Workspaces {
     return this.#roots.get(runId)?.description;
   }
 
-  async storeAttachment(runId: string, name: string, content: Uint8Array): Promise<string> {
-    const stored = await this.#sandbox().execute(runId, FILE_OPERATIONS.attach, { name, content: Buffer.from(content).toString("base64") });
+  async storeAttachment(runId: string, name: string, content: Uint8Array, reuseIdentical?: boolean): Promise<string> {
+    const stored = await this.#sandbox().execute(runId, FILE_OPERATIONS.attach, { name, content: Buffer.from(content).toString("base64"), ...(reuseIdentical ? { reuseIdentical: true } : {}) });
     const storedName = (stored as { name?: unknown } | null)?.name;
     if (typeof storedName !== "string") throw new Error(`The executor reports no name for the attachment ${name}`);
     return storedName;

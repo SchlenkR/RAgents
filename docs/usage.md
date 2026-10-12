@@ -360,6 +360,10 @@ Keeping results requires `plugin.state.write`; searching and restoring do not. R
 to this agent's conversation, including context inherited by a fork, and survive a server
 restart. A restored file excerpt is a historical snapshot. Read the file again for its current
 contents. An incomplete summary leaves the original active context intact.
+
+Oversized tool results carry a truncation notice and a workspace file containing the full text.
+The agent reads that file in parts. This also applies to old results after restart. If context
+recovery cannot finish a summary, the chat reports a short failure; send another message to retry.
 <!-- /guide:clients -->
 
 ## Selectable system prompts

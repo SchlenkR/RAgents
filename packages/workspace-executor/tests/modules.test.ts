@@ -268,15 +268,23 @@ test("files: an attachment is stored under a free name in attachments, never ove
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-attach-")));
   const outside = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-attach-outside-")));
   const executor = new WorkspaceOperationExecutor({ contextFor: contextIn(directory), modules: [fileModule] });
-  const attach = (name: string, content: Buffer) =>
-    executor.execute("run-1", FILE_OPERATIONS.attach, { name, content: content.toString("base64") }) as Promise<{ name: string }>;
+  const attach = (name: string, content: Buffer, reuseIdentical = false) =>
+    executor.execute("run-1", FILE_OPERATIONS.attach, { name, content: content.toString("base64"), reuseIdentical }) as Promise<{ name: string }>;
   try {
     const content = Buffer.from([0, 255, 13, 4]);
     assert.deepEqual(await attach("data.bin", content), { name: "data.bin" });
     assert.deepEqual(await attach("data.bin", content), { name: "2-data.bin" });
+    assert.deepEqual(await attach("data.bin", content, true), { name: "data.bin" });
+    assert.deepEqual(await attach("data.bin", Buffer.from("changed"), true), { name: "3-data.bin" });
+    assert.deepEqual(await readFile(path.join(directory, "attachments", "data.bin")), content);
+    await writeFile(path.join(outside, "linked.bin"), content);
+    await symlink(path.join(outside, "linked.bin"), path.join(directory, "attachments", "linked.bin"));
+    assert.deepEqual(await attach("linked.bin", content, true), { name: "2-linked.bin" });
+    await rm(path.join(outside, "linked.bin"));
     assert.deepEqual(await attach("../Report (final).zip", content), { name: "Report__final_.zip" });
     assert.deepEqual(await readFile(path.join(directory, "attachments", "2-data.bin")), content);
     await assert.rejects(executor.execute("run-1", FILE_OPERATIONS.attach, { name: "x.bin" }), coded("workspace-path-invalid", /name and content/));
+    await assert.rejects(executor.execute("run-1", FILE_OPERATIONS.attach, { name: "x.bin", content: "", reuseIdentical: "yes" }), coded("workspace-path-invalid", /reuseIdentical must be a boolean/));
     await rm(path.join(directory, "attachments"), { recursive: true });
     await symlink(outside, path.join(directory, "attachments"));
     await assert.rejects(attach("data.bin", content), coded("workspace-path-invalid", /not a regular directory/));

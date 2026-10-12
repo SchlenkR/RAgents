@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { Type } from "typebox";
 
-import { convertToLlm, ModelRuntime } from "@ragents/agent";
+import { convertToLlm, ModelRuntime, toolResultLimit, TOOL_RESULT_MAX_BYTES } from "@ragents/agent";
 import { createAssistantMessageEventStream, fauxAssistantMessage, fauxText, fauxThinking, fauxToolCall, registerFauxProvider, type Context } from "@ragents/ai";
 
 import { modelContextOf } from "../src/agents/model-context.ts";
@@ -38,6 +38,117 @@ const userTextsOf = (message: Context["messages"][number] | undefined): string[]
     message?.role !== "user" ? []
         : typeof message.content === "string" ? [message.content]
         : message.content.flatMap((part) => part.type === "text" ? [part.text] : []);
+
+for (const kind of ["native", "typescript_eval", "plugin", "hook", "error"] as const) {
+    test(`multi-MB ${kind} results reach the model bounded with a readable file, including after replay`, async () => {
+        const setup = fauxModelRuntime(`oversized-${kind}`);
+        const root = mkdtempSync(join(tmpdir(), "ragents-oversized-"));
+        const directory = join(root, "journal");
+        const attachments = join(root, "attachments");
+        mkdirSync(attachments);
+        const harness = journalHarness(setup.selection, directory);
+        const original = "generated conflict\n".repeat(200_000);
+        const name = kind === "typescript_eval" ? kind : "lookup";
+        const requests: Context[] = [];
+        let fileWrites = 0;
+        const storeAttachment = async (file: string, content: Uint8Array, reuseIdentical?: boolean) => {
+            assert.equal(reuseIdentical, true);
+            fileWrites++;
+            writeFileSync(join(attachments, file), content);
+            return file;
+        };
+        const manager = new AgentRuntimeManager({ modelRuntime: setup.modelRuntime,
+            ...(kind === "hook" ? { resolveHooks: hooksOf({ id: "test.replace", afterToolCall: () => ({ content: [{ type: "text", text: original }] }) }) } : {}),
+        });
+        setup.faux.setResponses([
+            () => fauxAssistantMessage([fauxToolCall(name, {}, { id: "lookup-1" }),
+                ...(kind === "native" ? [fauxToolCall(name, {}, { id: "lookup-2" })] : [])]),
+            (context) => { requests.push({ messages: structuredClone(context.messages) }); return fauxAssistantMessage("Done."); },
+            (context) => { requests.push({ messages: structuredClone(context.messages) }); return fauxAssistantMessage("Continued."); },
+        ]);
+        let replay: Journal | undefined;
+        try {
+            const completed = await turnOf(harness, manager, "Look up the conflict.", { tools: [nativeTool(name)], storeAttachment,
+                invoke: async () => {
+                    if (kind === "error") throw new Error(original);
+                    return kind === "hook" ? "Small original." : original;
+                },
+            });
+            assert.equal(completed.result.failure, null);
+            assert.equal(fileWrites, 1, "identical results share one file write even when projected together");
+            const result = requests[0]!.messages.find((message) => message.role === "toolResult")!;
+            assert.equal(result.role, "toolResult");
+            if (result.role !== "toolResult") throw new Error("Missing model tool result.");
+            const text = result.content.filter((part) => part.type === "text").map((part) => part.text).join("");
+            assert.ok(Buffer.byteLength(text) <= toolResultLimit(setup.faux.getModel().contextWindow));
+            assert.ok(Buffer.byteLength(text) <= TOOL_RESULT_MAX_BYTES);
+            assert.match(text, /Tool result truncated/);
+            const file = /Full text: attachments\/(tool-result-[a-f0-9]+\.txt)/.exec(text)?.[1];
+            assert.ok(file);
+            assert.ok(readFileSync(join(attachments, file), "utf8").includes(original));
+            const events = harness.runtime.events(harness.runId);
+            const recorded = events.find((event) => event.type === "tool.call.completed" || event.type === "tool.call.failed")!;
+            assert.equal(recorded.type === "tool.call.failed" ? recorded.payload.error : recorded.type === "tool.call.completed" ? recorded.payload.output : null,
+                kind === "error" ? original.trim() : kind === "hook" ? "Small original." : original);
+            const projected = harness.runtime.modelContext(harness.runId, harness.agentId).messages;
+            harness.journal.close();
+            const replayServices = testServices();
+            const services = { ...replayServices, newId: (kind: string) => `replay-${replayServices.newId(kind)}` };
+            replay = new Journal(directory, services);
+            const runtime = new Orchestration(replay, services);
+            assert.deepEqual(runtime.modelContext(harness.runId, harness.agentId).messages, projected);
+            const restored = harnessOver(setup.selection, replay, runtime, harness.runId, harness.agentId, "replay-");
+            const next = await turnOf(restored, manager, "Continue.", { tools: [nativeTool(name)], storeAttachment });
+            assert.equal(next.result.failure, null);
+            const replayResult = requests[1]!.messages.find((message) => message.role === "toolResult")!;
+            assert.deepEqual(replayResult, result);
+        } finally {
+            await manager.shutdown();
+            replay?.close();
+            harness.journal.close();
+            setup.faux.unregister();
+            rmSync(root, { recursive: true, force: true });
+        }
+    });
+}
+
+test("failed overflow recovery reports a short notice and the next user message can recover an overfull context", async () => {
+    let failSummary = true;
+    let calls = 0;
+    const providerError = '400 {"error":{"message":"maximum context length exceeded","metadata":{"raw":"provider details"}}}';
+    const setup = scriptedRuntime("overflow-next-message", (context) => {
+        if (isSummary(context)) {
+            const size = Buffer.byteLength(context.systemPrompt ?? "") + Buffer.byteLength(JSON.stringify(context.messages));
+            assert.ok(size + 800 < 4_000, "the fake summarizer rejects requests above its window");
+            return failSummary ? fauxAssistantMessage([], { stopReason: "error", errorMessage: providerError })
+                : fauxAssistantMessage("Recovered checkpoint.");
+        }
+        if (++calls === 1) return fauxAssistantMessage("Initial answer.");
+        if (calls === 2) return fauxAssistantMessage([], { stopReason: "error", errorMessage: providerError });
+        assert.match(JSON.stringify(context.messages), /Recovered checkpoint/);
+        return fauxAssistantMessage("Next message works.");
+    });
+    const harness = journalHarness(setup.selection);
+    const diagnostics: string[] = [];
+    const manager = new AgentRuntimeManager({ modelRuntime: setup.modelRuntime, onDiagnostic: (entry) => diagnostics.push(entry.message) });
+    try {
+        await turnOf(harness, manager, "Initial task.");
+        const failed = await turnOf(harness, manager, "Continue. ".repeat(200));
+        assert.match(failed.result.failure!, /summary could not be completed.*Send another message/);
+        assert.ok(failed.result.failure!.length < 200);
+        assert.doesNotMatch(failed.result.failure!, /metadata|provider details|\{"error/);
+        assert.ok(diagnostics.some((entry) => entry.includes(providerError)));
+        failSummary = false;
+        const recovered = await turnOf(harness, manager, "Try again.");
+        assert.equal(recovered.result.failure, null);
+        assert.deepEqual(harness.outputsOf(recovered.request.turnId), ["model.output.completed: Next message works."]);
+        assert.equal(harness.runtime.view(harness.runId).turns.at(-1)!.status, "completed");
+    } finally {
+        await manager.shutdown();
+        harness.journal.close();
+        setup.faux.unregister();
+    }
+});
 
 for (const output of ["tool arguments", "compaction summary"] as const) {
     test(`streamed ${output} reports progress without visible output`, async () => {
@@ -160,17 +271,15 @@ for (const outcome of ["success", "overflow", "compaction-error", "compaction-tr
         try {
             await turnOf(harness, manager, "First task.");
             const { request, result } = await turnOf(harness, manager, "Continue. ".repeat(200));
-            assert.equal(summaries, 1);
             const summaryFailed = outcome.startsWith("compaction-");
+            assert.equal(summaries, summaryFailed ? 1 : 2);
             assert.equal(requests.length, summaryFailed ? 2 : 3);
             if (outcome === "success") {
                 assert.equal(result.failure, null);
                 assert.ok(harness.outputsOf(request.turnId).includes("model.output.completed: Recovered answer."));
             } else {
                 const failure = outcome === "overflow" ? /overflowed again.*one retry/
-                    : outcome === "compaction-truncated" ? /recovery failed.*incomplete response \(length\)/
-                    : outcome === "compaction-empty" ? /recovery failed.*empty summary/
-                    : /recovery failed.*Summary unavailable/;
+                    : /recovery failed.*summary could not be completed/;
                 assert.match(result.failure!, failure);
             }
             const events = harness.runtime.events(harness.runId);
@@ -410,7 +519,7 @@ test("A turn whose context overflow the runtime compacts and continues does not 
         assert.equal((await turnOf(harness, manager, "First.")).result.failure, null);
         const { request, result } = await within(turnOf(harness, manager, "x".repeat(100_000)), 10_000);
         assert.equal(result.failure, null);
-        assert.equal(summaries, 1);
+        assert.equal(summaries, 2);
         assert.equal(answers.length, 0);
         assert.deepEqual(harness.outputsOf(request.turnId), ["model.output.completed: Done."]);
         const compaction = harness.runtime.events(harness.runId).find((event) => event.type === "context.compacted");

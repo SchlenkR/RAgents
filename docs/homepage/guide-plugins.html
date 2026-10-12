@@ -874,6 +874,10 @@ and a limit per line, puts relevant parts first (errors, warnings, the end of a 
 to read more. Reading unchanged content again returns a short notice instead of the content.
 Measure result sizes in real runs; a result that regularly exceeds a few kilobytes needs a
 narrower contract.</p>
+<p>The host independently bounds every result before model input, after hooks and on replay
+(<code>core.md</code>, Model context and agent runtime). An oversized result becomes an excerpt with a
+notice and a workspace file for reading its full text in parts. This guard covers all blocks of
+one result and does not replace a function&#39;s own pagination or per-line limits.</p>
 <h2 id="implementation-sequence">Implementation sequence</h2>
 <ol>
 <li>Identify the owner, domain state, and required decisions; inspect existing functions and

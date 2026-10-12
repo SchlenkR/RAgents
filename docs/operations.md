@@ -990,6 +990,13 @@ an overflow error from the provider. Roughly
 threshold that applied and its origin (`model` or `catalog`); the chat shows a system line,
 `pnpm driver journal <runId>` shows both.
 
+Tool results are bounded before entering the model, including after replay; original journal
+entries stay intact. Oversized text is also stored in the run workspace under `attachments/`
+for paged reads. Summary requests use bounded chunks even when the original history exceeds the
+model window. A failed overflow recovery leaves the actor available for the next message and
+keeps the detailed provider error in the journal and server diagnostic. The constants and budget
+formula are in `docs/spec/core.md`.
+
 `core`, `showcase`, and `developer` include `ragents.compaction`. It spends up to half of
 `keepRecentTokens` on pinned results and recent file excerpts, with bounded recovery notes and
 the remaining budget for recent messages. Original results stay in the journal; the recovery

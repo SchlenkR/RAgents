@@ -33,7 +33,7 @@ export function contextToolResults(entries: readonly ContextLogEntry[]): Context
 	return results;
 }
 
-export function retainedToolResultMessage(result: ContextToolResult): UserMessage {
+export function retainedToolResultMessage(result: ContextToolResult): UserMessage & { content: ToolResultMessage["content"] } {
 	const file = result.call?.arguments.file_path;
 	const source = typeof file === "string" ? `, file ${file}` : "";
 	return {
