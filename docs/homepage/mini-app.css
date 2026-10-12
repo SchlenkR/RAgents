@@ -5549,6 +5549,9 @@
   .qsl\:my-3 {
     margin-block: calc(var(--qsl-spacing) * 3);
   }
+  .qsl\:mt-0 {
+    margin-top: 0px;
+  }
   .qsl\:mt-0\.5 {
     margin-top: calc(var(--qsl-spacing) * 0.5);
   }
@@ -5788,6 +5791,9 @@
   .qsl\:items-center {
     align-items: center;
   }
+  .qsl\:items-end {
+    align-items: flex-end;
+  }
   .qsl\:justify-between {
     justify-content: space-between;
   }
@@ -5840,6 +5846,9 @@
   }
   .qsl\:gap-y-1 {
     row-gap: var(--qsl-spacing);
+  }
+  .qsl\:self-auto {
+    align-self: auto;
   }
   .qsl\:self-baseline {
     align-self: baseline;
