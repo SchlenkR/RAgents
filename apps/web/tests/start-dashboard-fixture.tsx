@@ -1,14 +1,18 @@
-import { useSyncExternalStore } from "react";
+import { StrictMode, useContext, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
+import { AccessContext } from "../src/AccessContext";
 import { PluginRegistry, type StartWidget, type StartWidgetProps, type StartWidgetSettings, type WebPlugin } from "../src/PluginRegistry";
 import { PanelPage } from "../src/panel/PanelPage";
+import { StartPage } from "../src/panel/StartPage";
 import type { ConnectionView, PanelState } from "../src/panel/contract";
 import type { PreferenceStore } from "../src/preferences";
 import { initializeAppearance } from "../src/appearance";
 import { initializeTheme } from "../src/theme";
+import { DataGrid, type DataGridColumn } from "../src/ui/data-grid";
 import "../src/ui/tailwind.css";
 
 const query = new URLSearchParams(location.search);
+const virtual = query.get("case") === "virtual";
 initializeTheme(window);
 initializeAppearance(window);
 
@@ -36,11 +40,34 @@ const connection: ConnectionView = {
     kind: "script",
     category: "Demos",
   })),
-  canCreate: true,
+  canCreate: !virtual,
 };
 
 /** How many runs each lane of the work board lists; grow() adds more, like a list that finishes loading. */
 const lanes = { rows: 2, listeners: new Set<() => void>() };
+const optionalEntries = { shown: false, listeners: new Set<() => void>() };
+const virtualRows = { count: 100, listeners: new Set<() => void>() };
+const entries = Array.from({ length: 200 }, (_, index) => ({ id: String(index), name: `Entry ${index}`, notes: "Review pending" }));
+const entryColumns: readonly DataGridColumn<(typeof entries)[number]>[] = [
+  { id: "name", label: "Name", value: (row) => row.name, width: 140, minWidth: 90 },
+  { id: "notes", label: "Notes", value: (row) => row.notes, width: 260, minWidth: 100, flex: true, wrap: true },
+];
+
+function VirtualEntries() {
+  const count = useSyncExternalStore((listener) => {
+    virtualRows.listeners.add(listener);
+    return () => virtualRows.listeners.delete(listener);
+  }, () => virtualRows.count);
+  return <DataGrid aria-label="Virtual entries" columns={entryColumns} id="start-virtual-entries" rowKey={(row) => row.id} rows={entries.slice(0, count)} />;
+}
+
+function OptionalEntries() {
+  const shown = useSyncExternalStore((listener) => {
+    optionalEntries.listeners.add(listener);
+    return () => optionalEntries.listeners.delete(listener);
+  }, () => optionalEntries.shown);
+  return shown ? <EntryList label="Optional entries" /> : null;
+}
 
 function WorkBoard({ runs }: StartWidgetProps) {
   const rows = useSyncExternalStore((listener) => {
@@ -107,12 +134,15 @@ const twin = (id: string, title: string): StartWidget => ({
 
 const listed: StartWidget[] = owner ? [
   { id: "demo.topics", order: 10, title: "Topics", columns: 3, minColumns: 2, render: () => <TopicCards /> },
-] : holes ? [{ id: "demo.topics", order: 10, title: "Topics", columns: 3, render: () => null }] : twins ? [twin("demo.twin", "Listed twin")] : [
+] : holes ? [{ id: "demo.topics", order: 10, title: "Topics", columns: 3, render: () => null }] : twins ? [twin("demo.twin", "Listed twin")] : virtual ? [
+  widget("demo.topics", 10, "Topics", 3),
+  widget("demo.shared", 20, "Shared with the team", 6, { readRight: "runs.inspect", render: () => <VirtualEntries /> }),
+] : [
   { id: "demo.board", order: 10, title: "Work board", description: "Runs in three lanes by their state.", render: (props) => <WorkBoard {...props} /> },
   widget("demo.auto", 20, "New auto items", 2),
-  widget("demo.shared", 30, "Shared with the team", 2),
+  widget("demo.shared", 30, "Shared with the team", 2, { readRight: "runs.inspect" }),
   widget("demo.usage", 40, "Model usage", 2, { description: "Tokens and cost of the last runs.", minColumns: 1, maxColumns: 3, settings: usageSettings, render: (props) => <UsageList {...props} /> }),
-  { id: "demo.empty", order: 50, title: "Nothing to show", columns: 2, render: () => null },
+  { id: "demo.empty", order: 50, title: "Nothing to show", columns: 2, render: () => <OptionalEntries /> },
   { id: "demo.legacy", order: 60, render: () => <section aria-label="Legacy notes" className="grid gap-3"><h2 className="type-label">Legacy notes</h2><p className="type-body">A widget without a title keeps its own heading.</p></section> },
   ...(query.get("widgets") === "many" ? [
     widget("demo.topics", 70, "Topics in review", 3),
@@ -166,6 +196,15 @@ const fixture = {
   writes: [] as unknown[],
   failWrites: false,
   setApps: undefined as ((names: readonly string[]) => void) | undefined,
+  setSharedAccess: undefined as ((allowed: boolean) => void) | undefined,
+  setEmptyShown: (shown: boolean) => {
+    optionalEntries.shown = shown;
+    for (const listener of optionalEntries.listeners) listener();
+  },
+  setGridCount: (count: number) => {
+    virtualRows.count = count;
+    for (const listener of virtualRows.listeners) listener();
+  },
   grow: () => {
     lanes.rows += 4;
     for (const listener of lanes.listeners) listener();
@@ -193,7 +232,19 @@ const preferences: PreferenceStore = {
   },
 };
 
-createRoot(document.getElementById("root")!).render(<div className="flex h-full min-h-0 flex-col bg-app">
-  <header className="flex h-12 flex-none items-center border-b border-border p-3">Start dashboard check</header>
-  <div className="min-h-0 min-w-0 flex-1"><PanelPage preferences={preferences} registry={registry} send={() => {}} state={state} /></div>
-</div>);
+const send = () => {};
+
+function DashboardFixture() {
+  const access = useContext(AccessContext);
+  const [sharedAccess, setSharedAccess] = useState(true);
+  fixture.setSharedAccess = setSharedAccess;
+  const Page = virtual ? StartPage : PanelPage;
+  return <AccessContext.Provider value={{ ...access, can: (right) => (right !== "runs.inspect" || sharedAccess) && access.can(right) }}>
+    <div className="flex h-full min-h-0 flex-col bg-app">
+      <header className="flex h-12 flex-none items-center border-b border-border p-3">Start dashboard check</header>
+      <div className="min-h-0 min-w-0 flex-1"><Page preferences={preferences} registry={registry} send={send} state={state} /></div>
+    </div>
+  </AccessContext.Provider>;
+}
+
+createRoot(document.getElementById("root")!).render(<StrictMode><DashboardFixture /></StrictMode>);

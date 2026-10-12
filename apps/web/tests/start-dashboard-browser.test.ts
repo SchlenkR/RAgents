@@ -11,14 +11,15 @@ import { tailwindPlugin } from "./tailwind-plugin";
 const browserOnly = { skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 180_000 };
 const shots = join(tmpdir(), "ragents-browser-shots");
 
-let fixture: Promise<string> | undefined;
-const buildFixture = async () => {
+type ReactBuild = "production" | "development";
+const fixtures = new Map<ReactBuild, Promise<string>>();
+const buildFixture = async (react: ReactBuild) => {
   const directory = await mkdtemp(join(tmpdir(), "ragents-start-dashboard-"));
   process.once("exit", () => void rm(directory, { recursive: true, force: true }));
   await build({
     entryPoints: [fileURLToPath(new URL("start-dashboard-fixture.tsx", import.meta.url))], bundle: true,
     platform: "browser", format: "iife", jsx: "automatic", outfile: join(directory, "fixture.js"),
-    define: { "process.env.NODE_ENV": '"production"' },
+    define: { "process.env.NODE_ENV": JSON.stringify(react) },
     plugins: [tailwindPlugin([fileURLToPath(new URL("../src", import.meta.url)), fileURLToPath(new URL("./", import.meta.url))])], logLevel: "silent",
   });
   await writeFile(join(directory, "index.html"), '<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="fixture.css"><style>html,body,#root{height:100%;margin:0}</style></head><body><div id="root"></div><script src="fixture.js"></script></body></html>');
@@ -33,14 +34,19 @@ type Engine = "chromium" | "webkit";
 const launch = (engine: Engine) => engine === "webkit" ? webkit.launch({ headless: true })
   : chromium.launch({ headless: true, executablePath: process.env.BROWSER_EXECUTABLE_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
 
-const withPage = async (width: number, query: string, run: (page: Page, browser: Browser) => Promise<void>, height = 900, engine: Engine = "chromium", motion: "reduce" | "no-preference" = "reduce") => {
-  const url = await (fixture ??= buildFixture());
+const withPage = async (width: number, query: string, run: (page: Page, browser: Browser) => Promise<void>, height = 900, engine: Engine = "chromium", motion: "reduce" | "no-preference" = "reduce", react: ReactBuild = "production") => {
+  const fixture = fixtures.get(react) ?? buildFixture(react);
+  fixtures.set(react, fixture);
+  const url = await fixture;
   const browser = await launch(engine);
   try {
     const page = await browser.newPage({ viewport: { width, height }, reducedMotion: motion });
     page.setDefaultTimeout(6000);
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "error" && message.text().includes("Maximum update depth exceeded")) errors.push(message.text());
+    });
     await page.goto(`${url}?${query}`);
     await loaded(page);
     try {
@@ -71,6 +77,8 @@ const gridOf = (page: Page) => page.locator("[data-dashboard]").evaluate((elemen
 const spanWidth = (grid: { column: number; gap: number }, columns: number) => columns * grid.column + (columns - 1) * grid.gap;
 
 const settled = (page: Page) => page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => undefined))));
+
+const painted = (page: Page) => page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
 
 /** The packed cells of the grid in their order, with boxes relative to the grid and the grid's columns and gaps. */
 const packedCells = (page: Page) => page.locator("[data-dashboard]").evaluate((grid) => {
@@ -187,13 +195,13 @@ test("the owner's stored order fills the top beside Continue above a wide global
     const packed = await packedCells(page);
     checkPacked(packed, "the owner's stored order");
     assert.deepEqual(packed.cells.map((cell) => cell.key), ["start.continue", "demo.apps:planner", "start.new"]);
-    assert.deepEqual(packed.cells.map((cell) => Math.round((cell.width + packed.gapX) / packed.pitch)), [3, 4, 2]);
+    assert.deepEqual(packed.cells.map((cell) => Math.round((cell.width + packed.gapX) / packed.pitch)), [3, 4, 3], "New grows into the sixth free column");
     const [more, app, start] = ["start.continue", "demo.apps:planner", "start.new"].map((key) => placeOf(packed, key));
     assert.equal(more!.column, 0);
     assert.equal(more!.top, 0);
     assert.equal(app!.column, 0);
     assert.ok(Math.abs(app!.top - (more!.bottom + packed.gapY)) < 1);
-    assert.equal(start!.column, 3, "New starts at column four, occupying columns four and five");
+    assert.equal(start!.column, 3, "New starts at column four and grows through column six");
     assert.equal(start!.top, 0);
     assert.equal(await page.getByRole("heading", { name: "Topics", exact: true }).count(), 0);
     assert.deepEqual(await noHorizontalScroll(page), { page: 0, main: 0 });
@@ -845,6 +853,96 @@ test("a layout that cannot be loaded keeps the default layout and offers Retry; 
 
 const setApps = (page: Page, names: readonly string[]) => page.evaluate((list) => window.dashboardFixture.setApps!(list), names);
 
+const chooseWidgetTab = async (page: Page, name: string) => {
+  const tab = page.getByRole("tab", { name, exact: true });
+  if (await tab.count() > 0) await tab.click();
+  else {
+    await page.getByRole("button", { name: "More tabs", exact: true }).click();
+    await page.getByRole("menuitemradio", { name, exact: true }).click();
+  }
+  await page.getByRole("tab", { name, exact: true, selected: true }).waitFor();
+};
+
+for (const react of ["production", "development"] as const) {
+  test(`virtual grid widgets survive row growth, tab hiding, resizing, and removal (${react})`, browserOnly, async () => {
+    await withPage(1500, "case=virtual", async (page) => {
+      const grid = page.getByRole("grid", { name: "Virtual entries", exact: true });
+      await grid.locator('[data-slot="data-grid-row"]').first().waitFor();
+      await page.evaluate(() => window.dashboardFixture.setGridCount(200));
+      await page.waitForFunction(() => document.querySelector('[role="grid"]')?.getAttribute("aria-rowcount") === "201");
+      await page.setViewportSize({ width: 900, height: 900 });
+      await page.locator('[data-dashboard="grid"][data-grid="3"]').waitFor();
+      await page.setViewportSize({ width: 420, height: 900 });
+      await page.getByRole("tablist", { name: "Start widgets" }).waitFor();
+      await chooseWidgetTab(page, "Shared with the team");
+      for (let round = 0; round < 3; round += 1) {
+        for (const theme of ["light", "dark"]) {
+          await page.evaluate((value) => document.documentElement.setAttribute("data-theme", value), theme);
+          await chooseWidgetTab(page, "Topics");
+          await painted(page);
+          await chooseWidgetTab(page, "Shared with the team");
+          await grid.locator('[data-slot="data-grid-row"]').first().waitFor();
+          await painted(page);
+        }
+      }
+      await page.setViewportSize({ width: 1500, height: 900 });
+      await page.locator('[data-dashboard="grid"][data-grid="6"]').waitFor();
+      await page.setViewportSize({ width: 900, height: 900 });
+      await page.locator('[data-dashboard="grid"][data-grid="3"]').waitFor();
+      await page.evaluate(() => window.dashboardFixture.setSharedAccess!(false));
+      await page.locator('[data-start-widget="demo.shared"]').waitFor({ state: "detached" });
+      await page.evaluate(() => window.dashboardFixture.setSharedAccess!(true));
+      await grid.locator('[data-slot="data-grid-row"]').first().waitFor();
+      await edit(page);
+      await page.getByRole("button", { name: "Remove Shared with the team", exact: true }).click();
+      await grid.waitFor({ state: "detached" });
+      assert.equal(await page.getByRole("group", { name: "Edit Start" }).isVisible(), true);
+    }, 900, "chromium", "reduce", react);
+  });
+
+  test(`live empty bodies and widget removal keep tabs, packing, and edit mode usable (${react})`, browserOnly, async () => {
+    await withPage(560, "", async (page) => {
+      const optional = page.locator('[data-start-widget="demo.empty"]');
+      for (let round = 0; round < 2; round += 1) {
+        await page.evaluate(() => window.dashboardFixture.setEmptyShown(true));
+        await chooseWidgetTab(page, "Nothing to show");
+        await optional.getByRole("list", { name: "Optional entries" }).waitFor();
+        await page.evaluate(() => window.dashboardFixture.setEmptyShown(false));
+        await page.getByRole("tab", { name: "Nothing to show", exact: true }).waitFor({ state: "detached" });
+        assert.equal(await page.getByRole("tab", { name: "New", exact: true }).getAttribute("aria-selected"), "true");
+      }
+      await chooseWidgetTab(page, "Shared with the team");
+      await page.evaluate(() => window.dashboardFixture.setSharedAccess!(false));
+      await page.locator('[data-start-widget="demo.shared"]').waitFor({ state: "detached" });
+      assert.equal(await page.getByRole("tab", { name: "New", exact: true }).getAttribute("aria-selected"), "true");
+      await page.evaluate(() => window.dashboardFixture.setSharedAccess!(true));
+      await page.getByRole("tab", { name: "Shared with the team", exact: true }).waitFor();
+      await page.setViewportSize({ width: 1280, height: 2400 });
+      await page.locator('[data-dashboard="grid"][data-grid="6"]').waitFor();
+      await edit(page);
+      await page.evaluate(() => window.dashboardFixture.setEmptyShown(true));
+      await optional.getByRole("list", { name: "Optional entries" }).waitFor();
+      await page.evaluate(() => window.dashboardFixture.setEmptyShown(false));
+      await optional.getByText("Nothing to show right now.", { exact: true }).waitFor();
+      await page.getByRole("button", { name: "Remove Nothing to show", exact: true }).click();
+      await optional.waitFor({ state: "detached" });
+      await page.evaluate(() => window.dashboardFixture.setSharedAccess!(false));
+      await page.locator('[data-start-widget="demo.shared"]').waitFor({ state: "detached" });
+      assert.equal(await page.getByRole("group", { name: "Edit Start" }).isVisible(), true);
+      checkPacked(await packedCells(page), "after empty and unavailable widgets leave");
+      await page.getByRole("button", { name: "Add widget", exact: true }).click();
+      await page.getByRole("dialog", { name: "Add widget" }).getByRole("button", { name: "Add Nothing to show", exact: true }).click();
+      await optional.getByText("Nothing to show right now.", { exact: true }).waitFor();
+      await page.evaluate(() => window.dashboardFixture.setEmptyShown(true));
+      await optional.getByRole("list", { name: "Optional entries" }).waitFor();
+      await page.getByRole("button", { name: "Done", exact: true }).click();
+      await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
+      await optional.getByRole("list", { name: "Optional entries" }).waitFor();
+      checkPacked(await packedCells(page), "after saving live content");
+    }, 2400, "chromium", "reduce", react);
+  });
+}
+
 test("published widgets are moved, resized, removed, and added back like listed ones, survive disappearing while Start is edited, and a failing one keeps its error in its own cell", browserOnly, async () => {
   await withPage(1280, "dynamic=1", async (page) => {
     await page.getByRole("region", { name: "Planner", exact: true }).waitFor();
@@ -878,16 +976,22 @@ test("published widgets are moved, resized, removed, and added back like listed 
     await gallery.waitFor({ state: "detached" });
     assert.equal((await order(page)).at(-1), "demo.apps:planner", "an added dynamic widget joins at the end");
     assert.equal(await size(page, "demo.apps:planner"), 3);
+    assert.equal(await page.locator('[data-start-widget="demo.apps:planner"]').getAttribute("data-shown-columns"), "4", "the added widget grows to its maximum shown width");
     await page.keyboard.press("Shift+ArrowRight");
-    assert.equal(await size(page, "demo.apps:planner"), 4);
-    await page.keyboard.press("Shift+ArrowRight");
+    assert.equal(await size(page, "demo.apps:planner"), 3, "resizing beyond the shown maximum keeps the configured width");
     assert.equal(await announced(page), "Planner is already at its widest.", "only the widths the widget offers");
+    const grid = await gridOf(page);
+    const edge = await center(page, grip(page, "demo.apps:planner"));
+    await drag(page, edge, { x: edge.x - 2 * grid.pitch, y: edge.y }, async () => {
+      assert.equal(await size(page, "demo.apps:planner"), 2, "pointer resizing starts from four shown columns");
+      assert.equal(await page.locator("[data-resize-label]").textContent(), "2 of 6 columns");
+    });
     await page.getByRole("button", { name: "Remove Broken app", exact: true }).click();
     await page.getByRole("button", { name: "Done", exact: true }).click();
     await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
     assert.deepEqual(await writes(page), [{
       version: 3, order: ["start.new", "start.continue", "demo.board", "demo.auto", "demo.shared", "demo.usage", "demo.empty", "demo.failing:unavailable", "demo.apps:planner"],
-      columns: { "demo.apps:planner": 4 }, removed: ["demo.apps:broken"], settings: {},
+      columns: { "demo.apps:planner": 2 }, removed: ["demo.apps:broken"], settings: {},
     }]);
     await mkdir(shots, { recursive: true });
     await page.screenshot({ path: join(shots, "start-dashboard-dynamic-1280.png"), fullPage: true });
@@ -905,7 +1009,7 @@ test("published widgets are moved, resized, removed, and added back like listed 
     await setApps(page, ["broken", "planner"]);
     await page.getByRole("region", { name: "Planner", exact: true }).waitFor();
     assert.equal((await order(page)).at(-1), "demo.apps:planner", "a widget that arrives while Start is edited takes its saved place");
-    assert.equal(await size(page, "demo.apps:planner"), 4, "and its saved width");
+    assert.equal(await size(page, "demo.apps:planner"), 2, "and its saved minimum width");
     assert.equal(await broken.count(), 0, "a removed one stays removed");
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
     await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
@@ -1018,8 +1122,9 @@ test("in the owner's case the mouse moves Continue before New and back, resizing
       await page.screenshot({ path: join(shots, "start-dashboard-owner-resize.png"), fullPage: true });
     });
     assert.equal(await announced(page), "New is now 4 of 6 columns wide.");
+    assert.equal(await page.locator('[data-start-widget="start.new"]').getAttribute("data-shown-columns"), "6", "New grows across the free first row");
     const wider = await grip(page, "start.new").boundingBox();
-    await drag(page, { x: wider!.x + wider!.width / 2, y: wider!.y + wider!.height / 2 }, { x: wider!.x + wider!.width / 2 - back.pitch, y: wider!.y + wider!.height / 2 });
+    await drag(page, { x: wider!.x + wider!.width / 2, y: wider!.y + wider!.height / 2 }, { x: wider!.x + wider!.width / 2 - 3 * back.pitch, y: wider!.y + wider!.height / 2 });
     assert.equal(await size(page, "start.new"), 3);
     assert.deepEqual((await packedCells(page)).cells.map(({ key, left, top }) => ({ key, left, top })), back.cells.map(({ key, left, top }) => ({ key, left, top })), "the former width brings back the former places");
 

@@ -97,7 +97,8 @@ function packCells(element: HTMLElement, motion: Motion) {
     cell.dataset.shownColumns = String(columns);
     const label = cell.querySelector<HTMLElement>("[data-widget-columns]");
     if (label !== null) {
-      label.textContent = `${columns} of ${grid}`;
+      const text = `${columns} of ${grid}`;
+      if (label.textContent !== text) label.textContent = text;
       label.title = `${columns} of ${grid} columns`;
     }
   }
@@ -158,14 +159,15 @@ function useEmptyWidgets(element: HTMLElement | null, keys: string): ReadonlySet
   const [empty, setEmpty] = useState<ReadonlySet<string>>(() => new Set());
   useLayoutEffect(() => {
     if (!element) return;
+    const bodies = [...element.querySelectorAll<HTMLElement>("[data-start-widget-body]")];
     const check = () => {
-      const next = [...element.querySelectorAll<HTMLElement>("[data-start-widget-body]")]
+      const next = bodies
         .filter((body) => body.childNodes.length === 0)
         .map((body) => body.dataset.startWidgetBody!);
       setEmpty((current) => current.size === next.length && next.every((key) => current.has(key)) ? current : new Set(next));
     };
     const observer = new MutationObserver(check);
-    observer.observe(element, { childList: true, subtree: true });
+    for (const body of bodies) observer.observe(body, { childList: true });
     check();
     return () => observer.disconnect();
   }, [element, keys]);

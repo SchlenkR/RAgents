@@ -2197,6 +2197,8 @@ parent directly on the page canvas, without a frame or an inner scroll container
 virtualizer follows the window or the nearest ancestor that actually scrolls; only the visible
 rows and a small overscan are mounted. Virtualization starts after locating the actual scroll
 container and measuring the grid's offset, with that container's current scroll position.
+Both virtualizers batch React updates (`useFlushSync: false`), so a ResizeObserver batch that
+remeasures many rows while a widget is resized or hidden cannot force nested renders for each row.
 Mounting or remounting a grid, including switching between a list and lanes, therefore preserves
 the outer page position. Non-scrolling overflow wrappers retain page virtualization
 and header positioning. The header stays sticky at `stickyOffset` pixels, so a caller
@@ -3552,9 +3554,10 @@ active widget fills the width, and its frame hides its title row, because the ta
 `ragents.start.widget:<encoded-origin>` and falls back to the first widget while the stored one is
 missing or empty. Widgets without a title follow the tabs. Every widget stays mounted while
 another tab is active or while its content renders nothing (`hidden`), so its state survives
-switching and a widget that later shows content reappears; a `MutationObserver` keeps cells and tabs
-in step with empty bodies. The page's scroller reserves its scrollbar gutter, so the measured width
-does not flip at the limits when a scrollbar appears.
+switching and a widget that later shows content reappears; a `MutationObserver` watches each body's
+direct children to keep cells and tabs in step with empty bodies. Packing changes a width label only
+when its text changes and never triggers an empty-body check. The page's scroller reserves its
+scrollbar gutter, so the measured width does not flip at the limits when a scrollbar appears.
 
 **Arranging Start.** View mode has no arrangement controls. "Edit" (`data-edit-start`) stands at
 the top right above the first widget row, or as a pencil icon (`Edit`) at the end of the tab strip,
