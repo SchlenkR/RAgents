@@ -17,7 +17,7 @@ test("every run state has exactly one word, a waiting one names the number of op
   const words: Record<RunStateName, string> = {
     running: "running",
     waiting: "waiting for input",
-    paused: "paused",
+    stopped: "stopped",
     idle: "idle",
     ended: "ended",
     failed: "failed",
@@ -27,15 +27,15 @@ test("every run state has exactly one word, a waiting one names the number of op
   assert.equal(runStateWord("waiting", 2), "waiting for input (2)");
   assert.equal(runStateWord("waiting", 0), "waiting for input");
   assert.equal(runStateWord("running", 3), "running", "the number belongs only to waiting");
-  assert.equal(runStateWord("paused", 2), "paused", "the number belongs only to waiting");
+  assert.equal(runStateWord("stopped", 2), "stopped", "the number belongs only to waiting");
   for (const word of Object.values(words)) assert.doesNotMatch(word, /question|tool/i, "no tool term in the state");
 });
 
-test("a paused run carries its own glyph and word, never the stop square and never the number of open inputs", () => {
-  const paused = renderToStaticMarkup(createElement(RunStateIcon, { state: "paused", open: 2 }));
-  assert.match(paused, /aria-label="paused"/);
-  assert.match(paused, /lucide-circle-pause/);
-  assert.doesNotMatch(paused, /lucide-square|>2</);
+test("a stopped run carries its own glyph and word, never the stop square and never the number of open inputs", () => {
+  const stopped = renderToStaticMarkup(createElement(RunStateIcon, { state: "stopped", open: 2 }));
+  assert.match(stopped, /aria-label="stopped"/);
+  assert.match(stopped, /lucide-circle-slash/);
+  assert.doesNotMatch(stopped, /lucide-square|>2</);
 });
 
 test("every server state has exactly one word", () => {

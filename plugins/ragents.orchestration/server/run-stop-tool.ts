@@ -12,7 +12,7 @@ export const createRunStopContributor = (stop: (runId: string) => Promise<void>,
   const definition = defineRunFunction({
     name: "run_stop",
     label: "Stop run",
-    description: "Initiates the complete stop of your own run: running turns, tools, subagents and plugin services. Conversation and files are kept. Also cancels your own turn; acceptance is not a confirmation of completed cleanup. Use immediately when the user wants a complete cancellation; do not send a cancel message to busy agents.",
+    description: "Stops all work in your run: running turns, tools, starts and plugin services. Actors, conversation and files remain available. The run continues with the owner's next message. Also interrupts your own turn; acceptance confirms the request, not completed cleanup. Use immediately when the user requests a complete stop.",
     schema: Type.Object({}, { additionalProperties: false }),
     resultSchema: Type.Object({ requested: Type.Literal(true) }, { additionalProperties: false }),
     available,

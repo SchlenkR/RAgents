@@ -20,8 +20,8 @@ interface DriverConfig {
 const usage = (): string => `Usage: PRODUCT_PROFILE=<profile> [PRODUCT_PROFILE_FILE=<path>] [RAGENTS_DRIVER_USER=<id>] pnpm driver <command>
   new-run [entry]                 creates a run from a template (default ragents.reference.shared-actor-list)
   send <runId> <@actor> <text>    sends a message to an actor of the run
-  stop <runId>                    interrupts the running turn of the primary actor; the run stays active
-  stop <runId> --run              emergency stop: cancels all turns and stops all actors of the run
+  stop <runId>                    stops all run work until the next human message
+  stop <runId> --turn             interrupts only the running turn of the primary actor
   sessions                        lists the runs of the profile
   journal <runId> [--since N] [--chat|--tools|--all]   reads the journal
   usage <runId>                   token balance per actor
@@ -82,13 +82,11 @@ const client = async (config: DriverConfig): Promise<RpcClient> => {
 export const stopCommand = async (rpc: RpcClient, args: readonly string[]): Promise<string> => {
   const [runId, ...flags] = args;
   if (!runId || runId.startsWith("--")) throw new Error("Run id missing.");
-  const unknown = flags.find((flag) => flag !== "--run");
+  const unknown = flags.find((flag) => flag !== "--turn");
   if (unknown) throw new Error(`Unknown argument ${unknown}.`);
-  if (flags.includes("--run")) {
-    await stopWholeRun(rpc, runId);
-    return "Run stopped (emergency stop)";
-  }
-  return `Turn of ${await interruptPrimaryTurn(rpc, runId)} interrupted`;
+  if (flags.includes("--turn")) return `Turn of ${await interruptPrimaryTurn(rpc, runId)} interrupted`;
+  await stopWholeRun(rpc, runId);
+  return "Run stopped";
 };
 
 const main = async (): Promise<void> => {

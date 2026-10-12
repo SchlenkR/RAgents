@@ -72,8 +72,6 @@ const harness = async (t: TestContext, outcome: TurnOutcome, options: HarnessOpt
   const selections: Selection[] = [];
   const stopped: string[] = [];
   const interrupted: { runId: string; actorId: string }[] = [];
-  const paused: { runId: string; reason: string | undefined }[] = [];
-  const resumed: string[] = [];
   const entries: string[] = [];
   const messages: { runId: string; text: string }[] = [];
   const shares: { runId: string; sharing: RunSharing; before: number }[] = [];
@@ -146,10 +144,6 @@ const harness = async (t: TestContext, outcome: TurnOutcome, options: HarnessOpt
         turn(runId, text ?? "");
         return null;
       }),
-      implement(coreContracts.chat.stop, ({ runId }) => {
-        stopped.push(runId);
-        return null;
-      }),
       implement(coreContracts.runs.share, ({ runId, sharing }) => {
         const unknown = sharing.users.find((user) => user.userId === "zoe");
         if (unknown) throw new DomainError("share-user-unknown", "zoe is not a user of this profile; users to share with: bob, carol.", 400);
@@ -167,14 +161,9 @@ const harness = async (t: TestContext, outcome: TurnOutcome, options: HarnessOpt
         interrupted.push({ runId, actorId });
         return views.get(runId)!;
       }),
-      implement(runContracts.pause, ({ runId, reason }) => {
-        paused.push({ runId, reason });
-        update(runId, (view) => ({ ...view, pause: { pausedAt: "2026-09-21T10:00:04.000Z", reason: reason ?? "Paused by the operator", userId: null } }));
-        return views.get(runId)!;
-      }),
-      implement(runContracts.resume, ({ runId }) => {
-        resumed.push(runId);
-        update(runId, (view) => ({ ...view, pause: null }));
+      implement(runContracts.stop, ({ runId, reason }) => {
+        stopped.push(runId);
+        update(runId, (view) => ({ ...view, stopped: { stoppedAt: "2026-09-21T10:00:04.000Z", reason: reason ?? "Stopped by the operator", userId: null } }));
         return views.get(runId)!;
       }),
     ],
@@ -206,7 +195,7 @@ const harness = async (t: TestContext, outcome: TurnOutcome, options: HarnessOpt
   writeHostRecord(directory, { profile: "developer", url: server.url, pid: process.pid, log: path.join(directory, "host.log"), startedAt: new Date().toISOString() });
   const profileFile = path.join(directory, "ragents.config.check.ts");
   writeFileSync(profileFile, `export const config = { host: { PORT: ${port}, PRODUCT_PROFILE: "check" } };\n`);
-  return { directory, profileFile, server, running, selections, stopped, interrupted, paused, resumed, entries, messages, shares, lines: [] as string[] };
+  return { directory, profileFile, server, running, selections, stopped, interrupted, entries, messages, shares, lines: [] as string[] };
 };
 
 const collect = (lines: string[]) => (line: string): void => { lines.push(line); };
@@ -302,23 +291,16 @@ test("send continues in the same run and reads only the new turn", { timeout: 20
   assert.equal(followUp.at(-1), `run: ${runId}`);
 });
 
-test("stop pauses the run, resume continues it, --turn interrupts only the turn of the primary actor, --run stops the whole run, journal reads the history", { timeout: 20_000 }, async (t) => {
+test("stop ends all run work and --turn interrupts only the primary turn; journal reads the history", { timeout: 20_000 }, async (t) => {
   const context = await harness(t, "completed");
-  assert.equal(await execute({ kind: "run", profile: "developer", folder: context.directory, text: "Task", entry: undefined, json: false }, collect(context.lines)), 0);
+  assert.equal(await execute({ kind: "run", profile: "developer", folder: context.directory, text: "Work", entry: undefined, json: false }, collect(context.lines)), 0);
   const runId = context.messages[0]!.runId;
-  assert.equal(await execute({ kind: "resume", profile: "developer", runId }), 0);
-  assert.deepEqual(context.resumed, [], "a run that is not paused needs no resume");
-  assert.equal(await execute({ kind: "pause", profile: "developer", runId }), 0);
-  assert.deepEqual(context.paused, [{ runId, reason: "Paused with ragents stop" }]);
-  assert.deepEqual([context.interrupted, context.stopped], [[], []], "stop neither interrupts a single turn nor stops the run");
-  assert.equal(await execute({ kind: "resume", profile: "developer", runId }), 0);
-  assert.deepEqual(context.resumed, [runId]);
   assert.equal(await execute({ kind: "stop-turn", profile: "developer", runId }), 0);
   assert.deepEqual(context.interrupted, [{ runId, actorId: "agent_coordinator" }]);
-  assert.deepEqual(context.stopped, [], "stop --turn must not stop the run");
+  assert.deepEqual(context.stopped, []);
   assert.equal(await execute({ kind: "stop-run", profile: "developer", runId }), 0);
   assert.deepEqual(context.stopped, [runId]);
-  assert.deepEqual([context.interrupted.length, context.paused.length], [1, 1]);
+  assert.equal(context.interrupted.length, 1);
   const file = journalFile(context.directory, runId);
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, journalRecords(runId, "Task").map((record) => `${JSON.stringify(record)}\n`).join(""));
@@ -451,13 +433,13 @@ test("the facade shows the usage with --help and help, without an argument it st
   assert.match(unknown.stderr, /Unknown command: dance/);
 });
 
-test("the facade hands every agent command to the agent command line and lists resume", () => {
-  for (const command of ["run", "send", "journal", "stop", "resume", "script", "share"]) {
+test("the facade hands every agent command to the agent command line and omits resume", () => {
+  for (const command of ["run", "send", "journal", "stop", "script", "share"]) {
     assert.equal((facadeCommands as Readonly<Record<string, string>>)[command], "scripts/agent/agent-cli.ts", command);
   }
   const facade = fileURLToPath(new URL("../package/ragents.mjs", import.meta.url));
-  assert.match(spawnSync(process.execPath, [facade, "--help"], { encoding: "utf8" }).stdout, /\n {2}resume <run> /);
-  assert.match(usage(), /\n {2}resume <run> \[--profile <p>\]/);
+  assert.doesNotMatch(spawnSync(process.execPath, [facade, "--help"], { encoding: "utf8" }).stdout, /\n {2}resume <run> /);
+  assert.doesNotMatch(usage(), /\n {2}resume <run> /);
   assert.match(usage(), /\n {2}stop <run> --turn \[--profile <p>\]/);
 });
 
@@ -490,20 +472,14 @@ test("the command line names command, folder, task and switches", () => {
   assert.deepEqual(parseArguments(["journal", "abc", "--tools"]), { kind: "journal", profile: "developer", runId: "abc", json: false, tools: true });
   assert.deepEqual(parseArguments(["stop", "--host"]), { kind: "stop-host", profile: "developer" });
   assert.deepEqual(parseArguments(["stop", "--host", "--profile", "/own/ragents.config.workshop.ts"]), { kind: "stop-host", profile: "/own/ragents.config.workshop.ts" });
-  assert.deepEqual(parseArguments(["stop", "abc"]), { kind: "pause", profile: "developer", runId: "abc" });
+  assert.deepEqual(parseArguments(["stop", "abc"]), { kind: "stop-run", profile: "developer", runId: "abc" });
   assert.deepEqual(parseArguments(["stop", "abc", "--turn"]), { kind: "stop-turn", profile: "developer", runId: "abc" });
-  assert.deepEqual(parseArguments(["stop", "abc", "--run"]), { kind: "stop-run", profile: "developer", runId: "abc" });
-  for (const flags of [["--host", "--run"], ["--host", "--turn"], ["--turn", "--run"]]) {
-    assert.throws(() => parseArguments(["stop", "abc", ...flags]), /only one of --turn, --run and --host/);
-  }
-  assert.throws(() => parseArguments(["stop", "--run"]), /stop needs/);
+  assert.throws(() => parseArguments(["stop", "abc", "--run"]), /Unknown argument/);
+  assert.throws(() => parseArguments(["stop", "--host", "--turn"]), /takes no run or --turn/);
+  assert.throws(() => parseArguments(["stop", "--host", "abc"]), /takes no run/);
   assert.throws(() => parseArguments(["stop", "--turn"]), /stop needs/);
-  assert.deepEqual(parseArguments(["resume", "abc"]), { kind: "resume", profile: "developer", runId: "abc" });
-  assert.deepEqual(parseArguments(["resume", "abc", "--profile", "core"]), { kind: "resume", profile: "core", runId: "abc" });
-  assert.throws(() => parseArguments(["resume"]), /resume needs <run>/);
-  assert.throws(() => parseArguments(["resume", "abc", "def"]), /resume takes exactly one value/);
-  assert.throws(() => parseArguments(["resume", "../escape"]), /Invalid run id/);
-  assert.throws(() => parseArguments(["resume", "abc", "--run"]), /Unknown argument/);
+  assert.throws(() => parseArguments(["stop", "..\/escape"]), /Invalid run id/);
+  assert.throws(() => parseArguments(["resume", "abc"]), /Unknown command/);
   assert.deepEqual(parseArguments(["script", "abc"]), { kind: "script", profile: "developer", runId: "abc", entry: undefined, input: null, json: false });
   assert.deepEqual(parseArguments(["script", "abc", "demo.review", "--input", '{"topic":"Launch"}', "--json"]),
     { kind: "script", profile: "developer", runId: "abc", entry: "demo.review", input: { topic: "Launch" }, json: true });
@@ -518,7 +494,7 @@ test("the command line names command, folder, task and switches", () => {
   assert.throws(() => parseArguments(["run", "/work", "Build", "--unknown"]), /Unknown argument/);
   assert.throws(() => parseArguments(["run", "/work", "Build", "--profile"]), /needs a value/);
   assert.throws(() => parseArguments(["send", "../escape", "Text"]), /Invalid run id/);
-  assert.throws(() => parseArguments(["stop", "--host", "abc"]), /no run id/);
+  assert.throws(() => parseArguments(["stop", "--host", "abc"]), /takes no run/);
 });
 
 test("send follows a message that came into a running turn as steering until its end", () => {

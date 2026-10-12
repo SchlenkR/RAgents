@@ -13,7 +13,7 @@ import { runContracts } from "../../packages/ragents/src/http/contracts.ts";
 import { RpcError } from "../../packages/ragents/src/rpc/protocol.ts";
 import { askPayloadOf, ASK_PLUGIN_ID } from "../../plugins/ragents.ask/ask-payload.ts";
 import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_CLIENT_ID_PATTERN, type WorkspaceBindingPresentation } from "../../plugins/ragents.workspace/contract.ts";
-import { interruptPrimaryTurn, pauseRun, resumeRun, stopWholeRun } from "./turn-control.ts";
+import { interruptPrimaryTurn, stopWholeRun } from "./turn-control.ts";
 import { DEFAULT_PROFILE, HEALTH_TIMEOUT_MS, LOGIN_REQUIRED, addressOf, defaultProfile, delay, ensureHost, healthy, hostClient as client, loadProfile, note, withLoginHint } from "./host.ts";
 export { addressOf, defaultProfile, loadProfile, LOGIN_REQUIRED, withLoginHint } from "./host.ts";
 import { journalLines, questionLine, readJournal, RUN_ID_PATTERN, type JournalEvent } from "./journal.ts";
@@ -37,21 +37,16 @@ export const usage = (): string => `Usage: ragents <command> [arguments]
       with a user of the profile (repeatable, read without a level), --share-all with every
       user; a refusal aborts before the task is sent.
   send <run> "<text>" [--profile <p>] [--json]
-      Follow-up task in the same run, same waiting. In a paused run it continues the run: the
+      Follow-up message in the same run, same waiting. In a stopped run it continues the run: the
       primary actor gets what waited together with the text in one turn.
   journal <run> [--profile <p>] [--json] [--tools]
       Read the run's history compactly: from the profile's data folder, with RAGENTS_URL from the
       server (there with the permission runs.inspect).
-  stop <run> [--profile <p>]      pause the whole run like the chat's Stop button: the running
-                                  turns end, no actor starts a turn until send or resume
+  stop <run> [--profile <p>]      stop all run work; turns and external work end, every actor
+                                  stays active, and send continues with the waiting inputs
   stop <run> --turn [--profile <p>]
-      Interrupt only the running turn of the primary actor; the run stays active and accepts the
-      next task
-  stop <run> --run [--profile <p>]
-      Emergency stop: cancel all turns and stop all actors of the run
+      Interrupt only the running turn of the primary actor; the run stays active
   stop --host [--profile <p>]     stop the remembered host
-  resume <run> [--profile <p>]    continue a paused run without a message; the primary actor
-                                  gets what waited in one turn
   script <run> [--profile <p>] [--json]
       List the run scripts of the profile and whether each can start in the running run.
   script <run> <entry> [--input <json>] [--profile <p>] [--json]
@@ -81,11 +76,9 @@ export type AgentCommand =
   | { readonly kind: "run"; readonly profile: string; readonly folder: string | undefined; readonly text: string; readonly entry: string | undefined; readonly json: boolean; readonly workstation?: string; readonly sharing?: RunSharing }
   | { readonly kind: "send"; readonly profile: string; readonly runId: string; readonly text: string; readonly json: boolean }
   | { readonly kind: "journal"; readonly profile: string; readonly runId: string; readonly json: boolean; readonly tools: boolean }
-  | { readonly kind: "pause"; readonly profile: string; readonly runId: string }
   | { readonly kind: "stop-turn"; readonly profile: string; readonly runId: string }
   | { readonly kind: "stop-run"; readonly profile: string; readonly runId: string }
   | { readonly kind: "stop-host"; readonly profile: string }
-  | { readonly kind: "resume"; readonly profile: string; readonly runId: string }
   | { readonly kind: "script"; readonly profile: string; readonly runId: string; readonly entry: string | undefined; readonly input: unknown; readonly json: boolean }
   | { readonly kind: "share"; readonly profile: string; readonly runId: string; readonly sharing: RunSharing | undefined; readonly json: boolean };
 
@@ -100,7 +93,6 @@ interface Flags {
   readonly json: boolean;
   readonly tools: boolean;
   readonly host: boolean;
-  readonly run: boolean;
   readonly turn: boolean;
   readonly none: boolean;
   readonly positional: readonly string[];
@@ -141,7 +133,6 @@ const scan = (argv: readonly string[], allowed: readonly string[]): Flags => {
     json: switches.has("--json"),
     tools: switches.has("--tools"),
     host: switches.has("--host"),
-    run: switches.has("--run"),
     turn: switches.has("--turn"),
     none: switches.has("--none"),
     positional,
@@ -198,25 +189,15 @@ export const parseArguments = (argv: readonly string[]): AgentCommand => {
     return { kind: "journal", profile: flags.profile, runId, json: flags.json, tools: flags.tools };
   }
   if (command === "stop") {
-    const flags = scan(rest, ["--profile", "--host", "--run", "--turn"]);
-    if ([flags.host, flags.run, flags.turn].filter(Boolean).length > 1) throw new Error("stop takes only one of --turn, --run and --host.");
+    const flags = scan(rest, ["--profile", "--host", "--turn"]);
     if (flags.host) {
-      if (flags.positional.length > 0) throw new Error("stop --host takes no run id.");
+      if (flags.turn || flags.positional.length) throw new Error("stop --host takes no run or --turn.");
       return { kind: "stop-host", profile: flags.profile };
     }
     const [runId, ...extra] = flags.positional;
-    if (!runId) throw new Error(`stop needs <run> or --host.\n\n${usage()}`);
-    if (extra.length > 0) throw new Error(`stop takes exactly one value, not ${flags.positional.length}.`);
+    if (!runId || extra.length) throw new Error(`stop needs one <run>.\n\n${usage()}`);
     if (!RUN_ID_PATTERN.test(runId)) throw new Error(`Invalid run id: ${runId}`);
-    return { kind: flags.run ? "stop-run" : flags.turn ? "stop-turn" : "pause", profile: flags.profile, runId };
-  }
-  if (command === "resume") {
-    const flags = scan(rest, ["--profile"]);
-    const [runId, ...extra] = flags.positional;
-    if (!runId) throw new Error(`resume needs <run>.\n\n${usage()}`);
-    if (extra.length > 0) throw new Error(`resume takes exactly one value, not ${flags.positional.length}.`);
-    if (!RUN_ID_PATTERN.test(runId)) throw new Error(`Invalid run id: ${runId}`);
-    return { kind: "resume", profile: flags.profile, runId };
+    return { kind: flags.turn ? "stop-turn" : "stop-run", profile: flags.profile, runId };
   }
   if (command === "script") {
     const flags = scan(rest, ["--profile", "--input", "--json"]);
@@ -544,29 +525,16 @@ const journalCommand = async (command: Extract<AgentCommand, { kind: "journal" }
   return 0;
 };
 
-const stopCommand = async (command: Extract<AgentCommand, { kind: "pause" | "stop-turn" | "stop-run" }>): Promise<number> => {
+const stopCommand = async (command: Extract<AgentCommand, { kind: "stop-turn" | "stop-run" }>): Promise<number> => {
   const target = await loadProfile(command.profile);
   const rpc = client(await addressOf(target));
   if (command.kind === "stop-run") {
     await withLoginHint(() => stopWholeRun(rpc, command.runId));
-    note(`== Run ${command.runId} stopped (emergency stop)`);
-    return 0;
-  }
-  if (command.kind === "pause") {
-    await withLoginHint(() => pauseRun(rpc, command.runId, "Paused with ragents stop"));
-    note(`== Run ${command.runId} paused; nothing runs until ragents send or ragents resume`);
+    note(`== Run ${command.runId} stopped; ragents send continues with the waiting inputs`);
     return 0;
   }
   const actorId = await withLoginHint(() => interruptPrimaryTurn(rpc, command.runId));
   note(`== Running turn of ${actorId} in ${command.runId} interrupted; the run stays active`);
-  return 0;
-};
-
-const resumeCommand = async (command: Extract<AgentCommand, { kind: "resume" }>): Promise<number> => {
-  const target = await loadProfile(command.profile);
-  const rpc = client(await addressOf(target));
-  const resumed = await withLoginHint(() => resumeRun(rpc, command.runId));
-  note(resumed ? `== Run ${command.runId} resumed` : `== Run ${command.runId} is not paused; nothing to resume`);
   return 0;
 };
 
@@ -661,8 +629,7 @@ export const execute = async (command: AgentCommand, write: LineWriter = toStdou
   if (command.kind === "run") return runCommand(command, write);
   if (command.kind === "send") return sendCommand(command, write);
   if (command.kind === "journal") return journalCommand(command, write);
-  if (command.kind === "pause" || command.kind === "stop-turn" || command.kind === "stop-run") return stopCommand(command);
-  if (command.kind === "resume") return resumeCommand(command);
+  if (command.kind === "stop-turn" || command.kind === "stop-run") return stopCommand(command);
   if (command.kind === "script") return scriptCommand(command, write);
   if (command.kind === "share") return shareCommand(command, write);
   return stopHostCommand(command);

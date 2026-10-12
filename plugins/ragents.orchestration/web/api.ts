@@ -21,7 +21,3 @@ export const stopActor = async (runId: string, actorId: string, reason: string) 
 export const restartActor = async (runId: string, actorId: string) => {
   await rpc.call(runContracts.restartActor, { runId, commandId: crypto.randomUUID(), actorId });
 };
-
-export const stopRun = async (runId: string, reason: string) => {
-  await rpc.call(runContracts.stopAll, { runId, commandId: crypto.randomUUID(), reason });
-};

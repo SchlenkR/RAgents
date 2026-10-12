@@ -1,5 +1,5 @@
 /** The number of the host API a plugin is built against; it changes with every incompatible change of a list, a listed name or a library. */
-export const HOST_API_VERSION = 17;
+export const HOST_API_VERSION = 18;
 
 /** A library the host shares whole, as its installed version exports it; host code instead names each value it offers. */
 export const LIBRARY = "library";
@@ -138,12 +138,12 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/web/access-token": ["accessTokenInstalled", "withAccessToken"],
     "@ragents/web/actor-conversation": ["actorChatMessages", "actorInputLabel"],
     "@ragents/web/actor-programs/client-ui/contracts": [],
-    "@ragents/web/api": ["interruptActorTurn", "pauseRun", "sendActorMessage"],
+    "@ragents/web/api": ["interruptActorTurn", "sendActorMessage", "stopRun"],
     "@ragents/web/chat-view-settings": ["ChatViewSwitches", "useChatViewSettings"],
     "@ragents/web/chat/ChatContextUsage": ["ChatContextUsage"],
-    "@ragents/web/chat/PausedRunNotice": ["PausedRunNotice"],
+    "@ragents/web/chat/StoppedRunNotice": ["StoppedRunNotice"],
     "@ragents/web/chat/StoppedActorNotice": ["StoppedActorNotice"],
-    "@ragents/web/chat/chat-target": ["programChatNotice", "runIsWorking", "runPausable"],
+    "@ragents/web/chat/chat-target": ["programChatNotice"],
     "@ragents/web/chat/useAttachmentCapabilities": ["getAttachmentCapabilities", "useAttachmentCapabilities"],
     "@ragents/web/chat/useChat": ["useChat"],
     "@ragents/web/language-server/language-server-plugin": ["languageServerWebPlugin"],
@@ -170,7 +170,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/web/ui": [
       "Alert", "AlertDescription", "AlertTitle", "Badge", "Button", "Card", "CardContent", "Checkbox", "ChoiceSelect", "Combobox", "ComboboxContent",
       "ComboboxGroup", "ComboboxItem", "ComboboxLabel", "ComboboxSeparator", "ComboboxTrigger", "ComboboxValue", "Dialog", "DialogBody", "DialogContent",
-      "DialogDescription", "DialogFooter", "DialogHeader", "DialogTitle", "Empty", "EmptyContent", "EmptyDescription",
+      "DialogDescription", "DialogFooter", "DialogHeader", "DialogTitle", "DropdownMenu", "DropdownMenuContent", "DropdownMenuItem", "DropdownMenuTrigger", "Empty", "EmptyContent", "EmptyDescription",
       "DataGrid", "DetailRow", "EmptyHeader", "EmptyMedia", "EmptyTitle", "Field", "FieldDescription", "FieldTitle", "FilterSelect", "HeaderDropdown", "ImagePreview", "ImagePreviewGroup", "ImageViewer", "Input", "InteractiveItem", "Label",
       "OverflowTabs", "OverflowTabsList", "Popover", "PopoverContent", "PopoverTrigger", "RobotHeadIcon", "RunStateIcon", "SearchInput", "SectionLabel", "Select", "SelectContent", "SelectItem", "SelectTrigger",
       "SelectValue", "Spinner", "StartupNotice", "StopButton", "StopGlyph", "SvgEdge", "Switch", "Table", "TableBody",

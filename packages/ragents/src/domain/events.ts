@@ -74,14 +74,13 @@ export type EventPayloads = {
     "run.sharing-changed": RunSharing & {
         changedBy: string;
     };
-    /** From now on no turn starts; userId is the signed-in user who paused. */
-    "run.paused": {
+    /** From now on no turn starts; userId is the signed-in user who stopped. */
+    "run.stopped": {
         reason: string;
         userId?: string;
     };
-    /** Lifts the pause: a human input written in the same command, or the explicit resume. */
-    "run.resumed": {
-        trigger: "input" | "resume";
+    /** Continues the run with a human input written in the same command. */
+    "run.continued": {
         userId?: string;
     };
     /** A room besides the main room; origin is the room it was opened from, null for the main room. */
@@ -296,8 +295,8 @@ export const eventTypeMap: Record<EventType, true> = {
     "run.primary-actor-selected": true,
     "run.title-changed": true,
     "run.sharing-changed": true,
-    "run.paused": true,
-    "run.resumed": true,
+    "run.stopped": true,
+    "run.continued": true,
     "room.opened": true,
     "agent.spawned": true,
     "script.created": true,

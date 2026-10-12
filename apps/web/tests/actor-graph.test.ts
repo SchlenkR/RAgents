@@ -179,7 +179,7 @@ test("routes become paths with rounded corners; straight and repeated points dro
   assert.equal(roundedPath([[0, 0], [0, 4], [30, 4]], 6), "M 0 0 L 0 2 Q 0 4 2 4 L 30 4", "a short leg limits the radius");
 });
 
-test("actor cards use the existing run states for work, questions, idle, pauses, stops, and failed turns", () => {
+test("actor cards use the existing run states for work, questions, idle, run stops, actor stops, and failed turns", () => {
   const view = viewOf([
     actor("worker", "coordinator", { lifecycle: running }), actor("done", "coordinator"), actor("fresh", "coordinator"),
     actor("stopped", "coordinator", { lifecycle: stopped }), actor("failed", "coordinator"), actor("interrupted", "coordinator"),
@@ -197,12 +197,12 @@ test("actor cards use the existing run states for work, questions, idle, pauses,
   });
   const state = (id: string, current = view) => graphActorState(current, current.actors.find((actor) => actor.id === id)!);
   assert.deepEqual(["worker", "done", "fresh", "stopped", "failed", "interrupted", "held", "asking"].map((id) => state(id)),
-    ["running", "idle", "idle", "cancelled", "failed", "cancelled", "paused", "waiting"]);
-  const paused = { ...view, pause: { pausedAt: at, userId: "owner", reason: "Pause work" } };
-  assert.equal(state("fresh", paused), "paused");
-  assert.equal(state("worker", paused), "running", "a turn still stopping keeps its spinner");
-  assert.equal(state("stopped", paused), "cancelled", "stopped actors keep their state during a pause");
-  assert.equal(state("asking", paused), "waiting", "an open question retains its attention state");
+    ["running", "idle", "idle", "cancelled", "failed", "cancelled", "stopped", "waiting"]);
+  const stoppedView = { ...view, stopped: { stoppedAt: at, userId: "owner", reason: "Stop work" } };
+  assert.equal(state("fresh", stoppedView), "stopped");
+  assert.equal(state("worker", stoppedView), "running", "a turn still stopping keeps its spinner");
+  assert.equal(state("stopped", stoppedView), "cancelled", "stopped actors keep their state during a run stop");
+  assert.equal(state("asking", stoppedView), "waiting", "an open question retains its attention state");
 });
 
 test("a group works as soon as one member works and is stopped only when all members are", () => {

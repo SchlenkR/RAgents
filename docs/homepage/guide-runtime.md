@@ -78,13 +78,13 @@ additional decision point for this.
 
 Startup recognizes work lost to a server stop in two ways: a turn still recorded as running,
 or a `turn.interrupted` carrying `cause: "server-stop"` from orderly shutdown. A user
-interruption, actor or run stop, pause, emergency stop, failure, inactivity timeout, or deletion
-does not request continuation. A paused run stays paused.
+interruption, actor or run stop, failure, inactivity timeout, or deletion does not request
+continuation. A stopped run stays stopped.
 
 For each affected turn, the atomic `recover:<turnId>` command interrupts it if still running,
 records `turn.restart-recovered`, and queues a new input only when continuation is allowed.
 The recovery outcome and reason remain in the journal, including disabled, guarded,
-unsupported, paused, and unavailable outcomes. Each turn is recovered at most once; a later
+unsupported, stopped, and unavailable outcomes. Each turn is recovered at most once; a later
 startup or settings change cannot revive a suppressed turn.
 
 For a built-in agent, the new input explains that the server restarted while it was working.
@@ -160,19 +160,21 @@ work, and only then release resources. The exact boundary differs:
 The stop button in a chat input ("Stop work") interrupts only the running turn of that chat's
 actor: the turn ends as `interrupted`, the visible text of an unfinished answer stays, and the
 actor, its sub-agents, and the run keep running. A later input, such as a sub-agent's report,
-starts a new turn of the actor. Pausing the run (`ragents stop <run>`), stopping an actor for
-good, and stopping the whole run are separate actions.
+starts a new turn of the actor. Stopping an actor for good and stopping the whole run are
+separate actions.
 
-In the run title bar, a user with write permission can request a complete stop through "Stop
-run" and a confirmation. The primary actor can also trigger it with `run_stop`. Both use the
-same host stop boundary; the chat and files remain intact. The function call initiates
-the stop but does not wait for cleanup of its own turn. Acceptance is not proof of completion.
+In the run title bar and Run details footer, a user with stop permission requests a complete stop through "Stop run",
+without confirmation. The primary actor can also trigger it with `run_stop`. Both use the same
+host stop boundary; the chat, files, actors, and model contexts remain intact. The function call
+initiates the stop but does not wait for cleanup of its own turn. Acceptance is not proof of
+completion.
 Cleanup errors are reported in the server log while the stop path's normal quarantine remains
 in effect.
 
-- Run pause (`ragents.runs.pause`, `ragents stop <run>`): No turn starts
-  any more and the running turns of all actors end; inputs keep arriving and wait. A human input
-  or `ragents.runs.resume` continues the run (section Pausing a run).
+- Run stop (`ragents.runs.stop`, `ragents stop <run>`): The journal first blocks new turns and
+  steering, then all running turns end, a running start is aborted, and processes and other
+  external work are stopped. Active actors remain active; inputs keep arriving and wait. Only
+  the next human message continues the run (section Stopping and continuing a run).
 - Turn interruption (`ragents.runs.interruptTurn`, the chat's stop button): Ends the running turn of one actor and
   nothing else; the actor, its model runtime, its children, and the run stay as they are.
 - `actor_stop`: Stops the actor, interrupts its running turn, and disposes its model runtime
@@ -185,13 +187,6 @@ in effect.
   accepts inputs again. Subscriptions removed by the stop stay removed. The button "Restart"
   (`ragents.runs.restartActor`, in the owner's name) and the actor-program plugin, when it activates
   or ensures a package whose actor is stopped, use the same restart.
-- Run stop: The scheduler temporarily accepts no new work for this run; concurrent stop calls
-  are handled together. The primary actor remains, but its running work is interrupted. All
-  other executable actors in the user's ownership tree are stopped. Their runtimes
-  and plugins receive their abort signals in parallel. The actor-program plugin also cancels
-  pending app actions. An open confirmation question is discarded through `ragents.ask` in the
-  journal and the domain operation is no longer invoked; the open `ask_user` questions of all
-  agents, including the primary actor, are withdrawn. The run can be reused afterward.
 - Run deletion: The scheduler stops the run. Its agent runtimes are then disposed and plugin
   deletion hooks run. The chat, recovery data, and journal are archived; run-bound plugin
   data, including its logs, is removed afterward.
@@ -200,14 +195,12 @@ in effect.
   data remains intact; the next startup applies restart recovery (section Continue after a
   server restart).
 
-After active actor work ends and the first plugin cleanup completes, the host releases remaining
-resources. The run stays locked until this cleanup finishes, even if the stop request has already
-returned. If cleanup fails, the stop reports the error and the server log records it. The run
-then accepts work again instead of remaining permanently stuck, and another stop retries cleanup.
-
-Inputs accepted for the still-active primary actor during this lock are processed automatically
-after a successful release. The scheduler checks the remaining open inputs again; inputs that
-were already claimed or discarded are not repeated.
+Concurrent stop calls share the cleanup boundary. After active actor work ends and the first
+plugin cleanup completes, the host releases remaining resources. The run stays locked until this
+cleanup finishes, even if the stop request has already returned. If cleanup fails, the stop
+reports the error and the server log records it; another stop retries cleanup. Releasing the
+cleanup lock does not clear the journaled stop. A human message accepted during cleanup continues
+the run only after cleanup has finished. Inputs already claimed or discarded are not repeated.
 
 ## Actors, inputs, events, and subscriptions
 

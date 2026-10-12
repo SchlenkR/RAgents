@@ -1,5 +1,5 @@
 import type { AccessContext } from "../access.ts";
-import type { RunPauseRequest, TurnInterruption } from "../agents/scheduler.ts";
+import type { TurnInterruption } from "../agents/scheduler.ts";
 import type { RunView } from "../domain/model.ts";
 import { DomainError } from "../runtime/domain-error.ts";
 import type { CommandContext, Orchestration } from "../runtime/orchestration.ts";
@@ -23,8 +23,6 @@ export type RuntimeMethodOptions = {
   stopRun?: RunStopOperation;
   /** Ends the running turn of one actor and keeps the actor active; without a running turn it does nothing. */
   interruptTurn: (runId: string, actorId: string, interruption: TurnInterruption) => Promise<void>;
-  /** Pauses the whole run: run.paused first, then the running turns of all actors end. */
-  pauseRun: (runId: string, pause: RunPauseRequest) => Promise<void>;
   /** Checks the rights of the access for a run or throws; the host knows special cases such as the global chat. */
   assertRunRights: (access: AccessContext, runId: string, kind: RunRightsKind) => void;
   projectView: (view: RunView, access: AccessContext) => RunView;
@@ -33,7 +31,7 @@ export type RuntimeMethodOptions = {
 
 const userOf = (access: AccessContext): { userId?: string } => access.user ? { userId: access.user.id } : {};
 
-/** The runtime methods of the engine: run view, journal, queues, interrupt, pause, stop and questions. */
+/** The runtime methods of the engine: run view, journal, queues, interrupt, stop and questions. */
 export function runtimeMethods(options: RuntimeMethodOptions): MethodContribution[] {
   const { runtime, assertRunRights, projectView } = options;
   const assertAvailable = options.assertAvailable ?? (() => undefined);
@@ -54,7 +52,12 @@ export function runtimeMethods(options: RuntimeMethodOptions): MethodContributio
   });
   const localStopper = new RunStopper({
     runtime,
-    primaryActorId: (view) => view.primaryActorId,
+    interruptTurns: (runId, interruption) => Promise.all(runtime.view(runId).actors
+      .filter((actor) => actor.kind !== "human" && actor.lifecycle.kind === "running")
+      .map((actor) => options.interruptTurn(runId, actor.id, {
+        context: { ...interruption.context, commandId: `${interruption.context.commandId}:interrupt:${actor.id}` },
+        reason: interruption.reason,
+      }))).then(() => undefined),
     ...(options.abortTurns ? { stopExternal: options.abortTurns } : {}),
   });
   const stopRun = options.stopRun ?? localStopper.stop;
@@ -107,19 +110,6 @@ export function runtimeMethods(options: RuntimeMethodOptions): MethodContributio
       });
       return projectView(runtime.view(input.runId), access);
     }),
-    implement(runContracts.pause, async (input, { access }) => {
-      prepared(access, input.runId, "stop");
-      await options.pauseRun(input.runId, {
-        context: contextOf(input.runId, input),
-        reason: input.reason ?? "Paused by the operator",
-        ...userOf(access),
-      });
-      return projectView(runtime.view(input.runId), access);
-    }),
-    implement(runContracts.resume, (input, { access }) => {
-      prepared(access, input.runId, "write");
-      return mutate(input.runId, () => projectView(runtime.resumeRun(contextOf(input.runId, input), input.runId, userOf(access)), access));
-    }),
     implement(runContracts.resolveAction, (input, { access }) => {
       prepared(access, input.runId, "write");
       return mutate(input.runId, () => {
@@ -127,9 +117,9 @@ export function runtimeMethods(options: RuntimeMethodOptions): MethodContributio
         return projectView(runtime.view(input.runId), access);
       });
     }),
-    implement(runContracts.stopAll, async (input, { access }) => {
+    implement(runContracts.stop, async (input, { access }) => {
       prepared(access, input.runId, "stop");
-      const view = await mutate(input.runId, () => stopRun(input.runId, input));
+      const view = await mutate(input.runId, () => stopRun(input.runId, { ...input, reason: input.reason ?? "Stopped by the operator", ...userOf(access) }));
       return projectView(view, access);
     }),
   ];

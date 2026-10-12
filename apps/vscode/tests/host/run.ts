@@ -225,7 +225,7 @@ const checkWorkspaceBinding = async (api: RAgentsApi, connection: string, reques
   }, 240_000, "the command sleep 120 is running", 500);
   await new Promise((resolve) => setTimeout(resolve, 2000));
   const stopStarted = Date.now();
-  const stopOutcome = await rpc.call(coreContracts.chat.stop, { runId })
+  const stopOutcome = await rpc.call(runContracts.stop, { runId, commandId: `stop:${runId}` })
     .then(() => "ok", (cause: unknown) => cause instanceof Error ? cause.message : String(cause));
   const stopDurationMs = Date.now() - stopStarted;
   checks.stopCall = { outcome: stopOutcome, durationMs: stopDurationMs };
@@ -258,7 +258,7 @@ const checkWorkspaceBinding = async (api: RAgentsApi, connection: string, reques
   await waitFor(() => stillRunning(servers.map((row) => row.pid)).length === 0, 60_000, "the language servers have ended");
   checks.languageServersAfterDisconnect = 0;
   checks.channel = channelLines.filter((line) => line.startsWith(prefix));
-  if (stopOutcome !== "ok") throw new Error(`ragents.chat.stop over the session connection failed after ${stopDurationMs} ms: ${stopOutcome}`);
+  if (stopOutcome !== "ok") throw new Error(`ragents.runs.stop over the session connection failed after ${stopDurationMs} ms: ${stopOutcome}`);
 };
 
 /** The template the click on Start uses: a run script without a guide starts without a model response. */

@@ -16,7 +16,7 @@ import {
 import { createPortal } from "react-dom";
 import { ChatInputToolbar, ChatMessages, ChatPanel, type ChatAttachmentInput, type ChatEvent, type ToolInfo } from "quassel";
 import { primaryChatState, primaryIsProgram, programChatNotice } from "./chat/chat-target";
-import { PausedRunNotice } from "./chat/PausedRunNotice";
+import { StoppedRunNotice } from "./chat/StoppedRunNotice";
 import { RunUrls, chatCodeBlocks } from "./chat/QuasselHost";
 import { StoppedActorNotice } from "./chat/StoppedActorNotice";
 import { ChatViewSwitches, useChatViewSettings } from "./chat-view-settings";
@@ -487,13 +487,13 @@ function ChatSurface({
       className={cn(chatElementClass, options.chatElementClassName)}
       composer={
         primaryIsProgram(session.runView, session.session.id) ? <div className="flex min-w-0 flex-col gap-2">
-          <PausedRunNotice runId={session.session.id} view={session.runView} />
+          <StoppedRunNotice runId={session.session.id} view={session.runView} />
           <p className="text-muted-foreground">{programChatNotice}</p>
           <div className="flex min-w-0 flex-wrap items-center gap-2">{options.toolbarLeft}<ChatViewSwitches settings={chatView} /></div>
         </div>
         : partner.kind === "stopped" ? <div className="[--qsl-input-card-radius:var(--radius-lg)]"><StoppedActorNotice actor={partner.actor} runId={session.session.id} toolbar={<>{options.toolbarLeft}<ChatViewSwitches settings={chatView} /></>} /></div>
         : <div className="[--qsl-input-card-radius:var(--radius-lg)]">
-          <PausedRunNotice runId={session.session.id} view={session.runView} />
+          <StoppedRunNotice runId={session.session.id} view={session.runView} />
           {sendError && <p className="text-[0.8rem] text-destructive" role="alert">{sendError}</p>}
           <StartOptionPresetErrors className="text-[0.8rem] text-destructive" />
           <ChatInputToolbar

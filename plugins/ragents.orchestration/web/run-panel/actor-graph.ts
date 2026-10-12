@@ -133,7 +133,7 @@ export const graphActorState = (view: RunView, actor: RunActor): RunStateName =>
   if (status === "stopped") return "cancelled";
   if (status === "input") return "waiting";
   if (status === "running") return "running";
-  if (view.pause || actor.held) return "paused";
+  if (view.stopped || actor.held) return "stopped";
   const last = view.turns.findLast((turn) => turn.actorId === actor.id);
   return last?.status === "failed" ? "failed" : last?.status === "interrupted" ? "cancelled" : "idle";
 };

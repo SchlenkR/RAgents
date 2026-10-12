@@ -65,15 +65,17 @@ test("run_stop returns before shared stop cleanup waiting for the calling tool",
   const worker = view.actors.find((actor) => actor.kind === "script")!;
   const stopper = new RunStopper({
     runtime: f.runtime,
-    stopExternal: async (runId, stopJournal) => {
+    interruptTurns: async () => undefined,
+    stopExternal: async (runId) => {
       assert.equal(runId, f.view.id);
-      await stopJournal(toolReturned.promise);
+      assert.ok(f.runtime.view(runId).stopped);
+      await toolReturned.promise;
     },
   });
   try {
     const result = await f.tool.run(f.scope, "stop-call", {} as never);
     assert.deepEqual(result, { requested: true });
-    assert.equal(f.runtime.view(f.view.id).actors.find((actor) => actor.id === worker.id)?.lifecycle?.kind, "stopped");
+    assert.equal(f.runtime.view(f.view.id).actors.find((actor) => actor.id === worker.id)?.lifecycle?.kind, "idle");
     toolReturned.resolve();
     await cleanupCompleted.promise;
     assert.deepEqual(errors, []);

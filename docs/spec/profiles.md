@@ -827,7 +827,7 @@ A shared run is visible in lists, methods, channels, and file routes like an own
 foreign run stays as unknown as before. Operating paths refuse a read share with `run-read-only`
 before the run is touched: every message-layer contribution whose contract requires `runs.write`,
 the run rights `write`, `write-inspect`, and `stop` (messages, inputs to actors, restarts, answers,
-run scripts, emergency stop, interrupting a turn, stopping an actor or a process), stopping through
+run scripts, stopping a run, interrupting a turn, stopping an actor or a process), stopping through
 `ragents.overseer.stopRun`, and every request on a delivery route of the run with a method other
 than GET, HEAD, or OPTIONS. A write share operates as far as the user's own permissions go; a run
 that only its owner operates stays the owner's (`run-owner-only`, `run-workspace-owner-only`), but

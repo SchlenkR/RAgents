@@ -232,7 +232,7 @@ test("a stop over the same connection goes through while a workspace task is ope
       onProgress: (value) => output.push((value as { text: string }).text),
     });
     await waitFor(() => output.some((text) => text.includes("started")));
-    await client.rpc.call(runContracts.stopAll, { runId: RUN, commandId: "stop-1", reason: "Test" }, { timeoutMs: 5000 });
+    await client.rpc.call(runContracts.stop, { runId: RUN, commandId: "stop-1", reason: "Test" }, { timeoutMs: 5000 });
     await running.catch(() => undefined);
   } finally {
     client.rpc.close();

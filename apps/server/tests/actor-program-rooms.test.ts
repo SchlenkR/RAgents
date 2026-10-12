@@ -16,7 +16,7 @@ import { invocationResult, runtimeFor, writeAppFiles } from "./actor-runtime-fix
 /** A run with a main room agent worker and the rooms review and review-2, each with a TypeScript actor reviewer. */
 const roomsFixture = async (t: TestContext, operations = new OperationContributionRegistry()) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-actor-program-rooms-"));
-  const setup = setupRun({ grants: allGrants() });
+  const setup = setupRun({ runId: path.basename(directory).toLowerCase(), grants: allGrants() });
   const runtime = runtimeFor(setup, directory, operations);
   const runId = setup.view.id;
   const owner = setup.view.ownerId;

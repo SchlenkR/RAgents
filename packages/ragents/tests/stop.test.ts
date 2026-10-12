@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { TurnScheduler } from "../src/agents/scheduler.ts";
 import { TurnToolset } from "../src/agents/toolset.ts";
 import { claimTurn } from "../src/agents/turn.ts";
 import type { CapabilityGrant, RunView } from "../src/domain/model.ts";
 import { Journal } from "../src/runtime/journal.ts";
 import { Orchestration } from "../src/runtime/orchestration.ts";
 import { RunStopper } from "../src/runtime/stop.ts";
-import { manualExecution, catalog, testServices, textStep } from "./support.ts";
+import { manualExecution, catalog, deferred, testServices, textStep } from "./support.ts";
 
 const grant = (capability: CapabilityGrant["capability"]): CapabilityGrant => ({
     capability,
@@ -262,55 +263,147 @@ test("actor_stop stops the target and its active descendants in one command in t
     }
 });
 
-test("a run stop writes the stops of all actors but the primary one in one command", async () => {
+test("a run stop writes its marker before interrupting all turns and keeps every actor active", async () => {
     const { journal, runtime, view } = fixture();
+    const scheduler = new TurnScheduler(runtime, journal, { drivers: {}, catalog });
 
     try {
         const primary = spawn(runtime, view, "primary", view.ownerId, undefined, [grant("agent.spawn")]);
         const primaryTurn = start(runtime, runtime.view(view.id), primary.id, "primary");
         const first = spawn(runtime, runtime.view(view.id), "first", primary.id, primaryTurn);
         const second = spawn(runtime, runtime.view(view.id), "second");
-        start(runtime, runtime.view(view.id), first.id, "first");
-        start(runtime, runtime.view(view.id), second.id, "second");
+        const firstTurn = start(runtime, runtime.view(view.id), first.id, "first");
+        const secondTurn = start(runtime, runtime.view(view.id), second.id, "second");
         runtime.selectPrimaryActor({ actorId: view.ownerId, commandId: "select-primary" }, view.id, primary.id);
-        const stopper = new RunStopper({ runtime });
+        const externallyStopped: string[] = [];
+        const stopper = new RunStopper({
+            runtime,
+            interruptTurns: (runId, interruption) => scheduler.interruptRun(runId, interruption),
+            stopExternal: (runId) => {
+                assert.equal(runtime.view(runId).stopped?.reason, "Halt everything.");
+                externallyStopped.push(runId);
+            },
+        });
+
+        const stopped = await stopper.stop(view.id, { commandId: "stop-run", reason: "Halt everything." });
+
+        const events = runtime.events(view.id);
+        const marker = events.findIndex((entry) => entry.type === "run.stopped");
+        const stops = stopEventsOf(runtime, view.id);
+        assert.deepEqual(stops.map((entry) => entry.type), ["turn.interrupted", "turn.interrupted", "turn.interrupted"]);
+        assert.deepEqual(stops.map((entry) => entry.type === "turn.interrupted" ? entry.payload.turnId : "").sort(), [primaryTurn, firstTurn, secondTurn].sort());
+        assert.ok(stops.every((entry) => events.indexOf(entry) > marker && entry.actorId === view.ownerId));
+        assert.ok(stopped.actors.filter((entry) => entry.kind !== "human").every((entry) => entry.lifecycle.kind === "idle" && entry.held));
+        assert.deepEqual(externallyStopped, [view.id]);
+    } finally {
+        await scheduler.stop();
+        journal.close();
+    }
+});
+
+test("a repeated run stop writes nothing and actors created while stopped stay active and held", async () => {
+    const { journal, runtime, view } = fixture();
+    const stopper = new RunStopper({ runtime, interruptTurns: async () => undefined });
+
+    try {
+        const first = spawn(runtime, view, "first");
+        await stopper.stop(view.id, { commandId: "stop-run", reason: "Halt everything." });
+        const later = spawn(runtime, runtime.view(view.id), "later");
+        const count = runtime.events(view.id).length;
 
         await stopper.stop(view.id, { commandId: "stop-run", reason: "Halt everything." });
+        await stopper.stop(view.id, { commandId: "stop-again", reason: "Halt everything." });
 
-        const stops = stopEventsOf(runtime, view.id);
-        assert.deepEqual(
-            stops.filter((entry) => entry.type === "actor.stopped").map((entry) => entry.type === "actor.stopped" ? entry.payload.actorId : "").sort(),
-            [first.id, second.id].sort(),
-        );
-        assert.equal(new Set(stops.map((entry) => entry.commandId)).size, 1);
-        assert.ok(stops.every((entry) => entry.actorId === view.ownerId));
-        assert.deepEqual(
-            runtime.view(view.id).inputs.filter((entry) => entry.actorId === primary.id && entry.lifecycle.kind === "pending"),
-            [],
-        );
+        assert.equal(runtime.events(view.id).length, count);
+        assert.deepEqual(runtime.view(view.id).actors.filter((entry) => entry.kind !== "human")
+            .map((entry) => [entry.id, entry.lifecycle.kind, entry.held]), [[first.id, "idle", true], [later.id, "idle", true]]);
     } finally {
         journal.close();
     }
 });
 
-test("a repeated run stop with the same command ID also stops an actor created in between", async () => {
+test("turn cancellation and external cleanup run concurrently after the marker and coalesce overlapping stop requests", async () => {
     const { journal, runtime, view } = fixture();
+    const turnsStarted = deferred();
+    const externalStarted = deferred();
+    const turnsDone = deferred();
+    const externalDone = deferred();
+    const calls: string[] = [];
+    const stopper = new RunStopper({
+        runtime,
+        interruptTurns: async (runId) => {
+            assert.ok(runtime.view(runId).stopped);
+            calls.push("turns");
+            turnsStarted.resolve();
+            await turnsDone.promise;
+        },
+        stopExternal: async (runId) => {
+            assert.ok(runtime.view(runId).stopped);
+            calls.push("external");
+            externalStarted.resolve();
+            await externalDone.promise;
+        },
+    });
 
     try {
-        const first = spawn(runtime, view, "first");
-        const stopper = new RunStopper({ runtime });
-        await stopper.stop(view.id, { commandId: "stop-run", reason: "Halt everything." });
-        const later = spawn(runtime, runtime.view(view.id), "later");
+        const stopped = stopper.stop(view.id, { commandId: "stop", reason: "Enough." });
+        const overlapping = stopper.stop(view.id, { commandId: "overlapping", reason: "Again." });
+        assert.equal(stopped, overlapping);
+        await Promise.all([turnsStarted.promise, externalStarted.promise]);
+        assert.deepEqual(calls.sort(), ["external", "turns"]);
+        assert.equal(runtime.events(view.id).filter((entry) => entry.type === "run.stopped").length, 1);
+        turnsDone.resolve();
+        externalDone.resolve();
+        assert.equal((await stopped).stopped?.reason, "Enough.");
+    } finally {
+        turnsDone.resolve();
+        externalDone.resolve();
+        journal.close();
+    }
+});
 
-        await stopper.stop(view.id, { commandId: "stop-run", reason: "Halt everything." });
+test("a rejected stop marker leaves the running turn and external work untouched", async () => {
+    const { journal, runtime, view } = fixture();
+    const calls: string[] = [];
+    const stopper = new RunStopper({
+        runtime,
+        interruptTurns: async () => { calls.push("turns"); },
+        stopExternal: () => { calls.push("external"); },
+    });
 
-        const stopped = runtime.view(view.id).actors
-            .filter((entry) => entry.kind !== "human" && entry.lifecycle.kind === "stopped")
-            .map((entry) => entry.id);
-        assert.deepEqual(stopped.sort(), [first.id, later.id].sort());
-        const commands = runtime.events(view.id).length;
-        await stopper.stop(view.id, { commandId: "stop-run", reason: "Halt everything." });
-        assert.equal(runtime.events(view.id).length, commands);
+    try {
+        const actor = spawn(runtime, view, "worker");
+        const turnId = start(runtime, runtime.view(view.id), actor.id, "worker");
+        const revision = runtime.view(view.id).revision;
+        await assert.rejects(stopper.stop(view.id, { commandId: "invalid-stop", reason: "" }));
+        assert.deepEqual(calls, []);
+        assert.equal(runtime.view(view.id).revision, revision);
+        assert.equal(runtime.view(view.id).stopped, null);
+        assert.equal(runtime.view(view.id).turns.find((turn) => turn.id === turnId)?.status, "running");
+    } finally {
+        journal.close();
+    }
+});
+
+test("a synchronous turn cancellation failure still attempts external cleanup and keeps the stop marker", async () => {
+    const { journal, runtime, view } = fixture();
+    const calls: string[] = [];
+    const stopper = new RunStopper({
+        runtime,
+        interruptTurns: () => {
+            calls.push("turns");
+            throw new Error("Turn cancellation failed.");
+        },
+        stopExternal: (runId) => {
+            assert.equal(runtime.view(runId).stopped?.reason, "Enough.");
+            calls.push("external");
+        },
+    });
+
+    try {
+        await assert.rejects(stopper.stop(view.id, { commandId: "stop", reason: "Enough." }), /Turn cancellation failed/);
+        assert.deepEqual(calls.sort(), ["external", "turns"]);
+        assert.equal(runtime.view(view.id).stopped?.reason, "Enough.");
     } finally {
         journal.close();
     }

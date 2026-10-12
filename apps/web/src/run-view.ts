@@ -55,7 +55,7 @@ export interface RunActor {
     | { kind: "stopped"; stoppedAt: string; reason: string };
   usage?: RunUsage;
   toolNames?: string[] | null;
-  /** Since a pause it starts no turn until the run resumes it as its primary actor or someone addresses it directly. */
+  /** Since a run stop it starts no turn until the run continues it as its primary actor or someone addresses it directly. */
   held?: true;
 }
 
@@ -163,8 +163,8 @@ export interface RunArtifact {
   createdAt: string;
 }
 
-export interface RunPause {
-  pausedAt: string;
+export interface RunStopped {
+  stoppedAt: string;
   reason: string;
   userId: string | null;
 }
@@ -176,7 +176,7 @@ export interface RunView {
   ownerId: string;
   primaryActorId: string | null;
   stoppedPrimaryActorId?: string | null;
-  pause?: RunPause | null;
+  stopped?: RunStopped | null;
   createdAt: string;
   forkedFrom: { runId: string; sequence: number } | null;
   rooms?: { name: string; origin: string | null; openedBy: string; openedAt: string }[];

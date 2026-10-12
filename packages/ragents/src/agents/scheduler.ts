@@ -59,10 +59,6 @@ export type TurnInterruption = {
     cause?: "server-stop";
 };
 
-/** Who pauses a run and why; userId is the signed-in user, missing without sign-in. */
-export type RunPauseRequest = TurnInterruption & {
-    userId?: string;
-};
 
 const DEFAULT_INTERRUPT_WAIT_MS = 15_000;
 
@@ -303,14 +299,12 @@ export class TurnScheduler {
             this.#live?.publish(runId, actorId, { kind: "turn-finished", turnId, outcome: "abandoned" });
     }
 
-    /** Writes run.paused first, so no turn can start any more, then interrupts the running turns of all actors; a paused run is paused again without an error. */
-    async pauseRun(runId: string, pause: RunPauseRequest) {
-        this.#runtime.pauseRun(pause.context, runId, { reason: pause.reason, ...pause.userId === undefined ? {} : { userId: pause.userId } });
+    async interruptRun(runId: string, interruption: TurnInterruption) {
         const running = this.#runtime.view(runId).actors.filter((actor) => actor.kind !== "human" && actor.lifecycle.kind === "running");
 
         await Promise.all(running.map((actor) => this.interruptTurn(runId, actor.id, {
-            context: { ...pause.context, commandId: `${pause.context.commandId}:interrupt:${actor.id}` },
-            reason: pause.reason,
+            context: { ...interruption.context, commandId: `${interruption.context.commandId}:interrupt:${actor.id}` },
+            reason: interruption.reason,
         })));
     }
 
@@ -562,7 +556,7 @@ export class TurnScheduler {
     #acceptsShutdownRecovery(runId: string, actorId: string): boolean {
         const actor = this.#actor(runId, actorId);
         return !this.#runState(runId).stopping && actor?.lifecycle.kind === "running"
-            && !this.#runtime.view(runId).pause && !this.#active.get(keyOf(runId, actorId))?.controller.signal.aborted;
+            && !this.#runtime.view(runId).stopped && !this.#active.get(keyOf(runId, actorId))?.controller.signal.aborted;
     }
 
     async #waitForRunQuarantines() {
@@ -767,7 +761,7 @@ export class TurnScheduler {
 
         const view = this.#runtime.view(runId);
 
-        if (view.pause)
+        if (view.stopped)
             return;
 
         for (const actor of view.actors) {
@@ -894,7 +888,7 @@ export class TurnScheduler {
             (entry) => entry.id === inputId && entry.actorId === actorId && isPendingActorInput(entry),
         );
 
-        if (!idle || !isAutomated(idle.execution.driver.kind) || idle.lifecycle.kind !== "idle" || idle.held || current.pause || !pending)
+        if (!idle || !isAutomated(idle.execution.driver.kind) || idle.lifecycle.kind !== "idle" || idle.held || current.stopped || !pending)
             return;
 
         const turn = claimTurn(
@@ -1115,7 +1109,7 @@ export class TurnScheduler {
 
         const view = this.#runtime.view(turn.runId);
 
-        if (view.pause)
+        if (view.stopped)
             return [];
 
         const pending = view.inputs

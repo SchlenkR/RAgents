@@ -8,10 +8,10 @@ import { isRunId } from "../domain/portable-id.ts";
 import { syncDirectory } from "./durable-fs.ts";
 import type { CommandRecord, JournalCommand } from "./journal.ts";
 
-/** Rises whenever an older version would reject newly written lines; formats 7 to 14 stay readable. */
-export const journalStorageVersion = 15;
+/** Rises whenever an older version would reject newly written lines; formats 7 to 15 stay readable. */
+export const journalStorageVersion = 16;
 const oldestReadableJournalStorageVersion = 7;
-const readableJournalStorageVersions: readonly unknown[] = [oldestReadableJournalStorageVersion, 8, 9, 10, 11, 12, 13, 14, journalStorageVersion];
+const readableJournalStorageVersions: readonly unknown[] = [oldestReadableJournalStorageVersion, 8, 9, 10, 11, 12, 13, 14, 15, journalStorageVersion];
 export const journalPayloadThresholdBytes = 4096;
 
 type PayloadReference = { sha256: string; bytes: number };
@@ -149,6 +149,24 @@ export const serializeJournalRecord = (record: CommandRecord, runDirectory: stri
     return JSON.stringify({ formatVersion: journalStorageVersion, runId: record.runId, command: record.command, occurredAt, events });
 };
 
+const decodedEventOf = (format: unknown, type: unknown, payload: Record<string, unknown>, location: string) => {
+    if (typeof format === "number" && format >= 11 && format <= 15) {
+        if (type === "run.paused")
+            return { type: "run.stopped", payload };
+        if (type === "run.resumed") {
+            exactKeys(payload, `${location}.payload`, ["trigger"], ["userId"]);
+            if (payload.trigger !== "input" && payload.trigger !== "resume")
+                throw new Error(`${location}.payload.trigger must be input or resume.`);
+            return { type: "run.continued", payload: Object.hasOwn(payload, "userId") ? { userId: payload.userId } : {} };
+        }
+        if (type === "turn.restart-recovered" && payload.outcome === "paused")
+            return { type, payload: { ...payload, outcome: "stopped" } };
+    }
+    if (typeof format === "number" && format < 16 && (type === "run.stopped" || type === "run.continued"))
+        throw new Error(`${location} requires journal format 16.`);
+    return { type, payload };
+};
+
 export const parseJournalRecord = (line: string, runDirectory: string, location: string): CommandRecord => {
     let parsed: unknown;
 
@@ -225,8 +243,7 @@ export const parseJournalRecord = (line: string, runDirectory: string, location:
             commandId: command.id,
             correlationId: event.correlationId,
             causationId: event.causationId,
-            type: event.type,
-            payload,
+            ...decodedEventOf(record.formatVersion, event.type, payload, eventLocation),
         }, eventLocation);
     });
 

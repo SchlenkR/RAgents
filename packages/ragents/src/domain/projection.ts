@@ -90,11 +90,11 @@ const interruptOpenToolCalls = (current: Draft<Turn>, at: string) => {
     }
 };
 
-/** A held actor goes on once a person or another actor addresses it directly after the pause; automatic inputs leave it held. */
+/** A held actor goes on once a person or another actor addresses it directly after the run stop; automatic inputs leave it held. */
 const releaseAddressed = (state: RunDraft, event: Extract<JournalEvent, { type: "actor.input.enqueued" }>) => {
     const target = state.actors.get(event.payload.actorId);
 
-    if (state.pause || !target || target.kind === "human" || !target.held || event.payload.subscriptionId !== null || event.actorId === target.id)
+    if (state.stopped || !target || target.kind === "human" || !target.held || event.payload.subscriptionId !== null || event.actorId === target.id)
         return;
 
     if (event.payload.origin === "human" || state.actors.get(event.actorId)?.kind !== "human")
@@ -122,7 +122,7 @@ const created = (event: Extract<JournalEvent, { type: "run.created" }>): RunDraf
     sharing: notShared(),
     primaryActorId: null,
     stoppedPrimaryActorId: null,
-    pause: null,
+    stopped: null,
     createdAt: event.occurredAt,
     forkedFrom: null,
     rooms: new Map(),
@@ -191,8 +191,8 @@ export function applyEvent(
             state.sharing = { everyone: event.payload.everyone, users: event.payload.users };
             break;
 
-        case "run.paused":
-            state.pause = { pausedAt: event.occurredAt, reason: event.payload.reason, userId: event.payload.userId ?? null };
+        case "run.stopped":
+            state.stopped = { stoppedAt: event.occurredAt, reason: event.payload.reason, userId: event.payload.userId ?? null };
 
             for (const id of [...state.actors.keys()]) {
                 const entry = state.actors.get(id)!;
@@ -200,8 +200,8 @@ export function applyEvent(
             }
             break;
 
-        case "run.resumed": {
-            state.pause = null;
+        case "run.continued": {
+            state.stopped = null;
             const primary = state.primaryActorId === null ? undefined : state.actors.get(state.primaryActorId);
             if (primary && primary.kind !== "human") delete primary.held;
             break;
@@ -235,7 +235,7 @@ export function applyEvent(
                 lifecycle: { kind: "idle", since: event.occurredAt },
                 usage: emptyUsage(),
                 openedToolNames: [],
-                ...state.pause ? { held: true as const } : {},
+                ...state.stopped ? { held: true as const } : {},
             });
             break;
 
@@ -255,7 +255,7 @@ export function applyEvent(
                 lifecycle: { kind: "idle", since: event.occurredAt },
                 usage: emptyUsage(),
                 openedToolNames: [],
-                ...state.pause ? { held: true as const } : {},
+                ...state.stopped ? { held: true as const } : {},
             });
             break;
 
@@ -589,7 +589,7 @@ export function viewOf(state: RunState): RunView {
         ownerId: state.ownerId,
         primaryActorId: state.primaryActorId,
         stoppedPrimaryActorId: state.stoppedPrimaryActorId,
-        pause: state.pause,
+        stopped: state.stopped,
         createdAt: state.createdAt,
         forkedFrom: state.forkedFrom,
         rooms: [...state.rooms.values()],

@@ -358,18 +358,18 @@ export const assertEventSemantics = (
                 throw new Error(`Run ${state.id} cannot be shared with its owner ${state.ownerUserId}.`);
             break;
 
-        case "run.paused":
+        case "run.stopped":
             assertOwnerEvent(state, event);
 
-            if (state.pause)
-                throw new Error(`Run ${state.id} is already paused.`);
+            if (state.stopped)
+                throw new Error(`Run ${state.id} is already stopped.`);
             break;
 
-        case "run.resumed":
+        case "run.continued":
             assertOwnerEvent(state, event);
 
-            if (!state.pause)
-                throw new Error(`Run ${state.id} is not paused.`);
+            if (!state.stopped)
+                throw new Error(`Run ${state.id} is not stopped.`);
             break;
 
         case "room.opened": {
@@ -478,15 +478,18 @@ export const assertEventSemantics = (
             if (target.lifecycle.kind !== "idle")
                 throw new Error(`Actor ${target.id} is not idle.`);
 
-            if (state.pause)
-                throw new Error(`Run ${state.id} is paused; actor ${target.id} cannot start a turn.`);
+            if (state.stopped)
+                throw new Error(`Run ${state.id} is stopped; actor ${target.id} cannot start a turn.`);
 
             if (target.held)
-                throw new Error(`Actor ${target.id} is held since the pause and cannot start a turn.`);
+                throw new Error(`Actor ${target.id} is held since the run stop and cannot start a turn.`);
             break;
         }
 
         case "turn.input-steered": {
+            if (state.stopped)
+                throw new Error(`Run ${state.id} is stopped; inputs cannot join a turn.`);
+
             const turn = runningTurnOf(state, event.payload.turnId);
             assertTurnAuthor(turn, event);
             const input = state.inputs.get(event.payload.inputId);

@@ -5,7 +5,6 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { implement } from "@ragents/engine";
-import { coreContracts } from "../../apps/server/src/api/contracts.ts";
 import { startRpcServer } from "../../apps/server/tests/rpc-fixture.ts";
 import { RpcClient } from "../../apps/web/src/rpc/client.ts";
 import type { RunView } from "../../packages/ragents/src/domain/model.ts";
@@ -38,14 +37,14 @@ test("the driver resolves env(...) in DATA_DIR and password like the server and 
   await assert.rejects(loadConfig({ ...base, CHECK_DATA_DIR: data }), /password is missing/);
 });
 
-test("stop interrupts only the turn of the primary actor, stop --run stops the whole run", async (t) => {
+test("stop ends all run work, stop --turn interrupts only the primary turn", async (t) => {
   const stopped: string[] = [];
   const interrupted: { runId: string; actorId: string }[] = [];
   const server = await startRpcServer(t, {
     methods: [
-      implement(coreContracts.chat.stop, ({ runId }) => {
+      implement(runContracts.stop, ({ runId }) => {
         stopped.push(runId);
-        return null;
+        return { id: runId, stopped: { stoppedAt: "now", reason: "Stopped", userId: null } } as RunView;
       }),
       implement(runContracts.view, ({ runId }) => ({ id: runId, primaryActorId: "agent_primary" }) as RunView),
       implement(runContracts.interruptTurn, ({ runId, actorId }) => {
@@ -56,12 +55,13 @@ test("stop interrupts only the turn of the primary actor, stop --run stops the w
   });
   const rpc = new RpcClient({ baseUrl: server.url, fetch });
 
-  assert.match(await stopCommand(rpc, ["run-1"]), /agent_primary/);
+  assert.match(await stopCommand(rpc, ["run-1", "--turn"]), /agent_primary/);
   assert.deepEqual(interrupted, [{ runId: "run-1", actorId: "agent_primary" }]);
   assert.deepEqual(stopped, []);
-  assert.match(await stopCommand(rpc, ["run-1", "--run"]), /emergency stop/);
+  assert.match(await stopCommand(rpc, ["run-1"]), /Run stopped/);
   assert.deepEqual(stopped, ["run-1"]);
   assert.equal(interrupted.length, 1);
   await assert.rejects(stopCommand(rpc, []), /Run id missing/);
+  await assert.rejects(stopCommand(rpc, ["run-1", "--run"]), /Unknown argument/);
   await assert.rejects(stopCommand(rpc, ["run-1", "--everything"]), /Unknown argument/);
 });

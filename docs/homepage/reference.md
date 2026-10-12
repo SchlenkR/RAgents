@@ -5664,7 +5664,7 @@ In the global space of a user with runs.read.
             "anyOf": [
               {
                 "type": "string",
-                "const": "paused"
+                "const": "stopped"
               },
               {
                 "type": "string",
@@ -5822,7 +5822,7 @@ Only with the capability script.start, which the coordinator holds and passes to
 
 Stop run
 
-Initiates the complete stop of your own run: running turns, tools, subagents and plugin services. Conversation and files are kept. Also cancels your own turn; acceptance is not a confirmation of completed cleanup. Use immediately when the user wants a complete cancellation; do not send a cancel message to busy agents.
+Stops all work in your run: running turns, tools, starts and plugin services. Actors, conversation and files remain available. The run continues with the owner's next message. Also interrupts your own turn; acceptance confirms the request, not completed cleanup. Use immediately when the user requests a complete stop.
 
 Owner: ragents.orchestration. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
@@ -8961,8 +8961,8 @@ export declare function ConnectionStateIcon({ state, className }: {
 #### apps/web/src/ui/state-vocabulary.d.ts
 
 ```typescript
-/** The vocabulary of all pages: exactly one word per state, which appears in the panel only as a title. */
-export type RunStateName = "running" | "waiting" | "paused" | "idle" | "ended" | "failed" | "cancelled";
+/** The vocabulary of all pages: exactly one word per state, which appears in the panel only as accessible text. */
+export type RunStateName = "running" | "waiting" | "stopped" | "idle" | "ended" | "failed" | "cancelled";
 export type ConnectionStateName = "connected" | "ready" | "starting" | "login-required" | "unreachable" | "stopped" | "failed" | "forbidden";
 /** When a run is waiting, the word names the number of open inputs; a tool name never appears in the state. */
 export declare const runStateWord: (state: RunStateName, open?: number) => string;

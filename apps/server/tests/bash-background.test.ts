@@ -42,7 +42,7 @@ const serverRun = async (t: TestContext) => {
     homeFor: async () => ({ home: path.join(directory, "home") }),
     skillPaths: async () => [],
   });
-  const setup = setupRun({ grants: allGrants(), toolNames: null });
+  const setup = setupRun({ runId: path.basename(directory).toLowerCase(), grants: allGrants(), toolNames: null });
   t.after(async () => {
     await host.shutdownAll();
     setup.journal.close();

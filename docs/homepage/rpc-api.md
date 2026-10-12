@@ -45,7 +45,6 @@ Ids from results are reused programmatically, not copied by hand.
 | ragents.chat.send | host | no fixed rights |
 | ragents.chat.sendToActor | host | no fixed rights |
 | ragents.chat.start | host | no fixed rights |
-| ragents.chat.stop | host | no fixed rights |
 | ragents.documents.files | ragents.documents | runs.read |
 | ragents.documents.grant | ragents.documents | runs.read |
 | ragents.external.set | host | settings.write |
@@ -88,18 +87,16 @@ Ids from results are reused programmatically, not copied by hand.
 | ragents.runs.interruptTurn | host | no fixed rights |
 | ragents.runs.list | host | runs.read |
 | ragents.runs.markViewed | host | runs.read |
-| ragents.runs.pause | host | no fixed rights |
 | ragents.runs.prepare | host | runs.read, runs.write, runs.create |
 | ragents.runs.resolveAction | host | no fixed rights |
 | ragents.runs.restartActor | host | no fixed rights |
-| ragents.runs.resume | host | no fixed rights |
 | ragents.runs.revoke | host | no fixed rights |
 | ragents.runs.scripts | host | no fixed rights |
 | ragents.runs.share | host | no fixed rights |
 | ragents.runs.sharing | host | no fixed rights |
 | ragents.runs.startScript | host | no fixed rights |
+| ragents.runs.stop | host | no fixed rights |
 | ragents.runs.stopActor | host | no fixed rights |
-| ragents.runs.stopAll | host | no fixed rights |
 | ragents.runs.view | host | no fixed rights |
 | ragents.settings.read | host | settings.read |
 | ragents.settings.skill | host | settings.read |
@@ -1251,41 +1248,6 @@ Default client deadline: 30000 ms; callers may override it.
       "minLength": 1
     },
     "input": {}
-  },
-  "additionalProperties": false
-}
-```
-
-### Result
-
-```json
-{
-  "type": "null"
-}
-```
-
-## ragents.chat.stop
-
-Emergency stop for the whole run: aborts all turns and a running start and stops all actors. ragents.runs.interruptTurn interrupts a single turn. Rights: runs.read and runs.write.
-
-Owner: host. Rights: no fixed rights. Execution: the server.
-Default client deadline: 30000 ms; callers may override it.
-
-### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "runId"
-  ],
-  "properties": {
-    "runId": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 64,
-      "description": "Id of the run"
-    }
   },
   "additionalProperties": false
 }
@@ -2800,11 +2762,11 @@ Default client deadline: 30000 ms; callers may override it.
         },
         {
           "type": "string",
-          "const": "run.paused"
+          "const": "run.stopped"
         },
         {
           "type": "string",
-          "const": "run.resumed"
+          "const": "run.continued"
         },
         {
           "type": "string",
@@ -3049,11 +3011,11 @@ Default client deadline: 30000 ms; callers may override it.
               },
               {
                 "type": "string",
-                "const": "run.paused"
+                "const": "run.stopped"
               },
               {
                 "type": "string",
-                "const": "run.resumed"
+                "const": "run.continued"
               },
               {
                 "type": "string",
@@ -4356,7 +4318,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 ## ragents.runs.list
 
-All runs of the profile the caller sees, its own and those shared with it, with title, times, state (paused, running, waiting, idle, ended), pending actions, the caller's own seenRevision, whether the caller operates it (operable), its sharing for the caller (canShare and shared for whoever may change it, sharing with recipient labels only for the signed-in owner, sharedAccess for whoever sees it only through a share), metadata and its list lines. Right: runs.read.
+All runs of the profile the caller sees, its own and those shared with it, with title, times, state (stopped, running, waiting, idle, ended), pending actions, the caller's own seenRevision, whether the caller operates it (operable), its sharing for the caller (canShare and shared for whoever may change it, sharing with recipient labels only for the signed-in owner, sharedAccess for whoever sees it only through a share), metadata and its list lines. Right: runs.read.
 
 Owner: host. Rights: runs.read. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
@@ -4422,60 +4384,6 @@ Default client deadline: 30000 ms; callers may override it.
 ```json
 {
   "type": "null"
-}
-```
-
-## ragents.runs.pause
-
-Pause the whole run: no turn of any actor starts any more, the running turns of all actors are interrupted, and later inputs wait in the journal. A human input or ragents.runs.resume continues it; a paused run stays paused without an error.
-
-Owner: host. Rights: no fixed rights. Execution: the server.
-Default client deadline: 30000 ms; callers may override it.
-
-### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "runId",
-    "commandId"
-  ],
-  "properties": {
-    "runId": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 64,
-      "description": "ID of the run"
-    },
-    "commandId": {
-      "type": "string",
-      "minLength": 1
-    },
-    "correlationId": {
-      "type": "string",
-      "minLength": 1
-    },
-    "causationId": {
-      "type": "string",
-      "minLength": 1
-    },
-    "reason": {
-      "type": "string",
-      "minLength": 1
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-### Result
-
-```json
-{
-  "type": "object",
-  "additionalProperties": true,
-  "x-typescript-type": "RunView"
 }
 ```
 
@@ -4636,56 +4544,6 @@ Default client deadline: 30000 ms; callers may override it.
       "minLength": 1
     },
     "reason": {
-      "type": "string",
-      "minLength": 1
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-### Result
-
-```json
-{
-  "type": "object",
-  "additionalProperties": true,
-  "x-typescript-type": "RunView"
-}
-```
-
-## ragents.runs.resume
-
-Continue a paused run without a message: the primary actor gets everything that waited in one turn, every other actor only once it is addressed directly. A run that is not paused stays as it is.
-
-Owner: host. Rights: no fixed rights. Execution: the server.
-Default client deadline: 30000 ms; callers may override it.
-
-### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "runId",
-    "commandId"
-  ],
-  "properties": {
-    "runId": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 64,
-      "description": "ID of the run"
-    },
-    "commandId": {
-      "type": "string",
-      "minLength": 1
-    },
-    "correlationId": {
-      "type": "string",
-      "minLength": 1
-    },
-    "causationId": {
       "type": "string",
       "minLength": 1
     }
@@ -5316,6 +5174,60 @@ Default client deadline: 4500000 ms; callers may override it.
 }
 ```
 
+## ragents.runs.stop
+
+Stop all work in the run: interrupt every running turn, abort starts and external work, and keep all actors active. Later inputs wait; the owner's next message continues the run.
+
+Owner: host. Rights: no fixed rights. Execution: the server.
+Default client deadline: 30000 ms; callers may override it.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId",
+    "commandId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "ID of the run"
+    },
+    "commandId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correlationId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "causationId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "x-typescript-type": "RunView"
+}
+```
+
 ## ragents.runs.stopActor
 
 Stop an actor together with its delegated children.
@@ -5354,61 +5266,6 @@ Default client deadline: 30000 ms; callers may override it.
       "minLength": 1
     },
     "actorId": {
-      "type": "string",
-      "minLength": 1
-    },
-    "reason": {
-      "type": "string",
-      "minLength": 1
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-### Result
-
-```json
-{
-  "type": "object",
-  "additionalProperties": true,
-  "x-typescript-type": "RunView"
-}
-```
-
-## ragents.runs.stopAll
-
-Stop the whole run with all agents and flows.
-
-Owner: host. Rights: no fixed rights. Execution: the server.
-Default client deadline: 30000 ms; callers may override it.
-
-### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "runId",
-    "commandId",
-    "reason"
-  ],
-  "properties": {
-    "runId": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 64,
-      "description": "ID of the run"
-    },
-    "commandId": {
-      "type": "string",
-      "minLength": 1
-    },
-    "correlationId": {
-      "type": "string",
-      "minLength": 1
-    },
-    "causationId": {
       "type": "string",
       "minLength": 1
     },

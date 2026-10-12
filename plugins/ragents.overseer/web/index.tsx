@@ -11,7 +11,8 @@ import { ChatStepsProvider, type OverviewPanelContext, type WebPlugin } from "@r
 import { ChatViewSwitches, useChatViewSettings } from "@ragents/web/chat-view-settings";
 import { withToolSummaries } from "@ragents/web/toolLine";
 import { rpc } from "@ragents/web/rpc";
-import { pauseRun } from "@ragents/web/api";
+import { interruptActorTurn } from "@ragents/web/api";
+import { runContracts } from "@ragents/engine/src/http/contracts";
 import { OVERSEER_PLUGIN_ID, overseerContracts } from "../contract";
 import { ModelSettings, useModelSettings } from "./ModelSettings";
 import { overseerChatDisplayPolicy, overseerChatStorageKeyPrefix } from "./chat-display";
@@ -145,7 +146,11 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
           <ChatInputToolbar {...attachments} handleRef={composer}
             disabled={!writable || resetting || confirmReset} sendDisabled={!chat.connected || modelState.status === "saving" || resetting}
             maxRows={4} rows={1} onErrorChange={setComposerError} onSend={(text, attachments) => chat.send(text, attachments, userLocation)}
-            onStop={writable && chat.running ? () => { if (!resetPending.current) perform(() => pauseRun(runId)); } : undefined}
+            onStop={writable && chat.running ? () => { if (!resetPending.current) perform(async () => {
+              const view = await rpc.call(runContracts.view, { runId });
+              if (!view?.primaryActorId) throw new Error("The global coordinator has no active chat partner.");
+              await interruptActorTurn(runId, view.primaryActorId);
+            }); } : undefined}
             running={chat.running}
             texts={{ placeholder: writable ? "Ask the global coordinator" : "Read access to the global coordinator" }}
             toolbarLeft={<ChatViewSwitches className="max-md:[&>span]:hidden" settings={chatView} />}

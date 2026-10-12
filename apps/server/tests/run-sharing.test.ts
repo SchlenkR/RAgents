@@ -197,7 +197,7 @@ test("the sharing result names users with their labels and refuses users the pro
   assert.throws(() => checkedProfileSharing({ everyone: null, users: [{ userId: "alice", access: "read" }] }, "alice", notShared(), users), code("share-owner", 400));
 });
 
-test("every operating method, plugin contribution and stop refuses a read share through the message layer; reading still works", async () => {
+test("every operating method and plugin contribution refuses a read share through the message layer; reading still works", async () => {
   const reached: string[] = [];
   const session = {
     running: false,
@@ -242,7 +242,6 @@ test("every operating method, plugin contribution and stop refuses a read share 
     [coreContracts.chat.send.id, { runId: READ, text: "Hello" }],
     [coreContracts.chat.sendToActor.id, { runId: READ, actorId: "helper", text: "Hello" }],
     [coreContracts.chat.start.id, { runId: READ, entry: "example.allowed" }],
-    [coreContracts.chat.stop.id, { runId: READ }],
     [coreContracts.runs.scripts.id, { runId: READ }],
     [coreContracts.startOptions.select.id, { runId: READ, optionId: "example", value: null }],
     [answer.id, { runId: READ }],
@@ -256,8 +255,7 @@ test("every operating method, plugin contribution and stop refuses a read share 
   await call(bob, RPC_METHODS.subscribe, { channel: watch.id, params: { runId: READ } });
   assert.deepEqual(reached, [], "nothing operated the run");
   for (const [method, params] of operating.slice(0, 3)) await call(bob, method, { ...params as object, runId: WRITE });
-  await call(bob, coreContracts.chat.stop.id, { runId: WRITE });
-  assert.deepEqual(reached, ["send", "sendToActor", "start", "stop"], "a write share operates");
+  assert.deepEqual(reached, ["send", "sendToActor", "start"], "a write share operates");
 });
 
 /** A server with users, the core methods and channels, the overseer and a manual coordinator; the dispatcher watches run access like the real one. */
@@ -374,7 +372,7 @@ test("sharing before the start, at creation, after it, in the run list, in the c
     await assert.rejects(call(other, runContracts.view.id, { runId: RUN }), code("run-not-found", 404));
     assert.ok(await call(sharee, runContracts.view.id, { runId: RUN }));
     await assert.rejects(call(sharee, coreContracts.chat.send.id, { runId: RUN, text: "Mine now" }), code("run-read-only", 403));
-    await assert.rejects(call(sharee, runContracts.stopAll.id, { runId: RUN, commandId: "stop-1", reason: "Stop" }), code("run-read-only", 403));
+    await assert.rejects(call(sharee, runContracts.stop.id, { runId: RUN, commandId: "stop-1", reason: "Stop" }), code("run-read-only", 403));
     await assert.rejects(call(sharee, overseerContracts.stopRun.id, { run: RUN }), code("run-read-only", 403));
     await assert.rejects(call(sharee, coreContracts.runs.delete.id, { runId: RUN }), code("run-delete-denied", 403));
     await assert.rejects(call(sharee, coreContracts.runs.sharing.id, { runId: RUN }), code("run-sharing-denied", 403));

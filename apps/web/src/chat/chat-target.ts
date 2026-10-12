@@ -23,24 +23,13 @@ export function primaryIsProgram(view: unknown, runId: string): boolean {
     && view.actors.some((actor: unknown) => isRecord(actor) && actor.id === view.primaryActorId && actor.kind === "script");
 }
 
-/** Running turn of any agent or program; the run list uses the same reading. */
-export function runIsWorking(view: unknown, runId: string): boolean {
-  return isRecord(view) && view.id === runId && Array.isArray(view.actors)
-    && view.actors.some((actor: unknown) => isRecord(actor) && actor.kind !== "human" && isRecord(actor.lifecycle) && actor.lifecycle.kind === "running");
-}
-
-/** A paused run with the number of waiting inputs of its actors that are not stopped; undefined while the run is not paused. */
-export function runPause(value: unknown, runId: string): { waiting: number } | undefined {
+/** A stopped run with the number of waiting inputs of its active actors. */
+export function runStopped(value: unknown, runId: string): { waiting: number } | undefined {
   const view = runViewFrom(value);
-  if (!view || view.id !== runId || !view.pause) return undefined;
+  if (!view || view.id !== runId || !view.stopped) return undefined;
   const active = new Set(view.actors.filter((actor) => actor.kind !== "human" && actor.lifecycle?.kind !== "stopped").map((actor) => actor.id));
   return { waiting: view.inputs.filter((input) => isPendingRunActorInput(input) && active.has(input.actorId)).length };
 }
 
-export const pausedRunText = (waiting: number): string =>
-  waiting === 0 ? "Paused" : `Paused - ${waiting} ${waiting === 1 ? "input" : "inputs"} waiting`;
-
-/** The stop of every chat pauses the whole run: offered while any actor works, the chat's live turn included, and the run is not paused yet. */
-export function runPausable(view: unknown, runId: string, liveTurn: boolean): boolean {
-  return (liveTurn || runIsWorking(view, runId)) && runPause(view, runId) === undefined;
-}
+export const stoppedRunText = (waiting: number): string =>
+  waiting === 0 ? "Stopped" : `Stopped - ${waiting} ${waiting === 1 ? "input" : "inputs"} waiting`;

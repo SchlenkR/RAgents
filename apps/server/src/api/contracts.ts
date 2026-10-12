@@ -89,7 +89,7 @@ export const coreContracts = {
   runs: {
     list: defineOperation({
       id: "ragents.runs.list",
-      description: "All runs of the profile the caller sees, its own and those shared with it, with title, times, state (paused, running, waiting, idle, ended), pending actions, the caller's own seenRevision, whether the caller operates it (operable), its sharing for the caller (canShare and shared for whoever may change it, sharing with recipient labels only for the signed-in owner, sharedAccess for whoever sees it only through a share), metadata and its list lines. Right: runs.read.",
+      description: "All runs of the profile the caller sees, its own and those shared with it, with title, times, state (stopped, running, waiting, idle, ended), pending actions, the caller's own seenRevision, whether the caller operates it (operable), its sharing for the caller (canShare and shared for whoever may change it, sharing with recipient labels only for the signed-in owner, sharedAccess for whoever sees it only through a share), metadata and its list lines. Right: runs.read.",
       rights: ["runs.read"],
       input: Type.Object({}, { additionalProperties: false }),
       result: Type.Array(listedSession),
@@ -171,12 +171,6 @@ export const coreContracts = {
       id: "ragents.chat.start",
       description: "Start a run through a script template, without a message; the start options the template fixes apply. Returns once the start is accepted; progress and errors appear in the chat. In a running run it starts an embeddable script like ragents.runs.startScript. Rights: runs.read, runs.write and the template's release.",
       input: Type.Object({ runId, entry: Type.String({ minLength: 1 }), input: Type.Optional(Type.Any()) }, { additionalProperties: false }),
-      result: Type.Null(),
-    }),
-    stop: defineOperation({
-      id: "ragents.chat.stop",
-      description: "Emergency stop for the whole run: aborts all turns and a running start and stops all actors. ragents.runs.interruptTurn interrupts a single turn. Rights: runs.read and runs.write.",
-      input: Type.Object({ runId }, { additionalProperties: false }),
       result: Type.Null(),
     }),
     capabilities: defineOperation({

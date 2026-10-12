@@ -60,7 +60,7 @@ window.runDetailsFixture = {
   call: async (method, input) => {
     calls.push({ method, input });
     if (method === "ragents.startOptions.list") return options;
-    if (method === "ragents.runs.stopAll") {
+    if (method === "ragents.runs.stop") {
       if (stopFailure) throw new Error(stopFailure);
       return null;
     }

@@ -1,5 +1,5 @@
-/** The vocabulary of all pages: exactly one word per state, which appears in the panel only as a title. */
-export type RunStateName = "running" | "waiting" | "paused" | "idle" | "ended" | "failed" | "cancelled";
+/** The vocabulary of all pages: exactly one word per state, which appears in the panel only as accessible text. */
+export type RunStateName = "running" | "waiting" | "stopped" | "idle" | "ended" | "failed" | "cancelled";
 
 export type ConnectionStateName =
   | "connected" | "ready" | "starting" | "login-required" | "unreachable" | "stopped" | "failed" | "forbidden";
@@ -7,7 +7,7 @@ export type ConnectionStateName =
 const RUN_WORDS: Record<RunStateName, string> = {
   running: "running",
   waiting: "waiting for input",
-  paused: "paused",
+  stopped: "stopped",
   idle: "idle",
   ended: "ended",
   failed: "failed",

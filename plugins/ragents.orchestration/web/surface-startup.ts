@@ -23,7 +23,7 @@ export function surfaceStartupState({ view, startup, connected, running, error }
   const activeIds = new Set(activeActors.map((actor) => actor.id));
   const turnRunning = running || activeActors.some((actor) => actor.lifecycle?.kind === "running")
     || view?.turns.some((turn) => activeIds.has(turn.actorId) && turn.status === "running");
-  if (view?.pause && !turnRunning) return { kind: "waiting", title: "The run is paused", detail: "Resume it or send a message to continue." };
+  if (view?.stopped && !turnRunning) return { kind: "waiting", title: "The run is stopped", detail: "Send a message to continue." };
   const working = turnRunning || view?.inputs.some((input) => activeIds.has(input.actorId) && isPendingRunActorInput(input));
   if (working) return { kind: "working", title: "Setting up the run", detail: "The interface is being built. The elements appear automatically." };
   const failed = activeActors.map((actor) => view?.turns.filter((turn) => turn.actorId === actor.id).at(-1))

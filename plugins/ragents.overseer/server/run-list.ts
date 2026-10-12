@@ -4,7 +4,7 @@ import { toolDescriptorFrom } from "@ragents/host/plugin-support/agent-tool.js";
 import type { RunManagement } from "@ragents/host/ragents/global-chat.js";
 import { isCoordinatorRunId } from "./coordinator.js";
 
-const status = Type.Union([Type.Literal("paused"), Type.Literal("running"), Type.Literal("waiting"), Type.Literal("idle"), Type.Literal("ended"), Type.Literal("locked")], {
+const status = Type.Union([Type.Literal("stopped"), Type.Literal("running"), Type.Literal("waiting"), Type.Literal("idle"), Type.Literal("ended"), Type.Literal("locked")], {
   description: "As the run list shows it; locked for a run whose journal cannot be read",
 });
 

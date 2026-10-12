@@ -903,7 +903,8 @@ A warning about JavaScript bundle size does not prevent startup.</p>
 <p>Stop the server normally, then start the same profile. By default, actors that were working
 continue automatically in new turns. The journal preserves completed steps, and agents receive
 a restart note asking them to check unfinished work before continuing. Existing queued inputs
-keep their order. User stops, failures, timeouts, paused runs, and deleted runs do not resume.
+keep their order. User stops, failures, timeouts, stopped runs, and deleted runs do not continue
+automatically. A stopped run waits for the next human message.
 External runtime actors stay interrupted; TypeScript actors re-evaluate from journaled state.</p>
 <p>Set <code>host.RESUME_AFTER_RESTART: false</code> in the profile, or <code>RESUME_AFTER_RESTART=false</code> in the
 environment, to disable continuation for every run. The default is <code>true</code>; environment values

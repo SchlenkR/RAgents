@@ -235,8 +235,8 @@ test("a plugin option travels into the journal at start and is locked afterwards
   const { journal, runtime, session, prepared } = fixture(runId, [workspaceChoice, modelStartOption(modelChoice(), "off")]);
   try {
     await session.selectStartOption("test.workspace.source", "clone", null);
-    session.send("Go");
-    await session.drain();
+    await session.send("Go");
+    await session.settle();
 
     const state = journal.stateOf(runId);
     assert.ok(state);
@@ -264,8 +264,8 @@ test("the model stays selectable after the start: each change lands in the journ
   const runId = "options-model-running";
   const { journal, runtime, session } = fixture(runId, [workspaceChoice, modelStartOption(modelChoice(), "off")]);
   try {
-    session.send("Go");
-    await session.drain();
+    await session.send("Go");
+    await session.settle();
     const revision = runtime.view(runId).revision;
     const changed = await session.selectStartOption(modelStartOptionId, { model: "deep", thinking: "low" }, null);
     assert.deepEqual(changed.value, { model: "deep", thinking: "low" });
@@ -302,8 +302,8 @@ test("every start option sees the user who acts: listing, choosing and the defau
   try {
     session.startOptions("alice");
     await session.selectStartOption("test.chosen", "chosen-value", "bob");
-    session.send("Go", undefined, undefined, { id: "carol", label: "Carol" });
-    await session.drain();
+    await session.send("Go", undefined, undefined, { id: "carol", label: "Carol" });
+    await session.settle();
     assert.deepEqual(seen, [
       "test.chosen default alice", "test.chosen describe alice", "test.default default alice", "test.default describe alice",
       "test.chosen accept bob", "test.chosen describe bob",
@@ -345,8 +345,8 @@ test("a non-administrator cannot choose an unrestricted run and the sandbox choi
     await assert.rejects(session.selectStartOption(WORKSPACE_SANDBOX_OPTION_ID, false, "alice"),
       (error: unknown) => error instanceof DomainError && error.code === "workspace-sandbox-required" && error.status === 403);
     await session.selectStartOption(WORKSPACE_SANDBOX_OPTION_ID, true, "alice");
-    session.send("Start", undefined, undefined, alice);
-    await session.drain();
+    await session.send("Start", undefined, undefined, alice);
+    await session.settle();
     assert.equal(storedStartOption(journal.stateOf(runId), WORKSPACE_SANDBOX_OPTION_ID), true);
     assert.equal(session.startOptions("admin")[0].locked, true);
     await assert.rejects(session.selectStartOption(WORKSPACE_SANDBOX_OPTION_ID, false, "admin"),
@@ -369,8 +369,8 @@ test("an administrator may choose restriction before start unless the server for
         assert.equal(session.startOptions("admin")[0].value, true);
         await session.selectStartOption(WORKSPACE_SANDBOX_OPTION_ID, false, "admin");
       }
-      session.send("Start", undefined, undefined, { id: "admin", label: "Administrator" });
-      await session.drain();
+      await session.send("Start", undefined, undefined, { id: "admin", label: "Administrator" });
+      await session.settle();
       const state = journal.stateOf(runId);
       assert.equal(state?.ownerUserId, "admin");
       assert.equal(storedStartOption(state, WORKSPACE_SANDBOX_OPTION_ID), force);
@@ -383,13 +383,13 @@ test("a manipulated stored choice or an administrator's message cannot lower an 
   const runId = "sandbox-owned";
   const { journal, runtime, session } = sandboxFixture(runId, false);
   try {
-    session.send("Start", undefined, undefined, alice);
+    await session.send("Start", undefined, undefined, alice);
     await session.settle();
     runtime.replacePluginState({ actorId: runtime.state(runId).ownerId, commandId: "stored-sandbox-false" }, runId, {
       pluginId: WORKSPACE_SANDBOX_OPTION_ID, scope: { kind: "run" }, state: false,
     });
-    session.send("Continue", undefined, undefined, { id: "admin", label: "Administrator" });
-    await session.drain();
+    await session.send("Continue", undefined, undefined, { id: "admin", label: "Administrator" });
+    await session.settle();
     const state = journal.stateOf(runId)!;
     assert.equal(state.ownerUserId, "alice");
     assert.equal(storedStartOption(state, WORKSPACE_SANDBOX_OPTION_ID), false);

@@ -117,7 +117,7 @@ test("crash recovery is atomic, precedes queued inputs and preserves their order
     assert.deepEqual(driver.requests.slice(1).map((request) => request.input.content), ["First queued task", "Second queued task"]);
 });
 
-for (const stop of ["user", "failure", "timeout", "pause", "actor-stop", "unavailable", "disabled"] as const) {
+for (const stop of ["user", "failure", "timeout", "run-stop", "actor-stop", "unavailable", "disabled"] as const) {
     test(`${stop} does not automatically continue on restart`, async (t) => {
         const f = await fixture(t);
         const turn = f.start(f.post("Task").id);
@@ -126,7 +126,7 @@ for (const stop of ["user", "failure", "timeout", "pause", "actor-stop", "unavai
             { turnId: turn.id, outcome: "failed", reason: "Failed" });
         else if (stop === "user" || stop === "timeout") f.runtime.interruptTurn(context, f.runId, f.actorId, { turnId: turn.id, reason: stop });
         else if (stop === "actor-stop") f.runtime.stopActor(context, f.runId, f.actorId, "Stopped");
-        else if (stop === "pause") f.runtime.pauseRun(context, f.runId, { reason: "Paused" });
+        else if (stop === "run-stop") f.runtime.stopRun(context, f.runId, { reason: "Stopped" });
         f.reopen({ ...(stop === "disabled" ? { enabled: () => false } : {}), ...(stop === "unavailable" ? { available: () => false } : {}) });
         assert.equal(f.runtime.view(f.runId).inputs.filter((input) => typeof input.origin === "object").length, 0);
         const count = f.runtime.events(f.runId).length;

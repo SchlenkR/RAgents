@@ -27,11 +27,11 @@ export const startTurn =
         if (target.lifecycle.kind !== "idle")
             throw new DomainError("actor-not-idle", `Actor ${actorId} cannot start a turn while ${target.lifecycle.kind}.`, 409);
 
-        if (state.pause)
-            throw new DomainError("run-paused", `The run is paused; ${target.displayName} starts no turn until it resumes.`, 409);
+        if (state.stopped)
+            throw new DomainError("run-stopped", `The run is stopped; ${target.displayName} starts no turn until a human message continues it.`, 409);
 
         if (target.held)
-            throw new DomainError("actor-held", `${target.displayName} is held since the pause and starts no turn until it is addressed directly.`, 409);
+            throw new DomainError("actor-held", `${target.displayName} is held since the run stop and starts no turn until it is addressed directly.`, 409);
 
         const input = state.inputs.get(inputId);
 
@@ -58,6 +58,9 @@ export const steerInputs =
     (actorId: string, input: { turnId: string; inputIds: readonly string[] }): Decision =>
     (state, context) => {
         const target = runningTurn(state, context, actorId, input.turnId);
+
+        if (state.stopped)
+            throw new DomainError("run-stopped", "Inputs wait until a human message continues the run.", 409);
 
         if (target.execution.driver.kind !== "agent")
             throw new DomainError("steering-unsupported", `Actor ${actorId} runs without a model and takes no steering.`, 409);

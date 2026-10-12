@@ -1,5 +1,5 @@
 import {
-  CircleAlertIcon, CircleCheckIcon, CircleEllipsisIcon, CircleIcon, CirclePauseIcon, CircleSlashIcon, CircleXIcon, HourglassIcon, LoaderCircleIcon, LockIcon,
+  CircleAlertIcon, CircleCheckIcon, CircleEllipsisIcon, CircleIcon, CircleSlashIcon, CircleXIcon, HourglassIcon, LoaderCircleIcon, LockIcon,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { cn } from "cn";
@@ -12,11 +12,11 @@ interface Mark {
   readonly spinning?: boolean;
 }
 
-/** Active is running, warning is waiting or paused, success is completed, danger is broken; the stop glyph stays an action. */
+/** Active is running, warning is waiting or stopped, success is completed, danger is broken; the stop glyph stays an action. */
 const RUN_MARKS: Record<RunStateName, Mark> = {
   running: { Icon: LoaderCircleIcon, tone: "text-active", spinning: true },
   waiting: { Icon: CircleEllipsisIcon, tone: "text-warning" },
-  paused: { Icon: CirclePauseIcon, tone: "text-warning" },
+  stopped: { Icon: CircleSlashIcon, tone: "text-warning" },
   idle: { Icon: CircleIcon, tone: "text-muted-foreground" },
   ended: { Icon: CircleCheckIcon, tone: "text-success" },
   failed: { Icon: CircleXIcon, tone: "text-destructive" },

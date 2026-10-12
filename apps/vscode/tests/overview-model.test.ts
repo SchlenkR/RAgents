@@ -143,10 +143,10 @@ test("a run row carries owner, list lines, read notice, and lock as the browser 
   assert.deepEqual(runs[2], { id: "run-c", title: "Night bus round", state: "idle", pendingActions: 0, updatedAt: 2, locked: "unsupported journal format 6" });
 });
 
-test("a paused run keeps its state in the row, the badge still counts only its open actions", () => {
-  const paused = snapshot({ runs: [session({ id: "run-p", running: false, state: "paused", pendingActions: 0, seenRevision: 12 })] });
-  assert.deepEqual(connectionView(paused).runs, [{ id: "run-p", title: "Night bus round", state: "paused", pendingActions: 0, updatedAt: 2 }]);
-  assert.equal(pendingActions([paused]), 0);
+test("a stopped run keeps its state in the row, the badge still counts only its open actions", () => {
+  const stopped = snapshot({ runs: [session({ id: "run-p", running: false, state: "stopped", pendingActions: 0, seenRevision: 12 })] });
+  assert.deepEqual(connectionView(stopped).runs, [{ id: "run-p", title: "Night bus round", state: "stopped", pendingActions: 0, updatedAt: 2 }]);
+  assert.equal(pendingActions([stopped]), 0);
 });
 
 test("connection and waiting counts use exactly the supplied snapshots", () => {

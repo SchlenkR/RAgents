@@ -12,7 +12,6 @@ import {
     executableActorOf,
     roomOf,
 } from "../guards.ts";
-import { resumeRun } from "./pause.ts";
 
 export type EnqueueInput = {
     actorId: string;
@@ -23,14 +22,14 @@ export type EnqueueInput = {
     | { content?: never; sourceEventIds: readonly [string]; subscriptionId: string; origin?: never; userId?: never }
 );
 
-/** A human input into a paused run first resumes it, in the same command; userId names the signed-in user. */
+/** A human input into a stopped run first continues it, in the same command; userId names the signed-in user. */
 export const enqueueInput =
     (input: EnqueueInput): Decision =>
     (state, context, services) => {
         const enqueued = enqueuedInput(input)(state, context, services);
 
-        return state.pause && input.origin === "human"
-            ? [...resumeRun({ trigger: "input", ...input.userId === undefined ? {} : { userId: input.userId } })(state, context, services), ...enqueued]
+        return state.stopped && input.origin === "human"
+            ? [event(context, { type: "run.continued", payload: input.userId === undefined ? {} : { userId: clean(input.userId, "userId") } }), ...enqueued]
             : enqueued;
     };
 

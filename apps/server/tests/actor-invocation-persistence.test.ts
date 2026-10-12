@@ -16,13 +16,13 @@ const diskFixture = async (t: TestContext) => {
   const services = testServices();
   const journal = new Journal(path.join(directory, "journal"), services);
   const orchestration = new Orchestration(journal, services);
-  const created = orchestration.createRun({commandId: "create"}, {title: "Counter", ownerHandle: "owner", ownerDisplayName: "Owner"});
+  const created = orchestration.createRun({commandId: "create"}, {runId: path.basename(directory).toLowerCase(), title: "Counter", ownerHandle: "owner", ownerDisplayName: "Owner"});
   const view = orchestration.spawnAgent({actorId: created.ownerId, commandId: "spawn"}, created.id, {
     handle: "worker", displayName: "Worker", prompt: "Count", execution: executionFor("worker", {profile: "agent"}), grants: allGrants(), toolNames: null,
   });
   const setup = {services, journal, runtime: orchestration, view, agent: view.actors.find((actor) => actor.kind === "agent")!};
   const runtime = runtimeFor(setup, directory);
-  const other = orchestration.createRun({commandId: "other"}, {title: "Other", ownerHandle: "owner", ownerDisplayName: "Owner"});
+  const other = orchestration.createRun({commandId: "other"}, {runId: `${path.basename(directory).toLowerCase()}-other`, title: "Other", ownerHandle: "owner", ownerDisplayName: "Owner"});
   t.after(async () => {
     await runtime.shutdown();
     await services.nativeTypeScriptExecutor!.shutdown();

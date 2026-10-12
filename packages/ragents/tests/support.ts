@@ -130,6 +130,7 @@ export const registryOf = (driver: AgentDriver<"agent">): DriverRegistry => ({
 
 export const setupRun = (
     options: {
+        runId?: string;
         grants?: CapabilityGrant[];
         execution?: AgentExecution;
         toolNames?: readonly string[] | null;
@@ -141,7 +142,7 @@ export const setupRun = (
     const runtime = new Orchestration(journal, services);
     let view = runtime.createRun(
         { commandId: "create-run" },
-        { title: "Scheduler", ownerHandle: "owner", ownerDisplayName: "Owner" },
+        { ...(options.runId === undefined ? {} : { runId: options.runId }), title: "Scheduler", ownerHandle: "owner", ownerDisplayName: "Owner" },
     );
     view = runtime.spawnAgent({ actorId: view.ownerId, commandId: "spawn-worker" }, view.id, {
         handle: "worker",

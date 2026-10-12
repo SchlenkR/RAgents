@@ -228,8 +228,9 @@ the question allows it) or write your own answer, then send all answers with Sub
 question with one choice is answered by clicking its option. An agent that asks
 ends its turn; your answers reach it together as a new message, and a message you write to it instead
 closes its open questions. A message sent during
-a model turn steers that turn; Stop work interrupts only the turn of the chat's actor. Stop run ends work
-across the run. Read access shows questions and conversations without answer or send controls.
+a model turn steers that turn; Stop work interrupts only the turn of the chat's actor. Stop run
+ends running turns and external work across the run, keeps its actors available, and waits for
+your next message. Read access shows questions and conversations without answer or send controls.
 
 <!-- guide:clients -->
 ## MCP server status
@@ -660,7 +661,7 @@ one. It oversees the runs its user sees, reads their journals, and can start new
 with a task or an installed run script; it acts with the access and
 permissions of its user, and new runs belong to that user. Created runs can be opened
 through the run list. The stop button at its input appears while the global coordinator
-has a turn and pauses its own run until your next message; it stops another
+has a turn and interrupts only that turn; it stops another
 run on request through the management methods. Without write permission,
 the button opens the readable history with the focus in it; the input shows "Read access to
 the global coordinator", and sending is blocked.
@@ -925,9 +926,9 @@ The workspace says where files and commands run; sandbox protection explains whe
 are isolated from other work on that machine; system prompts name their instructions and who receives them.
 Running work shows the agent and elapsed time without overlapping. Processes appear as ordinary
 rows with their full names, open ports, and individual stop controls.
-"Stop run" sits in a separate footer below the facts and asks "Really stop everything?" before
-ending all work and background commands. "Cancel" leaves the run running; a failure stays visible
-in full and can be retried. "Run details", "Run script", and "Share" use the same square dropdown below the header,
+"Stop run" sits in a separate footer below the facts and directly stops all work and background
+commands without confirmation, keeping actors available for your next message. A failure stays
+visible in full and can be retried. "Run details", "Run script", and "Share" use the same square dropdown below the header,
 up to 800 pixels wide with a small inset on the side of their button. Each dims the page below the header and keeps
 its content within the available width. The close button, Escape, or clicking outside closes it. Focus returns
 to its button unless it has moved elsewhere.
@@ -1092,8 +1093,8 @@ code-icon band. They show their display name, active program name, and function 
 from the program definition, never input JSON or repeated messages. Without definition metadata,
 the card says "Program definition unavailable". The state icon and name are vertically centered
 in both kinds.
-The ring spins while the actor works and also shows idle, waiting for your input, paused,
-stopped, or failed work; its accessible label names the state. An agent's task is the
+The ring spins while the actor works and also shows idle, waiting for your input, stopped,
+cancelled, or failed work; its accessible label names the state. An agent's task is the
 description given when the actor was created, otherwise its full first assignment, otherwise
 its display name. Open the actor's chat or Inspection to read its complete task or program facts. Lines into working
 actors are highlighted.
@@ -1365,14 +1366,16 @@ registered: ...". The notification appears once per server and message; "Show ex
 the extension page for the update, and "Show servers" opens the Server page.
 
 Every status uses a colored icon and an accessible name with the same vocabulary everywhere. A run is
-"running", "paused", "waiting for input" (with the number of open inputs),
+"running", "stopped", "waiting for input" (with the number of open inputs),
 "idle", "ended", "failed", or "cancelled". A
 server is "connected", "ready", "starting", "sign-in required",
 "unreachable", "stopped", "failed", or "no access". Time is compact and omits "ago": `now`, `5min`,
 `3h`, `2d`, then a date after seven days. A function or mini-app name never appears as a status.
-Status icons never resemble a stop button: paused is a circle with a pause sign, cancelled a
-slashed circle, ended a check mark, and idle or stopped an empty circle. Actual stop buttons consistently use a filled red square: "Stop
-run" in the Run details footer and run menu, "Stop work" beside the
+Status icons never resemble a stop button: a stopped run is a slashed circle in the warning color,
+cancelled work a slashed circle in the muted color, ended work a check mark, and idle work or
+a stopped server an empty circle.
+Actual stop buttons consistently use a filled red square: "Stop
+run" in the run-panel header, Run details footer, and run menu, "Stop work" beside the
 chat input, and the stop controls for run processes.
 
 "Stop work" interrupts only the running turn of the actor you chat with. It appears while that
@@ -1380,11 +1383,13 @@ actor has a turn; the working animation in the chat follows the same signal. The
 written stays, and agents the coordinator started keep working; their next report starts a new
 turn of the coordinator. Other actors' work shows in the working-agent count below the input.
 Every turn that no message of yours started carries a line about its trigger in the chat, such as
-"New turn, triggered by turn.finished of @implementer". If the run was paused, for example with
-`ragents stop <run>`, one line above the input says "Paused - 3 inputs waiting" with "Resume";
-a message you send continues the run as well and reaches the coordinator together with
-everything that waited, your message last. To end everything, use "Stop run" with its
-confirmation; to stop a single actor for good, use "Stop" on its actor card. If a chat's actor has
+"New turn, triggered by turn.finished of @implementer". "Stop run" stops all running turns, a
+running start, processes, and other external work, without confirmation. Every
+active actor remains available, but no turn starts on its own. One line above the input says
+"Stopped", or "Stopped - 3 inputs waiting" when inputs have arrived. Your next message
+continues the run and reaches the primary actor together with everything that waited, your
+message last; other actors wait until directly addressed again.
+To stop a single actor for good, use "Stop" on its actor card. If a chat's actor has
 been stopped, the input is replaced by `@handle stopped: <reason>` and, with permission to operate
 and inspect the run, "Restart". Restarting the former primary actor makes it the
 primary actor again, and the run chat continues.
@@ -1579,7 +1584,7 @@ sign-in, unsupported content, and workspace refusals show their causes in the ac
 
 ## Control RAgents as an agent
 
-An AI agent working on the same machine controls RAgents through seven `ragents` subcommands. In
+An AI agent working on the same machine controls RAgents through six `ragents` subcommands. In
 a checkout, use `pnpm ragents <command>`. These commands are the agent-facing contract: `run` and
 `send` wait for the turn to end, and every command returns an exit code.
 
@@ -1588,10 +1593,8 @@ ragents provision developer                                  # once per machine
 ragents run selftest/workspace-project "Fix the type error in src/broken.ts"
 ragents send <runId> "Read README.md and report the passphrase"
 ragents journal <runId> --tools
-ragents stop <runId>                                         # pause the whole run until send or resume
-ragents resume <runId>                                       # continue a paused run without a message
+ragents stop <runId>                                         # stop all run work until the next send
 ragents stop <runId> --turn                                  # interrupt only the primary actor's active turn
-ragents stop <runId> --run                                   # emergency stop: halt the whole run
 ragents stop --host                                          # stop the remembered host
 ragents script <runId>                                       # list the run scripts and whether each can join the run
 ragents script <runId> <entry> --input '{"topic":"Launch"}'  # start one inside the running run
@@ -1630,15 +1633,14 @@ chooses its chat partner during setup, the task waits instead of failing. `send`
 same operation in an existing run. `journal` reads the history from the profile's data directory
 without a server, using the same code as `pnpm driver journal`; with `RAGENTS_URL` set, it reads it
 from the server through `ragents.runs.events`, which requires `runs.inspect`. `stop <runId>`
-pauses the whole run through `ragents.runs.pause`: no
-turn of any actor starts any more, the running turns of all actors end, and what arrives in the
-meantime waits. `resume <runId>` continues it through `ragents.runs.resume`; `send` continues it
-too, and its message reaches the primary actor last, after everything that waited. A sub-agent
-continues only once it is addressed again. `stop <runId> --turn` interrupts only the active turn
+stops the whole run through `ragents.runs.stop`: it records the stop before interrupting all
+running turns, aborts a running start, and ends processes and other external work. Every active
+actor stays active, no turn starts on its own, and incoming inputs wait. `send` continues the run;
+its message reaches the primary actor last, after everything that waited. A sub-agent continues
+only once it is addressed again. `stop <runId> --turn` interrupts only the active turn
 of the run's primary actor through `ragents.runs.interruptTurn`: the run and all actors stay
-active, and without an active turn nothing happens. `stop <runId> --run` is the emergency stop
-(`ragents.chat.stop`): it aborts every turn and stops all actors of the run. `stop --host` terminates exactly the PID in `host.json`, never a
-process pattern, and only if the host at the recorded address reports that same PID from
+active, and without an active turn nothing happens. `stop --host` terminates exactly the PID
+in `host.json`, never a process pattern, and only if the host at the recorded address reports that same PID from
 `/health`; otherwise it fails, leaves the process alone and removes the stale record.
 `script <runId>` lists the run scripts through `ragents.runs.scripts`, one per line with id, title,
 and the reason if one cannot join; `script <runId> <entry> [--input <json>]` starts it inside the
@@ -1715,8 +1717,8 @@ PRODUCT_PROFILE=showcase pnpm driver new-run                 # creates a run and
 PRODUCT_PROFILE=showcase pnpm driver send <id> @coordinator "Task ..."
 PRODUCT_PROFILE=showcase pnpm driver journal <id> --since 120 --tools
 PRODUCT_PROFILE=showcase pnpm driver usage <id>              # model calls and tokens per actor
-PRODUCT_PROFILE=showcase pnpm driver stop <id>              # interrupts the primary actor's turn
-PRODUCT_PROFILE=showcase pnpm driver stop <id> --run        # emergency stop for the whole run
+PRODUCT_PROFILE=showcase pnpm driver stop <id>               # stops all run work until the next message
+PRODUCT_PROFILE=showcase pnpm driver stop <id> --turn        # interrupts the primary actor's turn
 ```
 
 `new-run` starts a run script; without an argument it uses `ragents.reference.shared-actor-list`,
@@ -1727,8 +1729,8 @@ the data directory comes from `DATA_DIR` or the profile default. If the profile 
 `RAGENTS_DRIVER_USER` is required. The driver reads that user's password from the same profile
 file and signs in through `POST /api/access/login`. If `ACCESS_TOKEN` is set, it sends that as a
 bearer token instead. The driver uses `ragents.chat.start`, `ragents.chat.sendToActor`,
-`ragents.runs.view` with `ragents.runs.interruptTurn` for `stop`, `ragents.chat.stop` for
-`stop --run`, and `ragents.runs.list`, while reading the journal directly from
+`ragents.runs.view` with `ragents.runs.stop` for `stop`, `ragents.runs.interruptTurn` for
+`stop --turn`, and `ragents.runs.list`, while reading the journal directly from
 `${DATA_DIR}/runs/<uuid>/journal.jsonl`.
 
 The same methods are available to any client. The API uses JSON-RPC 2.0. Over HTTP, `POST /rpc`

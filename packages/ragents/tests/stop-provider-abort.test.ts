@@ -12,13 +12,14 @@ import { resolveExecution, StaticModelCatalog, type CatalogModel } from "../src/
 import { LiveBus } from "../src/agents/live.ts";
 import { TurnScheduler } from "../src/agents/scheduler.ts";
 import { FixedWorkspaces } from "../src/agents/workspaces.ts";
+import { RunStopper } from "../src/runtime/stop.ts";
 import { thinkingLevels } from "../src/domain/driver.ts";
 import { AgentLoopDriver } from "../src/drivers/agent.ts";
 import { deferred, postTo, setupRun, type Deferred } from "./support.ts";
 
 const MODEL_ID = "acme/streaming";
 const PARTIAL = "Partial answer";
-const REASON = "Paused in the chat";
+const REASON = "Stopped in the chat";
 
 type Transport = "OpenRouter" | "OpenAI-compatible";
 
@@ -130,7 +131,7 @@ const settle = async (scheduler: TurnScheduler) => {
 
 for (const transport of ["OpenRouter", "OpenAI-compatible"] as const) {
     for (const phase of ["before the first byte", "while streaming"] as const) {
-        test(`a pause ${phase} closes the ${transport} connection of the running model request, ends the turn as interrupted and sends nothing until a human continues`, { timeout: 15_000 }, async (t) => {
+        test(`a stop ${phase} closes the ${transport} connection of the running model request, ends the turn as interrupted and sends nothing until a human continues`, { timeout: 15_000 }, async (t) => {
             const endpoint = await providerEndpoint(t, phase);
 
             if (!endpoint) {
@@ -153,7 +154,7 @@ for (const transport of ["OpenRouter", "OpenAI-compatible"] as const) {
                 });
             }
 
-            const directory = mkdtempSync(join(tmpdir(), "ragents-pause-provider-"));
+            const directory = mkdtempSync(join(tmpdir(), "ragents-stop-provider-"));
             const { modelRuntime, provider } = modelRuntimeFor(transport, endpoint.origin);
             const models: CatalogModel[] = [{ driver: "agent", provider, model: MODEL_ID, label: `${provider}/${MODEL_ID}`, thinking: thinkingLevels }];
             const catalog = new StaticModelCatalog(models, [{
@@ -185,7 +186,7 @@ for (const transport of ["OpenRouter", "OpenAI-compatible"] as const) {
             });
 
             try {
-                postTo(setup.runtime, setup.view, agentId, "task", "Write the report.");
+                postTo(setup.runtime, setup.view, agentId, "input", "Write the report.");
                 scheduler.start();
                 await within(endpoint.received.promise, "The model request");
 
@@ -193,45 +194,46 @@ for (const transport of ["OpenRouter", "OpenAI-compatible"] as const) {
                     await within(streamed.promise, "The first streamed text");
 
                 const first = endpoint.exchanges[0]!;
-                assert.equal(first.cutByClient, false, "the request is still open before the pause");
+                assert.equal(first.cutByClient, false, "the request is still open before the stop");
                 assert.equal(scheduler.isRunning(runId, agentId), true);
 
-                const pausedAt = Date.now();
-                await scheduler.pauseRun(runId, { context: { actorId: ownerId, commandId: "pause" }, reason: REASON, userId: "alice" });
-                const pauseMs = Date.now() - pausedAt;
-                const runningAfterPause = scheduler.isRunning(runId, agentId);
+                const stoppedAt = Date.now();
+                const stopper = new RunStopper({ runtime: setup.runtime, interruptTurns: (id, interruption) => scheduler.interruptRun(id, interruption) });
+                await stopper.stop(runId, { commandId: "stop", reason: REASON, userId: "alice" });
+                const stopMs = Date.now() - stoppedAt;
+                const runningAfterStop = scheduler.isRunning(runId, agentId);
 
                 await within(first.cut.promise, "The client closing the provider connection");
                 assert.equal(first.cutByClient, true);
                 assert.equal(first.finished, false, "the provider never finished the response");
-                assert.equal(runningAfterPause, false, "the driver settled after the abort, not after the interruption wait");
-                assert.ok(pauseMs < interruptWaitMs, `the pause took ${pauseMs} ms`);
+                assert.equal(runningAfterStop, false, "the driver settled after the abort, not after the interruption wait");
+                assert.ok(stopMs < interruptWaitMs, `the stop took ${stopMs} ms`);
                 assert.equal(endpoint.exchanges.length, 1);
 
                 const events = setup.runtime.events(runId);
-                const paused = events.findIndex((event) => event.type === "run.paused");
+                const stopped = events.findIndex((event) => event.type === "run.stopped");
                 const interruptions = events.flatMap((event, index) => event.type === "turn.interrupted" ? [{ index, event, reason: event.payload.reason }] : []);
                 assert.equal(interruptions.length, 1);
-                assert.ok(paused >= 0 && paused < interruptions[0]!.index, "run.paused precedes turn.interrupted");
+                assert.ok(stopped >= 0 && stopped < interruptions[0]!.index, "run.stopped precedes turn.interrupted");
                 assert.equal(interruptions[0]!.reason, REASON);
-                assert.equal(interruptions[0]!.event.commandId, `pause:interrupt:${agentId}`);
+                assert.equal(interruptions[0]!.event.commandId, `stop:interrupt:${agentId}`);
                 assert.equal(events.some((event) => event.type === "turn.finished" || event.type === "model.step.completed"), false);
                 const kept = events.flatMap((event, index) => event.type === "model.output.interrupted" ? [{ index, text: event.payload.text }] : []);
                 assert.deepEqual(kept.map((entry) => entry.text), phase === "while streaming" ? [PARTIAL] : []);
-                assert.ok(kept.every((entry) => paused < entry.index && entry.index < interruptions[0]!.index), "the streamed text is kept between pause and interruption");
+                assert.ok(kept.every((entry) => stopped < entry.index && entry.index < interruptions[0]!.index), "the streamed text is kept between stop and interruption");
                 assert.deepEqual(deltas, phase === "while streaming" ? [PARTIAL] : []);
                 const view = setup.runtime.view(runId);
                 assert.deepEqual(view.turns.map((turn) => turn.status), ["interrupted"]);
-                assert.equal(view.pause?.reason, REASON);
+                assert.equal(view.stopped?.reason, REASON);
 
-                postTo(setup.runtime, setup.view, agentId, "while-paused", "An automatic notice.");
+                postTo(setup.runtime, setup.view, agentId, "while-stopped", "An automatic notice.");
                 await settle(scheduler);
-                assert.equal(endpoint.exchanges.length, 1, "no request reaches the provider while the run is paused");
-                assert.equal(setup.runtime.events(runId).slice(paused).some((event) => event.type === "turn.started"), false);
+                assert.equal(endpoint.exchanges.length, 1, "no request reaches the provider while the run is stopped");
+                assert.equal(setup.runtime.events(runId).slice(stopped).some((event) => event.type === "turn.started"), false);
 
                 setup.runtime.enqueueInput({ actorId: ownerId, commandId: "continue" }, runId, { actorId: agentId, content: "Continue now.", origin: "human", userId: "alice" });
                 await settle(scheduler);
-                assert.equal(endpoint.exchanges.length, 2, "the human input resumes the run with exactly one new request");
+                assert.equal(endpoint.exchanges.length, 2, "the human input continues the run with exactly one new request");
                 assert.equal(endpoint.exchanges[1]!.finished, true);
                 assert.equal(endpoint.exchanges[1]!.cutByClient, false);
                 assert.deepEqual(setup.runtime.view(runId).turns.map((turn) => turn.status), ["interrupted", "completed"]);

@@ -27,7 +27,7 @@ export interface MissingEnvironment {
 export interface ConnectionRun {
   readonly id: string;
   readonly title: string;
-  readonly state: "running" | "waiting" | "paused" | "idle" | "ended";
+  readonly state: "running" | "waiting" | "stopped" | "idle" | "ended";
   readonly pendingActions: number;
   readonly notice?: "unseen" | "updated";
   readonly updatedAt: number;

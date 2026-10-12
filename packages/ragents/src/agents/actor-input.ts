@@ -38,12 +38,11 @@ const eventPayloads = {
         everyone: Type.Union([Type.Literal("read"), Type.Literal("write"), Type.Null()], { description: "Access of every user of the profile" }),
         users: Type.Array(Type.Object({ userId: Type.String(), access: Type.String() }, { additionalProperties: false }), { description: "Users with their own access" }),
     }),
-    "run.paused": payloadOf<"run.paused">({
-        userId: Type.Optional(Type.String({ description: "Signed-in user who paused the run" })),
+    "run.stopped": payloadOf<"run.stopped">({
+        userId: Type.Optional(Type.String({ description: "Signed-in user who stopped the run" })),
     }),
-    "run.resumed": payloadOf<"run.resumed">({
-        trigger: Type.String({ description: "input: a human input resumed the run; resume: the explicit resume" }),
-        userId: Type.Optional(Type.String({ description: "Signed-in user who resumed the run" })),
+    "run.continued": payloadOf<"run.continued">({
+        userId: Type.Optional(Type.String({ description: "Signed-in user who continued the run" })),
     }),
     "room.opened": payloadOf<"room.opened">({
         name: Type.String({ description: "Name of the new room" }),
