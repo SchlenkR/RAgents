@@ -29,11 +29,11 @@ function Card({ data }: NodeProps<CardNode>) {
     data-status={data.status ?? "pending"} data-kind={data.kind} data-detail-level={data.detailLevel} data-running={data.status === "active" && data.running === true}>
     <Handle type="target" position={data.direction === "right" ? Position.Left : Position.Top} />
     <div className="relative rounded-t-[11px] bg-[color-mix(in_srgb,var(--flow-status)_12%,var(--card))] px-[17px] py-[15px] in-data-[detail-level=summary]:py-[10px]">
-      <h3 className="font-semibold whitespace-pre" title={[data.label, statusLabels[data.status ?? "pending"], data.detail].filter(Boolean).join("\n")}>{data.labelLines}</h3>
+      <h3 className="text-[length:inherit] leading-[inherit] font-semibold whitespace-pre" title={[data.label, statusLabels[data.status ?? "pending"], data.detail].filter(Boolean).join("\n")}>{data.labelLines}</h3>
       <span className="mt-[4px] flex h-[24px] w-max items-center gap-[7px] rounded-[12px] bg-[color-mix(in_srgb,var(--flow-status)_23%,var(--card))] px-[7px] font-semibold text-[var(--flow-status)]"><StatusIcon status={data.status ?? "pending"} />{statusLabels[data.status ?? "pending"]}</span>
     </div>
     {data.detailLines !== undefined && <div className="border-t border-border px-[17px] pt-[11px] pb-[12px] whitespace-pre">{data.detailLines}</div>}
-    {data.itemLines.length > 0 && <ul>{data.itemLines.map((item, index) => <li className="group border-t border-border px-[17px] pt-[11px] pb-[12px] whitespace-pre in-data-[detail-level=summary]:pt-[5px] in-data-[detail-level=summary]:pb-[6px]"
+    {data.itemLines.length > 0 && <ul className="m-0 list-none p-0 *:m-0">{data.itemLines.map((item, index) => <li className="group border-t border-border px-[17px] pt-[11px] pb-[12px] whitespace-pre in-data-[detail-level=summary]:pt-[5px] in-data-[detail-level=summary]:pb-[6px]"
       key={index} data-status={item.status ?? "pending"} title={[item.label, statusLabels[item.status ?? "pending"], item.detail].filter(Boolean).join("\n")}>
       <div className="flex items-start gap-[10px] font-semibold in-data-[detail-level=summary]:font-normal"><StatusIcon className="mt-[3px]" status={item.status ?? "pending"} /><span>{item.labelLines}</span></div>
       {data.detailLevel !== "summary" && <div className="text-muted-foreground group-data-[status=active]:text-active group-data-[status=done]:text-success group-data-[status=blocked]:text-destructive">{statusLabels[item.status ?? "pending"]}</div>}

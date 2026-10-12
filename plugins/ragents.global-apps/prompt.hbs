@@ -54,25 +54,35 @@ src/client.tsx:
 ```tsx
 import { createRoot } from "react-dom/client";
 import { context, useAppState } from "@ragents/client";
-import { Button } from "@ragents/client/ui";
+import { AppLayout, Badge, Button, Stack } from "@ragents/client/ui";
 
 function App() {
   const state = useAppState();
   const waiting = state.waiting?.message === "approval";
   const answer = (approved: boolean) => context.capabilities.call("approval", { approved });
-  return <main>
-    <h1>Daily draft</h1>
-    <p>{waiting ? "Today's draft waits for your approval." : `Next draft: ${state.wakeAt ?? "not planned"}`}</p>
-    <p>{String(state.values?.approvals ?? 0)} approved</p>
-    <Button disabled={!waiting} onClick={() => answer(true)}>Approve</Button>
-    <Button variant="outline" disabled={!waiting} onClick={() => answer(false)}>Reject</Button>
-  </main>;
+  return <AppLayout>
+    <Stack>
+      <Stack direction="row">
+        <strong>{waiting ? "Today's draft waits for your approval." : "Waiting for the next draft."}</strong>
+        <Badge variant="outline">{waiting ? "Approval needed" : "Scheduled"}</Badge>
+      </Stack>
+      <p className="type-meta text-muted-foreground">Next draft: {state.wakeAt ?? "not planned"} | {String(state.values?.approvals ?? 0)} approved</p>
+      <Stack direction="row">
+        <Button disabled={!waiting} onClick={() => answer(true)}>Approve</Button>
+        <Button variant="outline" disabled={!waiting} onClick={() => answer(false)}>Reject</Button>
+      </Stack>
+    </Stack>
+  </AppLayout>;
 }
 
 const root = document.getElementById("root");
 if (!root) throw new Error("The #root element is missing.");
 createRoot(root).render(<App />);
 ```
+
+Use AppLayout, Stack and responsive Grid for views. Do not repeat the widget title in a heading;
+put a title and status Badge in one wrapping Stack row and related facts in one muted type-meta
+line instead of a separate paragraph per fact.
 
 The waiting receive takes one approval; a message while nothing waits for it is refused. The forEach over the latest day gives every day its own draft and wait, the 24-hour wait ends with the next day, and approvals outside it keeps counting. Keep every primitive at the top level of the body or of a when or forEach callback and every clock, random value or function call inside ctx.step: activation reports violations as RAG1001 to RAG1003, and a changed structure blocks the app with the position instead of resetting it.
 {{/if}}

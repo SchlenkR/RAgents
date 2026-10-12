@@ -22,7 +22,7 @@ const appChat = (): ChatConnection => {
 
 const emptyMessages: never[] = [];
 
-const chatDisplay = "flex h-full min-h-0 w-full min-w-0 flex-col text-foreground";
+const chatDisplay = "flex h-full min-h-0 w-full min-w-0 flex-col text-foreground *:m-0";
 
 function ChatMessages(props: ComponentProps<typeof QuasselChatMessages>) {
   return <QuasselHost><QuasselChatMessages codeBlockOptions={chatCodeBlocks} {...props} /></QuasselHost>;

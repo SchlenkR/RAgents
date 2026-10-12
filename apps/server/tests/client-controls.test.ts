@@ -61,7 +61,12 @@ test("mini-app layouts compile through the installed SDK with typed content and 
       </UI.Grid>
       <UI.Stack direction="row"><UI.Button>Back</UI.Button><UI.Button>Next</UI.Button></UI.Stack>
     </UI.AppLayout>;
+    const Compact = () => <UI.AppLayout><UI.Stack>
+      <UI.Stack direction="row"><strong>Review notes</strong><UI.Badge variant="outline">Idle</UI.Badge></UI.Stack>
+      <p className="type-meta text-muted-foreground">Last activity: 10:00 | Checked: 10:05</p>
+    </UI.Stack></UI.AppLayout>;
     void App;
+    void Compact;
   `);
   assert.equal(result.valid, true, JSON.stringify(result.diagnostics));
 });

@@ -642,6 +642,10 @@ agents can publish a package of their run the same way with `ragents.global-apps
 `core`, `showcase`, and `developer`. Only explicitly declared functions such as coordinator
 notifications can start further model work.
 
+Small views use compact layout spacing. Ask for an item title and status on one row and related
+facts on one muted metadata line; the widget already supplies its title. Plain headings and
+paragraphs also receive readable sizes and spacing from the frame.
+
 Apps live in separate rooms beside the coordinator's `main` room in your hidden global run.
 "Reset conversation" starts a fresh coordinator conversation and keeps the apps and their
 state, logs, and triggers.
