@@ -1,5 +1,16 @@
 # Decisions
 
+## 2026-10-12: Frame defaults stop at library component boundaries
+
+Chapters: `spec/actor-programs.md` (Reusable UI building blocks), `spec/plugins.md` (UI library).
+
+The shared Card's child margin reset erased the host sign-in page's explicit spacing. Frame
+semantic defaults now exclude library roots marked with `data-slot` or `data-chat` and their
+descendants. Mini-app building blocks carry the same root marker as host controls. The compensating
+margin, list and typography resets are removed from cards, fields and mini-app controls; compact
+layout gaps remain. Browser coverage checks sign-in spacing, plain HTML rhythm, component interiors
+and explicit child margins, with screenshots kept in the system temp directory.
+
 ## 2026-10-12: Working subagent count uses tight spacing
 
 Chapter: `spec/plugins.md` (Run panel, Spacing).

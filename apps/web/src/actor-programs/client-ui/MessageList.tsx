@@ -23,7 +23,7 @@ export function MessageList({ messages, label = "Messages", className, ...props 
     bubble: { label: message.sender, color: message.color ?? senderColor(message.sender), side: message.side ?? "start" },
   })), [messages]);
   return (
-    <section aria-label={label} className={cn("flex h-full min-h-0 w-full min-w-0 flex-col text-foreground", className)}>
+    <section aria-label={label} className={cn("flex h-full min-h-0 w-full min-w-0 flex-col text-foreground", className)} data-slot="message-list">
       <QuasselHost><ChatMessages codeBlockOptions={chatCodeBlocks} {...props} detailMode="off" messages={rendered} /></QuasselHost>
     </section>
   );

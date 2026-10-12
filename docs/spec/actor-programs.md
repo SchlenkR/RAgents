@@ -410,12 +410,16 @@ lists, tables and other blocks have related spacing (2 units); headings and sect
 spacing (3 units). Lists retain markers and indentation, and table cells have token-based padding.
 These base selectors use `:where(...)` with zero specificity. Preflight occupies a lower base
 sublayer, so the defaults apply while component styles and Tailwind utilities always win.
+They apply only outside library boundaries: elements with `data-slot` (host and mini-app controls)
+or `data-chat` (chat controls), and all their descendants, keep their component styles and preflight
+defaults. Mini-app building blocks mark their roots with `data-slot`.
 
 `AppLayout` separates its header, content blocks and actions by 3 units and uses the same inset
 when nested; the frame supplies its root inset. `Stack` defaults to a 2-unit gap, `Grid` to 3;
-`gap="normal"` is 3 and `gap="large"` is 4. Layouts clear direct child margins to avoid adding
-semantic spacing to their gaps. Cards keep matching padding and gaps of 4 units, or 3 with
-`size="sm"`; `Badge` stays inline and compact. No layout props are needed for a usable rhythm.
+`gap="normal"` is 3 and `gap="large"` is 4. Layouts own their gaps without resetting child margins;
+explicit view utilities remain effective inside components. Cards keep matching padding and gaps
+of 4 units, or 3 with `size="sm"`; `Badge` stays inline and compact. No layout props are needed for
+a usable rhythm.
 Structured control lists retain marker-free rows; form hints, loading messages and diagram nodes
 keep their own utility spacing and type instead of inheriting semantic defaults.
 
@@ -428,6 +432,9 @@ plain and compact views through the client compiler and real frame bridge, check
 spacing and visual line counts, and writes screenshots only to the system temp directory.
 `RAGENTS_VIEW_SAMPLE` optionally supplies an unchanged external source for the plain view;
 without it the test uses the production sample's semantic structure with neutral English text.
+`access-browser.test.ts` uses the same flag to render the host sign-in page, checks visible spacing
+between its heading, description, fields and button, and writes screenshots to the system temp
+directory. Both tests cover light and dark themes at wide and narrow widths.
 
 The UI contract collector produces the same component names and declaration files in a checkout
 and in an installed npm package. Its TypeScript compiler host presents the package through a
