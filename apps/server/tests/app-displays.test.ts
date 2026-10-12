@@ -208,7 +208,10 @@ test("agents show and remove a named app by its name, never by an ID, with lean 
   assert.equal(await call("app_display_add", { app: "board", view: "Details" }), null);
   assert.equal(await call("app_display_add", { app: "Board", view: "detail" }), null, "a second request for the same view changes nothing");
   assert.deepEqual(displays.displays(DISPLAY).map(({ title, from, name, source }) => ({ title, from, name, view: source.view })), [{ title: "Details", from: "Global apps: board", name: "board", view: "detail" }]);
+  const programs = t.mock.method(f.programs, "programs");
   const { groups } = await displays.sources(alice, DISPLAY);
+  assert.equal(programs.mock.calls.filter((call) => call.arguments[0] === SOURCE).length, 1);
+  programs.mock.restore();
   assert.deepEqual(groups[0], { label: "Global apps", apps: [
     { title: "Board", detail: "board", runId: SOURCE, view: VIEW, shown: false },
     { title: "Details", detail: "board", runId: SOURCE, view: "board--detail", shown: true },

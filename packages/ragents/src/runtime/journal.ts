@@ -345,6 +345,10 @@ export class Journal {
             .map(([runId]) => runId);
     }
 
+    hasRun(runId: RunId): boolean {
+        return Boolean(this.#runs.get(runId)?.state);
+    }
+
     loadFailures(): readonly JournalLoadFailure[] {
         return [...this.#loadFailures.values()];
     }

@@ -31,7 +31,7 @@ const globalFixture = async (t: TestContext, options: TriggerFixtureOptions & { 
     isGlobalRun: isCoordinatorRunId,
     ensureGlobalRun: async (userAccess: AccessContext) => {
       const runId = coordinatorRunId(userAccess.user?.id ?? null);
-      if (!f.setup.runtime.listRuns().some((run) => run.id === runId)) {
+      if (!f.setup.runtime.hasRun(runId)) {
         const view = f.setup.runtime.createRun({ commandId: `global-space:${runId}` }, { runId, title: "Global coordinator", ownerHandle: "owner", ownerDisplayName: "Owner" });
         const created = f.setup.runtime.spawnAgent({ actorId: view.ownerId, commandId: "global-coordinator" }, runId, { handle: "coordinator", displayName: "Coordinator", prompt: "Coordinate", execution: f.setup.agent.execution, grants: allGrants(), toolNames: null });
         f.setup.runtime.selectPrimaryActor({ actorId: view.ownerId, commandId: "global-primary" }, runId, created.actors.find((actor) => actor.kind === "agent")!.id);
@@ -67,7 +67,10 @@ test("creation copies the package into its own room of the global run, where a m
   assert.equal(global.actors.find((actor) => actor.id === actorId)?.room, "check");
   assert.equal(global.rooms[0]?.origin, null);
   assert.equal(f.setup.runtime.listRuns().length, 2, "source and coordinator are the only runs");
+  const stateOf = t.mock.method(f.setup.journal, "stateOf");
   const listed = f.service.list(openAccess);
+  assert.deepEqual(stateOf.mock.calls.map((call) => call.arguments[0]), [G, G]);
+  stateOf.mock.restore();
   assert.deepEqual(listed.apps.map(({ name, program, input, status }) => ({ name, program, input, status })), [{ name: "check", program: app(), input: true, status: "ready" }]);
   assert.equal(Value.Check(globalAppsSnapshotSchema, f.service.snapshot(openAccess)), true);
   assert.deepEqual(f.service.named(openAccess), [{ name: "check", runId: G, actorId }], "displays in runs address the app by its name");

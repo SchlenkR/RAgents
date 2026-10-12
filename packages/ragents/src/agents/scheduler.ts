@@ -762,7 +762,7 @@ export class TurnScheduler {
     }
 
     #scanRun(runId: string) {
-        if (!this.#acceptsTurns(runId) || !this.#journal.stateOf(runId))
+        if (!this.#acceptsTurns(runId) || !this.#journal.hasRun(runId))
             return;
 
         const view = this.#runtime.view(runId);

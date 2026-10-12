@@ -216,7 +216,7 @@ export class RuntimeAskService implements AskService {
       if (event.type !== "action.resolved") continue;
       const { actionId, decision, result } = event.payload;
       const waiter = this.#waiters.get(actionId);
-      const resolved = waiter || !this.#aborting.has(actionId) ? this.#requireRuntime().state(event.runId).actions.get(actionId) : undefined;
+      const resolved = waiter || !this.#aborting.has(actionId) ? this.#requireRuntime().select(event.runId, (state) => state.actions.get(actionId)) : undefined;
       if (resolved?.owner !== ASK_PLUGIN_ID) continue;
       if (waiter) {
         waiter(() => outcomeOf(askPayloadOf(resolved.payload), decision, result));

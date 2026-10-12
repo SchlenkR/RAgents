@@ -57,12 +57,12 @@ export class GlobalAppsService {
 
   #assertGlobalRun(runId: string): void {
     this.#options.ensureRun(runId);
-    if (!this.#options.isGlobalRun(runId) || runId !== this.#options.globalRunIdFor(this.#runtime().state(runId).ownerUserId)) fail("global-apps-run-invalid", "The global space does not match its owner.");
+    if (!this.#options.isGlobalRun(runId) || runId !== this.#options.globalRunIdFor(this.#runtime().select(runId, (state) => state.ownerUserId))) fail("global-apps-run-invalid", "The global space does not match its owner.");
   }
 
   #run(access: AccessContext): string | undefined {
     const runId = this.#options.globalRunIdFor(ownerOf(access));
-    if (!this.#runtime().listRuns().some((run) => run.id === runId)) return undefined;
+    if (!this.#runtime().hasRun(runId)) return undefined;
     this.#assertGlobalRun(runId);
     return runId;
   }
@@ -99,13 +99,14 @@ export class GlobalAppsService {
     rights(access, "ragents.global-apps.read");
     const runId = this.#run(access);
     if (!runId) return { apps: [], errors: [], hasMore: false };
-    const markers = markersOf(this.#runtime().view(runId));
-    const programs = this.#options.programs.programs(runId);
+    const view = this.#runtime().view(runId);
+    const markers = markersOf(view);
+    const programs = this.#options.programs.programs(runId, view);
     const apps = markers.flatMap((marker) => {
       const program = marker.valid ? programs.find((entry) => entry.actorId === marker.actorId) : undefined;
       return program ? [{
         name: marker.name, actorId: marker.actorId, program: program.name, description: program.description, input: Boolean(program.input), triggers: program.triggers ?? {},
-        views: program.views.map(({ id, title }) => ({ id, title, revision: program.revision })), ...this.#options.programs.triggerProgress(runId, marker.actorId),
+        views: program.views.map(({ id, title }) => ({ id, title, revision: program.revision })), ...this.#options.programs.triggerProgress(runId, marker.actorId, view),
       }] : [];
     });
     const errors = markers.flatMap((marker) => !marker.valid ? [{ id: `invalid:${marker.actorId}`, name: marker.name, problem: "The app record is damaged. Remove the app and create it again." }]
@@ -125,7 +126,7 @@ export class GlobalAppsService {
     try {
       const runId = this.#run(access);
       const listed = this.list(access, MAX_APPS);
-      return { runId: runId ?? null, revision: runId ? this.#runtime().view(runId).revision : 0, apps: listed.apps, errors: listed.errors, problem: null };
+      return { runId: runId ?? null, revision: runId ? this.#runtime().select(runId, (state) => state.revision) : 0, apps: listed.apps, errors: listed.errors, problem: null };
     } catch (error) { return { runId: this.#options.globalRunIdFor(ownerOf(access)), revision: 0, apps: [], errors: [], problem: errorText(error) }; }
   }
 

@@ -260,7 +260,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
       provider: globalProfile.provider, model: globalProfile.model,
       thinking: globalProfile.thinking ?? checkedThinkingLevel(config.agentThinking, "AGENT_THINKING"),
     }, () => {
-      const kinds = journal.runIds().filter((runId) => globalChat.isCoordinator(runId) && journal.stateOf(runId)).flatMap((runId) => {
+      const kinds = journal.runIds().filter((runId) => globalChat.isCoordinator(runId)).flatMap((runId) => {
         const view = runtime.view(runId);
         const attachments = new Set(view.inputs.flatMap((input) => input.artifactIds));
         return view.artifacts.filter((artifact) => attachments.has(artifact.id)).map((artifact) => attachmentInputKind(artifact.mediaType));
@@ -449,7 +449,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     assertRunUsable: options.assertRunUsable,
     assertRunRights: (access: AccessContext, runId: string, kind: RunRightsKind) => assertRunRights(access, runId, kind, runAccess),
     projectView: (view: RunView, access: AccessContext) => accessibleRunView(view, access, options.plugins.accessProjections),
-    hasRun: (runId: string) => journal.stateOf(runId) !== null,
+    hasRun: (runId: string) => journal.hasRun(runId),
   };
   const methods = runtimeMethods({
     ...runtimeOptions,

@@ -52,6 +52,60 @@ const fakeContext = (rights: readonly string[]) => ({
   local: true,
 });
 
+test("actor program listings reuse one snapshot of the requested run", async (t) => {
+  const f = await actorProgramFixture(t);
+  await writeAppFiles(f.directory, "counter", counterFiles({views: true}));
+  await f.runtime.activate(f.context, f.runId, "counter", undefined, "@worker");
+  const program = f.runtime.programs(f.runId)[0]!;
+  f.setup.runtime.replaceActorState({...f.context, commandId: "counter-state"}, f.runId, program.actorId, {count: 42});
+  f.setup.runtime.createRun({commandId: "unrelated-run"}, {
+    title: "Unrelated", ownerHandle: "owner", ownerDisplayName: "Owner",
+    initialPluginStates: [{pluginId: "example.payload", state: {text: "x".repeat(100_000)}}],
+  });
+  const expectedApps = f.runtime.apps(f.runId);
+  const expectedTools = f.runtime.runLocalTools(f.runId);
+  const expectedList = f.runtime.list(f.runId, f.context.actorId);
+  const expectedIdentity = f.runtime.programOf(f.runId, program.actorId);
+  assert.equal(expectedApps.length, 2);
+  assert.equal(expectedApps.every((app) => app.state.values.count === 42), true);
+  assert.equal(expectedTools.length, 1);
+  const stateOf = t.mock.method(f.setup.journal, "stateOf");
+  const listRuns = t.mock.method(f.setup.runtime, "listRuns");
+  for (const read of [
+    () => assert.deepEqual(f.runtime.programs(f.runId), [program]),
+    () => assert.deepEqual(f.runtime.programOf(f.runId, program.actorId), expectedIdentity),
+    () => assert.deepEqual(f.runtime.apps(f.runId), expectedApps),
+    () => assert.deepEqual(f.runtime.apps(f.runId, program.actorId), expectedApps),
+    () => assert.deepEqual(f.runtime.runLocalTools(f.runId), expectedTools),
+    () => assert.deepEqual(f.runtime.list(f.runId, f.context.actorId), expectedList),
+    () => assert.deepEqual(f.runtime.resolveView(f.runId, "counter/main", f.context.actorId), {
+      reference: "counter/main", elementId: "counter--main", visible: true,
+    }),
+    () => assert.equal(f.runtime.resolveActor(f.runId, f.context.actorId, "@worker").id, program.actorId),
+  ]) {
+    stateOf.mock.resetCalls();
+    read();
+    assert.deepEqual(stateOf.mock.calls.map((call) => call.arguments[0]), [f.runId]);
+  }
+  stateOf.mock.resetCalls();
+  assert.deepEqual(f.runtime.programs("missing"), []);
+  assert.equal(f.runtime.programOf("missing", program.actorId), undefined);
+  assert.deepEqual(f.runtime.apps("missing"), []);
+  assert.deepEqual(f.runtime.runLocalTools("missing"), []);
+  assert.equal(stateOf.mock.callCount(), 0);
+  assert.deepEqual(f.runtime.data(f.runId, program.actorId), expectedApps[0]!.state);
+  assert.equal(stateOf.mock.callCount(), 0);
+  const snapshot = f.setup.runtime.view(f.runId);
+  stateOf.mock.resetCalls();
+  assert.deepEqual(f.runtime.programs(f.runId, snapshot), [program]);
+  assert.equal(f.runtime.triggerProgress(f.runId, program.actorId, snapshot).status, "ready");
+  assert.equal(stateOf.mock.callCount(), 0);
+  const status = await f.runtime.triggers.status(f.runId, program.actorId);
+  assert.deepEqual(status.state, {count: 42});
+  assert.deepEqual(stateOf.mock.calls.map((call) => call.arguments[0]), [f.runId]);
+  assert.equal(listRuns.mock.callCount(), 0);
+});
+
 test("restricted operators can poll mini-app actions while actor function methods stay protected", async (t) => {
   const f = await actorProgramFixture(t);
   await writeAppFiles(f.directory, "counter", counterFiles({views: true}));

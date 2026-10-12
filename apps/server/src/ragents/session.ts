@@ -184,7 +184,7 @@ export class RunChatSession implements ChatSessionLike {
   }
 
   get startLocked(): boolean {
-    return this.#engine.journal.stateOf(this.id) !== null;
+    return this.#engine.journal.hasRun(this.id);
   }
 
   startOptions(userId: string | null): readonly StartOptionState[] {
@@ -329,7 +329,7 @@ export class RunChatSession implements ChatSessionLike {
 
   actorConversations(): ActorConversations {
     this.#assertUsable(this.id);
-    if (!this.#engine.journal.stateOf(this.id)) throw new DomainError("run-not-found", "The run does not exist.", 404);
+    if (!this.#engine.journal.hasRun(this.id)) throw new DomainError("run-not-found", "The run does not exist.", 404);
     return actorChatHistoryOf(this.#engine.runtime.view(this.id), this.#engine.runtime.events(this.id));
   }
 
@@ -433,7 +433,7 @@ export class RunChatSession implements ChatSessionLike {
     }
     for (const controller of this.#scriptStarts) controller.abort(new DomainError("run-start-aborted", "The start was cancelled by the operator.", 409));
     try {
-      if (this.#engine.journal.stateOf(this.id)) {
+      if (this.#engine.journal.hasRun(this.id)) {
         await this.#engine.stopRun(this.id, {
           commandId: `chat-stop:${randomUUID()}`,
           reason: "Emergency stop by the operator",
@@ -856,7 +856,7 @@ export class RunChatSession implements ChatSessionLike {
 
   #createRunIfNeeded(title: string, user: ChatUser | undefined, choice: StartChoice): void {
     this.#assertUsable(this.id);
-    const isNewRun = !this.#engine.journal.stateOf(this.id);
+    const isNewRun = !this.#engine.journal.hasRun(this.id);
     if (isNewRun) {
       const sharing = user ? this.#pendingSharing.get(user.id) : undefined;
       this.#engine.runtime.createRun(
@@ -937,7 +937,7 @@ export class RunChatSession implements ChatSessionLike {
   #persistStartupSelections(choice: StartChoice): void {
     const state = this.#engine.runtime.state(this.id);
     for (const entry of this.#engine.startOptions.entries()) {
-      if (storedStartOption(this.#engine.journal.stateOf(this.id), entry.option.id) !== undefined) continue;
+      if (this.#engine.journal.select(this.id, (state) => storedStartOption(state, entry.option.id)) !== undefined) continue;
       this.#engine.runtime.replacePluginState(
         { actorId: state.ownerId, commandId: `start-option:${entry.option.id}:${this.id}` },
         this.id,
@@ -1028,7 +1028,7 @@ export class RunChatSession implements ChatSessionLike {
         if (!primaryActorId) continue;
         if ((event.type === "turn.finished" || event.type === "turn.interrupted")
           && this.#liveTurns.has(event.payload.turnId)
-          && this.#engine.runtime.state(this.id).turns.get(event.payload.turnId)?.actorId === primaryActorId) this.#journalFinishedTurns.add(event.payload.turnId);
+          && this.#engine.runtime.select(this.id, (state) => state.turns.get(event.payload.turnId)?.actorId) === primaryActorId) this.#journalFinishedTurns.add(event.payload.turnId);
         if (live) continue;
         for (const chatEvent of chatEventsOf(event, this.#scope(primaryActorId), cursor, this.#pluginStates)) this.#emit(chatEvent);
       }
@@ -1041,7 +1041,7 @@ export class RunChatSession implements ChatSessionLike {
   }
 
   #syncPrimaryActor(): string | undefined {
-    if (!this.#engine.journal.stateOf(this.id)) {
+    if (!this.#engine.journal.hasRun(this.id)) {
       this.#clearPrimaryActor();
       return undefined;
     }
@@ -1077,12 +1077,12 @@ export class RunChatSession implements ChatSessionLike {
     return {
       conversationId: this.#conversationStart(primaryActorId).eventId,
       primaryActorId,
-      ownerId: this.#engine.runtime.state(this.id).ownerId,
-      labelOf: (actorId) => this.#engine.runtime.state(this.id).actors.get(actorId)?.displayName,
+      ownerId: this.#engine.runtime.select(this.id, (state) => state.ownerId),
+      labelOf: (actorId) => this.#engine.runtime.select(this.id, (state) => state.actors.get(actorId)?.displayName),
       scriptActorHandle: (actorId) => this.#actorPrograms.isScriptActor(this.id, actorId)
         ? this.#engine.runtime.select(this.id, (state) => { const actor = state.actors.get(actorId); return actor && addressOf(actor); }) : undefined,
       turnOf: (turnId) => {
-        const turn = this.#engine.runtime.state(this.id).turns.get(turnId);
+        const turn = this.#engine.runtime.select(this.id, (state) => state.turns.get(turnId));
         if (!turn) throw new Error(`The turn ${turnId} is missing from run ${this.id}`);
         return turn;
       },
@@ -1104,12 +1104,11 @@ export class RunChatSession implements ChatSessionLike {
         return handle;
       },
       interruptedByCommand: (commandId, actorId) => {
-        const turns = this.#engine.runtime.state(this.id).turns;
-        return this.#engine.runtime.events(this.id).some((event) => event.commandId === commandId
-          && event.type === "turn.interrupted" && turns.get(event.payload.turnId)?.actorId === actorId);
+        return this.#engine.runtime.select(this.id, (state) => this.#engine.runtime.events(this.id).some((event) => event.commandId === commandId
+          && event.type === "turn.interrupted" && state.turns.get(event.payload.turnId)?.actorId === actorId));
       },
       attachmentOf: (artifactId) => {
-        const artifact = this.#engine.runtime.state(this.id).artifacts.get(artifactId);
+        const artifact = this.#engine.runtime.select(this.id, (state) => state.artifacts.get(artifactId));
         if (!artifact) throw new Error(`The attachment ${artifactId} is missing`);
         return this.#attachmentInfo(artifact);
       },

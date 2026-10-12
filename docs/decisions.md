@@ -1,5 +1,16 @@
 # Decisions
 
+## 2026-10-12: Run listings read summaries without cloning run states
+
+Chapter: `spec/core.md` (Journal and projection); no documented contract changes.
+
+Listing every run cloned its complete journal projection, and actor program existence checks
+repeated that listing for individual inputs. Summaries now select only their fields from the
+journal, with no additional cache. Direct existence checks replace listings in actor programs,
+global apps, and read-only app displays. Actor program reads reuse one view across programs,
+actor data, and invocations; reads after writes or asynchronous work remain fresh. Deterministic
+tests count complete state reads and verify summary isolation and unavailable runs.
+
 ## 2026-10-12: New dock windows split the largest visible window
 
 Chapter: `spec/plugins.md` (Docking workspace, Run panel); usage: `usage.md` (Run panel and VS Code

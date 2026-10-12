@@ -78,6 +78,14 @@ export class AppDisplays {
   async sources(access: AccessContext, runId: string): Promise<{ groups: AppDisplayGroup[] }> {
     const runs = await this.#options.runs(access);
     const shown = this.displays(runId);
+    const programs = new Map<string, readonly ActorProgramDefinition[]>();
+    const programsFor = (sourceRunId: string) => {
+      const found = programs.get(sourceRunId);
+      if (found) return found;
+      const entries = this.#options.programs.programs(sourceRunId);
+      programs.set(sourceRunId, entries);
+      return entries;
+    };
     const choices = (sourceRunId: string, programs: readonly ActorProgramDefinition[], detail: (program: ActorProgramDefinition, view: ActorViewDefinition) => string | null) =>
       programs.flatMap((program) => program.views.filter((view) => view.visible).map((view) => ({
         title: short(view.title), detail: detail(program, view), runId: sourceRunId, view: view.id,
@@ -86,11 +94,11 @@ export class AppDisplays {
     const named = this.#options.programs.namedAppSources().map((source) => ({
       label: source.label,
       apps: source.apps(access).filter((app) => app.runId !== runId && this.#readable(access, app.runId))
-        .flatMap((app) => choices(app.runId, this.#options.programs.programs(app.runId).filter((program) => program.actorId === app.actorId), () => app.name)),
+        .flatMap((app) => choices(app.runId, programsFor(app.runId).filter((program) => program.actorId === app.actorId), () => app.name)),
     }));
     const others = runs.filter((run) => run.id !== runId && !run.locked).map((run) => ({
       label: short(run.title),
-      apps: choices(run.id, this.#options.programs.programs(run.id), (program, view) => program.title !== view.title ? short(program.title) : null),
+      apps: choices(run.id, programsFor(run.id), (program, view) => program.title !== view.title ? short(program.title) : null),
     }));
     return { groups: [...named, ...others].filter((group) => group.apps.length > 0).slice(0, MAX_SOURCE_GROUPS) };
   }
@@ -183,7 +191,7 @@ export class AppDisplays {
     const { source } = display;
     const gone = (message: string): AppDisplaySnapshot => ({ status: "removed", title: display.title, from: display.from, message });
     try {
-      if (!this.#options.runtime().listRuns().some((run) => run.id === source.runId)) return gone("The app's run no longer exists.");
+      if (!this.#options.runtime().hasRun(source.runId)) return gone("The app's run no longer exists.");
       const program = this.#options.programs.programs(source.runId).find((entry) => entry.actorId === source.actorId);
       if (!program) return gone("The app was removed from its run.");
       const view = program.views.find((entry) => entry.key === source.view);

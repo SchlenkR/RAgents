@@ -86,18 +86,18 @@ export class Orchestration {
     }
 
     listRuns() {
-        return this.#journal.runIds().map((runId) => {
-            const state = this.state(runId);
+        return this.#journal.runIds().map((runId) => this.select(runId, (state) => ({
+            id: state.id,
+            revision: state.revision,
+            title: state.title,
+            createdAt: state.createdAt,
+            forkedFrom: state.forkedFrom,
+            actors: state.actors.size,
+        })));
+    }
 
-            return {
-                id: state.id,
-                revision: state.revision,
-                title: state.title,
-                createdAt: state.createdAt,
-                forkedFrom: state.forkedFrom,
-                actors: state.actors.size,
-            };
-        });
+    hasRun(runId: string): boolean {
+        return this.#journal.hasRun(runId) && this.#journal.failureOf(runId) === null;
     }
 
     get actorProgramLifecycle() { return this.#services.actorPrograms; }
@@ -200,7 +200,7 @@ export class Orchestration {
             return this.view(existing.runId);
         }
 
-        if (input.runId && this.#journal.stateOf(input.runId))
+        if (input.runId && this.#journal.hasRun(input.runId))
             throw new DomainError("run-exists", `Run ${input.runId} already exists.`, 409);
 
         const runId = input.runId ?? this.#services.newId("run");

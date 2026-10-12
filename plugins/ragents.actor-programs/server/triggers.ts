@@ -55,7 +55,7 @@ const validState = (value: unknown): value is TriggerState => {
   return (state.nextDueAt === null) === (state.nextDueReason === null)
     && [state.nextDueAt, state.lastRunAt, state.backoffUntil, state.lastResult?.at, state.accepted?.scheduledAt].every((at) => at === null || at === undefined || Number.isFinite(Date.parse(at)));
 };
-const storedOf = (view: RunView, actorId: string): Stored => {
+const storedOf = (view: Pick<RunView, "pluginStates">, actorId: string): Stored => {
   const entry = view.pluginStates.find((candidate) => candidate.pluginId === ACTOR_TRIGGERS_STATE_ID && candidate.scope.kind === "actor" && candidate.scope.actorId === actorId);
   if (!entry || entry.state === null) return { kind: "none" };
   return validState(entry.state) ? { kind: "valid", state: entry.state } : { kind: "damaged" };
@@ -125,9 +125,9 @@ export const triggerProgressOf = (runtime: Orchestration, view: RunView, actorId
 };
 
 /** The bounded recent input log of an actor from ordinary output and failure events; nothing is stored twice. */
-const recentLog = (runtime: Orchestration, runId: string, actorId: string, limit: number): { log: ActorProgramLogLine[]; droppedLogLines: number } => {
-  const turns = new Set(runtime.view(runId).turns.filter((turn) => turn.actorId === actorId).map((turn) => turn.id));
-  return runtime.events(runId).reduce((ring, event) => {
+const recentLog = (runtime: Orchestration, view: RunView, actorId: string, limit: number): { log: ActorProgramLogLine[]; droppedLogLines: number } => {
+  const turns = new Set(view.turns.filter((turn) => turn.actorId === actorId).map((turn) => turn.id));
+  return runtime.events(view.id).reduce((ring, event) => {
     if (event.type !== "runtime.output.recorded" && event.type !== "turn.finished" && event.type !== "turn.interrupted") return ring;
     if (!turns.has(event.payload.turnId)) return ring;
     const reason = event.type === "turn.interrupted" ? event.payload.reason : event.type === "turn.finished" && event.payload.outcome === "failed" ? event.payload.reason : null;
@@ -201,17 +201,17 @@ export class ProgramTriggers {
     return this.#options.programsOf(view).find((program) => program.actorId === actorId) ?? fail("program-not-active", "The actor has no active program.", 404);
   }
 
-  progress(runId: string, actorId: string): ActorTriggerProgress {
-    const view = this.#view(runId);
+  progress(runId: string, actorId: string, view = this.#view(runId)): ActorTriggerProgress {
     return triggerProgressOf(this.#runtime(), view, actorId, this.#failures.get(runId) ?? null, this.#options.programsOf(view).find((program) => program.actorId === actorId), this.#now());
   }
 
   async status(runId: string, actorId: string, logLimit = 20): Promise<ActorProgramStatus> {
     const view = this.#view(runId);
     const program = this.#program(view, actorId);
-    const state = view.pluginStates.find((entry) => entry.pluginId === ACTOR_STATE_ID && entry.scope.kind === "actor" && entry.scope.actorId === actorId)?.state;
     const sandbox = program.isolated ? await this.#options.sandboxFor(runId, program) ? "process" as const : "disabled" as const : null;
-    return { ...this.progress(runId, actorId), triggers: program.triggers ?? {}, permissions: program.permissions ?? {}, sandbox, state: structuredClone(state ?? {}), ...recentLog(this.#runtime(), runId, actorId, logLimit) };
+    const current = program.isolated ? this.#view(runId) : view;
+    const state = current.pluginStates.find((entry) => entry.pluginId === ACTOR_STATE_ID && entry.scope.kind === "actor" && entry.scope.actorId === actorId)?.state;
+    return { ...this.progress(runId, actorId, current), triggers: program.triggers ?? {}, permissions: program.permissions ?? {}, sandbox, state: structuredClone(state ?? {}), ...recentLog(this.#runtime(), current, actorId, logLimit) };
   }
 
   /** One manual occurrence now, also while paused; never beside another accepted occurrence of the same program. */
@@ -223,7 +223,7 @@ export class ProgramTriggers {
       const program = this.#program(view, actorId);
       const stored = storedOf(view, actorId);
       if (stored.kind === "damaged") fail("trigger-state-damaged", "The trigger state is damaged. Resume the triggers to plan them again.");
-      await this.#accept(runId, program, stored.kind === "valid" ? stored.state : this.#planned(program, undefined), "manual", this.#at());
+      await this.#accept(runId, program, stored.kind === "valid" ? stored.state : this.#planned(program, undefined), "manual", this.#at(), view);
       this.#arm();
       return { accepted: true as const };
     });
@@ -255,12 +255,16 @@ export class ProgramTriggers {
 
   #write(runId: string, actorId: string, state: TriggerState): void {
     const runtime = this.#runtime();
-    runtime.replacePluginState({ actorId: runtime.state(runId).ownerId, commandId: `actor-program-triggers:${randomUUID()}` }, runId,
+    runtime.replacePluginState({ actorId: runtime.select(runId, (state) => state.ownerId), commandId: `actor-program-triggers:${randomUUID()}` }, runId,
       { pluginId: ACTOR_TRIGGERS_STATE_ID, scope: { kind: "actor", actorId }, state: state as unknown as JsonValue });
   }
 
+  #stored(runId: string, actorId: string): Stored {
+    return this.#runtime().select(runId, (state) => storedOf({ pluginStates: [...state.pluginStates.values()] }, actorId));
+  }
+
   #current(runId: string, actorId: string): TriggerState | undefined {
-    const stored = storedOf(this.#view(runId), actorId);
+    const stored = this.#stored(runId, actorId);
     return stored.kind === "valid" ? stored.state : undefined;
   }
 
@@ -268,8 +272,7 @@ export class ProgramTriggers {
     return this.#options.programsOf(view).filter((program) => acceptedTriggerOf(view, program.actorId)).length;
   }
 
-  async #accept(runId: string, program: ActorProgramDefinition, state: TriggerState, reason: ActorTriggerReason, scheduledAt: string): Promise<void> {
-    const view = this.#view(runId);
+  async #accept(runId: string, program: ActorProgramDefinition, state: TriggerState, reason: ActorTriggerReason, scheduledAt: string, view = this.#view(runId)): Promise<void> {
     if (this.#closed || this.#stopped.has(runId) || view.pause) fail("trigger-blocked", "The run is paused or stopped.");
     if (!program.input) fail("trigger-without-input", "This program has no onInput handler for trigger inputs.");
     if (state.accepted) fail("trigger-busy", "The program already has an accepted trigger input.");
@@ -286,24 +289,26 @@ export class ProgramTriggers {
   #enqueue(runId: string, actorId: string, occurrence: Occurrence): void {
     const runtime = this.#runtime();
     if (inputFor(runtime, this.#view(runId), occurrence.commandId)) return;
-    runtime.enqueueInput({ actorId: runtime.state(runId).ownerId, commandId: occurrence.commandId }, runId, { actorId, presentation: "background", content: `Trigger: ${occurrence.reason}.` });
+    runtime.enqueueInput({ actorId: runtime.select(runId, (state) => state.ownerId), commandId: occurrence.commandId }, runId, { actorId, presentation: "background", content: `Trigger: ${occurrence.reason}.` });
   }
 
   async #settle(runId: string, program: ActorProgramDefinition, state: TriggerState, accepted: Occurrence): Promise<void> {
     const runtime = this.#runtime();
-    if (!inputFor(runtime, this.#view(runId), accepted.commandId)) {
+    const view = this.#view(runId);
+    if (!inputFor(runtime, view, accepted.commandId)) {
       if (state.problem) return;
       await this.#options.prepareRun(runId);
       this.#enqueue(runId, program.actorId, accepted);
       return;
     }
-    const turn = turnFor(runtime, this.#view(runId), accepted.commandId);
+    const turn = turnFor(runtime, view, accepted.commandId);
     if (!turn) return;
     if (turn.status === "running") {
-      if (this.#now() >= Date.parse(turn.startedAt) + timeoutOf(program)) await this.#options.interrupt(runId, program.actorId, DEADLINE_REASON);
-      if (turnFor(runtime, this.#view(runId), accepted.commandId)?.status === "running") return;
+      if (this.#now() < Date.parse(turn.startedAt) + timeoutOf(program)) return;
+      await this.#options.interrupt(runId, program.actorId, DEADLINE_REASON);
     }
-    const finished = turnFor(runtime, this.#view(runId), accepted.commandId)!;
+    const finished = turn.status === "running" ? turnFor(runtime, this.#view(runId), accepted.commandId)! : turn;
+    if (finished.status === "running") return;
     const outcome = finished.reason === DEADLINE_REASON ? "timeout" : finished.status === "completed" ? "completed" : finished.status === "interrupted" ? "interrupted" : "failed";
     const at = finished.finishedAt ?? this.#at();
     const result: ActorTriggerResult = { outcome, at, summary: (outcome === "completed" ? lastOutput(runtime, runId, finished.id) || "Completed." : finished.reason ?? "The trigger input failed.").slice(0, 1000) };
@@ -352,7 +357,7 @@ export class ProgramTriggers {
       catch (error) { this.#blocked(runId, program.actorId, error); }
     }
     for (const program of programs) {
-      const stored = storedOf(this.#view(runId), program.actorId);
+      const stored = this.#stored(runId, program.actorId);
       if (stored.kind === "damaged" || (stored.kind === "none" ? !program.triggers && !program.stateAware : stored.state.schedule === scheduleOf(program))) continue;
       this.#write(runId, program.actorId, this.#planned(program, stored.kind === "valid" ? stored.state : undefined));
     }
@@ -364,10 +369,11 @@ export class ProgramTriggers {
         return stored.kind === "valid" && at !== null && at <= this.#now() ? [{ program, state: stored.state, at }] : [];
       }).sort((left, right) => left.at - right.at || left.program.name.localeCompare(right.program.name));
       for (const { program, state } of due) {
-        if (this.#activeCount(this.#view(runId)) >= MAX_ACTIVE) break;
+        const current = this.#view(runId);
+        if (this.#activeCount(current) >= MAX_ACTIVE) break;
         try {
-          const { reason, scheduledAt } = this.#reasonOf(this.#view(runId), program, state);
-          await this.#accept(runId, program, state, reason, scheduledAt);
+          const { reason, scheduledAt } = this.#reasonOf(current, program, state);
+          await this.#accept(runId, program, state, reason, scheduledAt, current);
         }
         catch (error) { this.#failed(runId, program.actorId, error); }
       }

@@ -180,7 +180,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     });
     for (const id of this.deleted) {
       if (this.deleteRequested.has(id)) continue;
-      if (this.engine.journal.stateOf(id) || existsSync(layout.sessionDir(id))) {
+      if (this.engine.journal.hasRun(id) || existsSync(layout.sessionDir(id))) {
         throw new Error(`Archived run ${id} has active data again`);
       }
     }
@@ -276,7 +276,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       prompt: () => engine.systemPromptFor(id),
       assertUsable: (runId) => {
         this.ensureConversationUsable(runId);
-        if (!globalPolicy || !engine.journal.stateOf(runId)) return;
+        if (!globalPolicy || !engine.journal.hasRun(runId)) return;
         const view = engine.runtime.view(runId);
         const primary = view.actors.find((actor) => actor.id === view.primaryActorId);
         if (primary && primary.kind !== "human" && (primary.toolNames === null
@@ -560,7 +560,7 @@ export class RunSessionProvider implements ChatSessionProvider {
   }
 
   hasRun(id: string): boolean {
-    return this.requireEngine().journal.stateOf(id) !== null;
+    return this.requireEngine().journal.hasRun(id);
   }
 
   subscribeRun(id: string, listener: () => void): () => void {
@@ -796,7 +796,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     const engine = this.requireEngine();
     assertRunIdFree({
       runId: id,
-      known: Boolean(engine.journal.stateOf(id) || engine.journal.failureOf(id)) || this.deleted.has(id) || this.deleteRequested.has(id),
+      known: engine.journal.hasRun(id) || engine.journal.failureOf(id) !== null || this.deleted.has(id) || this.deleteRequested.has(id),
       directories: [path.join(layout.runsDir, id), layout.sessionDir(id), layout.archiveSessionDir(id)],
     });
   }
@@ -838,7 +838,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     }
     const intent = await this.validateGlobalResetIntent(intentFile, id);
     await this.sessions.get(id)?.settle();
-    if (engine.journal.stateOf(id)) {
+    if (engine.journal.hasRun(id)) {
       const session = this.openSession(id, undefined, true);
       await session.resetConversation(intent.key, intent.oldActorId);
     }
@@ -881,7 +881,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       .then(() => this.deleteInner(id))
       .catch(async (error: unknown) => {
         if (this.deleteRequested.has(id)) {
-          const failure = this.engine?.journal.stateOf(id)
+          const failure = this.engine?.journal.hasRun(id)
             ? await this.engine.scheduler.stopRun(id).then(() => error, (stopError: unknown) => new AggregateError([error, stopError]))
             : error;
           this.deleteFailures.set(id, {
@@ -965,7 +965,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     const session = this.sessions.get(id);
     const workspace = this.sessionWorkspaces.get(id);
     session?.dispose();
-    const journalUnavailable = engine.journal.failureOf(id) !== null && engine.journal.stateOf(id) === null;
+    const journalUnavailable = engine.journal.failureOf(id) !== null && !engine.journal.hasRun(id);
     const stopped = await Promise.allSettled([
       session?.drain() ?? Promise.resolve(),
       journalUnavailable ? Promise.resolve() : engine.scheduler.stopRun(id),

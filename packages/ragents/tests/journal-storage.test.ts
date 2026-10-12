@@ -340,6 +340,9 @@ for (const failure of ["partial write", "fsync"] as const) {
         assert.doesNotThrow(() => journal.adopt([]));
         assert.notDeepEqual(journal.stateOf(other.id), otherState);
         assert.throws(() => runtime.state(run.id), { code: "journal-unavailable", status: 409 });
+        assert.equal(journal.hasRun(run.id), true);
+        assert.equal(runtime.hasRun(run.id), false);
+        assert.deepEqual(runtime.listRuns().map((entry) => entry.id), [other.id]);
         assert.equal(readFileSync(path, "utf8"), failedContent);
         journal.close();
 

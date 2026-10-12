@@ -85,6 +85,35 @@ const start = (runtime: Orchestration, view: RunView, actorId: string, name: str
     return { view: running, input, turnId: actor.lifecycle.turnId };
 };
 
+test("run summaries and existence checks do not clone complete run states", (t) => {
+    const { journal, runtime, view } = create();
+    t.after(() => journal.close());
+    const worker = spawn(runtime, view, "worker").actor;
+    runtime.enqueueInput({ actorId: view.ownerId, commandId: "large-input" }, view.id, {
+        actorId: worker.id, content: "x".repeat(100_000),
+    });
+    const source = runtime.view(view.id);
+    const fork = runtime.forkRun({ commandId: "summary-fork" }, view.id, source.revision);
+    const expected = [source, fork].map((run) => ({
+        id: run.id, revision: run.revision, title: run.title, createdAt: run.createdAt,
+        forkedFrom: run.forkedFrom, actors: run.actors.length,
+    }));
+    const stateOf = t.mock.method(journal, "stateOf");
+    const summaries = runtime.listRuns();
+    assert.deepEqual(summaries, expected);
+    assert.equal(runtime.hasRun(source.id), true);
+    assert.equal(journal.hasRun(source.id), true);
+    assert.equal(runtime.hasRun("missing"), false);
+    assert.equal(journal.hasRun("missing"), false);
+    assert.equal(stateOf.mock.callCount(), 0);
+    summaries[1]!.forkedFrom!.sequence = 0;
+    assert.deepEqual(runtime.listRuns(), expected);
+    journal.forget(fork.id);
+    assert.equal(runtime.hasRun(fork.id), false);
+    assert.deepEqual(runtime.listRuns(), [expected[0]]);
+    assert.equal(stateOf.mock.callCount(), 0);
+});
+
 test("a v3 run is reconstructed from actor, input, turn and event records", () => {
     const { journal, runtime, view } = create();
     const worker = spawn(runtime, view, "worker", [], view.ownerId, undefined, []).actor;
