@@ -394,13 +394,19 @@ workspace. Narrow panels can also wrap fixed controls.
 **Start** is a dashboard of widgets over the full width of the window: **New**, **Continue**, and those that plugins add,
 all of them widgets of the same kind. What fits
 depends on the width of Start itself, not of the window, so a narrow VS Code panel behaves like a
-narrow window. From 1100 pixels Start has six columns and every widget is as many of them wide as
-it is set to, New two and Continue four. In the saved order, every widget takes the topmost free place
+narrow window. From 1100 pixels Start has six columns and every widget starts at its configured
+width, New two and Continue four. In the saved order, every widget takes the topmost free place
 where its width and content height fit, then the leftmost. Later widgets can fill room above a wider
 widget placed lower: with Continue three columns wide and a global app four columns wide below it,
-New two columns wide fits at columns four and five beside Continue. Empty widgets take no room. From
-700 pixels Start has three columns and every widget takes half its columns, rounded up, so New and
-Continue still share a row. When a widget's content grows, the widgets below it move down with it. Below 700 pixels Start shows one widget at a time with tabs at the top;
+New two columns wide starts at columns four and five beside Continue. Empty widgets take no room. From
+700 pixels Start has three columns and every widget starts at half its configured columns, rounded up,
+so New and Continue still share a row. After placing the widgets, Start grows them to the right into
+free columns, top to bottom and left to right, up to each widget's maximum width. The added space
+must be free for the widget's full content height. For example, with New set to three columns,
+Continue to two beside it, and a three-column plugin widget below New, Continue grows to three
+columns and fills the sixth column. Your configured width stays the minimum; this growth changes
+only the width shown, never the saved layout. When a widget's content grows, the widgets below it
+move down with it. Tabs and one-column layouts keep their behavior. Below 700 pixels Start shows one widget at a time with tabs at the top;
 the chosen tab is remembered for this server address. A plugin widget without a title follows
 below the tabs, and a widget with nothing to show has neither a place nor a tab.
 
@@ -414,7 +420,9 @@ way as you drag, without sliding when your system reduces motion; drag its right
 change its width: the columns of Start appear as guides, a label at the pointer shows the width
 ("4 of 6 columns"), and the width snaps to each column between the narrowest and widest the widget
 allows, while the other widgets reflow; Escape during the drag puts the width back. The title row
-shows the width, such as "2 of 6"; "x" removes the widget from Start. "Add widget" after the widgets opens a gallery of every widget
+shows the grown width, such as "2 of 6". Dragging the edge and resizing with the keyboard start
+from that shown width; a drag that reaches no other column keeps your configured width.
+"x" removes the widget from Start. "Add widget" below the widgets opens a gallery of every widget
 that is not on Start, each with a short description and its width; choosing one adds it at the end
 in its usual width. "Reset layout" goes back to the order, widths, and settings Start comes with. With the
 keyboard, focus a widget's handle: the arrow keys move it, Shift with Left or Right makes it one

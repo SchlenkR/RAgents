@@ -360,6 +360,43 @@ const center = async (page: Page, locator: ReturnType<Page["locator"]>) => {
   return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
 };
 
+test("grown widths fill Start in view and edit modes and resizing begins at the shown width", browserOnly, async () => {
+  await withPage(1500, "case=owner", async (page) => {
+    const preference = { version: 3, order: ["start.new", "start.continue", "demo.topics"], columns: { "start.new": 3, "start.continue": 2 }, removed: [], settings: {} };
+    await page.evaluate((value) => localStorage.setItem("start-dashboard-fixture:start.layout", JSON.stringify(value)), preference);
+    await page.reload();
+    await loaded(page);
+    const spans = () => page.locator("[data-start-widget]:not([hidden])").evaluateAll((cells) => cells.map((cell) => Number((cell as HTMLElement).dataset.shownColumns)));
+    assert.deepEqual(await spans(), [3, 3, 3]);
+    checkPacked(await packedCells(page), "grown view");
+    await edit(page);
+    assert.deepEqual(await spans(), [3, 3, 3]);
+    assert.equal(await page.locator('[data-start-widget="start.continue"] [data-widget-columns]').textContent(), "3 of 6");
+    checkPacked(await packedCells(page), "grown edit");
+    const edge = await center(page, grip(page, "start.continue"));
+    await page.mouse.move(edge.x, edge.y);
+    await page.mouse.down();
+    assert.equal(await page.locator("[data-resize-label]").textContent(), "3 of 6 columns");
+    await page.mouse.up();
+    assert.equal(await size(page, "start.continue"), 2, "a stationary drag keeps the configured width");
+    await page.getByRole("button", { name: "Done", exact: true }).click();
+    await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
+    assert.deepEqual(await writes(page), [{ ...preference, order: [] }], "saving keeps configured widths and omits the default order");
+    await edit(page);
+    await page.getByRole("button", { name: "Move Continue", exact: true }).focus();
+    await page.keyboard.press("Shift+ArrowRight");
+    assert.equal(await size(page, "start.continue"), 4, "one keyboard step grows from three shown columns to four");
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await edit(page);
+    const grid = await gridOf(page);
+    const from = await center(page, grip(page, "start.continue"));
+    await drag(page, from, { x: from.x - grid.pitch * 0.6, y: from.y }, async () => {
+      assert.equal(await page.locator("[data-resize-label]").textContent(), "2 of 6 columns", "the pointer target also starts from the grown span");
+    });
+    assert.equal(await size(page, "start.continue"), 2);
+  });
+});
+
 const controlNames = (page: Page) => page.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label") ?? button.textContent ?? "")
   .filter((name) => /^(Move|Remove|Arrange|Add) |^(Add widget|Customize|Done|Cancel)$/.test(name)));
 

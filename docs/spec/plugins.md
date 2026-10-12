@@ -1599,13 +1599,14 @@ Instead, plugins fill typed slots for:
   calls `render` inside a component of its own, so `render` returns elements and leaves state and effects
   to the components it renders, whose types stay the same across renders and snapshots. With `title` the
   host draws the widget's frame, a `SectionHeading` title row above the content, and gives it a tab on a
-  narrow dashboard. `columns` is its width in columns of Start's six-column grid, a whole number from 1
+  narrow dashboard. `columns` is its minimum shown width in columns of Start's six-column grid, a whole number from 1
   to 6, by default 6. The widget's body is a size container named `widget`, so the content adapts to
   the widget's own width with Tailwind's `@container` variants (`@md/widget:`, or plain `@md:` for the
   nearest container). Without `title` a widget owns its heading and spacing, fills a whole row, stays
   below the tabs on a narrow dashboard, and is not arranged in edit mode. `description` is one sentence
   for the widget gallery of Start's edit mode. `minColumns` and `maxColumns` (by default 1 and 6) bound
-  the widths the viewer may choose there; the resize handle and the keyboard offer only these. A width
+  the widths the viewer may choose there; the resize handle and the keyboard offer only these. After
+  packing, a widget grows right into free columns up to `maxColumns`, without changing its configured width. A width
   field, `description`, or `settings` without `title`, a blank `title` or `description`, an `order` that
   is not a finite number, a missing `render`, a width that is not a whole number from 1 to 6, and
   `columns` outside `minColumns` to `maxColumns` (the default 6 included) break the rules that
@@ -3493,8 +3494,8 @@ and name none of them. Its layout follows the width of the
 dashboard's own container, measured with a `ResizeObserver`, not the window, because a VS Code panel is
 often narrow on a wide screen. `dashboardLayout` in `panel/dashboard-layout.ts` decides it: from
 1100 pixels (`DASHBOARD_WIDE_FROM`) the grid has six columns (`DASHBOARD_COLUMNS`) and every widget
-takes exactly its columns; from 700 pixels (`DASHBOARD_TABS_BELOW`) the grid has three columns and a
-widget takes half its columns, rounded up (`shownColumns`); a widget without a title always takes all
+takes at least its configured columns; from 700 pixels (`DASHBOARD_TABS_BELOW`) the grid has three columns and a
+widget starts at half its configured columns, rounded up (`shownColumns`); a widget without a title always takes all
 columns. Both column and row gaps use the page step (12 units), also between stacked regions in tabs
 and the narrow edit list. Column lengths and resize guides share `--start-gap-x`; packing and resize
 snapping read the grid's computed gaps. Widgets keep their own content heights and pack into free rectangles (`packWidgets`): in their
@@ -3502,9 +3503,17 @@ order, each takes the topmost place where its columns and its own height fit amo
 already placed, with a row gap above and below widgets in the same columns, then the leftmost place
 among equal tops (tops within half a pixel count as equal). Later widgets can fill room above a lower,
 wider widget. With Continue three columns wide, a global app four columns wide below it, empty Topics,
-and New two columns wide in that order, New takes columns four and five at the top beside Continue.
-A widget without height, such as an empty section, takes no place. `packCells` reads the cells as rendered, in order with their
-columns (`data-columns`) and heights, and writes each cell's `left` and `top` and the grid's height;
+and New two columns wide in that order, New starts at columns four and five at the top beside Continue.
+A widget without height, such as an empty section, takes no place. After placing all widgets,
+`packWidgets` processes them top to bottom, then left to right, and grows each to the right into
+directly adjacent free columns. Every added column must be free for the widget's full height,
+including the row gap to other widgets, and growth stops at the grid edge or its `maxColumns`
+converted with `shownColumns`. With New configured to three columns, Continue to two beside it,
+and a three-column plugin widget below New, Continue shows three columns and fills the sixth column.
+Configured widths remain the minimum and stored preferences do not change. Tabs and one-column grids
+retain their layout. `packCells` reads the cells as rendered, in order with their minimum columns
+(`data-columns`), maximum columns (`data-max-columns`), and heights, and writes each cell's width,
+`data-shown-columns`, `left`, and `top`, its edit width label, and the grid's height;
 the cells are absolutely positioned in the grid, their width is a share of its width less the column gaps
 (`--start-gap-x`), and their DOM order stays the widget order, which is also the focus order. Packing runs
 after every render of the dashboard and from a `ResizeObserver` on the cells, both before the browser
@@ -3534,7 +3543,7 @@ works on a draft: the mode indicator (group "Edit Start" with "Editing Start", a
 layout", "Cancel", and "Done") replaces the Edit row; "Done" saves, "Cancel" and Escape (outside a
 dialog or a running drag) discard the draft, and focus returns to Edit. At 700 pixels and more the
 grid stays and every framed widget gets a dashed outline that leaves its geometry unchanged, a title
-row with the drag handle (`Move <title>`), its width as shown columns of the grid ("2 of 6", "1 of 3"),
+row with the drag handle (`Move <title>`), its grown width as shown columns of the grid ("2 of 6", "1 of 3"),
 and "x" (`Remove <title>`), and a resize handle on its right edge when the grid can show it in more
 than one width; its body stays mounted but is `inert` and
 dimmed, and a widget with nothing to show appears with "Nothing to show right now.". Dragging the
@@ -3550,22 +3559,24 @@ the others re-pack around it, and a label with its title follows the pointer. Th
 (`data-resize-handle`) covers the whole right edge in a 20-pixel strip that ends before the title row's
 "x" and carries a grip on the outline; hovering the widget or the edge colors them. Dragging it shows
 the grid's columns as guides (`data-column-guides`) and a label with the target width
-("4 of 6 columns") at the pointer, adds the columns the pointer moved to the width at the start of the
+("4 of 6 columns") at the pointer, adds the columns the pointer moved to the shown width at the start of the
 drag, snaps at the middle of each column within `minColumns` and `maxColumns` (`draggedColumns`), and
 re-packs live with the same free-rectangle rule; a widget that no longer fits beside its neighbors
 moves to the topmost place where its columns and height fit. At three columns the edge
 snaps to the columns shown and stores the most of the six columns that show that width, or keeps the
 stored columns when they already do (`resizedColumns`), so every step is visible. Release commits the
-width to the draft. Pointer handling is the
+width to the draft only when the pointer reaches another shown column; starting a drag without
+changing columns keeps the configured width. Pointer handling is the
 shared `usePointerDrag` (`lib/pointer-drag.ts`, also used by the dock): pointer capture on the grid,
 Escape, `pointercancel`, and leaving the window end a drag and restore the draft from its start, and a
 drag that a second pointer starts ends the running one the same way, so moving and resizing never share
 a pointer.
-"Add widget" follows the widgets as a dashed tile two columns wide (one at three columns); its dialog (`Add widget`) lists
+"Add widget" follows below the packed grid as a dashed tile two columns wide (one at three columns),
+so it cannot block widget growth in edit mode; its dialog (`Add widget`) lists
 every framed widget that is not on the dashboard as `Add <title>` with its description and width
 ("Width: 2 of 6 columns, adjustable from 1 to 3"); choosing one adds it at the end in its default width. The drag handle also
 takes the keyboard (described by a hidden hint): the arrow keys move the widget one place in the widget
-order (the grid re-packs), also with Shift and Up or Down, Shift with Left or Right changes the width by one column of the grid shown
+order (the grid re-packs), also with Shift and Up or Down, Shift with Left or Right starts at the grown width and changes it by one column of the grid shown
 (`resizedColumns`), and Delete or Backspace removes it; a polite live region announces
 each change, the ends ("already at its widest"), and saving, and focus follows the moved widget or, after a removal, the next
 handle. Below 700 pixels edit mode is a vertical list of rows with handle, title, "Move <title> up",

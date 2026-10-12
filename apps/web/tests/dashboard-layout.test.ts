@@ -13,12 +13,12 @@ const layoutAt = (items: readonly DashboardItem[], width: number | undefined) =>
   return layout.mode === "grid" ? { grid: layout.grid, columns: items.map((item) => layout.columns.get(item.key)) } : undefined;
 };
 
-test("a wide dashboard has six columns and gives every widget exactly its columns, also alone in a row", () => {
+test("a wide dashboard has six columns and uses configured widths as each widget's minimum", () => {
   assert.deepEqual(layoutAt(start, 1280), { grid: 6, columns: [2, 4] });
   assert.deepEqual(layoutAt(start, DASHBOARD_WIDE_FROM), { grid: 6, columns: [2, 4] });
   assert.deepEqual(layoutAt(start, undefined), { grid: 6, columns: [2, 4] }, "without a measurement Start assumes a wide screen");
   assert.deepEqual(layoutAt([1, 2, 3, 4, 5, 6].map((columns) => widget(`w${columns}`, columns)), 2560)!.columns, [1, 2, 3, 4, 5, 6]);
-  assert.deepEqual(layoutAt([widget("lonely", 2), widget("legacy", 2, false)], 1400)!.columns, [2, 6], "a row with space left keeps it, and a section without a title fills its row");
+  assert.deepEqual(layoutAt([widget("lonely", 2), widget("legacy", 2, false)], 1400)!.columns, [2, 6], "packing starts at the configured width, and a section without a title fills its row");
 });
 
 test("medium widths have three columns and a widget takes half its columns, rounded up", () => {
@@ -50,24 +50,24 @@ test("a declared width defaults to the whole row and every width, and anything S
 test("a resize drag snaps to the nearest column edge within the widget's range", () => {
   const continueWidth = { columns: 4, minColumns: 2, maxColumns: 6 };
   const pitch = 200;
-  assert.equal(draggedColumns(continueWidth, 6, 0, pitch), 4);
-  assert.equal(draggedColumns(continueWidth, 6, -99, pitch), 4, "less than half a column keeps the width");
-  assert.equal(draggedColumns(continueWidth, 6, -101, pitch), 3, "past half a column snaps to the next one");
-  assert.equal(draggedColumns(continueWidth, 6, -400, pitch), 2);
-  assert.equal(draggedColumns(continueWidth, 6, -900, pitch), 2, "never below minColumns");
-  assert.equal(draggedColumns(continueWidth, 6, 380, pitch), 6);
-  assert.equal(draggedColumns(continueWidth, 6, 2000, pitch), 6, "never beyond maxColumns");
-  assert.equal(draggedColumns({ columns: 2, minColumns: 2, maxColumns: 6 }, 6, 210, pitch), 3);
-  assert.equal(draggedColumns({ columns: 3, minColumns: 1, maxColumns: 4 }, 6, 900, pitch), 4);
+  assert.equal(draggedColumns(continueWidth, 6, 0, pitch, 4), 4);
+  assert.equal(draggedColumns(continueWidth, 6, -99, pitch, 4), 4, "less than half a column keeps the width");
+  assert.equal(draggedColumns(continueWidth, 6, -101, pitch, 4), 3, "past half a column snaps to the next one");
+  assert.equal(draggedColumns(continueWidth, 6, -400, pitch, 4), 2);
+  assert.equal(draggedColumns(continueWidth, 6, -900, pitch, 4), 2, "never below minColumns");
+  assert.equal(draggedColumns(continueWidth, 6, 380, pitch, 4), 6);
+  assert.equal(draggedColumns(continueWidth, 6, 2000, pitch, 4), 6, "never beyond maxColumns");
+  assert.equal(draggedColumns({ columns: 2, minColumns: 2, maxColumns: 6 }, 6, 210, pitch, 2), 3);
+  assert.equal(draggedColumns({ columns: 3, minColumns: 1, maxColumns: 4 }, 6, 900, pitch, 3), 4);
 });
 
 test("at medium widths resizing moves in the three columns shown and stores the most columns that show the width", () => {
   const newWidth = { columns: 2, minColumns: 2, maxColumns: 6 };
-  assert.equal(draggedColumns(newWidth, 3, 0, 400), 2);
-  assert.equal(draggedColumns(newWidth, 3, 410, 400), 4, "one shown column more is two of six");
-  assert.equal(draggedColumns(newWidth, 3, 810, 400), 6);
-  assert.equal(draggedColumns({ columns: 3, minColumns: 1, maxColumns: 6 }, 3, 100, 400), 3, "columns that already show the width stay");
-  assert.equal(draggedColumns({ columns: 3, minColumns: 1, maxColumns: 6 }, 3, -400, 400), 2);
+  assert.equal(draggedColumns(newWidth, 3, 0, 400, 1), 2);
+  assert.equal(draggedColumns(newWidth, 3, 410, 400, 1), 4, "one shown column more is two of six");
+  assert.equal(draggedColumns(newWidth, 3, 810, 400, 1), 6);
+  assert.equal(draggedColumns({ columns: 3, minColumns: 1, maxColumns: 6 }, 3, 100, 400, 2), 3, "columns that already show the width stay");
+  assert.equal(draggedColumns({ columns: 3, minColumns: 1, maxColumns: 6 }, 3, -400, 400, 2), 2);
   assert.equal(resizedColumns({ columns: 2, minColumns: 1, maxColumns: 3 }, 2, 3), 3, "maxColumns bounds the stored columns");
   assert.equal(resizedColumns({ columns: 4, minColumns: 3, maxColumns: 6 }, 1, 3), 4, "a width below minColumns is not reachable");
   assert.equal(shownColumns(5, 3), 3);
@@ -80,9 +80,54 @@ test("keyboard steps change the width by one shown column and stop at the range"
   assert.deepEqual([step(2, 1, 3), step(4, 1, 3), step(4, -1, 3), step(3, 1, 3, { minColumns: 1, maxColumns: 6 })], [4, 6, 2, 6]);
 });
 
-const item = (key: string, columns: number, height: number): PackItem => ({ key, columns, height });
+const item = (key: string, columns: number, height: number, maxColumns = 6): PackItem => ({ key, columns, height, maxColumns });
 const GAP = 30;
 const places = (items: readonly PackItem[], grid = 6) => packWidgets(items, grid, GAP).widgets.map(({ key, column, top }) => `${key}@${column},${top}`);
+
+test("packing fills the sixth column beside Continue without changing configured widths", () => {
+  const items = Object.freeze([Object.freeze(item("new", 3, 200)), Object.freeze(item("continue", 2, 500)), Object.freeze(item("plugin", 3, 300))]);
+  const expected = { widgets: [
+    { key: "new", column: 0, columns: 3, top: 0 },
+    { key: "continue", column: 3, columns: 3, top: 0 },
+    { key: "plugin", column: 0, columns: 3, top: 230 },
+  ], height: 530 };
+  assert.deepEqual(packWidgets(items, 6, GAP), expected);
+  assert.deepEqual(packWidgets(items, 6, GAP), expected, "the same input produces the same growth");
+  assert.deepEqual(items.map(({ columns }) => columns), [3, 2, 3]);
+});
+
+test("growth stops at maxColumns even when more columns are free", () => {
+  assert.deepEqual(packWidgets([item("bounded", 2, 100, 3)], 6, GAP), {
+    widgets: [{ key: "bounded", column: 0, columns: 3, top: 0 }], height: 100,
+  });
+});
+
+test("growth cannot fill a column that a lower widget occupies within its full height", () => {
+  const items = [item("first", 4, 200, 4), item("second", 5, 100, 5), item("short", 2, 50, 2),
+    item("right", 1, 350, 1), item("target", 4, 350), item("lower", 2, 200, 2)];
+  const packed = packWidgets(items, 6, GAP);
+  assert.deepEqual(packed.widgets.find(({ key }) => key === "target"), { key: "target", column: 0, columns: 4, top: 360 });
+  assert.deepEqual(packed.widgets.find(({ key }) => key === "lower"), { key: "lower", column: 4, columns: 2, top: 460 });
+  assert.equal(packed.height, 710);
+});
+
+test("growth preserves tabs mode and one-column grids", () => {
+  assert.deepEqual(dashboardLayout(start, 600), { mode: "tabs" });
+  assert.deepEqual(packWidgets([item("one", 1, 50), item("two", 1, 70)], 1, GAP), {
+    widgets: [{ key: "one", column: 0, columns: 1, top: 0 }, { key: "two", column: 0, columns: 1, top: 80 }], height: 150,
+  });
+});
+
+test("resizing starts at the grown width and preserves the preference until a column changes", () => {
+  const width = Object.freeze({ columns: 2, minColumns: 1, maxColumns: 6 });
+  assert.equal(draggedColumns(width, 6, 0, 200, 3), 2);
+  assert.equal(draggedColumns(width, 6, -99, 200, 3), 2);
+  assert.equal(draggedColumns(width, 6, -101, 200, 3), 2);
+  assert.equal(draggedColumns(width, 6, 101, 200, 3), 4);
+  assert.equal(draggedColumns(width, 3, 201, 400, 2), 6);
+  assert.equal(resizedColumns(width, 3 + 1, 6), 4, "keyboard resizing also starts at the grown span");
+  assert.equal(width.columns, 2);
+});
 
 test("packing puts a widget under a short one beside a tall one instead of below the whole row", () => {
   const owner = [item("new", 3, 200), item("topics", 3, 500), item("continue", 3, 300)];
