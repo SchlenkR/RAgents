@@ -3,13 +3,17 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
-import { createAccessContext, DomainError, Journal, LiveBus, Orchestration, SessionMetadataContributionRegistry, type AccessContext } from "@ragents/engine";
+import { createAccessContext, DomainError, Journal, LiveBus, Orchestration, PluginHost, SessionMetadataContributionRegistry, unrestrictedAccess, type AccessContext } from "@ragents/engine";
 import { testServices } from "../../../packages/ragents/tests/support.ts";
 import { coreContracts } from "../src/api/contracts.ts";
 import { coreMethods } from "../src/api/core-methods.ts";
 import type { Engine } from "../src/ragents/engine.ts";
 import { coreSources, methodContext } from "./rpc-fixture.ts";
 import { workspaceListDetail } from "../../../plugins/ragents.workspace/server/binding.ts";
+import { actorProgramFixture, counterFiles } from "./actor-programs-fixture.ts";
+import { writeAppFiles } from "./actor-runtime-fixture.ts";
+import { plugin as workspacePlugin } from "../../../plugins/ragents.workspace/server/index.ts";
+import { executorContributionsToken, hostAddressToken, runtimeProviderToken, runOwnerAccessToken, userAccessToken, runGuardToken, runWorkspaceProviderToken, workspaceGuardToken } from "../src/ragents/host-services.ts";
 import { withCurrentLabel } from "../../../plugins/ragents.workspace/contract.ts";
 
 // The run list shows foreign runs that only their owner operates, without any contribution reaching their workspace.
@@ -172,4 +176,43 @@ test("a workstation shows its current label, the stored one only while it is not
   assert.equal(withCurrentLabel(binding, undefined), binding);
   const server = { machine: "server" as const, folder: "fresh" as const };
   assert.equal(withCurrentLabel(server, "Notebook"), server);
+});
+
+test("the list with workspace metadata and an actor program never clones complete run state", async (t) => {
+  const f = await actorProgramFixture(t);
+  await writeAppFiles(f.directory, "counter", counterFiles());
+  await f.runtime.activate(f.context, f.runId, "counter");
+  const program = f.runtime.programs(f.runId)[0]!;
+  f.setup.runtime.replacePluginState({ ...f.context, commandId: "large-unrelated-state" }, f.runId,
+    { pluginId: "example.large", scope: { kind: "run" }, state: { text: "x".repeat(1_000_000) } });
+  const { provider, journal } = await fixture();
+  t.after(() => journal.close());
+  const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: directory });
+  host.register({ manifest: { id: "test.services" }, register: (registration) => {
+    registration.provide(runtimeProviderToken, () => f.setup.runtime);
+    registration.provide(executorContributionsToken, []);
+    registration.provide(hostAddressToken, () => undefined);
+    registration.provide(runOwnerAccessToken, (runId) => { provider.runOwner(runId); return unrestrictedAccess; });
+    registration.provide(userAccessToken, () => unrestrictedAccess);
+    registration.provide(runGuardToken, () => {});
+    registration.provide(workspaceGuardToken, () => {});
+    registration.provide(runWorkspaceProviderToken, async () => { throw new Error("The list must not prepare a workspace"); });
+    registration.sessionMetadata({ id: "test.program", describe: ({ runId }) => f.runtime.programOf(runId, program.actorId) });
+  } });
+  host.register(workspacePlugin.create(host));
+  host.seal();
+  t.after(() => host.lifecycle.shutdown());
+  Object.assign(provider, { engine: { journal: f.setup.journal, runtime: f.setup.runtime, scheduler: { isRunning: () => false } } });
+  Object.assign(provider.plugins, { sessionMetadata: host.sessionMetadata, startOptions: host.startOptions });
+  const expected = await provider.list();
+  assert.equal(expected.length, 1);
+  assert.ok(expected[0].metadata?.["ragents.workspace"]);
+  assert.equal((expected[0].metadata?.["test.program"] as { name: string }).name, "counter");
+  const stateOf = t.mock.method(f.setup.journal, "stateOf");
+  assert.deepEqual(await provider.list(), expected);
+  assert.equal(provider.runOwner(f.runId), null);
+  provider.runSharing(f.runId);
+  provider.runOwnerOnly(f.runId);
+  provider.markViewed(f.runId, expected[0].revision!, null);
+  assert.equal(stateOf.mock.callCount(), 0);
 });

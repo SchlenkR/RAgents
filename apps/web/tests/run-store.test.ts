@@ -18,11 +18,10 @@ interface PendingRequest {
 function fixture(t: TestContext) {
   const encoder = new TextEncoder();
   const requests: PendingRequest[] = [];
-  const timers = new Map<number, () => void>();
+  t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 10_000 });
+  const visibility = Object.assign(new EventTarget(), { visibilityState: "visible" });
   const closers: (() => void)[] = [];
   t.after(() => { for (const close of closers) close(); });
-  let timerId = 0;
-  let timerCount = 0;
   let deliver: ((chunk: string) => void) | undefined;
   const channels: string[] = [];
   const answer = (id: number, result: unknown) => Response.json({ jsonrpc: "2.0", id, result });
@@ -33,10 +32,7 @@ function fixture(t: TestContext) {
     },
   });
   for (const [key, value] of Object.entries({
-    window: {
-      setTimeout: (callback: () => void) => { timers.set(++timerId, callback); timerCount += 1; return timerId; },
-      clearTimeout: (id: number) => { if (timers.delete(id)) timerCount -= 1; },
-    },
+    document: visibility,
   })) {
     const previous = Object.getOwnPropertyDescriptor(globalThis, key);
     Object.defineProperty(globalThis, key, { configurable: true, value });
@@ -75,14 +71,16 @@ function fixture(t: TestContext) {
     deliver?.(`data: ${JSON.stringify({ jsonrpc: "2.0", method: "rpc.event", params: { subscription: channels[channel], channel: "ragents.run", message: { kind } } })}\n\n`);
     await settled();
   };
-  const tick = async () => {
-    const callbacks = [...timers.values()];
-    timers.clear();
-    timerCount = 0;
-    for (const callback of callbacks) callback();
+  const tick = async (ms = 2000) => {
+    t.mock.timers.tick(ms);
     await settled();
   };
-  return { requests, views, errors, conversations, subscribe, emit, settled, tick, timers: { get size() { return timerCount; } } };
+  const visible = async (state: string) => {
+    visibility.visibilityState = state;
+    visibility.dispatchEvent(new Event("visibilitychange"));
+    await settled();
+  };
+  return { requests, views, errors, conversations, subscribe, emit, settled, tick, visible };
 }
 
 test("slow run responses stay visible during continuous channel events", async (t) => {
@@ -96,12 +94,14 @@ test("slow run responses stay visible during continuous channel events", async (
   f.requests[0]!.resolve({ id: "new-run", revision: 1 });
   await f.settled();
   assert.deepEqual(f.views, [{ id: "new-run", revision: 1 }]);
+  await f.tick(0);
   assert.equal(f.requests.length, 2, "all intermediate events result in one follow-up request");
   await f.emit("run");
   await f.tick();
   f.requests[1]!.resolve({ id: "new-run", revision: 2 });
   await f.settled();
   assert.equal(f.views.length, 2);
+  await f.tick(0);
   assert.equal(f.requests.length, 3);
 });
 
@@ -113,6 +113,7 @@ test("a run that has not started yet is loaded even on an early ready event", as
   f.requests[0]!.resolve(null);
   await f.settled();
   assert.deepEqual(f.views, [undefined]);
+  await f.tick(0);
   f.requests[1]!.resolve({ id: "new-run" });
   await f.settled();
   assert.deepEqual(f.views, [undefined, { id: "new-run" }]);
@@ -123,7 +124,6 @@ test("unsubscribing discards late responses and already queued channel events", 
   const close = await f.subscribe("old-run");
   await f.emit("run");
   close();
-  assert.equal(f.timers.size, 0);
   await f.subscribe("new-run");
   f.requests[1]!.resolve({ id: "new-run" });
   await f.settled();
@@ -191,4 +191,26 @@ test("actor history failures are visible and do not replace an existing history"
   await f.settled();
   assert.deepEqual(f.conversations, [{}]);
   assert.equal(f.errors.at(-1), undefined);
+});
+
+test("hiding during a run query defers actor history until one visible refresh", async (t) => {
+  const f = fixture(t);
+  await f.subscribe("trace-run", true);
+  await f.visible("hidden");
+  f.requests[0].resolve({ id: "trace-run", revision: 4 });
+  await f.settled();
+  for (let index = 0; index < 10; index++) await f.emit("run");
+  await f.tick(10_000);
+  assert.equal(f.requests.length, 1);
+  assert.deepEqual(f.views, []);
+  await f.visible("visible");
+  await f.tick(0);
+  assert.equal(f.requests.length, 2);
+  f.requests[1].resolve({ id: "trace-run", revision: 5 });
+  await f.settled();
+  assert.equal(f.requests[2].method, "ragents.chat.actorHistory");
+  f.requests[2].resolve({ revision: 5, actors: {} });
+  await f.settled();
+  assert.deepEqual(f.views, [{ id: "trace-run", revision: 5 }]);
+  assert.deepEqual(f.conversations, [{}]);
 });

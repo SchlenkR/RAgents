@@ -1,5 +1,19 @@
 # Decisions
 
+## 2026-10-13: Bound browser refresh work and select narrow run data
+
+Chapters: `spec/core.md` (Model context across turns; Journal and projection), `spec/plugins.md`
+(Web as plugin host; document store; actor conversations); operations: `operations.md` (Data storage and logs).
+
+An open tab repeatedly cloned complete run states through list metadata and access checks, then
+reloaded full actor histories for every journal nudge. Hot reads now select only their required
+data, and actor history projection indexes its lookups. Journal events and session status push
+throttled list notices, allowing a thirty-second safety poll. Shared browser refresh scheduling
+coalesces changes, spaces request starts by two seconds, permits one request at a time, and
+refreshes stale data when a hidden page becomes visible. The documents poll also pauses while
+hidden. Session contexts retain only the latest 100 plugin events. Event loop delay warnings
+make sustained server blocking visible without adding caches or changing public APIs.
+
 ## 2026-10-13: Forward explicit outbound TCP targets for one managed launch
 
 Chapter: `spec/plugins.md` (Workspace, sandbox tools, and processes; Server process sandbox);

@@ -48,7 +48,7 @@ export class AppDisplays {
   constructor(options: AppDisplaysOptions) { this.#options = options; }
 
   displays(runId: string): readonly AppDisplay[] {
-    const entry = this.#options.runtime().view(runId).pluginStates.find((item) => item.pluginId === APP_DISPLAYS_STATE_ID && item.scope.kind === "run");
+    const entry = this.#options.runtime().select(runId, (state) => [...state.pluginStates.values()].find((item) => item.pluginId === APP_DISPLAYS_STATE_ID && item.scope.kind === "run"));
     if (!entry) return [];
     if (!Value.Check(appDisplayStateSchema, entry.state)) throw new Error(`The app displays of this run are damaged: ${schemaComplaints(appDisplayStateSchema, entry.state)}`);
     return entry.state.displays;
@@ -58,7 +58,7 @@ export class AppDisplays {
     const state = { version: 1, displays: [...displays] };
     if (!Value.Check(appDisplayStateSchema, state)) throw new Error(`The app displays do not match their contract: ${schemaComplaints(appDisplayStateSchema, state)}`);
     const runtime = this.#options.runtime();
-    runtime.replacePluginState({ actorId: runtime.state(runId).ownerId, commandId: `app-display:${randomUUID()}` }, runId, { pluginId: APP_DISPLAYS_STATE_ID, scope: { kind: "run" }, state: jsonValue(state, "App displays") });
+    runtime.replacePluginState({ actorId: runtime.select(runId, (state) => state.ownerId), commandId: `app-display:${randomUUID()}` }, runId, { pluginId: APP_DISPLAYS_STATE_ID, scope: { kind: "run" }, state: jsonValue(state, "App displays") });
   }
 
   #named(access: AccessContext): readonly Named[] {

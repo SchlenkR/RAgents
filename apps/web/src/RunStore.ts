@@ -3,6 +3,7 @@ import { coreContracts } from "@ragents/host/api/contracts";
 import { getActorConversations, getRunView } from "./api";
 import type { Message } from "quassel/events";
 import { rpc } from "./rpc";
+import { refreshOnChange } from "./lib/refresh-on-change";
 
 export interface RunStoreState {
   error: string | undefined;
@@ -33,54 +34,32 @@ export function subscribeRunView(
   setConversations?: (conversations: Record<string, Message[]> | undefined) => void,
 ): () => void {
   let disposed = false;
-  let refreshing = false;
-  let pending = false;
-  const refresh = async () => {
-    if (disposed) return;
-    if (refreshing) {
-      pending = true;
-      return;
-    }
-    refreshing = true;
-    do {
-      pending = false;
-      try {
-        const next = await getRunView(sessionId);
+  const refresh = refreshOnChange(async () => {
+    try {
+      const next = await getRunView(sessionId);
+      if (disposed || document.visibilityState === "hidden") return;
+      if (setConversations) {
+        const conversations = next === undefined ? undefined : await getActorConversations(sessionId);
         if (disposed) return;
-        if (setConversations) {
-          const conversations = next === undefined ? undefined : await getActorConversations(sessionId);
-          if (disposed) return;
-          setConversations(conversations);
-        }
-        setView(next);
-        setError(undefined);
-      } catch (caught) {
-        if (disposed) return;
-        setError(caught instanceof Error ? caught.message : String(caught));
+        setConversations(conversations);
       }
-    } while (pending);
-    refreshing = false;
-  };
-  void refresh();
-  let scheduled: number | undefined;
-  const nudge = () => {
-    if (disposed || scheduled !== undefined) return;
-    scheduled = window.setTimeout(() => {
-      scheduled = undefined;
-      void refresh();
-    }, 250);
-  };
+      setView(next);
+      setError(undefined);
+    } catch (caught) {
+      if (!disposed) setError(caught instanceof Error ? caught.message : String(caught));
+    }
+  });
   const unsubscribe = rpc.subscribe(coreContracts.channels.run, { runId: sessionId }, (message) => {
     if (disposed) return;
     if (message.kind === "ready") setError(undefined);
-    nudge();
+    refresh.nudge();
   }, () => {
     if (!disposed) setError("The run's live stream is unreachable");
   });
   return () => {
     if (disposed) return;
     disposed = true;
-    if (scheduled !== undefined) window.clearTimeout(scheduled);
+    refresh.dispose();
     unsubscribe();
   };
 }

@@ -25,6 +25,8 @@ import {
 } from "../contract.js";
 import type { WorkspaceClientRegistry } from "./clients.js";
 
+export type WorkspaceRunState = Pick<RunState, "ownerUserId" | "pluginStates">;
+
 const machineSchema = Type.Union([
   Type.Literal("server"),
   Type.Object({ client: Type.String({ minLength: 8, maxLength: 64 }), label: Type.String() }, { additionalProperties: false }),
@@ -57,7 +59,7 @@ export const workstationRunFolder = (runsDirectory: string, runId: string): stri
 };
 
 /** The binding of a run; without a stored choice the new folder on the server, an unreadable one blocks the run with a cause. */
-export const bindingOf = (state: RunState | null): WorkspaceBinding => {
+export const bindingOf = (state: WorkspaceRunState | null): WorkspaceBinding => {
   const stored = storedStartOption(state, WORKSPACE_BINDING_OPTION_ID);
   if (stored === undefined) return freshServerBinding();
   const binding = storedWorkspaceBinding(stored);
@@ -71,10 +73,10 @@ export const isWorkstationBinding = (binding: WorkspaceBinding): binding is Work
   binding.machine !== "server" && binding.folder !== "fresh";
 
 /** A run uses only workstations of its owner, a run without an owner only those signed in without a user. */
-export const workspaceOwnerOf = (state: RunState | null): string | null => state?.ownerUserId ?? null;
+export const workspaceOwnerOf = (state: WorkspaceRunState | null): string | null => state?.ownerUserId ?? null;
 
 /** The existing folder on the server machine that the run is bound to; a new folder and a workstation are not there. */
-export const boundServerDirectory = (state: RunState | null): string | null => {
+export const boundServerDirectory = (state: WorkspaceRunState | null): string | null => {
   const { machine, folder } = bindingOf(state);
   return machine === "server" && folder !== "fresh" ? folder.path : null;
 };
@@ -116,7 +118,7 @@ export const freshLabels = (contribution: WorkspaceResolver | undefined): FreshW
 });
 
 /** The run's binding with the current label of its workstation. */
-export const currentBindingOf = (registry: WorkspaceClientRegistry, state: RunState | null): WorkspaceBinding => {
+export const currentBindingOf = (registry: WorkspaceClientRegistry, state: WorkspaceRunState | null): WorkspaceBinding => {
   const binding = bindingOf(state);
   return binding.machine === "server" ? binding : withCurrentLabel(binding, registry.info(workspaceOwnerOf(state), binding.machine.client)?.label);
 };

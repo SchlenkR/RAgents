@@ -234,7 +234,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     view(runId: string): RunView { return this.runtime().view(runId); }
     ownerId(runId: string): string { return this.runtime().select(runId, (state) => state.ownerId); }
     operatorContext(runId: string, label = "operation"): CommandContext { return { actorId: this.ownerId(runId), commandId: `actor-program:${label}:${randomUUID()}` }; }
-    programsOf(view: RunView, actorId?: string): ActorProgramDefinition[] {
+    programsOf(view: Pick<RunView, "pluginStates" | "actors">, actorId?: string): ActorProgramDefinition[] {
         return view.pluginStates.flatMap((entry) => {
             if (entry.pluginId !== ACTOR_PROGRAMS_STATE_ID || entry.scope.kind !== "actor" || actorId !== undefined && entry.scope.actorId !== actorId)
                 return [];
@@ -244,7 +244,14 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             return state.program && actor && actor.kind !== "human" && actor.lifecycle.kind !== "stopped" ? [state.program] : [];
         });
     }
-    programs(runId: string, view?: RunView): ActorProgramDefinition[] { return this.runtime().hasRun(runId) ? this.programsOf(view ?? this.view(runId)) : []; }
+    programs(runId: string, view?: RunView): ActorProgramDefinition[] {
+        if (!this.runtime().hasRun(runId))
+            return [];
+        return view ? this.programsOf(view) : this.runtime().select(runId, (state) => this.programsOf({
+            pluginStates: [...state.pluginStates.values()].filter((entry) => entry.pluginId === ACTOR_PROGRAMS_STATE_ID),
+            actors: [...state.actors.values()],
+        }));
+    }
     triggerProgress(runId: string, actorId: string, view?: RunView): ActorTriggerProgress { return this.triggers.progress(runId, actorId, view); }
     actor(runId: string, actorId: string, view = this.view(runId)): ExecutableActor {
         const actor = view.actors.find((candidate) => candidate.id === actorId);
@@ -289,7 +296,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const local = keyOf(room, wanted);
         return exists(local) || !(exists(wanted) || this.#options.sharedPackage(wanted)) ? local : wanted;
     }
-    data(runId: string, actorId: string, view?: RunView): ActorDataState {
+    data(runId: string, actorId: string, view?: Pick<RunView, "pluginStates">): ActorDataState {
         const values = view ? view.pluginStates.find((item) => item.pluginId === ACTOR_STATE_ID && item.scope.kind === "actor" && item.scope.actorId === actorId)?.state
             : this.runtime().select(runId, (state) => [...state.pluginStates.values()].find((item) => item.pluginId === ACTOR_STATE_ID && item.scope.kind === "actor" && item.scope.actorId === actorId)?.state);
         const revision = this.runtime().events(runId).filter((event) => (event.type === "plugin.state-replaced" || event.type === "plugin.state-patched") && event.payload.pluginId === ACTOR_STATE_ID && event.payload.scope.kind === "actor" && event.payload.scope.actorId === actorId).at(-1)?.sequence ?? 0;
@@ -731,13 +738,17 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     programOf(runId: string, actorId: string): ActorProgramIdentity | undefined {
         if (!this.runtime().hasRun(runId))
             return undefined;
-        const view = this.view(runId);
-        const program = this.programsOf(view, actorId)[0];
-        if (!program)
-            return undefined;
-        const record = this.#script(runId, view).packages[program.name];
-        const origin = record && this.#identityOf(program) === record.identity ? record.origin : { kind: "run" as const, installedBy: program.installedBy };
-        return { name: program.name, actorId, revision: program.revision, origin };
+        return this.runtime().select(runId, (state) => {
+            const entry = [...state.pluginStates.values()].find((entry) => entry.pluginId === ACTOR_PROGRAMS_STATE_ID && entry.scope.kind === "actor" && entry.scope.actorId === actorId);
+            const actor = state.actors.get(actorId);
+            const program = entry ? (entry.state as unknown as ActorProgramState).program : undefined;
+            if (!program || !actor || actor.kind === "human" || actor.lifecycle.kind === "stopped")
+                return undefined;
+            const script = [...state.pluginStates.values()].find((entry) => entry.pluginId === ACTOR_SCRIPT_STATE_ID && entry.scope.kind === "run");
+            const record = scriptStateOf(script?.state).packages[program.name];
+            const origin = record && this.#identityOf(program) === record.identity ? record.origin : { kind: "run" as const, installedBy: program.installedBy };
+            return { name: program.name, actorId, revision: program.revision, origin };
+        });
     }
     addNamedApps(source: NamedAppSource): void { this.#namedApps.push(source); }
     namedAppSources(): readonly NamedAppSource[] { return this.#namedApps; }
@@ -1111,33 +1122,37 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     apps(runId: string, actorId?: string): ActorViewListing[] {
         if (!this.runtime().hasRun(runId))
             return [];
-        const view = this.view(runId);
-        const programs = this.programsOf(view, actorId);
-        const invocations = this.#invocations(runId, view).invocations;
-        return programs.flatMap((program) => {
-            const state = this.data(runId, program.actorId, view);
-            const calls = invocations.filter((invocation) => invocation.actorId === program.actorId && invocation.revision === program.revision);
-            return program.views.map((view) => ({ id: view.id, actorId: program.actorId, actorHandle: program.actorHandle, title: view.title, description: program.description, revision: program.revision,
-                actions: program.functions.map(({ id, label, description, confirmation }) => ({ id, label, description, confirmation })), visible: view.visible, state, invocations: calls }));
+        return this.runtime().select(runId, (state) => {
+            const view = { pluginStates: [...state.pluginStates.values()], actors: [...state.actors.values()] };
+            const programs = this.programsOf(view, actorId);
+            const invocations = this.#invocations(runId, view).invocations;
+            return programs.flatMap((program) => {
+                const state = this.data(runId, program.actorId, view);
+                const calls = invocations.filter((invocation) => invocation.actorId === program.actorId && invocation.revision === program.revision);
+                return program.views.map((view) => ({ id: view.id, actorId: program.actorId, actorHandle: program.actorHandle, title: view.title, description: program.description, revision: program.revision,
+                    actions: program.functions.map(({ id, label, description, confirmation }) => ({ id, label, description, confirmation })), visible: view.visible, state, invocations: calls }));
+            });
         });
     }
     runLocalTools(runId: string) {
         if (!this.runtime().hasRun(runId))
             return [];
-        const view = this.view(runId);
-        return this.programsOf(view).flatMap((program) => program.functions.flatMap((fn) => fn.tool ? [{ moduleId: program.name, name: fn.tool.name, description: fn.description, card: fn.tool.card, actorId: program.actorId, actorHandle: program.actorHandle, functionId: fn.id, revision: program.revision, sourceHash: program.revision, installedBy: program.installedBy,
-                parameters: Object.entries((fn.inputSchema as {
-                    properties?: Record<string, {
-                        type?: string;
-                        description?: string;
-                    }>;
-                }).properties ?? {}).map(([name, schema]) => ({ name, type: ["string", "number", "integer", "boolean"].includes(schema.type ?? "") ? schema.type ?? "json" : "json", description: schema.description ?? name, required: ((fn.inputSchema as {
-                        required?: string[];
-                    }).required ?? []).includes(name) })),
-                targets: (fn.tool.targets ?? view.actors.filter((actor) => actor.kind !== "human" && actor.lifecycle.kind !== "stopped" && reachesTools(program, actor.room)).map((actor) => actor.id)).map((actorId) => {
-                    const target = view.actors.find((actor) => actor.id === actorId);
-                    return { actorId, handle: target ? addressOf(target) : null };
-                }) }] : []));
+        return this.runtime().select(runId, (state) => {
+            const view = { pluginStates: [...state.pluginStates.values()], actors: [...state.actors.values()] };
+            return this.programsOf(view).flatMap((program) => program.functions.flatMap((fn) => fn.tool ? [{ moduleId: program.name, name: fn.tool.name, description: fn.description, card: fn.tool.card, actorId: program.actorId, actorHandle: program.actorHandle, functionId: fn.id, revision: program.revision, sourceHash: program.revision, installedBy: program.installedBy,
+                    parameters: Object.entries((fn.inputSchema as {
+                        properties?: Record<string, {
+                            type?: string;
+                            description?: string;
+                        }>;
+                    }).properties ?? {}).map(([name, schema]) => ({ name, type: ["string", "number", "integer", "boolean"].includes(schema.type ?? "") ? schema.type ?? "json" : "json", description: schema.description ?? name, required: ((fn.inputSchema as {
+                            required?: string[];
+                        }).required ?? []).includes(name) })),
+                    targets: (fn.tool.targets ?? view.actors.filter((actor) => actor.kind !== "human" && actor.lifecycle.kind !== "stopped" && reachesTools(program, actor.room)).map((actor) => actor.id)).map((actorId) => {
+                        const target = view.actors.find((actor) => actor.id === actorId);
+                        return { actorId, handle: target ? addressOf(target) : null };
+                    }) }] : []));
+        });
     }
     async moduleSource(runId: string, reference: string) { const program = this.#program(runId, reference); return { files: JSON.parse(await readFile(path.join(program.directory, "sources.json"), "utf8")) as ActorProgramSource[] }; }
     frame(runId: string, viewId: string, revision: string) {
@@ -1404,7 +1419,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             throw new Error("The function call is unknown.");
         return invocation;
     }
-    #invocations(runId: string, view?: RunView): InvocationState {
+    #invocations(runId: string, view?: Pick<RunView, "pluginStates">): InvocationState {
         const state = view ? view.pluginStates.find((entry) => entry.pluginId === ACTOR_INVOCATIONS_STATE_ID && entry.scope.kind === "run")?.state
             : this.runtime().select(runId, (state) => [...state.pluginStates.values()].find((entry) => entry.pluginId === ACTOR_INVOCATIONS_STATE_ID && entry.scope.kind === "run")?.state);
         return (state as unknown as InvocationState) ?? { version: 1, invocations: [], requestIds: [] };

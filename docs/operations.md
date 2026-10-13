@@ -1059,6 +1059,11 @@ context above 4000 tokens already compacts:
 
 ## Data storage and logs
 
+The server measures event loop delay and checks it once per minute. If the maximum reaches one
+second, it logs one warning with that minute's maximum and p99 delay, then resets the histogram.
+For example: `Event loop blocked for up to 2.4 s in the last minute (p99 1.9 s)`.
+The monitoring timer does not keep the process alive and stops during shutdown.
+
 By default, each profile is stored under `~/.local/share/ragents/<profile>`, on Windows under
 `%LOCALAPPDATA%\ragents\<profile>`. The order
 is `DATA_DIR` from the environment, `host.DATA_DIR` from the profile file, then this default.

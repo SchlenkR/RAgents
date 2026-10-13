@@ -10,7 +10,7 @@ import { allGrants, testServices, textStep } from "../../../packages/ragents/tes
 import { unavailableActorPrograms } from "./actor-programs-fixture.ts";
 import { coreSources, methodContext } from "./rpc-fixture.ts";
 
-test("context usage follows the addressed actor, counts cache tokens and resets after compaction", async () => {
+test("context usage follows the addressed actor, counts cache tokens and resets after compaction", async (t) => {
   const services = testServices();
   const journal = new Journal(":memory:", services);
   const runtime = new Orchestration(journal, services);
@@ -23,8 +23,15 @@ test("context usage follows the addressed actor, counts cache tokens and resets 
     coordinator: { handle: "coordinator", displayName: "Coordinator", profile: "coordinator", runTitle: "Context", ownerHandle: "owner", ownerDisplayName: "Owner" },
     prompt: () => "Test", assertUsable: () => undefined, prepare: async () => undefined, prepareWorkspace: async () => undefined,
     started: async () => undefined, scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: unavailableActorPrograms });
+  const stateOf = t.mock.method(journal, "stateOf");
+  const contextUsage = async (actor: string) => {
+    stateOf.mock.resetCalls();
+    const result = await session.contextUsage(actor, null);
+    assert.equal(stateOf.mock.callCount(), 0);
+    return result;
+  };
   try {
-    assert.deepEqual(await session.contextUsage("primary", null), { ...limits, tokens: 0, estimated: true });
+    assert.deepEqual(await contextUsage("primary"), { ...limits, tokens: 0, estimated: true });
     const run = runtime.createRun({ commandId: "create" }, { runId: "context-run", title: "Context", ownerHandle: "owner", ownerDisplayName: "Owner" });
     const context = (actorId = run.ownerId, turnId?: string) => ({ actorId, commandId: services.newId("command"), ...(turnId ? { turnId } : {}) });
     const actor = runtime.spawnAgent(context(), run.id, { handle: "worker", displayName: "Worker", prompt: "Test", grants: allGrants(), toolNames: [],
@@ -37,19 +44,19 @@ test("context usage follows the addressed actor, counts cache tokens and resets 
     const step = textStep("Answer");
     runtime.completeModelStep(context(actor.id, turn.id), run.id, actor.id, { turnId: turn.id,
       step: { ...step, provider: "test", model: "example", usage: { ...step.usage, input: 100, output: 20, cacheRead: 80, cacheWrite: 10, totalTokens: 210 } } });
-    assert.deepEqual(await session.contextUsage("primary", null), { ...limits, tokens: 210, estimated: false });
-    assert.deepEqual(await session.contextUsage("@worker", null), await session.contextUsage(actor.id, null));
+    assert.deepEqual(await contextUsage("primary"), { ...limits, tokens: 210, estimated: false });
+    assert.deepEqual(await contextUsage("@worker"), await contextUsage(actor.id));
     runtime.compactContext(context(actor.id, turn.id), run.id, actor.id, { turnId: turn.id, summary: "Summary", firstKeptEventId: firstInput,
       tokensBefore: 210, model: "example", provider: "test", readFiles: [], modifiedFiles: [] });
-    const compacted = await session.contextUsage(actor.id, null);
+    const compacted = await contextUsage(actor.id);
     assert.ok(compacted && compacted.estimated && compacted.tokens < 210);
     runtime.finishTurn(context(actor.id, turn.id), run.id, actor.id, { turnId: turn.id, outcome: "completed" });
     assert.equal(runtime.heldModelContexts(), 0);
-    assert.deepEqual(await session.contextUsage(actor.id, null), compacted);
+    assert.deepEqual(await contextUsage(actor.id), compacted);
     assert.equal(runtime.heldModelContexts(), 0);
     const script = runtime.createScriptActor(context(), run.id, { handle: "notes", displayName: "Notes", grants: [], toolNames: [] }).actors.find((entry) => entry.kind === "script")!;
-    assert.equal(await session.contextUsage(script.id, null), null);
-    await assert.rejects(session.contextUsage("missing", null), /not available/);
+    assert.equal(await contextUsage(script.id), null);
+    await assert.rejects(contextUsage("missing"), /not available/);
   } finally { session.dispose(); journal.close(); }
 });
 

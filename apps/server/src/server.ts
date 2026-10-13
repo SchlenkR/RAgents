@@ -1,4 +1,5 @@
 import { createServer, STATUS_CODES, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { monitorEventLoopDelay } from "node:perf_hooks";
 import { timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -216,6 +217,14 @@ const accessSessions = createAccessSessionManager({
 const globalAccess = globalRunPolicyOf(provider.plugins.optionalService(globalChatToken));
 await loadExternalAccess();
 await provider.init();
+const eventLoopDelay = monitorEventLoopDelay();
+eventLoopDelay.enable();
+const eventLoopTimer = setInterval(() => {
+  if (eventLoopDelay.max >= 1_000_000_000) {
+    console.warn(`Event loop blocked for up to ${(eventLoopDelay.max / 1_000_000_000).toFixed(1)} s in the last minute (p99 ${(eventLoopDelay.percentile(99) / 1_000_000_000).toFixed(1)} s)`);
+  }
+  eventLoopDelay.reset();
+}, 60_000).unref();
 const workspaceMode = provider.plugins.service(workspaceRuntimeToken).describe().mode;
 provider.plugins.methods.register("host", [
   ...provider.engineMethods(),
@@ -413,6 +422,8 @@ const shutdown = (): void => {
 };
 
 const shutdownInner = async (): Promise<void> => {
+  clearInterval(eventLoopTimer);
+  eventLoopDelay.disable();
   accessSessions.close();
   rpc.close();
   const timeout = setTimeout(() => {

@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
 import { PluginHost } from "@ragents/engine";
+import type { Engine } from "../src/ragents/engine.ts";
+import { allGrants } from "../../../packages/ragents/tests/support.ts";
 import { productRuntimeToken } from "../src/ragents/product-runtime.ts";
 import { workspaceRuntimeToken } from "../src/ragents/workspace-runtime.ts";
 import { sandboxServicesToken } from "../src/plugin-support/workspace-sandbox-host.ts";
@@ -105,13 +107,13 @@ test("the server keeps read markers across a restart, tells only the same user, 
     runtimeOf().proposeAction({ actorId: runtimeOf().state("run-kept").ownerId, commandId: "ask" }, "run-kept", { owner: "ragents.ask", title: "Continue?" });
     provider.markViewed("run-kept", revision("run-kept"), "alice");
     provider.markViewed("run-gone", revision("run-gone"), "alice");
-    assert.deepEqual(heard, { alice: 1, bob: 0 }, "further changes within the interval wait");
+    assert.deepEqual(heard, { alice: 2, bob: 1 }, "the journal change reaches both users, read-marker changes wait");
     await sleep(READ_MARKER_NOTICE_INTERVAL_MS + 200);
-    assert.deepEqual(heard, { alice: 2, bob: 0 }, "and arrive together at its end");
+    assert.deepEqual(heard, { alice: 3, bob: 1 }, "the read-marker changes arrive together only for their user");
     await sleep(READ_MARKER_NOTICE_INTERVAL_MS + 200);
-    assert.deepEqual(heard, { alice: 2, bob: 0 }, "without a change nothing follows");
+    assert.deepEqual(heard, { alice: 3, bob: 1 }, "without a change nothing follows");
     provider.markViewed("run-kept", revision("run-kept") - 1, "alice");
-    assert.deepEqual(heard, { alice: 2, bob: 0 }, "a lower revision is no change");
+    assert.deepEqual(heard, { alice: 3, bob: 1 }, "a lower revision is no change");
 
     const listed = await provider.list(scope("alice"));
     assert.equal(listed.find((entry) => entry.id === "run-kept")?.seenRevision, revision("run-kept"));
@@ -131,6 +133,73 @@ test("the server keeps read markers across a restart, tells only the same user, 
     const restored = await provider.list(scope("alice"));
     assert.equal(restored.find((entry) => entry.id === "run-kept")?.seenRevision, revision("run-kept"), "a new provider instance reads the markers back");
   } finally {
+    await provider.shutdown();
+  }
+});
+
+test("journal events of every run push a leading list notice and one trailing notice per two seconds", async (t) => {
+  const provider = createProvider();
+  await provider.init();
+  const runtime = runtimeOf();
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const notices: string[] = [];
+  provider.subscribeList(() => notices.push("alice"), "alice");
+  provider.subscribeList(() => notices.push("bob"), "bob");
+  try {
+    for (const runId of ["push-a", "push-b"]) runtime.createRun({ commandId: `create-${runId}` }, { runId, title: runId, ownerHandle: "owner", ownerDisplayName: "Owner" });
+    assert.deepEqual(notices, ["alice", "bob"]);
+    runtime.proposeAction({ actorId: runtime.select("push-b", (state) => state.ownerId), commandId: "push-action" }, "push-b", { owner: "example", title: "Continue?" });
+    t.mock.timers.tick(1999);
+    assert.equal(notices.length, 2);
+    t.mock.timers.tick(1);
+    assert.deepEqual(notices, ["alice", "bob", "alice", "bob"]);
+    t.mock.timers.tick(2000);
+    assert.equal(notices.length, 4, "no notice follows without changes");
+    runtime.proposeAction({ actorId: runtime.select("push-a", (state) => state.ownerId), commandId: "push-title" }, "push-a", { owner: "example", title: "Changed" });
+    assert.equal(notices.length, 6, "the next window starts at once");
+    await provider.get("push-a");
+
+    t.mock.timers.tick(2000);
+    const beforeShutdown = notices.length;
+    runtime.proposeAction({ actorId: runtime.select("push-a", (state) => state.ownerId), commandId: "push-final" }, "push-a", { owner: "example", title: "Finish?" });
+    await provider.shutdown();
+    t.mock.timers.tick(10_000);
+    assert.equal(notices.length, beforeShutdown, "shutdown cancels a queued notice");
+  } finally {
+    t.mock.timers.reset();
+    await provider.shutdown();
+  }
+});
+
+test("session running status pushes the list even without journal events", async (t) => {
+  const provider = createProvider();
+  await provider.init();
+  const runtime = runtimeOf();
+  const run = runtime.createRun({ commandId: "status-run" }, { runId: "status-run", title: "Status", ownerHandle: "owner", ownerDisplayName: "Owner" });
+  const view = runtime.spawnAgent({ actorId: run.ownerId, commandId: "status-actor" }, run.id, { handle: "worker", displayName: "Worker", prompt: "Test", grants: allGrants(), toolNames: [],
+    execution: { driver: { kind: "manual", config: {} }, workspacePath: null, turnTimeoutMs: null } });
+  const actor = view.actors.find((actor) => actor.kind !== "human")!;
+  runtime.selectPrimaryActor({ actorId: run.ownerId, commandId: "status-primary" }, run.id, actor.id);
+  await provider.get(run.id);
+  const revision = runtime.select(run.id, (state) => state.revision);
+  const { live } = (provider as unknown as { engine: Engine }).engine;
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let notices = 0;
+  provider.subscribeList(() => { notices += 1; }, null);
+  try {
+    live.publish(run.id, actor.id, { kind: "turn-started", turnId: "status-turn" });
+    assert.equal(notices, 1);
+    assert.equal((await provider.list()).find((entry) => entry.id === run.id)?.running, true);
+    live.publish(run.id, actor.id, { kind: "turn-finished", turnId: "status-turn", outcome: "completed" });
+    assert.equal(notices, 1);
+    t.mock.timers.tick(1999);
+    assert.equal(notices, 1);
+    t.mock.timers.tick(1);
+    assert.equal(notices, 2);
+    assert.equal((await provider.list()).find((entry) => entry.id === run.id)?.running, false);
+    assert.equal(runtime.select(run.id, (state) => state.revision), revision);
+  } finally {
+    t.mock.timers.reset();
     await provider.shutdown();
   }
 });

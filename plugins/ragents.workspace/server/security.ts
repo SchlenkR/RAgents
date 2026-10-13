@@ -1,10 +1,11 @@
 import { Type } from "typebox";
-import { DomainError, type AccessContext, type JsonValue, type RunState, type StartOptionContribution } from "@ragents/engine";
+import { DomainError, type AccessContext, type JsonValue, type StartOptionContribution } from "@ragents/engine";
 import { storedStartOption } from "@ragents/host/ragents/start-option-state.js";
+import type { WorkspaceRunState } from "./binding.js";
 import { WORKSPACE_SANDBOX_OPTION_ID } from "../contract.js";
 import type { RunSecurityPolicy } from "./contract.js";
 
-export const securityPolicyFor = (force: boolean, access: AccessContext, state: RunState | null): RunSecurityPolicy => {
+export const securityPolicyFor = (force: boolean, access: AccessContext, state: WorkspaceRunState | null): RunSecurityPolicy => {
   const choice = storedStartOption(state, WORKSPACE_SANDBOX_OPTION_ID);
   if (choice !== undefined && typeof choice !== "boolean") {
     throw new DomainError("workspace-sandbox-invalid", "The stored sandbox choice must be true or false.", 409);
@@ -15,7 +16,7 @@ export const securityPolicyFor = (force: boolean, access: AccessContext, state: 
 export const sandboxStartOption = (
   force: boolean,
   accessFor: (userId: string | null) => AccessContext,
-  stateFor: (runId: string) => RunState | null,
+  stateFor: (runId: string) => WorkspaceRunState | null,
 ): StartOptionContribution => ({
   id: WORKSPACE_SANDBOX_OPTION_ID,
   schema: Type.Boolean(),

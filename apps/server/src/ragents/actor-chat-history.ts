@@ -14,21 +14,27 @@ const actorToolId = (turnId: string, callId: string): string => JSON.stringify([
 
 export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[]): ActorConversations {
   const actors: Record<string, Message[]> = Object.fromEntries(view.actors.filter((actor) => actor.kind !== "human").map((actor) => [actor.id, []]));
+  const actorIndex = new Map(view.actors.map((actor) => [actor.id, actor]));
+  const turnIndex = new Map(view.turns.map((turn) => [turn.id, turn]));
+  const inputIndex = new Map(view.inputs.map((input) => [input.id, input]));
+  const artifactIndex = new Map(view.artifacts.map((artifact) => [artifact.id, artifact]));
+  const actionIndex = new Map(view.actions.map((action) => [action.id, action]));
+  const colorIndex = new Map(view.actors.filter((actor) => actor.kind === "agent" || actor.kind === "external").map((actor, index) => [actor.id, index]));
   const positions = new ChatTextPositions();
   const actorOf = (id: string) => {
-    const actor = view.actors.find((entry) => entry.id === id);
+    const actor = actorIndex.get(id);
     if (!actor) throw new DomainError("actor-not-found", `The actor ${id} is missing from the run view.`, 404);
     return actor;
   };
   const colorOf = (id: string) => {
     if (actorOf(id).kind === "script") return "hsl(220 10% 40%)";
-    const index = Math.max(view.actors.filter((actor) => actor.kind === "agent" || actor.kind === "external").findIndex((actor) => actor.id === id), 0);
+    const index = colorIndex.get(id) ?? 0;
     return `hsl(${ACTOR_HUES[index % ACTOR_HUES.length]} 45% 42%)`;
   };
   const interrupted = (turnId: string) =>
-    view.turns.find((entry) => entry.id === turnId)?.toolCalls.filter((call) => call.status === "interrupted").map((call) => call.id) ?? [];
+    turnIndex.get(turnId)?.toolCalls.filter((call) => call.status === "interrupted").map((call) => call.id) ?? [];
   const turnActorOf = (id: string) => {
-    const turn = view.turns.find((entry) => entry.id === id);
+    const turn = turnIndex.get(id);
     if (!turn) throw new Error(`The turn ${id} is missing from the run view.`);
     return turn.actorId;
   };
@@ -54,7 +60,7 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
     const at = event.occurredAt;
     switch (event.type) {
       case "actor.input.enqueued": {
-        const input = view.inputs.find((entry) => entry.id === event.payload.inputId);
+        const input = inputIndex.get(event.payload.inputId);
         if (!input) throw new Error(`The input ${event.payload.inputId} is missing from the run view.`);
         if (input.lifecycle.kind === "discarded") break;
         actorOf(input.actorId);
@@ -62,7 +68,7 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
         const fromOwner = input.enqueuedBy === view.ownerId;
         const sender = actorOf(input.enqueuedBy);
         const attachments = input.artifactIds.map((id) => {
-          const artifact = view.artifacts.find((entry) => entry.id === id);
+          const artifact = artifactIndex.get(id);
           if (!artifact) throw new Error(`The attachment ${id} is missing from the run view.`);
           return { name: artifact.title, mediaType: artifact.mediaType, size: artifact.size,
             url: attachmentContentPath(view.id, id) };
@@ -103,7 +109,7 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
         if (actorOf(event.actorId).kind !== "human") append(event.actorId, actionEventOf(event.payload, at), event);
         break;
       case "action.resolved": {
-        const action = view.actions.find((entry) => entry.id === event.payload.actionId);
+        const action = actionIndex.get(event.payload.actionId);
         if (!action) throw new Error(`The action ${event.payload.actionId} is missing from the run view.`);
         if (actorOf(action.askedBy).kind !== "human") append(action.askedBy, actionResolvedEventOf(event), event);
         break;

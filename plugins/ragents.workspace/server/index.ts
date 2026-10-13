@@ -1,5 +1,5 @@
 import path from "node:path";
-import { DomainError, type JsonValue, type RAgentsPlugin, type RunState } from "@ragents/engine";
+import { DomainError, type JsonValue, type RAgentsPlugin } from "@ragents/engine";
 import { documentStoreToken } from "@ragents/host/ragents/document-store.js";
 import { workspaceResolverToken, workspaceRuntimeToken, type WorkspaceResolver } from "@ragents/host/ragents/workspace-runtime.js";
 import { sandboxServicesToken } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
@@ -21,9 +21,9 @@ import { boundToTools, handlebarsPrompt } from "@ragents/host/plugin-support/pro
 import { shellPlatformPrompt } from "./shell-platform.js";
 import { agentWorkspaceToolNames } from "./workspace-tool-naming.js";
 import { startOptionScope } from "@ragents/host/ragents/start-option-state.js";
-import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_METADATA_ID, type WorkspaceSessionMetadata } from "../contract.js";
+import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_SANDBOX_OPTION_ID, WORKSPACE_METADATA_ID, type WorkspaceSessionMetadata } from "../contract.js";
 import { runSecurityPolicyToken } from "./contract.js";
-import { bindingOf, currentBindingOf, executorShellChapter, sessionMetadataOf, workspaceBindingOption, workspaceListDetail, workspaceLocation, workspaceOwnerOf } from "./binding.js";
+import { bindingOf, currentBindingOf, executorShellChapter, sessionMetadataOf, workspaceBindingOption, workspaceListDetail, workspaceLocation, workspaceOwnerOf, type WorkspaceRunState } from "./binding.js";
 import { createBrowseChannel, createBrowseMethods } from "./browse-route.js";
 import { clientMethods, WorkspaceClientRegistry } from "./clients.js";
 import { createCopyTool } from "./copy-tool.js";
@@ -36,9 +36,13 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
   register: (host) => {
     const sessionWorkspaceFor = host.service(runWorkspaceProviderToken);
     const orchestration = host.service(runtimeProviderToken);
-    const runState = (runId: string): RunState | null => {
+    const runState = (runId: string): WorkspaceRunState | null => {
       try {
-        return orchestration().state(runId);
+        const options = [WORKSPACE_BINDING_OPTION_ID, WORKSPACE_SANDBOX_OPTION_ID, contribution()?.optionId];
+        return orchestration().select(runId, (state) => ({
+          ownerUserId: state.ownerUserId,
+          pluginStates: new Map([...state.pluginStates].filter(([, entry]) => entry.scope.kind === "run" && options.includes(entry.pluginId))),
+        }));
       } catch (error) {
         if (error instanceof DomainError && error.code === "run-not-found") return null;
         throw error;
@@ -105,7 +109,7 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
       runState,
       administratorFor: (runId) => ownerAccess(runId).can("*"),
       storeBinding: (runId, binding) => {
-        const state = orchestration().state(runId);
+        const state = orchestration().select(runId, (state) => ({ ownerId: state.ownerId, revision: state.revision }));
         orchestration().replacePluginState(
           { actorId: state.ownerId, commandId: `workspace-binding:${runId}:${state.revision}` },
           runId,

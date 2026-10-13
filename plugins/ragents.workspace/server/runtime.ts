@@ -1,6 +1,6 @@
 import { mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
-import type { JsonValue, Orchestration, RunState, WorkspaceToolNaming } from "@ragents/engine";
+import type { JsonValue, Orchestration, WorkspaceToolNaming } from "@ragents/engine";
 import { DomainError } from "@ragents/engine";
 import {
   RUN_FOLDER_OPERATIONS,
@@ -22,6 +22,7 @@ import type {
   WorkstationFolderContext,
 } from "@ragents/host/ragents/workspace-runtime.js";
 import { storedStartOption } from "@ragents/host/ragents/start-option-state.js";
+import type { WorkspaceRunState } from "./binding.js";
 import { awaitWithSignal, sharedPreparation } from "@ragents/host/plugin-support/await-with-signal.js";
 import { sandboxToolNaming } from "./workspace-tool-naming.js";
 import { WorkspaceSandboxHost, type ServerRootDescription } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
@@ -48,7 +49,7 @@ export interface RunWorkspaceRuntimeOptions {
   skillPaths: () => Promise<readonly string[]>;
   resolver: () => WorkspaceResolver | undefined;
   /** null only if this server's journal has no run with the ID; a locked journal throws. */
-  runState: (runId: string) => RunState | null;
+  runState: (runId: string) => WorkspaceRunState | null;
   administratorFor: (runId: string) => boolean;
   storeBinding: (runId: string, binding: WorkspaceBinding) => void;
   clients: WorkspaceClientRegistry;
@@ -254,7 +255,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
   }
 
   /** Before the first task of a run, the workstation creates its new folder; cleanup never creates one. */
-  #preparing(state: RunState | null, binding: WorkstationBinding, executor: WorkspaceExecutor): WorkspaceExecutor {
+  #preparing(state: WorkspaceRunState | null, binding: WorkstationBinding, executor: WorkspaceExecutor): WorkspaceExecutor {
     return {
       ...executor,
       execute: async (runId, operation, input, options = {}) => {
@@ -265,7 +266,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     };
   }
 
-  #prepared(runId: string, state: RunState | null, binding: WorkstationBinding, executor: WorkspaceExecutor, signal?: AbortSignal): Promise<void> {
+  #prepared(runId: string, state: WorkspaceRunState | null, binding: WorkstationBinding, executor: WorkspaceExecutor, signal?: AbortSignal): Promise<void> {
     signal?.throwIfAborted();
     const known = this.#preparations.get(runId);
     if (known?.signal.aborted) return awaitWithSignal(known.promise.catch(() => undefined), signal).then(() => this.#prepared(runId, state, binding, executor, signal));
@@ -279,7 +280,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
   }
 
   /** Only a freshly created folder gets the contribution's steps; if one fails, the folder disappears again and the next task starts over. */
-  async #prepare(runId: string, state: RunState | null, binding: WorkstationBinding, executor: WorkspaceExecutor, signal: AbortSignal): Promise<void> {
+  async #prepare(runId: string, state: WorkspaceRunState | null, binding: WorkstationBinding, executor: WorkspaceExecutor, signal: AbortSignal): Promise<void> {
     const { created } = await executor.execute(runId, RUN_FOLDER_OPERATIONS.create, null, { signal }) as RunFolderCreated;
     const steps = created ? this.#contribution()?.workstation?.prepare(this.#workstationContext(runId, state, binding)) ?? [] : [];
     try {
@@ -298,7 +299,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     options.signal?.throwIfAborted();
   }
 
-  #workstationContext(runId: string, state: RunState | null, binding: WorkstationBinding): WorkstationFolderContext {
+  #workstationContext(runId: string, state: WorkspaceRunState | null, binding: WorkstationBinding): WorkstationFolderContext {
     const contribution = this.#contribution();
     return {
       runId,
@@ -358,7 +359,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     return kind === undefined ? placement : { ...placement, kind };
   }
 
-  async #fresh(runId: string, state: RunState, emitSystem: (text: string) => void, signal?: AbortSignal): Promise<SessionWorkspace> {
+  async #fresh(runId: string, state: WorkspaceRunState, emitSystem: (text: string) => void, signal?: AbortSignal): Promise<SessionWorkspace> {
     const resolver = this.#options.resolver();
     const directory = resolver?.kind
       ? this.#options.sessionDirectory(runId, "workspace")
@@ -401,7 +402,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
   }
 
   /** The workspace is on the workstation; the server knows only its path, and every local access to it fails loudly. */
-  #workstation(runId: string, state: RunState, binding: WorkstationBinding, emitSystem: (text: string) => void): SessionWorkspace {
+  #workstation(runId: string, state: WorkspaceRunState, binding: WorkstationBinding, emitSystem: (text: string) => void): SessionWorkspace {
     const { machine: { label }, folder } = binding;
     const fresh = "fresh" in folder;
     const workstation = this.#contribution()?.workstation;
@@ -439,7 +440,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     };
   }
 
-  #choiceFor(state: RunState, resolver: WorkspaceResolver): JsonValue | null {
+  #choiceFor(state: WorkspaceRunState, resolver: WorkspaceResolver): JsonValue | null {
     if (resolver.optionId === undefined) return null;
     const choice = storedStartOption(state, resolver.optionId);
     if (choice === undefined) {

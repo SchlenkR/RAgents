@@ -5,7 +5,7 @@ export { modelStartOptionId, systemPromptStartOptionId };
 
 export const startOptionScope = Object.freeze({ kind: "run" } satisfies PluginStateScope);
 
-export const storedStartOption = (state: RunState | null, optionId: string): JsonValue | undefined =>
+export const storedStartOption = (state: Pick<RunState, "pluginStates"> | null, optionId: string): JsonValue | undefined =>
   state?.pluginStates.get(pluginStateKey(optionId, startOptionScope))?.state;
 
 export interface StoredSystemPrompt {

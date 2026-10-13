@@ -1,3 +1,4 @@
+import { appendPluginEvent } from "./lib/append-plugin-event";
 import { runAppAdditions, runApps, selectedRunApp, RunAppView } from "./run-apps";
 import { isRecord } from "./lib/guards";
 import { canStopRun, RunAccessScope, useAccess } from "./AccessContext";
@@ -121,7 +122,7 @@ export const PluginChat = memo(function PluginChat({ autoFocusChat, onAutoFocusC
     if (event.kind === "reset") setPluginEvents([]);
     if (event.kind !== "plugin") return;
     const { pluginId, type, payload, at } = event;
-    setPluginEvents((current) => [...current, { pluginId, type, payload, at }]);
+    setPluginEvents((current) => appendPluginEvent(current, { pluginId, type, payload, at }));
   }, []);
   const { messages, running, connected, startup, send: sendMessage, startSkill, start } = useChat(session.id, onChatEvent, !startOnly);
   const send = useCallback((text: string, attachments?: ChatAttachmentInput[], entryId?: string) =>

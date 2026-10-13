@@ -71,12 +71,13 @@ test("actor program listings reuse one snapshot of the requested run", async (t)
   assert.equal(expectedTools.length, 1);
   const stateOf = t.mock.method(f.setup.journal, "stateOf");
   const listRuns = t.mock.method(f.setup.runtime, "listRuns");
+  assert.deepEqual(f.runtime.programs(f.runId), [program]);
+  assert.deepEqual(f.runtime.programOf(f.runId, program.actorId), expectedIdentity);
+  assert.deepEqual(f.runtime.apps(f.runId), expectedApps);
+  assert.deepEqual(f.runtime.apps(f.runId, program.actorId), expectedApps);
+  assert.deepEqual(f.runtime.runLocalTools(f.runId), expectedTools);
+  assert.equal(stateOf.mock.callCount(), 0);
   for (const read of [
-    () => assert.deepEqual(f.runtime.programs(f.runId), [program]),
-    () => assert.deepEqual(f.runtime.programOf(f.runId, program.actorId), expectedIdentity),
-    () => assert.deepEqual(f.runtime.apps(f.runId), expectedApps),
-    () => assert.deepEqual(f.runtime.apps(f.runId, program.actorId), expectedApps),
-    () => assert.deepEqual(f.runtime.runLocalTools(f.runId), expectedTools),
     () => assert.deepEqual(f.runtime.list(f.runId, f.context.actorId), expectedList),
     () => assert.deepEqual(f.runtime.resolveView(f.runId, "counter/main", f.context.actorId), {
       reference: "counter/main", elementId: "counter--main", visible: true,

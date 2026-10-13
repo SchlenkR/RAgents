@@ -59,7 +59,7 @@ export const composeProfile = (options: ProfileComposition, bridges: HostBridges
   host.provideHost(userAccessToken, profileAccessFor);
   host.provideHost(runOwnerAccessToken, (runId) => {
     bridges.ensureSession(runId, { deleting: true });
-    return profileAccessFor(bridges.runtime().state(runId).ownerUserId);
+    return profileAccessFor(bridges.runtime().select(runId, (state) => state.ownerUserId));
   });
   host.provideHost(hostAddressToken, () => bridges.apiBaseUrl);
   host.provideHost(executorContributionsToken, options.executor.map((loaded) =>

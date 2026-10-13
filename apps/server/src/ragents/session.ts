@@ -253,7 +253,7 @@ export class RunChatSession implements ChatSessionLike {
 
   #startValueOf(entry: RegisteredStartOption, choice: StartChoice): JsonValue {
     const chosen = this.startLocked
-      ? storedStartOption(this.#engine.journal.stateOf(this.id), entry.option.id)
+      ? this.#engine.journal.select(this.id, (state) => storedStartOption(state, entry.option.id)) ?? undefined
       : choice.fixed.get(entry.option.id) ?? this.#startValues.get(entry.option.id);
     return chosen ?? this.#engine.startOptions.defaultValue(entry.option.id, this.#startContext(choice.userId));
   }
@@ -339,11 +339,15 @@ export class RunChatSession implements ChatSessionLike {
     const execution = this.#executionFor(reference, freeChoice(userId));
     if (execution.driver.kind !== "agent") return null;
     const { provider, model } = execution.driver.config;
-    const state = this.#engine.journal.stateOf(this.id);
-    const actorId = reference === "primary" ? state?.primaryActorId : this.#targetActor(reference).id;
-    const actor = actorId ? state?.actors.get(actorId) : undefined;
+    const targetId = reference === "primary" ? undefined : this.#targetActor(reference).id;
+    const selected = this.#engine.journal.select(this.id, (state) => {
+      const actorId = reference === "primary" ? state.primaryActorId : targetId;
+      const actor = actorId ? state.actors.get(actorId) : undefined;
+      return { actorId, kind: actor?.kind, lifecycle: actor && actor.kind !== "human" ? actor.lifecycle.kind : undefined };
+    });
+    const actorId = selected?.actorId;
     const entries = !actorId ? []
-      : actor?.kind !== "human" && actor?.lifecycle.kind === "running"
+      : selected?.kind !== "human" && selected?.lifecycle === "running"
         ? this.#engine.runtime.modelContext(this.id, actorId).entries
         : modelContextOf(this.#engine.runtime.events(this.id), actorId, (hash) => this.#engine.runtime.mediaContent(hash)).entries;
     const usage = estimateContextUsage(entries);
@@ -601,7 +605,7 @@ export class RunChatSession implements ChatSessionLike {
   }
 
   #targetActor(reference: string) {
-    const actor = this.#engine.runtime.view(this.id).actors.find((entry) => entry.id === reference || `@${addressOf(entry)}` === reference);
+    const actor = this.#engine.runtime.select(this.id, (state) => [...state.actors.values()].find((entry) => entry.id === reference || `@${addressOf(entry)}` === reference));
     if (!actor || actor.kind === "human" || actor.lifecycle.kind === "stopped") {
       throw new DomainError("actor-unavailable", `The actor ${reference} is not available`, 404);
     }
@@ -609,14 +613,14 @@ export class RunChatSession implements ChatSessionLike {
   }
 
   #executionFor(reference: string, choice: StartChoice): AgentExecution {
-    const state = this.#engine.journal.stateOf(this.id);
+    const state = this.#engine.journal.select(this.id, (state) => ({ primaryActorId: state.primaryActorId, modelChoice: storedModelChoice(state) }));
     const id = reference === "primary" ? state?.primaryActorId : reference;
     if (id) {
       const execution = this.#targetActor(id).execution;
       if (execution.driver.kind !== "agent") return execution;
       if (id === state?.primaryActorId && this.#modelSelection) return { ...execution, driver: { kind: "agent", config: this.#modelSelection() } };
       return isRunCoordinator(this.#engine.runtime, this.id, id)
-        ? { ...execution, driver: { kind: "agent", config: coordinatorSelection(this.#engine.catalog, this.#coordinator, storedModelChoice(state), execution.driver.config) } }
+        ? { ...execution, driver: { kind: "agent", config: coordinatorSelection(this.#engine.catalog, this.#coordinator, state!.modelChoice, execution.driver.config) } }
         : execution;
     }
     if (reference !== "primary") throw new DomainError("actor-unavailable", "The actor is not available", 404);
@@ -624,11 +628,11 @@ export class RunChatSession implements ChatSessionLike {
   }
 
   #coordinatorExecution(choice: StartChoice): AgentExecution {
-    const state = this.#engine.journal.stateOf(this.id);
+    const choiceInRun = this.#engine.journal.select(this.id, (state) => storedModelChoice(state));
     const selected = this.#engine.startOptions.entry(modelStartOptionId);
     const modelChoice = selected ? this.#startValueOf(selected, choice) as { model?: string; thinking?: string } : undefined;
-    const model = modelChoice?.model ?? storedModel(state);
-    const thinking = modelChoice?.thinking ?? storedThinking(state);
+    const model = modelChoice?.model ?? choiceInRun?.model;
+    const thinking = modelChoice?.thinking ?? choiceInRun?.thinking;
     const execution = resolveExecution(this.#engine.catalog, {
       profile: this.#coordinator.profile,
       ...(model ? { model } : {}),

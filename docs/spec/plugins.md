@@ -750,6 +750,9 @@ that only this bash has the variables, and that one call reaches only one machin
 prompt contribution and no tool description names such a variable, only the alias. The
 chat system note on resolution remains the notice for the user alongside it.
 
+The run files listing loads once and polls every five seconds during running work while the page
+is visible. A hidden page pauses the poll and reloads once when it becomes visible.
+
 The document store is a separate service: `ragents.documents` provides `documentStoreToken`
 (`directoryFor(runId)`), by default under `host.storage.session(runId, "documents")`,
 with `DOCUMENTS_DIR` as a subfolder per run under an external path. The store is not in the
@@ -1737,7 +1740,12 @@ Neither page combines servers, and Start contains no server chips.
 Free creation, template access, reading, and deletion retain their independent rights.
 Both hosts draw run rows from the same mapping of `ragents.runs.list` (`connectionRunOf` in
 `run-overview.ts`): state, pending actions, read notice, owner, metadata lines, and lock.
-The shared panel reloads the list on the `ragents.runs` channel and every five seconds.
+The server notifies `ragents.runs` after journal events and session status changes, at most once
+every two seconds with an immediate first notice and one trailing notice for intervening changes.
+Per-user read-marker notices retain their own throttle. The shared panel loads immediately, then
+coalesces channel notices after 250 ms, with at least two seconds between refresh starts and one
+request in flight. A thirty-second safety poll runs only while visible. Hidden pages defer
+refreshes until visible again, when one refresh brings the list up to date.
 Equal responses retain the previous array and run entries; changed responses reuse unchanged
 entries. Equality includes metadata, access, and viewed state, not just the run revision.
 A contribution that a response reports under `metadataUnavailable` keeps the value an earlier
@@ -1746,6 +1754,7 @@ so a slow answer does not take away the tabs or header details derived from it. 
 briefly misses the open run, for example during a reconnect, the panel keeps the run's last listed
 state instead of a placeholder without metadata (`useRetainedSession`); only the check for a
 withdrawn share reads the response itself.
+`SessionContext.pluginEvents` contains the 100 most recent plugin events since the last chat reset.
 Derived session contexts retain their identity while their inputs are unchanged, so polling and
 unrelated parent renders do not notify context consumers. Real chat, run-view, or session changes
 still update the context.
@@ -2046,9 +2055,11 @@ Both views use the same link navigation.
 The primary actor uses the existing chat stream. Other actors receive their own
 conversation projection from the journal, with delivered inputs, published responses,
 thinking steps, and tool calls including arguments, results, and errors. The host reloads them
-through `ragents.chat.actorHistory` on changes of the run; the compact run view stays
-without tool payloads. A change of the primary actor removes no steps from the
-previous actor's conversation. Load errors are shown in the chat. The chat does not cut the message list
+through `ragents.chat.actorHistory` together with the run view after run-channel changes, coalesced
+after 250 ms and at most once every two seconds. Only one refresh runs at a time; changes during
+it schedule one follow-up. Hidden pages defer these refreshes and context-usage queries until
+visible again. The compact run view stays without tool payloads. A change of the primary actor
+removes no steps from the previous actor's conversation. Load errors are shown in the chat. The chat does not cut the message list
 to a fixed number. Actor chats use the shared quassel input with attachments and detail-level choice.
 The run panel places it through `ChatPanel`; the inspector uses `ChatInputToolbar` where an
 actor accepts input. TypeScript actors are operated through functions or mini-apps, not chat.

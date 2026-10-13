@@ -112,16 +112,14 @@ const useRunFiles = (session: SessionContext): RunFilesState => {
         setError(undefined);
       })
       .catch((cause: unknown) => alive && setError(cause instanceof Error ? cause.message : String(cause)));
-    load();
-    if (!session.running) {
-      return () => {
-        alive = false;
-      };
-    }
-    const timer = setInterval(load, 5000);
+    const loadVisible = () => { if (document.visibilityState !== "hidden") load(); };
+    loadVisible();
+    document.addEventListener("visibilitychange", loadVisible);
+    const timer = session.running ? setInterval(loadVisible, 5000) : undefined;
     return () => {
       alive = false;
       clearInterval(timer);
+      document.removeEventListener("visibilitychange", loadVisible);
     };
   }, [runId, session.running]);
 

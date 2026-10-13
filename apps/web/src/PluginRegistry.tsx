@@ -94,6 +94,7 @@ export interface PluginEvent {
 
 export interface SessionContext {
   connected: boolean;
+  /** The 100 most recent plugin events since the last chat reset. */
   pluginEvents: readonly PluginEvent[];
   messages: Message[];
   actorConversations?: Readonly<Record<string, readonly Message[]>>;

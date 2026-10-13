@@ -252,7 +252,8 @@ compaction, including cache tokens and new inputs or tool results and excluding 
 latest compaction. The limits describe the selected model, which applies from the next turn.
 Script and external runtimes return no built-in context metric. The existing run channel updates
 the display; Quassel hosts the control through its generic composer slots, with the host's Button
-and Popover. Reading an idle actor's context does not keep it in the runtime's turn cache.
+and Popover. Refreshes start at least two seconds apart, with one request in flight, and wait
+while the page is hidden. Reading an idle actor's context does not keep it in the runtime's turn cache.
 
 ## Model context and agent runtime
 
@@ -1470,6 +1471,11 @@ Recorded responses, function calls,
 state changes, and interruptions therefore remain traceable after a restart. The model context of
 every LLM agent is part of the journal as well; working files are stored separately.
 <!-- /guide:runtime -->
+
+Hot reads for run lists, access checks, workspace metadata, actor program identities, and context
+usage select only the fields they need. Journal selection clones its returned value without
+cloning the complete run state. Actor chat projections index actors, turns, inputs, artifacts,
+and actions once before traversing events.
 
 ### File format, write boundaries, and replay
 

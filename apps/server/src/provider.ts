@@ -85,6 +85,8 @@ export class RunSessionProvider implements ChatSessionProvider {
   private titleSettings: TitleSettingsStore | undefined;
   private readMarkers: RunReadMarkers | undefined;
   private readonly listListeners = new Set<{ readonly listener: () => void; readonly userId: string | null }>();
+  private listNoticeTimer: ReturnType<typeof setTimeout> | undefined;
+  private listNoticePending = false;
   /** Users whose listeners heard of a read marker within the last interval; true if another change waits for its end. */
   private readonly readMarkerNotices = new Map<string | null, boolean>();
   private readonly titleCompactor = createTitleCompactor({
@@ -175,9 +177,8 @@ export class RunSessionProvider implements ChatSessionProvider {
         catch (error) { if (!(error instanceof DomainError) || error.code !== "journal-unavailable") throw error; }
       }
     }
-    // A changed sharing changes whose list shows the run.
     this.engine.journal.subscribe((events) => {
-      if (events.some((event) => event.type === "run.sharing-changed")) this.notifyList();
+      if (events.length > 0) this.notifyList();
     });
     for (const id of this.deleted) {
       if (this.deleteRequested.has(id)) continue;
@@ -246,9 +247,9 @@ export class RunSessionProvider implements ChatSessionProvider {
     if (this.plugins.optionalService(globalChatToken)?.isCoordinator(id)) {
       throw new DomainError("run-not-listed", "The top-level coordinator is not part of the run list and keeps no read marker.", 409);
     }
-    const state = this.requireEngine().journal.stateOf(id);
-    if (!state) throw new DomainError("run-not-found", `The run ${id} does not exist`, 404);
-    if (revision > state.revision) throw new DomainError("revision-ahead", `The run ${id} is at revision ${state.revision}, not ${revision}.`, 400);
+    const currentRevision = this.requireEngine().journal.select(id, (state) => state.revision);
+    if (currentRevision === null) throw new DomainError("run-not-found", `The run ${id} does not exist`, 404);
+    if (revision > currentRevision) throw new DomainError("revision-ahead", `The run ${id} is at revision ${currentRevision}, not ${revision}.`, 400);
     if (this.requireReadMarkers().markViewed(userId, id, revision)) this.noticeReadMarker(userId);
   }
 
@@ -278,8 +279,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       assertUsable: (runId) => {
         this.ensureConversationUsable(runId);
         if (!globalPolicy || !engine.journal.hasRun(runId)) return;
-        const view = engine.runtime.view(runId);
-        const primary = view.actors.find((actor) => actor.id === view.primaryActorId);
+        const primary = engine.runtime.select(runId, (state) => state.primaryActorId ? state.actors.get(state.primaryActorId) : undefined);
         if (primary && primary.kind !== "human" && (primary.toolNames === null
           || [...primary.toolNames].sort().join("\n") !== [...globalPolicy.toolNames].sort().join("\n"))) {
           throw new DomainError("global-tools-changed", "The tools of the top-level coordinator have changed. Reset its conversation to use the current tools.", 409);
@@ -298,6 +298,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     });
     this.sessions.set(id, session);
     session.attach();
+    session.subscribe((event) => { if (event.kind === "status") this.notifyList(); });
     return session;
   }
 
@@ -344,29 +345,33 @@ export class RunSessionProvider implements ChatSessionProvider {
     const anonymousUser = configuredAnonymousUser();
     const userLabels = new Map([...configuredUsers() ?? [], ...anonymousUser ? [anonymousUser] : []].map((user) => [user.id, user.label]));
     const described = await Promise.all(listed.map(async (runId): Promise<ListedSession | undefined> => {
-      const state = engine.journal.stateOf(runId);
+      const state = engine.journal.select(runId, (state) => {
+        const firstInput = [...state.inputs.values()]
+          .sort((left, right) => left.sequence - right.sequence)
+          .find((input) => input.enqueuedBy === state.ownerId);
+        const running = [...state.actors.values()].some((actor) => actor.kind !== "human" && engine.scheduler.isRunning(runId, actor.id))
+          || (this.sessions.get(runId)?.running ?? false);
+        return { title: state.title, createdAt: state.createdAt, revision: state.revision, ownerUserId: state.ownerUserId,
+          sharing: state.sharing, firstInputContent: firstInput?.content, running, ...runListStateOf(state, running) };
+      });
       if (!state) return undefined;
-      const firstInput = [...state.inputs.values()]
-        .sort((left, right) => left.sequence - right.sequence)
-        .find((input) => input.enqueuedBy === state.ownerId);
       // A title set on purpose (run script, run_configure) beats the first-message heuristic.
       const chosenTitle = state.title !== productRuntime.coordinator.runTitle ? state.title : undefined;
       const workspace = workspaceAccessible(runId);
       const [compactTitle, metadata] = await Promise.all([
-        chosenTitle ?? this.titleCompactor.titleFor(runId, firstInput?.content),
+        chosenTitle ?? this.titleCompactor.titleFor(runId, state.firstInputContent),
         this.plugins.sessionMetadata.describe(runId, workspace, SESSION_METADATA_TIMEOUT_MS),
       ]);
-      const running = [...state.actors.values()].some((actor) => actor.kind !== "human" && engine.scheduler.isRunning(runId, actor.id))
-        || (this.sessions.get(runId)?.running ?? false);
       const seenRevision = scope ? this.requireReadMarkers().seenRevision(scope.userId, runId) : undefined;
       return {
         id: runId,
-        title: compactTitle ?? sessionTitle(firstInput?.content) ?? productRuntime.coordinator.runTitle,
+        title: compactTitle ?? sessionTitle(state.firstInputContent) ?? productRuntime.coordinator.runTitle,
         createdAt: Date.parse(state.createdAt),
         updatedAt: Date.parse(engine.journal.updatedAt(runId) ?? state.createdAt),
         revision: state.revision,
-        running,
-        ...runListStateOf(state, running),
+        running: state.running,
+        state: state.state,
+        pendingActions: state.pendingActions,
         workspaceAccessible: workspace,
         operable: operable(runId),
         ...scope?.sharing(runId),
@@ -461,7 +466,7 @@ export class RunSessionProvider implements ChatSessionProvider {
   /** The owner's access as a user of this profile; the run's own actors start run scripts with it. */
   private ownerAccess(runId: string): AccessContext {
     this.ensureUsable(runId);
-    const ownerUserId = this.requireEngine().journal.stateOf(runId)?.ownerUserId ?? null;
+    const ownerUserId = this.requireEngine().journal.select(runId, (state) => state.ownerUserId) ?? null;
     return profileAccessFor(ownerUserId);
   }
 
@@ -527,7 +532,7 @@ export class RunSessionProvider implements ChatSessionProvider {
   /** The sharing for a user who may change it; before the start the choice of this user, who will own the run. */
   sharing(id: string, userId: string): RunSharingResult {
     this.ensureUsable(id);
-    const state = this.requireEngine().journal.stateOf(id);
+    const state = this.requireEngine().journal.select(id, (state) => ({ sharing: state.sharing, ownerUserId: state.ownerUserId }));
     return state
       ? sharingResultOf(state.sharing, state.ownerUserId, this.shareableUsers())
       : sharingResultOf(this.openSession(id).sharingBeforeStart(userId), userId, this.shareableUsers());
@@ -537,7 +542,7 @@ export class RunSessionProvider implements ChatSessionProvider {
   share(id: string, sharing: RunSharing, userId: string): RunSharingResult {
     this.ensureUsable(id);
     const engine = this.requireEngine();
-    const state = engine.journal.stateOf(id);
+    const state = engine.journal.select(id, (state) => ({ sharing: state.sharing, ownerUserId: state.ownerUserId, ownerId: state.ownerId }));
     if (!state) {
       const session = this.openSession(id);
       session.shareBeforeStart(userId, checkedProfileSharing(sharing, userId, session.sharingBeforeStart(userId), this.shareableUsers()));
@@ -905,6 +910,13 @@ export class RunSessionProvider implements ChatSessionProvider {
   }
 
   private notifyList(): void {
+    if (this.shutdownPromise || this.listListeners.size === 0) return;
+    if (this.listNoticeTimer !== undefined) { this.listNoticePending = true; return; }
+    this.listNoticePending = false;
+    this.listNoticeTimer = setTimeout(() => {
+      this.listNoticeTimer = undefined;
+      if (this.listNoticePending) this.notifyList();
+    }, 2000).unref();
     for (const { listener } of this.listListeners) listener();
   }
 
@@ -934,6 +946,9 @@ export class RunSessionProvider implements ChatSessionProvider {
   }
 
   private async shutdownInner(): Promise<void> {
+    clearTimeout(this.listNoticeTimer);
+    this.listNoticeTimer = undefined;
+    this.listNoticePending = false;
     for (const preparation of this.runPreparations.values()) preparation.controller.abort();
     await Promise.allSettled([...this.runPreparations.values()].map((preparation) => preparation.done));
     await this.titleCompactor.shutdown();

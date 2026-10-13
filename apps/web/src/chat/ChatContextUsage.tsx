@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { coreContracts, type ChatContextUsage as ContextUsage } from "@ragents/host/api/contracts";
 import { rpc } from "../rpc";
+import { refreshOnChange } from "../lib/refresh-on-change";
 import { Button, cn, Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from "../ui";
 
 const tokenCount = new Intl.NumberFormat("en-US");
@@ -49,33 +50,18 @@ export function ChatContextUsage({ runId, actor = "primary", revision = "" }: { 
   const [result, setResult] = useState<{ key: string; usage?: ContextUsage | null; error?: string }>();
   useEffect(() => {
     const controller = new AbortController();
-    let scheduled: ReturnType<typeof setTimeout> | undefined;
-    let refreshing = false;
-    let pending = false;
-    const refresh = async () => {
-      if (controller.signal.aborted) return;
-      if (refreshing) { pending = true; return; }
-      refreshing = true;
-      do {
-        pending = false;
-        try {
-          const usage = await rpc.call(coreContracts.chat.contextUsage, { runId, actor }, { signal: controller.signal });
-          if (!controller.signal.aborted) setResult({ key, usage });
-        } catch (cause) {
-          if (!controller.signal.aborted) setResult({ key, error: cause instanceof Error ? cause.message : String(cause) });
-        }
-      } while (pending && !controller.signal.aborted);
-      refreshing = false;
-    };
-    const nudge = () => {
-      if (controller.signal.aborted || scheduled !== undefined) return;
-      scheduled = setTimeout(() => { scheduled = undefined; void refresh(); }, 250);
-    };
-    void refresh();
-    const unsubscribe = rpc.subscribe(coreContracts.channels.run, { runId }, nudge, (error) => {
+    const refresh = refreshOnChange(async () => {
+      try {
+        const usage = await rpc.call(coreContracts.chat.contextUsage, { runId, actor }, { signal: controller.signal });
+        if (!controller.signal.aborted) setResult({ key, usage });
+      } catch (cause) {
+        if (!controller.signal.aborted) setResult({ key, error: cause instanceof Error ? cause.message : String(cause) });
+      }
+    });
+    const unsubscribe = rpc.subscribe(coreContracts.channels.run, { runId }, refresh.nudge, (error) => {
       if (!controller.signal.aborted) setResult({ key, error });
     });
-    return () => { controller.abort(); clearTimeout(scheduled); unsubscribe(); };
+    return () => { controller.abort(); refresh.dispose(); unsubscribe(); };
   }, [actor, key, runId]);
   const current = result?.key === key ? result : undefined;
   return <ContextUsageControl usage={current?.usage} error={current?.error} />;

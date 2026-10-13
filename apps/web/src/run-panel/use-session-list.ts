@@ -3,8 +3,9 @@ import { listSessions, type ListedSession } from "../api";
 import { coreContracts } from "@ragents/host/api/contracts";
 import { rpc } from "../rpc";
 import { isRecord } from "../lib/guards";
+import { refreshOnChange } from "../lib/refresh-on-change";
 
-const POLL_INTERVAL_MS = 5000;
+const POLL_INTERVAL_MS = 30_000;
 
 const sameContent = (previous: unknown, next: unknown): boolean => {
   if (Object.is(previous, next)) return true;
@@ -46,39 +47,37 @@ export function useRetainedSession(sessions: readonly ListedSession[], runId: st
   return session;
 }
 
-/** The server's run list, live over the ragents.runs channel and reloaded every five seconds as a safety net. */
+/** The server's run list, live over the ragents.runs channel with a thirty-second safety poll while visible. */
 export function useSessionList(enabled: boolean): { sessions: ListedSession[]; unreachable: boolean; refresh: () => Promise<void> } {
   const [sessions, setSessions] = useState<ListedSession[]>([]);
   const [unreachable, setUnreachable] = useState(false);
-  const refreshing = useRef<Promise<void> | undefined>(undefined);
-  const requested = useRef(false);
-  const refresh = useCallback((): Promise<void> => {
-    if (!enabled) return Promise.resolve();
-    if (refreshing.current) {
-      requested.current = true;
-      return refreshing.current;
-    }
-    const update = async () => {
-      do {
-        requested.current = false;
-        try {
-          const next = await listSessions();
-          setSessions((previous) => shareSessionList(previous, next));
-          setUnreachable(false);
-        } catch { setUnreachable(true); }
-      } while (requested.current);
-    };
-    refreshing.current = update().finally(() => { refreshing.current = undefined; });
-    return refreshing.current;
-  }, [enabled]);
+  const scheduler = useRef<ReturnType<typeof refreshOnChange> | undefined>(undefined);
+  const refresh = useCallback((): Promise<void> => scheduler.current?.refresh() ?? Promise.resolve(), []);
 
   useEffect(() => {
     if (!enabled) return;
-    void refresh();
-    const unsubscribe = rpc.subscribe(coreContracts.channels.runs, {}, () => void refresh());
-    const timer = setInterval(() => void refresh(), POLL_INTERVAL_MS);
-    return () => { unsubscribe(); clearInterval(timer); };
-  }, [enabled, refresh]);
+    let disposed = false;
+    const changes = refreshOnChange(async () => {
+      try {
+        const next = await listSessions();
+        if (disposed) return;
+        setSessions((previous) => shareSessionList(previous, next));
+        setUnreachable(false);
+      } catch { if (!disposed) setUnreachable(true); }
+    });
+    scheduler.current = changes;
+    const unsubscribe = rpc.subscribe(coreContracts.channels.runs, {}, changes.nudge);
+    const timer = setInterval(() => {
+      if (document.visibilityState !== "hidden") changes.nudge();
+    }, POLL_INTERVAL_MS);
+    return () => {
+      disposed = true;
+      scheduler.current = undefined;
+      changes.dispose();
+      unsubscribe();
+      clearInterval(timer);
+    };
+  }, [enabled]);
 
   return { sessions, unreachable, refresh };
 }
