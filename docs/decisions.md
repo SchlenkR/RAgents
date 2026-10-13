@@ -13,6 +13,8 @@ coalesces changes, spaces request starts by two seconds, permits one request at 
 refreshes stale data when a hidden page becomes visible. The documents poll also pauses while
 hidden. Session contexts retain only the latest 100 plugin events. Event loop delay warnings
 make sustained server blocking visible without adding caches or changing public APIs.
+quassel 0.4.9 groups consecutive steps in place; its transcript had copied the group for every
+step, which made each render of a long tool streak quadratic.
 
 ## 2026-10-13: Forward explicit outbound TCP targets for one managed launch
 
