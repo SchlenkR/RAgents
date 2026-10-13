@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -12,6 +12,22 @@ type Playwright = typeof import("playwright-core");
 
 /** What Chromium or Playwright log when this machine cannot set up Chromium's sandbox, such as a hardened container. */
 const SANDBOX_FAILURE = /Chromium sandboxing failed|No usable sandbox|sys_chroot|SUID sandbox|Failed to move to new namespace/;
+
+const socketPathError = (socket: string, platform: NodeJS.Platform, cause?: unknown): Error => new Error(
+  `Chromium singleton socket path "${socket}" is ${Buffer.byteLength(socket, "utf8")} bytes; `
+  + `the ${platform} Unix socket limit is ${platform === "darwin" ? 104 : 108} bytes including the terminator. `
+  + "Use a shorter browser temporary directory.", cause === undefined ? undefined : { cause });
+
+export const assertBrowserSocketPath = (socket: string, platform: NodeJS.Platform = process.platform): void => {
+  if (platform !== "linux" && platform !== "darwin") return;
+  if (Buffer.byteLength(socket, "utf8") >= (platform === "darwin" ? 104 : 108)) throw socketPathError(socket, platform);
+};
+
+const browserFailure = (error: unknown, sandboxed: boolean): unknown => {
+  const socket = /Socket path too long:\s*([^\r\n]+)/.exec(error instanceof Error ? error.message : String(error))?.[1];
+  if (socket !== undefined) return socketPathError(socket.trim(), process.platform, error);
+  return sandboxed ? sandboxFailure(error) : error;
+};
 
 const assertWebRtcPolicy = async (page: Page, timeoutMs: number): Promise<void> => {
   await page.goto("chrome://prefs-internals", { waitUntil: "domcontentloaded", timeout: timeoutMs });
@@ -90,17 +106,21 @@ export const launchChromium = async (
   const executablePath = await browserExecutable(playwright);
   const sandboxed = chromiumSandbox();
   const proxy = networkPolicy === undefined ? undefined : await startBrowserProxy({ policy: networkPolicy, timeoutMs });
-  let profile: string | undefined;
+  let temporary: string | undefined;
   let started: Browser | undefined;
   let cleaning: Promise<void> | undefined;
   const cleanup = (): Promise<void> => cleaning ??= (async () => {
-    await proxy?.close();
-    if (profile !== undefined) await rm(profile, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
+    try { await proxy?.close(); }
+    finally { if (temporary !== undefined) await rm(temporary, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }); }
   })();
   try {
-    if (proxy !== undefined) {
-      profile = await mkdtemp(path.join(tmpdir(), "ragents-browser-profile-"));
-      await mkdir(path.join(profile, "Default"), { mode: 0o700 });
+    temporary = await mkdtemp(path.join(process.platform === "win32" ? tmpdir() : "/tmp", "ragents-browser-"));
+    await chmod(temporary, 0o700);
+    temporary = await realpath(temporary);
+    assertBrowserSocketPath(path.join(temporary, "org.chromium.Chromium.XXXXXX", "SingletonSocket"));
+    const profile = proxy === undefined ? undefined : path.join(temporary, "profile");
+    if (profile !== undefined) {
+      await mkdir(path.join(profile, "Default"), { recursive: true, mode: 0o700 });
       await writeFile(path.join(profile, "Default", "Preferences"), JSON.stringify({ webrtc: { ip_handling_policy: "disable_non_proxied_udp" } }), { mode: 0o600 });
     }
     const options = {
@@ -108,7 +128,7 @@ export const launchChromium = async (
       headless: true,
       chromiumSandbox: sandboxed,
       timeout: timeoutMs,
-      env: environment,
+      env: { ...environment, TMPDIR: temporary, TMP: temporary, TEMP: temporary },
       ...(proxy === undefined ? {} : {
         proxy: proxy.settings,
         args: [
@@ -148,16 +168,15 @@ export const launchChromium = async (
           throw error;
         }
       };
-      const originalClose = browser.close.bind(browser);
-      browser.close = async (options) => {
-        try { await originalClose(options); } finally { await cleanup(); }
-      };
-      browser.once("disconnected", () => { void cleanup().catch((error) => console.error("Browser network cleanup failed:", error)); });
     }
+    const originalClose = browser.close.bind(browser);
+    browser.close = async (options) => {
+      try { await originalClose(options); } finally { await cleanup(); }
+    };
+    browser.once("disconnected", () => { void cleanup().catch((error) => console.error("Browser cleanup failed:", error)); });
     return browser;
   } catch (error) {
-    await started?.close();
-    await cleanup();
-    throw sandboxed ? sandboxFailure(error) : error;
+    try { await started?.close(); } finally { await cleanup(); }
+    throw browserFailure(error, sandboxed);
   }
 };

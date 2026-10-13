@@ -5428,6 +5428,16 @@ contribution nor the VS Code extension's bundle contains it. If playwright-core 
 as `browser-input-invalid` (400); Chrome starts with the run's `WorkspaceProcessContext.env`,
 the safe server environment or the workstation's own environment, with Chromium's sandbox
 explicitly enabled unless `BROWSER_CHROMIUM_SANDBOX` turns it off on this machine.
+Each launch creates a fresh mode-0700 directory under `/tmp` on Linux and macOS (the system
+temporary root on Windows), resolves its real path, and sets only that browser's `TMPDIR`,
+`TMP`, and `TEMP` to it. A restricted browser's profile is inside this directory. The Chromium
+singleton socket path is checked in UTF-8 bytes against the portable Unix socket capacity,
+108 bytes on Linux and 104 on macOS including the terminator; an excessive path fails with
+the path and limit. A socket-length failure reported by Chromium also names both. Browser close,
+disconnect, or failed startup removes the directory, including its profile. The browser parent
+already runs outside the server's process filesystem sandbox; this directory adds no filesystem
+grant, and other sandboxed run processes cannot see it. General run processes keep their own
+`sessions/<run-id>/tmp` environment as described under Server process sandbox.
 Chrome is the browser from `BROWSER_EXECUTABLE_PATH` in the environment of this machine, otherwise the Chromium that
 provisioning puts into Playwright's browser cache for the pinned playwright-core version;
 if both are missing, the error names the expected path and the command. On the server, the

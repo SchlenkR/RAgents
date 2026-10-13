@@ -1,5 +1,32 @@
 # Decisions
 
+## 2026-10-13: Give each browser launch a short private temporary directory
+
+Chapter: `spec/plugins.md` (Browser checks).
+
+Chromium inherited the sandboxed run's `sessions/<run-id>/tmp` environment. With a normal
+data-directory length, its nested singleton socket exceeded Linux's 108-byte Unix socket
+capacity before navigation. The browser parent already launches outside the process filesystem
+sandbox, with Chromium's own sandbox and the run's network proxy. Each launch now uses a fresh
+mode-0700 directory under `/tmp`, with its restricted profile inside it, and removes it on close,
+disconnect, or startup failure. No sandbox root or permission is widened; sandboxed processes
+of every run remain unable to read this launch directory.
+
+Changing the general sandbox's `TMPDIR` would not fix this parent launch: Linux already gives
+each sandbox command a separate `/tmp` mount, while Playwright launches in the host namespace.
+Reworking general run temp storage and its lifecycle would be a larger change and remains
+separate work for other socket-using tools. The browser overrides only its own `TMPDIR`, `TMP`,
+and `TEMP`. The socket guard counts UTF-8 bytes and reserves a terminator (Linux capacity 108,
+portable macOS capacity 104). [Chromium's socket setup](https://github.com/chromium/chromium/blob/main/chrome/browser/process_singleton_posix.cc)
+also rejects excessive paths; a remaining Chromium failure reports the actual path and limit.
+The conservative macOS guard also covers tools that use the standard socket structure, despite
+Chromium's macOS extension allowing longer paths.
+
+Unit tests cover byte boundaries, multibyte paths, private independent directories, and cleanup
+after success and failure. The opt-in Linux browser integration uses the real process sandbox
+and a long data path, checks navigation in two runs, actual socket targets, hidden launch
+directories, and run-stop cleanup. It reports a clear skip reason without Linux or bubblewrap.
+
 ## 2026-10-13: Publish explicit loopback ports for the lifetime of a managed command
 
 Chapter: `spec/plugins.md` (Workspace, sandbox tools, and processes, Server process sandbox,

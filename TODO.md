@@ -4,6 +4,8 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
+- Check live (13.10.2026): on a deployed Linux server with bubblewrap and a realistic data path, run `browser_navigate`, concurrent runs, browser close, run stop and deletion; verify the short per-launch temp directory and profile disappear and other runs cannot read them. Disposable Linux Chromium/bubblewrap integration passes; rerun `RAGENTS_BROWSER_TESTS=1` with `apps/server/tests/browser-sandbox.test.ts` in the server container.
+- General process temp paths (13.10.2026): sandboxed tools other than the browser still receive `sessions/<run-id>/tmp`; consider a short path within each Linux command's private `/tmp` mount and a separate macOS lifecycle for tools that create Unix sockets.
 - Check live (13.10.2026): a plugin's complete dev stack on a deployed Linux server with bubblewrap, `commands.run.publishPorts` on fixed frontend/backend ports, server readiness probes, the run's browser with exact origins, and cleanup on run deletion. Namespace integration tests already cover publication, process/run stop, normal exit, concurrent runs, conflicts and reuse in a disposable Linux container.
 
 - Check live (12.10.2026): after restart, continue a previously overflowed agent with a real model at xhigh; verify startup reserves, proactive compaction within a single reasoning-heavy tool loop, complete ordered reasoning replay, shrinking requests, summary reasoning budgets, bounded results and files, diagnostics, and recovery on the next message. Window/output-enforcing fake models and journal replay cover the incident sequence.

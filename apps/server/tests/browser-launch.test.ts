@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { request } from "node:http";
@@ -9,7 +9,7 @@ import type { LaunchOptions } from "playwright-core";
 import type { PluginHost, PluginRegistration } from "@ragents/engine";
 import { executorMachine } from "@ragents/workspace-executor";
 import { BROWSER_CHROMIUM_SANDBOX_VARIABLE } from "../../../plugins/ragents.browser/executor/contract.ts";
-import { chromiumSandbox, launchChromium } from "../../../plugins/ragents.browser/executor/playwright.ts";
+import { assertBrowserSocketPath, chromiumSandbox, launchChromium } from "../../../plugins/ragents.browser/executor/playwright.ts";
 import { plugin } from "../../../plugins/ragents.browser/server/index.ts";
 
 const sandboxCrash = [
@@ -82,6 +82,45 @@ test("BROWSER_CHROMIUM_SANDBOX keeps Chromium's sandbox unless it is explicitly 
   }
 });
 
+test("singleton socket paths count UTF-8 bytes and reserve the Unix socket terminator", () => {
+  for (const [platform, limit] of [["linux", 108], ["darwin", 104]] as const) {
+    const socket = "/tmp/" + "x".repeat(limit - 6);
+    assertBrowserSocketPath(socket, platform);
+    assert.throws(() => assertBrowserSocketPath(socket + "x", platform), (error: Error) =>
+      error.message.includes(`"${socket}x"`) && error.message.includes(`${limit} bytes including the terminator`));
+    assert.throws(() => assertBrowserSocketPath(socket.slice(0, -1) + "ä", platform), /Unix socket limit/);
+  }
+  assertBrowserSocketPath("x".repeat(300), "win32");
+});
+
+test("each browser launch owns a short private temporary folder regardless of the run's data path", async (t) => {
+  const stub = await fixture(t);
+  const inherited = path.join(tmpdir(), "acme", ".local", "share", "ragents", "example-profile", "sessions", "00000000-0000-0000-0000-000000000000", "tmp");
+  const environment = { TMPDIR: inherited, TMP: inherited, TEMP: inherited, RAGENTS_RUN_ID: "one" };
+  const first = await launchChromium(stub.machine, "/fixture", "one", 1000, undefined, environment);
+  t.after(() => first.close());
+  const second = await launchChromium(stub.machine, "/fixture", "two", 1000, async () => ({ allowedOrigins: [] }), environment);
+  t.after(() => second.close());
+  const directories = stub.launches.map((launch) => launch.env!.TMPDIR!);
+  assert.notEqual(directories[0], directories[1]);
+  for (const [index, directory] of directories.entries()) {
+    assert.equal(path.dirname(directory), await realpath(process.platform === "win32" ? tmpdir() : "/tmp"));
+    assert.notEqual(directory, inherited);
+    if (process.platform !== "win32") assert.equal((await stat(directory)).mode & 0o777, 0o700);
+    assert.equal(stub.launches[index]!.env!.TMP, directory);
+    assert.equal(stub.launches[index]!.env!.TEMP, directory);
+    assertBrowserSocketPath(path.join(directory, "org.chromium.Chromium.XXXXXX", "SingletonSocket"));
+    await writeFile(path.join(directory, "fixture"), "private");
+  }
+  assert.equal(stub.profiles[0], path.join(directories[1]!, "profile"));
+  assert.equal(environment.TMPDIR, inherited);
+  await first.close();
+  await assert.rejects(access(directories[0]!), /ENOENT/);
+  await access(directories[1]!);
+  await second.close();
+  await assert.rejects(access(directories[1]!), /ENOENT/);
+});
+
 test("an invalid BROWSER_CHROMIUM_SANDBOX aborts the server's startup and starts no browser", async (t) => {
   sandboxSetting(t, "off");
   const registration = { service: () => { throw new Error("The plugin must check its setting first"); } } as unknown as PluginRegistration;
@@ -105,7 +144,8 @@ test("Chromium's own sandbox is on by default for unrestricted and restricted br
   assert.equal(stub.launches[1]!.proxy?.bypass, "<-loopback>");
   assert.ok(stub.launches[1]!.proxy?.username && stub.launches[1]!.proxy?.password);
   assert.deepEqual(stub.launches[1]!.args, ["--disable-quic", "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1"]);
-  assert.deepEqual(stub.launches[1]!.env, environment);
+  const temporary = stub.launches[1]!.env!.TMPDIR!;
+  assert.deepEqual(stub.launches[1]!.env, { ...environment, TMPDIR: temporary, TMP: temporary, TEMP: temporary });
   const preferences = JSON.parse(await readFile(path.join(stub.profiles[0]!, "Default", "Preferences"), "utf8"));
   assert.equal(preferences.webrtc.ip_handling_policy, "disable_non_proxied_udp");
   const address = stub.launches[1]!.proxy!.server;
@@ -113,6 +153,18 @@ test("Chromium's own sandbox is on by default for unrestricted and restricted br
   await restricted.close();
   await assert.rejects(proxyRequest(address), /ECONNREFUSED|socket hang up/);
   await assert.rejects(access(stub.profiles[0]!), /ENOENT/);
+  await assert.rejects(access(temporary), /ENOENT/);
+});
+
+test("a remaining socket path failure names its path and limit and removes launch storage", async (t) => {
+  sandboxSetting(t, "0");
+  const stub = await fixture(t);
+  const socket = "/tmp/" + "x".repeat(140) + "/SingletonSocket";
+  stub.state.failure = `browserType.launch: Target page, context or browser has been closed\n[err] FATAL: Socket path too long: ${socket}`;
+  await assert.rejects(launchChromium(stub.machine, "/fixture", "one", 1000), (error: Error) =>
+    error.message.includes(socket) && error.message.includes("Unix socket limit") && (error.cause as Error).message === stub.state.failure);
+  assert.equal(stub.launches.length, 1);
+  await assert.rejects(access(stub.launches[0]!.env!.TMPDIR!), /ENOENT/);
 });
 
 test("a sandbox crash names its cause and the setting, closes the proxy, and never retries without the sandbox", async (t) => {
