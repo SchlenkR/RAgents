@@ -1737,6 +1737,8 @@ In the browser the address selects that server; in VS Code the selected environm
 Start shows permitted templates under "New", then the most recent runs under "Continue" (fifteen
 unless the viewer configures another number), then plugin widgets, as one dashboard; Runs adds search, deletion with confirmation, and the "Shared by me" tab.
 Neither page combines servers, and Start contains no server chips.
+Start and Runs stay mounted in a hidden React `Activity` behind an open run; returning shows the same
+page with its state and scroll position, which `PanelPage` restores when it becomes visible again.
 Free creation, template access, reading, and deletion retain their independent rights.
 Both hosts draw run rows from the same mapping of `ragents.runs.list` (`connectionRunOf` in
 `run-overview.ts`): state, pending actions, read notice, owner, metadata lines, and lock.
@@ -2729,7 +2731,7 @@ uses the filled red square `StopGlyph`; a run stop keeps every active actor avai
 The run chat marks every turn of the primary actor that no human input started with a line
 before its output: "New turn, triggered by turn.finished of @implementer" for a subscription
 delivery or an automatic notice with a source event, "New turn, triggered by a message from
-@implementer" for an input another actor enqueued, and "New turn, triggered by an automatic
+@implementer:" followed by that message as a quote for an input another actor enqueued, and "New turn, triggered by an automatic
 input" for other inputs under the owner. `run.stopped` and `run.continued` appear as "Run stopped
 by alice" and "Run continued by alice" (without sign-in without the name).
 

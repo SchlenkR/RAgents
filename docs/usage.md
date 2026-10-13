@@ -117,6 +117,7 @@ in the run's tool popout.
 Click the logo at the top left ("Back to Start") to see permitted templates, recent runs, and
 plugin sections; it also works with the keyboard. Click a run to continue, or open
 All runs for search and selection; the arrow next to the Runs title leads back to Start.
+Coming back from a run, Start or Runs shows exactly where you left it, scrolled to the same place.
 Runs also has "Shared by me": the runs you shared, their recipients, and each recipient's
 View or Operate access. Search there by run title or recipient. Revoke a single share with
 "Revoke", or remove all sharing for a run with "Revoke all" (see [Share runs](#share-runs)).
@@ -1386,7 +1387,7 @@ actor has a turn; the working animation in the chat follows the same signal. The
 written stays, and agents the coordinator started keep working; their next report starts a new
 turn of the coordinator. Other actors' work shows in the working-agent count below the input.
 Every turn that no message of yours started carries a line about its trigger in the chat, such as
-"New turn, triggered by turn.finished of @implementer". "Stop run" stops all running turns, a
+"New turn, triggered by turn.finished of @implementer"; a message from another actor shows quoted below its line. "Stop run" stops all running turns, a
 running start, processes, and other external work, without confirmation. Every
 active actor remains available, but no turn starts on its own. One line above the input says
 "Stopped", or "Stopped - 3 inputs waiting" when inputs have arrived. Your next message

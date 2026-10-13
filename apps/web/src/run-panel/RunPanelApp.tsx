@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Activity, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { canStartEntry, type AccessContext } from "../../../../packages/ragents/src/access";
 import { deleteSession, getStartOptions, markRunViewed, revokeRunShare, setStartOption, stopRun } from "../api";
 import { startEntryDirectly } from "../chat/requests";
@@ -308,36 +308,34 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
     };
     return (
       <div className="flex h-full flex-col bg-[image:var(--surface-backdrop)]">
-        {readRuns && runId
-          ? (
-            <>
-              {stopError && <Alert variant="destructive">{stopError}</Alert>}
-              <main className="relative z-1 flex min-h-0 min-w-0 flex-1 @container/chat-content">
-                <PluginChat
-                  autoFocusChat={focusRunId === runId && !settingsOpen && !draft}
-                  onAutoFocusChatSettled={settleAutoFocus}
-                  headerContainer={headerContainer}
-                  initialStartOptions={runStartOptions}
-                  key={runId}
-                  onLocationChange={setRunLocation}
-                  statusContainer={statusContainer}
-                  onViewed={reportViewed}
-                  registry={registry}
-                  session={session ?? pendingSession!}
-                  viewing={!draft && !settingsOpen && !helpOpen}
-                />
-              </main>
-              <footer aria-label="Run status bar" className={statusBarClass} ref={setStatusContainer} />
-            </>
-          )
-          : (
-            <>
-              <div className="min-h-0 min-w-0 flex-1 overflow-auto">
-                {unreachable && <Alert className="mb-3" variant="destructive">The server is unreachable.</Alert>}
-                <PanelPage preferences={SERVER_PREFERENCES} registry={registry} send={navigate} state={navigationState} />
-              </div>
-            </>
-          )}
+        {readRuns && runId && (
+          <>
+            {stopError && <Alert variant="destructive">{stopError}</Alert>}
+            <main className="relative z-1 flex min-h-0 min-w-0 flex-1 @container/chat-content">
+              <PluginChat
+                autoFocusChat={focusRunId === runId && !settingsOpen && !draft}
+                onAutoFocusChatSettled={settleAutoFocus}
+                headerContainer={headerContainer}
+                initialStartOptions={runStartOptions}
+                key={runId}
+                onLocationChange={setRunLocation}
+                statusContainer={statusContainer}
+                onViewed={reportViewed}
+                registry={registry}
+                session={session ?? pendingSession!}
+                viewing={!draft && !settingsOpen && !helpOpen}
+              />
+            </main>
+            <footer aria-label="Run status bar" className={statusBarClass} ref={setStatusContainer} />
+          </>
+        )}
+        {/* Start and Runs stay mounted behind an open run, so returning keeps their state and scroll position. */}
+        <Activity mode={readRuns && runId ? "hidden" : "visible"}>
+          <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+            {unreachable && <Alert className="mb-3" variant="destructive">The server is unreachable.</Alert>}
+            <PanelPage preferences={SERVER_PREFERENCES} registry={registry} send={navigate} state={navigationState} />
+          </div>
+        </Activity>
         {settings}
         {draftChat}
       </div>

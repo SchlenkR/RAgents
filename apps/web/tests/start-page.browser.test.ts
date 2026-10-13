@@ -621,7 +621,7 @@ for (const host of ["browser", "vscode"] as const) {
         assert.ok(narrowHeader.height > wideHeader.height, "Both hosts grow the header when its controls wrap.");
         for (const button of await header.getByRole("button").all()) await visibleAction(button);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, "The panel has no horizontal scroll.");
-        const content = await page.locator("main").boundingBox();
+        const content = await page.locator("main:visible").boundingBox();
         assert.ok(content && content.y >= narrowHeader.y + narrowHeader.height, "The content starts below the wrapping header.");
         await page.screenshot({ path: join(shots, `header-${host}-wrapped-${width}.png`) });
       }
@@ -670,6 +670,23 @@ for (const host of ["browser", "vscode"] as const) {
     });
   });
 }
+
+test("returning from a run shows the same Start with its scroll position", browserOnly, async () => {
+  await withPage("view=web&host=browser", 1280, async (page) => {
+    await page.setViewportSize({ width: 1280, height: 360 });
+    const start = page.locator('main[data-page="start"]');
+    await start.getByRole("list", { name: "Templates", exact: true }).waitFor();
+    const scrolled = await start.evaluate((element) => { element.scrollTop = element.scrollHeight; return element.scrollTop; });
+    assert.ok(scrolled > 0, "the narrow window lets Start scroll");
+    const original = await start.elementHandle();
+    await page.getByRole("list", { name: "Recent", exact: true }).getByRole("button").first().click();
+    await start.waitFor({ state: "hidden" });
+    await page.locator("header").getByRole("button", { name: "Back to Start", exact: true }).click();
+    await start.waitFor();
+    assert.equal(await start.evaluate((element, before) => element === before, original), true, "Start stays mounted behind the run");
+    assert.equal(await start.evaluate((element) => element.scrollTop), scrolled, "Start keeps its scroll position");
+  });
+});
 
 test("the VS Code run header adds occupied continuation rows and removes them when widened", browserOnly, async () => {
   await withPage("view=panel&host=vscode&windows=1&coordinator=1", 1280, async (page) => {

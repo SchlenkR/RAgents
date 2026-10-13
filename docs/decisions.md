@@ -1,5 +1,16 @@
 # Decisions
 
+## 2026-10-13: Start stays behind an open run, and actor messages show with their trigger
+
+Chapters: `spec/plugins.md` (Web as plugin host; run chat turn triggers); usage: `usage.md` (Switch runs;
+chat controls).
+
+Returning from a run rebuilt Start and Runs, which flashed their widgets and lost the scroll position.
+The panel page now stays mounted in a hidden React `Activity` while a run is open and restores its
+last scroll position when it becomes visible, because hiding drops it. A turn of the primary actor
+started by another actor's message only named the sender; the chat now quotes that message below
+the trigger line, so the reason for the turn is readable without opening the other actor.
+
 ## 2026-10-13: Bound browser refresh work and select narrow run data
 
 Chapters: `spec/core.md` (Model context across turns; Journal and projection), `spec/plugins.md`

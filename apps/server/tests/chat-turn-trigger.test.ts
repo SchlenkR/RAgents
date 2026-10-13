@@ -65,7 +65,7 @@ test("the chat says what started a turn of the primary actor that no person aske
 
     assert.deepEqual(live.systemLines().map((line) => line.text), [
       "New turn, triggered by turn.finished of @implementer",
-      "New turn, triggered by a message from @implementer",
+      "New turn, triggered by a message from @implementer:\n\n> Found a problem.",
       "New turn, triggered by turn.interrupted of @implementer",
       "New turn, triggered by an automatic input",
     ], "a person's own message starts a turn without a line, turns of other actors have none either");

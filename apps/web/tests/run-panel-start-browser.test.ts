@@ -93,7 +93,7 @@ test("the VS Code panel starts on the server's Start page and keeps one loading 
     const waitForTitle = (title: string) => page.waitForFunction((expected) => document.querySelector("[data-startup] strong")?.textContent === expected, title);
     const settle = () => page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     const chat = (event: unknown) => page.evaluate((payload) => window.runStartFixture.chat(payload), event);
-    const startPage = page.locator('main[data-page="start"]');
+    const startPage = page.locator('main[data-page="start"]:visible');
 
     await page.goto(`${url}?profile=pending`);
     await notice.waitFor();

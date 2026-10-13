@@ -15,7 +15,7 @@ export interface ChatProjectionScope {
   scriptActorHandle?: (actorId: string) => string | undefined;
   turnOf: (turnId: string) => Pick<Turn, "actorId" | "toolCalls">;
   /** The input a turn claimed; the chat names what started a turn of the primary actor that no person asked for. */
-  inputOf: (inputId: string) => Pick<ActorInput, "enqueuedBy" | "origin" | "sourceEventIds">;
+  inputOf: (inputId: string) => Pick<ActorInput, "enqueuedBy" | "origin" | "sourceEventIds" | "content">;
   /** The type of an earlier event of the run and the actor it concerns, as eventSubjectOf determines it. */
   sourceOf: (eventId: string) => { type: JournalEvent["type"]; subjectId: string };
   handleOf: (actorId: string) => string;
@@ -26,7 +26,7 @@ export interface ChatProjectionScope {
 
 const byUser = (userId: string | undefined): string => userId === undefined ? "" : ` by ${userId}`;
 
-/** A person's own message needs no hint; otherwise its source event, the message of another actor, or an automatic input. */
+/** A person's own message needs no hint; otherwise its source event, the message of another actor with its text, or an automatic input. */
 const triggerOf = (inputId: string, scope: ChatProjectionScope): string | undefined => {
   const input = scope.inputOf(inputId);
   if (input.origin === "human") return undefined;
@@ -36,9 +36,9 @@ const triggerOf = (inputId: string, scope: ChatProjectionScope): string | undefi
     const source = scope.sourceOf(sourceEventId);
     return `${source.type} of @${scope.handleOf(source.subjectId)}`;
   }
-  return input.enqueuedBy === scope.ownerId || input.enqueuedBy === scope.primaryActorId
-    ? "an automatic input"
-    : `a message from @${scope.handleOf(input.enqueuedBy)}`;
+  if (input.enqueuedBy === scope.ownerId || input.enqueuedBy === scope.primaryActorId) return "an automatic input";
+  const quoted = input.content.trim().split("\n").map((line) => `> ${line}`).join("\n");
+  return `a message from @${scope.handleOf(input.enqueuedBy)}${quoted ? `:\n\n${quoted}` : ""}`;
 };
 
 export const chatEventsOf = (event: JournalEvent, scope: ChatProjectionScope, cursor: ChatTextCursor | undefined, pluginStates: PluginStateProjection): ChatEvent[] => {

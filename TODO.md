@@ -4,6 +4,7 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
+- Browser tests (13.10.2026): with `RAGENTS_BROWSER_TESTS=1`, `start-page.browser.test.ts` "panel content stays bounded" (Runs begins 12 to 20 px lower than Start, all widths and both views) and `run-overview.browser.test.ts` "run rows show the server's read markers ..." fail on main; fix the layout or the expectations.
 - Check live (13.10.2026): on the deployed Linux server, give a plugin's database target an explicit `PROCESS_SANDBOX_NETWORK` host/port grant, resolve `commands.tcpEndpoints`, rewrite the plugin's own settings and launch with `forwardTcp` plus `publishPorts`; verify real driver connectivity, denied targets, concurrent runs and cleanup on process/run stop and deletion. Named-instance discovery remains the plugin's job outside the sandbox.
 - Check live (13.10.2026): on a deployed Linux server with bubblewrap and a realistic data path, run `browser_navigate`, concurrent runs, browser close, run stop and deletion; verify the short per-launch temp directory and profile disappear and other runs cannot read them. Disposable Linux Chromium/bubblewrap integration passes; rerun `RAGENTS_BROWSER_TESTS=1` with `apps/server/tests/browser-sandbox.test.ts` in the server container.
 - General process temp paths (13.10.2026): sandboxed tools other than the browser still receive `sessions/<run-id>/tmp`; consider a short path within each Linux command's private `/tmp` mount and a separate macOS lifecycle for tools that create Unix sockets.

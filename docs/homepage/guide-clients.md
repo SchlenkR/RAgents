@@ -578,7 +578,7 @@ actor has a turn; the working animation in the chat follows the same signal. The
 written stays, and agents the coordinator started keep working; their next report starts a new
 turn of the coordinator. Other actors' work shows in the working-agent count below the input.
 Every turn that no message of yours started carries a line about its trigger in the chat, such as
-"New turn, triggered by turn.finished of @implementer". "Stop run" stops all running turns, a
+"New turn, triggered by turn.finished of @implementer"; a message from another actor shows quoted below its line. "Stop run" stops all running turns, a
 running start, processes, and other external work, without confirmation. Every
 active actor remains available, but no turn starts on its own. One line above the input says
 "Stopped", or "Stopped - 3 inputs waiting" when inputs have arrived. Your next message

@@ -1114,7 +1114,7 @@ export class RunChatSession implements ChatSessionLike {
       inputOf: (inputId) => {
         const input = this.#engine.runtime.select(this.id, (state) => {
           const found = state.inputs.get(inputId);
-          return found && { enqueuedBy: found.enqueuedBy, sourceEventIds: found.sourceEventIds, ...found.origin ? { origin: found.origin } : {} };
+          return found && { enqueuedBy: found.enqueuedBy, sourceEventIds: found.sourceEventIds, content: found.content, ...found.origin ? { origin: found.origin } : {} };
         });
         if (!input) throw new Error(`The input ${inputId} is missing from run ${this.id}`);
         return input;
