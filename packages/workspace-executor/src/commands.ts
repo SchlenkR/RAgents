@@ -4,10 +4,11 @@ import { workspaceDirectory } from "./files.js";
 import { runManagedProcess } from "./managed-process.js";
 import type { WorkspaceModuleFactory, WorkspaceOperation } from "./module.js";
 import type { OperationFootprint } from "./paths.js";
-import { checkedPublishedPorts, withSandboxedLaunch } from "./process-sandbox.js";
+import { checkedPublishedPorts, checkedTcpForwards, tcpEndpoints, withSandboxedLaunch, type TcpForward } from "./process-sandbox.js";
 
 export const COMMAND_OPERATIONS = {
   run: "commands.run",
+  tcpEndpoints: "commands.tcpEndpoints",
 } as const;
 
 /** The largest output per stream that a call returns; whatever goes beyond it is discarded and the truncation is reported. */
@@ -24,6 +25,8 @@ export interface CommandRunInput {
   maxOutputBytes?: number;
   /** Publish these TCP ports on this machine's loopback until the command ends. */
   publishPorts?: readonly number[];
+  /** Forward named TCP targets to inside loopback ports; resolve connection addresses with commands.tcpEndpoints first. */
+  forwardTcp?: readonly TcpForward[];
 }
 
 export interface CommandResult {
@@ -42,6 +45,7 @@ interface CheckedCommand {
   readonly timeoutMs: number;
   readonly maxOutputBytes: number;
   readonly publishPorts: readonly number[];
+  readonly forwardTcp: readonly TcpForward[];
 }
 
 interface RunningCommand {
@@ -66,7 +70,9 @@ const checkedCommand = (input: unknown, platform: NodeJS.Platform): CheckedComma
   if (typeof maxOutputBytes !== "number" || !Number.isSafeInteger(maxOutputBytes) || maxOutputBytes < 0 || maxOutputBytes > COMMAND_OUTPUT_LIMIT) {
     throw invalid(`The output limit is between 0 and ${COMMAND_OUTPUT_LIMIT} bytes`);
   }
-  return { program, args, cwd, timeoutMs, maxOutputBytes, publishPorts: checkedPublishedPorts(value.publishPorts === undefined ? [] : value.publishPorts) };
+  const publishPorts = checkedPublishedPorts(value.publishPorts === undefined ? [] : value.publishPorts);
+  const forwardTcp = checkedTcpForwards(value.forwardTcp === undefined ? [] : value.forwardTcp, publishPorts);
+  return { program, args, cwd, timeoutMs, maxOutputBytes, publishPorts, forwardTcp };
 };
 
 /** Collects a stream up to the limit; the rest is discarded, the process keeps running. */
@@ -113,7 +119,7 @@ const runCommand = async (context: WorkspaceProcessContext, command: CheckedComm
       onStdout: stdout.add,
       onStderr: stderr.add,
     });
-  }).catch((error: unknown) => {
+  }, command.forwardTcp).catch((error: unknown) => {
     throw unavailable(command.program, error) ?? error;
   });
   if (result.timedOut) {
@@ -164,9 +170,16 @@ export const commandModule = (platform: NodeJS.Platform = process.platform): Wor
   return {
     operations: {
       [COMMAND_OPERATIONS.run]: run,
+      [COMMAND_OPERATIONS.tcpEndpoints]: async ({ runId, input, signal }) => {
+        const forwards = checkedTcpForwards((input as { forwardTcp?: unknown } | null)?.forwardTcp);
+        const context = await host.contextFor(runId);
+        signal?.throwIfAborted();
+        return tcpEndpoints(context, forwards);
+      },
     },
     footprints: {
       [COMMAND_OPERATIONS.run]: commandFootprint,
+      [COMMAND_OPERATIONS.tcpEndpoints]: () => ({ roots: { aliases: [], runRoot: true } }),
     },
     stopRun: (runId) => stopAll([...running.get(runId) ?? []]),
     shutdown: () => stopAll([...running.values()].flatMap((commands) => [...commands])),

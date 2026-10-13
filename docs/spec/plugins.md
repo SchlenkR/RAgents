@@ -4421,6 +4421,74 @@ Publication is a trusted plugin's explicit grant of the named ports of this run'
 all processes that can reach the executor machine's loopback, without authentication or run-specific access checks.
 Browser origins and outbound process-network grants remain separate policies.
 
+**Outbound TCP targets.** A trusted plugin supplies `forwardTcp: [{ host: "db.example.test",
+port: 1433, insidePort: 11433 }]` for one `commands.run` launch. Hosts are concrete DNS names or
+IP literals, with no URL, wildcard, embedded port, or IPv6 zone. Both ports are integers from
+1 to 65535. Inside ports must be distinct and cannot overlap `publishPorts`; invalid requests
+fail before launch with `process-tcp-invalid` (400).
+
+First call `commands.tcpEndpoints` with `{ forwardTcp }` through `SandboxServices.execute`.
+It uses the same run-root routing as the command and returns a `TcpEndpoint[]` in request order,
+allocating no listeners. On sandboxed Linux and macOS each endpoint is `127.0.0.1:<insidePort>`.
+On workstations and unrestricted executors it is the original `{ host, port }`; inside ports are
+validated but unused there. The plugin builds its own connection settings from these addresses
+and passes the same requests to the launch:
+
+```ts
+import type { TcpEndpoint } from "@ragents/workspace-executor";
+import { sandboxServicesToken } from "@ragents/host/plugin-support/workspace-sandbox-host";
+
+const sandbox = host.service(sandboxServicesToken);
+const forwardTcp = [{ host: "db.example.test", port: 1433, insidePort: 11433 }];
+const endpoints = await sandbox.execute(runId, "commands.tcpEndpoints", { forwardTcp }) as TcpEndpoint[];
+const database = endpoints[0]!;
+const running = sandbox.execute(runId, "commands.run", {
+  program: "acme-service",
+  args: ["--database-host", database.host, "--database-port", String(database.port)],
+  forwardTcp,
+  publishPorts: [12000],
+  timeoutMs: 600000,
+}, { signal });
+```
+
+Every sandboxed request needs an explicit matching entry in that server's
+`PROCESS_SANDBOX_NETWORK`, such as `db.example.test:1433`. Matching follows the library's
+case-insensitive exact-host and strict-subdomain patterns, including optional port restrictions;
+a host-only grant permits all its TCP ports. The default `"*"` is a public-web proxy policy and
+does not authorize raw TCP forwarding. Neither another host's shared proxy grants, the automatic
+own-server grant, browser origins nor published ports authorize these targets. Endpoint resolution
+and launch independently check the current grants; a denied request fails with
+`process-tcp-denied` (403), naming the host and port. A custom sandbox without the optional
+`ProcessSandbox.tcpEndpoints` or `forwardTcp` hook fails with `process-tcp-unsupported` (409).
+
+Linux binds outside Unix listeners in the same private per-launch socket folder as any
+published ports. Each listener connects only to its configured host and port from outside the
+network namespace. The inside relay binds `127.0.0.1:<insidePort>` and pipes raw bytes through
+that socket, preserving backpressure and TCP half-close. It starts the command only after all
+inside listeners are ready. No host TCP listener or general outbound route is created, and
+concurrent namespaces may reuse inside ports. Cleanup has the same managed-process lifetime as
+publication, including accepted connections and partial preparation failures. Connection or
+target DNS failures after launch close that connection; normal driver errors and timeouts apply.
+
+macOS needs no namespace or Unix-socket bridge, but Seatbelt accepts only `localhost` or `*`
+as a remote host in network filters, so it cannot authorize a named remote target directly.
+The host instead reserves `127.0.0.1:<insidePort>` for a TCP relay to the configured target and
+grants this launch outbound TCP only to that loopback port. The relay follows the same lifetime;
+bind failures use `process-tcp-unavailable` (409), naming the target and inside port. Concurrent
+macOS launches need distinct inside ports. As with publication, any local caller can reach these
+explicit relays while they are alive; they have no authentication. Workstations and unrestricted
+executors keep their existing direct network access. The plugin owns connection-string rewriting and
+preserving the target identity for TLS validation. Only TCP is forwarded; named database
+instance discovery, including SQL Browser over UDP 1434, stays with the plugin outside the
+sandbox. There is no host protocol-specific resolver.
+
+These optional hooks, types and command fields are additive: host API 18 stays unchanged and
+its record is regenerated with `pnpm update:host-api`. Executor version 17 prevents older
+workstations from ignoring the option. Contract and platform checks live in
+`packages/workspace-executor/tests/tcp-forwards.test.ts` and
+`apps/server/tests/process-sandbox-tcp.test.ts`; the Linux echo integration explicitly skips
+when the platform is not Linux or bubblewrap is absent.
+
 After a bash call the host waits for the end of its process group. On macOS,
 an already ended group with remaining zombie entries can report `EPERM` on the signal check.
 In this case the host checks only the process group ID and process status;
@@ -4806,7 +4874,7 @@ server root; the workstation's executor itself gets no sandbox; there it remains
 developer's bash. The core does not know the sandbox: the server's sandbox host
 (`WorkspaceSandboxHost`) passes it along with a run's process context (`WorkspaceProcessContext.sandbox`),
 and every place that starts a process wraps it with `sandboxedLaunch` (managed commands use
-`withSandboxedLaunch` to own explicit port publications). With or without a sandbox,
+`withSandboxedLaunch` to own explicit port publications and TCP forwards). With or without a sandbox,
 server launches use the shared safe environment allowlist plus required run variables, never an
 ambient copy of `process.env`. Profile `env("NAME")` sources and resolved values, configuration
 containing references or declared secrets, and provider credentials are excluded, including from

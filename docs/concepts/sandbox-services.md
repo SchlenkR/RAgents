@@ -12,6 +12,10 @@ allows all local callers to reach those ports. This implements explicit plugin p
 not automatic discovery of arbitrary `bash` background services, one shared namespace per run,
 or forwarding and rail ownership for namespace listeners. The broader proposal below remains open.
 
+Explicit outbound TCP targets are also implemented for managed launches through
+`commands.tcpEndpoints` and `commands.run.forwardTcp` in `spec/plugins.md`. Their loopback
+endpoints belong to one launch and do not make arbitrary services discoverable across commands.
+
 ## Finding
 
 Verified on 03.10.2026 with `@anthropic-ai/sandbox-runtime` 0.0.77 and the server's real sandbox

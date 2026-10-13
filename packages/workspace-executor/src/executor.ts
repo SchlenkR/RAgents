@@ -5,7 +5,7 @@ import type { WorkspaceExecutorModule, WorkspaceModuleFactory, WorkspaceOperatio
 import { NO_ROOTS, type OperationFootprint } from "./paths.js";
 
 /** The version of the executor; server and workspace must carry the same one. */
-export const WORKSPACE_EXECUTOR_VERSION = "16";
+export const WORKSPACE_EXECUTOR_VERSION = "17";
 
 export interface WorkspaceExecuteOptions {
   browserNetwork?: BrowserNetworkPolicy;

@@ -1,5 +1,30 @@
 # Decisions
 
+## 2026-10-13: Forward explicit outbound TCP targets for one managed launch
+
+Chapter: `spec/plugins.md` (Workspace, sandbox tools, and processes; Server process sandbox);
+operations: `operations.md` (Server process sandbox).
+
+Linux run processes have no outbound route, and database drivers cannot use the library's
+HTTP/SOCKS bridges. `commands.run.forwardTcp` therefore shares the publication relay and
+per-launch Unix socket folder, with the inside loopback dialing only named outside targets.
+`commands.tcpEndpoints` returns addresses before the plugin builds its own settings; it routes
+to the same executor without allocating resources. Workstations and unrestricted executors
+return the original target. Sandboxed macOS returns loopback through a small host TCP relay:
+measured Seatbelt rules reject named remote hosts and literal IPs, accepting only `localhost`
+or `*`, so direct access could not preserve the target restriction. It grants only the relay's
+loopback port and uses no namespace or Unix-socket bridge. Both sandboxed
+operations enforce the owning server's explicit host/port grants, independently of the shared
+proxy state; the default public-web `"*"` cannot grant raw TCP. Managed cleanup owns both
+directions, without adding a second service broker or an outbound route.
+
+Named-instance discovery remains in the plugin: the host transports TCP without database
+protocols or UDP grants. Host API 18 remains unchanged because the hooks, types and fields are
+additive; the host API record is regenerated. Executor version 17 rejects older workstations
+that could silently ignore forwarding. Tests cover validation, grant boundaries, direct
+workstations, macOS profiles and raw TCP, Linux echo with binary half-close, combined publication,
+concurrent namespaces, normal exit, cancellation, timeout, run stop and preparation rollback.
+
 ## 2026-10-13: Give each browser launch a short private temporary directory
 
 Chapter: `spec/plugins.md` (Browser checks).

@@ -846,6 +846,15 @@ The profile file controls it in the `ragents.workspace` section. `"auto"` is the
 `"on"` forces protection for all runs. The legacy `"off"` allows administrator runs to be
 unrestricted but cannot disable protection for nonadministrators.
 
+For a plugin's outbound TCP forward, add an explicit host/port grant, for example
+`PROCESS_SANDBOX_NETWORK: ["*", "db.example.test:1433"]`, and restart the server.
+The public-web `"*"` alone does not authorize raw TCP. The plugin resolves connection addresses
+with `commands.tcpEndpoints` and launches with the same `forwardTcp` requests; Linux returns
+inside loopback, as does sandboxed macOS through a host TCP relay; workstations and unrestricted
+executors return the original target. API, cleanup and errors are
+in [plugins.md](spec/plugins.md) under "Outbound TCP targets". Named-instance resolution runs
+in the plugin outside the process sandbox; this API forwards no UDP discovery traffic.
+
 ```ts
 "ragents.workspace": {
   PROCESS_SANDBOX: "on",
