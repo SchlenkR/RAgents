@@ -4380,6 +4380,47 @@ a shell. The module is not a command lock: without a shell means that no argumen
 is interpreted, not that only certain programs run. Binary output is not intended; it
 arrives as UTF-8 text.
 
+**Publishing loopback ports.** A trusted plugin can pass `publishPorts: [12000, 12001]` in
+`CommandRunInput` through the existing `SandboxServices.execute(runId, "commands.run", input, options)`
+service. The command promise remains pending until the process ends; the plugin owns that promise
+and may perform readiness probes while it runs. `options.signal` stops it. Port numbers must be
+distinct integers from 1 to 65535; invalid values fail with `process-port-invalid` (400).
+An occupied port fails before launch with `process-port-in-use` (409), naming the port; other bind
+failures use `process-port-unavailable` (409). No replacement port is chosen.
+
+```ts
+const sandbox = host.service(sandboxServicesToken);
+const running = sandbox.execute(runId, "commands.run", {
+  program: "node",
+  args: ["server.mjs"],
+  timeoutMs: 600000,
+  publishPorts: [12000, 12001],
+}, { signal });
+```
+
+The ports belong to that launch and its children, not to every process of the run. On Linux the
+server reserves `127.0.0.1:<port>` and forwards TCP through per-launch Unix sockets in the run's
+temporary folder to a relay in the command's network namespace, which connects only to
+`127.0.0.1:<port>` there. This uses the same Unix-socket boundary as the library's outbound bridges,
+with Node streams preserving backpressure and half-close. Directory descriptors keep socket names
+below the Unix path length limit even with long run-storage paths. The relay starts the requested
+program only after its Unix listeners are ready and ends when that program ends. Managed process
+cleanup joins its children, closes accepted connections and outside listeners, and removes the
+socket folder on normal exit, failure, timeout, cancellation, process stop, run stop, deletion,
+and executor shutdown. A later launch can reuse the ports; concurrent runs can publish different ports.
+
+On macOS and executors without network namespaces the transport is a no-op after validation and
+an occupied-port check. The macOS sandbox additionally permits binding and receiving only on the
+named loopback ports, without granting loopback outbound access. `ProcessSandbox.publishPorts`
+optionally prepares a `PublishedProcessLaunch` with `launch` and `close`; `withSandboxedLaunch` in
+the executor brackets the managed command with this cleanup. A sandbox without that method rejects
+publication with `process-port-unsupported` (409), without launching an unrestricted process.
+Package-isolated Linux launches that explicitly publish ports permit Unix sockets within their
+existing filesystem allowances for the relay; they receive no outbound proxy bridge or extra data roots.
+Publication is a trusted plugin's explicit grant of the named ports of this run's process tree to
+all processes that can reach the executor machine's loopback, without authentication or run-specific access checks.
+Browser origins and outbound process-network grants remain separate policies.
+
 After a bash call the host waits for the end of its process group. On macOS,
 an already ended group with remaining zombie entries can report `EPERM` on the signal check.
 In this case the host checks only the process group ID and process status;
@@ -4702,8 +4743,9 @@ and closes the service through `kill` and `finished` in its module's `stopRun` a
 operations locally, including their cancellation and progress. `resolveRootPath` also checks paths
 for files that do not exist yet and refuses links or paths outside the supplied root. The
 contribution function touches neither disk nor network; resolution and checks happen only in the
-call. `WORKSPACE_EXECUTOR_VERSION` is 15 because result limiting on the machine is part of the
-contribution contract. The server supplies the run-owner network policy in the executor request, separately
+call. `WORKSPACE_EXECUTOR_VERSION` is 16 so an older workstation cannot silently ignore
+`commands.run.publishPorts`; machine-side result limiting remains part of the contribution contract.
+The server supplies the run-owner network policy in the executor request, separately
 from the operation's input, and the workstation adds it to `WorkspaceProcessContext`.
 
 The build tool turns it into a self-contained file `executor/index.mjs` that imports only `node:*`
@@ -4763,7 +4805,8 @@ the server, that is, also to a bash with an alias as `cwd` and to language serve
 server root; the workstation's executor itself gets no sandbox; there it remains the
 developer's bash. The core does not know the sandbox: the server's sandbox host
 (`WorkspaceSandboxHost`) passes it along with a run's process context (`WorkspaceProcessContext.sandbox`),
-and every place that starts a process wraps it with `sandboxedLaunch`. With or without a sandbox,
+and every place that starts a process wraps it with `sandboxedLaunch` (managed commands use
+`withSandboxedLaunch` to own explicit port publications). With or without a sandbox,
 server launches use the shared safe environment allowlist plus required run variables, never an
 ambient copy of `process.env`. Profile `env("NAME")` sources and resolved values, configuration
 containing references or declared secrets, and provider credentials are excluded, including from
@@ -5420,7 +5463,7 @@ only for the proxy; an origin's HTTP authentication challenge cannot obtain its 
 `BROWSER_ALLOWED_ORIGINS` in the server's `ragents.browser` section is a list of exact
 HTTP(S) origins such as `http://127.0.0.1:8080`. An entry allows that scheme, hostname,
 and port, including internal addresses; paths, credentials, queries, and fragments are
-invalid. This allowance travels to a workstation through executor protocol 15. It is
+invalid. This allowance travels to a workstation through executor protocol 16. It is
 separate from `PROCESS_SANDBOX_NETWORK`. Administrators' unrestricted runs keep ordinary
 HTTP(S) browser access. Every browser uses Chromium's sandbox unless its machine turns it
 off, and a fresh run context; no personal Chrome profile or sign-in is inherited.
@@ -5890,8 +5933,9 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   such as corepack without `packageManager` in the `package.json`. Node 22 reports
   `EnvHttpProxyAgent is experimental` on stderr at every start. The library is a research preview
   (version 0.0.x). On Linux in a container, bubblewrap needs user namespaces, that is,
-  relaxed container profiles (`docs/operations.md`). A service a run starts in the sandbox, also
-  as a background command, cannot be opened: on Linux every process start has its own network and
+  relaxed container profiles (`docs/operations.md`). Without an explicit `commands.run.publishPorts`
+  grant, a service a run starts in the sandbox, also as a background command, cannot be opened:
+  on Linux every process start has its own network and
   PID namespace, so the service ends with its command even when detached (a background command keeps
   its namespace as long as it runs), listens only on that command's loopback, shows no port
   in the rail, and is reached by neither a later command, the browser, nor the forwarding; on macOS

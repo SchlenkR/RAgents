@@ -8,6 +8,8 @@ import { wrapCommandWithSandboxMacOS } from "@anthropic-ai/sandbox-runtime/dist/
 import { wrapCommandWithSandboxLinux } from "@anthropic-ai/sandbox-runtime/dist/sandbox/linux-sandbox-utils.js";
 import { containsWorkspacePath, safeProcessEnvironment, type ProcessLaunch, type ProcessSandbox } from "@ragents/workspace-executor";
 import { hostRoot } from "../host-version.js";
+import { checkAvailablePorts, checkedPublishedPorts } from "@ragents/workspace-executor/src/process-sandbox.ts";
+import { publishLoopbackPorts } from "./process-sandbox-ports.js";
 
 /** Public web access; explicit targets and the own server are allowed separately. */
 export const PROCESS_SANDBOX_DEFAULT_NETWORK: readonly string[] = ["*"];
@@ -56,7 +58,7 @@ const shellCommand = (words: readonly string[]): string => words.map(shellWord).
 
 const ancestorsOf = (entry: string): readonly string[] => path.dirname(entry) === entry ? [entry] : [entry, ...ancestorsOf(path.dirname(entry))];
 
-const sandboxLaunch = (command: string, platform: NodeJS.Platform, directories: readonly string[]): ProcessLaunch => {
+const sandboxLaunch = (command: string, platform: NodeJS.Platform, directories: readonly string[], ports: readonly number[] = []): ProcessLaunch => {
   if (platform !== "darwin") return { command: "/bin/sh", args: ["-c", command] };
   const prefix = "/usr/bin/sandbox-exec -p ";
   const start = command.indexOf(prefix) + prefix.length;
@@ -80,7 +82,8 @@ const sandboxLaunch = (command: string, platform: NodeJS.Platform, directories: 
     .replace(/\(sysctl-name-prefix "kern\.proc[^"\n]*"\)/g, "")
     + `\n(allow file-read-metadata file-test-existence (literal ${metadata}))`
     + '\n(allow mach-bootstrap syscall* system-fcntl socket-option*)\n(deny syscall-unix (syscall-number 202) (with errno 1))\n(allow file-map-executable dynamic-code-generation)\n(allow system-socket (socket-domain AF_INET AF_INET6))\n(allow system-mac-syscall (mac-policy-name "AMFI"))';
-  return { command: "/bin/sh", args: ["-c", command.slice(0, start) + shellWord(protectedProfile) + command.slice(start + quoted.length)] };
+  const publishedProfile = protectedProfile + ports.map((port) => `\n(allow network-bind network-inbound (local ip "localhost:${port}"))`).join("");
+  return { command: "/bin/sh", args: ["-c", command.slice(0, start) + shellWord(publishedProfile) + command.slice(start + quoted.length)] };
 };
 
 /** The environment inside the sandbox: its own temp folder, and every network call goes through the proxy, including the one to the own server. */
@@ -346,6 +349,24 @@ export class ServerProcessSandbox implements RunProcessSandboxes {
   }
 
   forRun(folders: RunSandboxFolders): ProcessSandbox {
+    const sandbox = this.#forRun(folders);
+    return {
+      wrap: sandbox.wrap,
+      publishPorts: async (launch, ports) => {
+        const checked = checkedPublishedPorts(ports);
+        const publishing = this.#forRun(folders, checked);
+        if (this.#platform !== "linux" || checked.length === 0) {
+          await checkAvailablePorts(checked);
+          return { launch: await publishing.wrap(launch), close: async () => undefined };
+        }
+        return publishLoopbackPorts(realOrGiven(folders.temporary), {
+          ...launch, command: path.isAbsolute(launch.command) ? realOrGiven(launch.command) : launch.command,
+        }, checked, publishing.wrap);
+      },
+    };
+  }
+
+  #forRun(folders: RunSandboxFolders, ports: readonly number[] = []): ProcessSandbox {
     const temporary = realOrGiven(folders.temporary);
     const commandFor = (launch: ProcessLaunch): string => path.isAbsolute(launch.command) ? realOrGiven(launch.command) : launch.command;
     if (folders.isolated) return {
@@ -362,12 +383,12 @@ export class ServerProcessSandbox implements RunProcessSandboxes {
           needsNetworkRestriction: true,
           readConfig: { denyOnly: ["/"], allowWithinDeny: readable },
           writeConfig: { allowOnly: [...folders.writable, temporary].map(realOrGiven), denyWithinAllow: [] },
-          allowAllUnixSockets: false,
+          allowAllUnixSockets: this.#platform === "linux" && ports.length > 0,
           enableWeakerNestedSandbox: false,
           unsetEnvVars: ["JAVA_TOOL_OPTIONS"],
         };
         const wrapped = this.#platform === "darwin" ? wrapCommandWithSandboxMacOS(parameters) : await wrapCommandWithSandboxLinux(parameters);
-        return sandboxLaunch(wrapped, this.#platform, readable);
+        return sandboxLaunch(wrapped, this.#platform, readable, ports);
       },
     };
     const bridges = [SandboxManager.getLinuxHttpSocketPath(), SandboxManager.getLinuxSocksSocketPath()]
@@ -387,7 +408,7 @@ export class ServerProcessSandbox implements RunProcessSandboxes {
         };
         const inner = shellCommand(["env", ...environment, commandFor(launch), ...launch.args]);
         const wrapped = await SandboxManager.wrapWithSandbox(inner, undefined, { filesystem });
-        return sandboxLaunch(wrapped, this.#platform, [...readable, ...writable]);
+        return sandboxLaunch(wrapped, this.#platform, [...readable, ...writable], ports);
       },
     };
   }

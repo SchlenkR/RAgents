@@ -2,6 +2,16 @@
 
 Status: Idea
 
+## Current explicit publication
+
+Since 13.10.2026, a trusted plugin can publish named ports of a managed `commands.run` launch
+through `publishPorts` (see `spec/plugins.md`, Workspace, sandbox tools, and processes).
+Linux uses a relay per launch through Unix sockets to the server's loopback; macOS grants the
+named inbound loopback bindings. The grant lasts only until that command ends and intentionally
+allows all local callers to reach those ports. This implements explicit plugin publication,
+not automatic discovery of arbitrary `bash` background services, one shared namespace per run,
+or forwarding and rail ownership for namespace listeners. The broader proposal below remains open.
+
 ## Finding
 
 Verified on 03.10.2026 with `@anthropic-ai/sandbox-runtime` 0.0.77 and the server's real sandbox
@@ -96,10 +106,10 @@ sandbox today, because `wrapWithSandbox` wraps any command; fresh folder rules p
 it and ports per run on macOS need library changes: a session (create once, run many commands with
 their own folder rules) and local ports as a per-call option.
 
-## Alternative: a bridge per service
+## Alternative: automatic bridges per service
 
 `bash` with `run_in_background` starts a service in its own bwrap that lives as long as the
-service (since 03.10.2026, without a bridge); a relay there would expose its ports as Unix sockets
+service, without explicit publication; automatic discovery would expose its ports as Unix sockets
 in the run storage for forwarding, browser, and rail, and the host would start relays from
 `127.0.0.1:<port>` to these sockets in every later command it wraps. No library change, but every
 service is an island: a frontend reaches its API only through relays that exist before its command

@@ -1057,4 +1057,12 @@ users need; the allowance also applies when their browser check runs on a workst
 Redirects, embedded requests, and WebSockets follow the same policy. Without an allowance,
 local and internal targets fail instead of bypassing it. Administrators&#39; unrestricted runs
 keep ordinary browser network access.</p>
+<p>A plugin can publish fixed loopback TCP ports when it starts a managed command through the
+run&#39;s sandbox service (<code>commands.run.publishPorts</code>, <a href="../spec/plugins.md#workspace-sandbox-tools-and-processes">plugin spec</a>).
+On Linux this bridges the command&#39;s private network namespace to the server&#39;s <code>127.0.0.1</code> on
+exactly those ports; an occupied port is an error. The bridge lasts until the command ends or
+is stopped, including run stop and deletion. No extra Linux dependency is needed beyond the
+sandbox prerequisites. On macOS and workstations the transport needs no bridge. Browser origins
+and outbound domain permissions still need their separate configuration; neither can publish
+a listener from another network namespace.</p>
 <p class="guide-source">Source: <a href="../../docs/operations.md">docs/operations.md</a>. <a href="guide-distributed.md">This chapter as Markdown</a>.</p><p><a href="guide-access.html">Assign tokens and permissions</a></p><nav class="guide-next" aria-label="Continue reading"><a href="guide-global-apps.html">Previous: Global mini-apps</a><a href="guide-functions.html">Next: Work with TypeScript</a></nav></article></div></main><footer class="shell"><p>Generated from public documentation. Rebuild with <code>pnpm generate:homepage</code>. Verify with <code>pnpm check:homepage</code>.</p><nav aria-label="More pages"><a href="index.html">Homepage</a><a href="guide.html">Guide</a></nav></footer></body></html>

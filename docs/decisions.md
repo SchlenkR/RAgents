@@ -1,5 +1,38 @@
 # Decisions
 
+## 2026-10-13: Publish explicit loopback ports for the lifetime of a managed command
+
+Chapter: `spec/plugins.md` (Workspace, sandbox tools, and processes, Server process sandbox,
+Contributions to the executor); operations: `operations.md` (Server process sandbox).
+
+Linux run processes listen in their own network namespace, so a server readiness probe or the
+run's browser could not reach a dev stack on its fixed loopback ports. Plugins now name
+`publishPorts` in `commands.run` through the existing sandbox services token. The executor owns
+publication as part of the managed command, including cancellation, process stop, run stop,
+deletion and shutdown. Chosen ports bind exclusively on the server's `127.0.0.1`; conflicts
+name the port and abort the launch. A per-launch Node relay inside the namespace connects Unix
+sockets in the run's temporary folder to the named loopback targets, following the library's
+outbound bridge technique. The socket folder uses the run's temporary-directory ownership,
+and descriptor paths avoid the Unix socket path length limit. On macOS only the named inbound
+loopback bindings are added to the process profile; workstations validate without a transport bridge.
+
+Existing service-tunnel streams connect viewers to an executor machine's loopback and first
+verify ports from its process table. They cannot reach a child's network namespace or reserve
+the fixed server port that a readiness probe uses. Publication therefore belongs at the
+process-launch boundary, while routing and stop still use `WorkspaceSandboxHost` and the
+existing command module. It introduces no second run-service broker or tunnel protocol.
+Publishing intentionally makes those ports reachable by any local process; browser and outbound
+network permissions remain independent. Explicit publication of a package-isolated Linux process
+permits Unix sockets in its existing visible filesystem, without adding proxy sockets or data roots.
+
+The optional `ProcessSandbox.publishPorts` hook and command input are additive, so
+`HOST_API_VERSION` stays 18; `pnpm update:host-api` regenerates the host API record.
+Executor version 16 prevents older workstations from silently ignoring the option. Tests cover
+the plugin service token, validation, conflicts, preparation cancellation, macOS permissions,
+and real Linux namespace reachability, concurrent runs, process/run stop, normal exit and reuse.
+Automatic discovery and opening of undeclared background services remains the broader idea in
+`concepts/sandbox-services.md`.
+
 ## 2026-10-13: Store run attachments outside the working folder
 
 Chapters: `spec/core.md` (Model context and agent runtime, Artifacts, attachments, and ownership),

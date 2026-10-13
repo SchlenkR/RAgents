@@ -4,7 +4,7 @@ import { workspaceDirectory } from "./files.js";
 import { runManagedProcess } from "./managed-process.js";
 import type { WorkspaceModuleFactory, WorkspaceOperation } from "./module.js";
 import type { OperationFootprint } from "./paths.js";
-import { sandboxedLaunch } from "./process-sandbox.js";
+import { checkedPublishedPorts, withSandboxedLaunch } from "./process-sandbox.js";
 
 export const COMMAND_OPERATIONS = {
   run: "commands.run",
@@ -22,6 +22,8 @@ export interface CommandRunInput {
   timeoutMs: number;
   /** At most this many bytes per stream; without a value `COMMAND_OUTPUT_LIMIT`. */
   maxOutputBytes?: number;
+  /** Publish these TCP ports on this machine's loopback until the command ends. */
+  publishPorts?: readonly number[];
 }
 
 export interface CommandResult {
@@ -39,6 +41,7 @@ interface CheckedCommand {
   readonly cwd: string;
   readonly timeoutMs: number;
   readonly maxOutputBytes: number;
+  readonly publishPorts: readonly number[];
 }
 
 interface RunningCommand {
@@ -63,7 +66,7 @@ const checkedCommand = (input: unknown, platform: NodeJS.Platform): CheckedComma
   if (typeof maxOutputBytes !== "number" || !Number.isSafeInteger(maxOutputBytes) || maxOutputBytes < 0 || maxOutputBytes > COMMAND_OUTPUT_LIMIT) {
     throw invalid(`The output limit is between 0 and ${COMMAND_OUTPUT_LIMIT} bytes`);
   }
-  return { program, args, cwd, timeoutMs, maxOutputBytes };
+  return { program, args, cwd, timeoutMs, maxOutputBytes, publishPorts: checkedPublishedPorts(value.publishPorts === undefined ? [] : value.publishPorts) };
 };
 
 /** Collects a stream up to the limit; the rest is discarded, the process keeps running. */
@@ -95,20 +98,21 @@ const runCommand = async (context: WorkspaceProcessContext, command: CheckedComm
   const cwd = await workspaceDirectory(context.root, command.cwd);
   const stdout = boundedOutput(command.maxOutputBytes);
   const stderr = boundedOutput(command.maxOutputBytes);
-  const launch = await sandboxedLaunch(context, { command: command.program, args: command.args });
-  signal.throwIfAborted();
-  const result = await runManagedProcess({
-    command: launch.command,
-    args: [...launch.args],
-    cwd,
-    env: context.env,
-    uid: context.uid,
-    gid: context.gid,
-    label: command.program,
-    signal,
-    timeoutMs: command.timeoutMs,
-    onStdout: stdout.add,
-    onStderr: stderr.add,
+  const result = await withSandboxedLaunch(context, { command: command.program, args: command.args }, command.publishPorts, async (launch) => {
+    signal.throwIfAborted();
+    return runManagedProcess({
+      command: launch.command,
+      args: [...launch.args],
+      cwd,
+      env: context.env,
+      uid: context.uid,
+      gid: context.gid,
+      label: command.program,
+      signal,
+      timeoutMs: command.timeoutMs,
+      onStdout: stdout.add,
+      onStderr: stderr.add,
+    });
   }).catch((error: unknown) => {
     throw unavailable(command.program, error) ?? error;
   });

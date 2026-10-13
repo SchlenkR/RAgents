@@ -88,7 +88,7 @@ export {
   type TunnelClosed,
   type TunnelStream,
 } from "./processes/tunnel.js";
-export { sandboxedLaunch, type ProcessLaunch, type ProcessSandbox } from "./process-sandbox.js";
+export { sandboxedLaunch, type ProcessLaunch, type ProcessSandbox, type PublishedProcessLaunch } from "./process-sandbox.js";
 export {
   ProcessChangedError,
   addressFromHex,

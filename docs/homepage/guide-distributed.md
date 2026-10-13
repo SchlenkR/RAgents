@@ -423,3 +423,12 @@ users need; the allowance also applies when their browser check runs on a workst
 Redirects, embedded requests, and WebSockets follow the same policy. Without an allowance,
 local and internal targets fail instead of bypassing it. Administrators' unrestricted runs
 keep ordinary browser network access.
+
+A plugin can publish fixed loopback TCP ports when it starts a managed command through the
+run's sandbox service (`commands.run.publishPorts`, [plugin spec](../spec/plugins.md#workspace-sandbox-tools-and-processes)).
+On Linux this bridges the command's private network namespace to the server's `127.0.0.1` on
+exactly those ports; an occupied port is an error. The bridge lasts until the command ends or
+is stopped, including run stop and deletion. No extra Linux dependency is needed beyond the
+sandbox prerequisites. On macOS and workstations the transport needs no bridge. Browser origins
+and outbound domain permissions still need their separate configuration; neither can publish
+a listener from another network namespace.
