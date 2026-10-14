@@ -2265,7 +2265,7 @@ Supplying `selection` or `onSelectionChange` enables row selection; `selection` 
 selected keys, or the grid keeps them locally when omitted. Arrow keys, Home, and End move
 between rows. Enter or a double-click calls `onOpen`; Space selects a row when selection is
 enabled or toggles a group. `onRowClick` receives a clicked data row; cell controls retain
-their own interactions.
+their own interactions. Rows that react to a click (with `onRowClick`, or group rows) show the pointer cursor.
 
 `onEndReached` requests more data when the remaining distance to the last row reaches
 `endReachedThreshold` pixels (200 by default). The caller supplies the additional rows and
@@ -2312,7 +2312,7 @@ for every control, icon-only actions included. Text and secondary labels reach A
 Secondary buttons and badges carry a `border` edge, so they stay visible on `card` and `popover`.
 `Button`, `Toggle`, `ToggleGroup`, `Tabs`, `Select`, menu items, selectable field labels,
 and table rows apply these states themselves. `InteractiveItem` supplies the same behavior
-for clickable rows, tiles, and navigation, including `aria-current="page"` or `"true"`,
+for clickable rows, tiles, and navigation, with the pointer cursor unless it is disabled, including `aria-current="page"` or `"true"`,
 `aria-pressed`, and `aria-selected`; the trigger of an open popup (`aria-haspopup` with `aria-expanded`) shows the
 light open fill instead. It accepts a `render` element like other Base UI composites. Layout and corners stay with the caller; shared state colors do not. Existing card and
 document surfaces retain their appearance unless a state needs better visibility. Actor cards

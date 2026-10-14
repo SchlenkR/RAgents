@@ -1,5 +1,13 @@
 # Decisions
 
+## 2026-10-14: Clickable rows show the pointer cursor
+
+Chapter: `spec/plugins.md` (Web as plugin host; DataGrid, interaction states).
+
+Clickable grid rows and `InteractiveItem` lines, such as the run list, kept the default arrow, so
+nothing hinted that a click opens something. They now show the pointer cursor; disabled items and
+rows without a click action keep the default.
+
 ## 2026-10-14: Run scripts declare typed parameters
 
 Chapters: `spec/typescript-platform.md` (Run scripts as prepared actor programs); `spec/plugins.md`

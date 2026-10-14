@@ -7,7 +7,7 @@ export function InteractiveItem({ className, render, ...props }: useRender.Compo
   return useRender({
     defaultTagName: "button",
     render,
-    props: mergeProps<"button">({ type: "button", className: cn("border border-transparent select-none transition-colors aria-busy:bg-active-soft", interactionStyle, className) }, props),
+    props: mergeProps<"button">({ type: "button", className: cn("cursor-pointer border border-transparent select-none transition-colors aria-busy:bg-active-soft disabled:cursor-default aria-disabled:cursor-default", interactionStyle, className) }, props),
     state: { slot: "interactive-item" },
   });
 }

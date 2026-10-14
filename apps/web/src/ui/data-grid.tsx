@@ -326,7 +326,7 @@ function GridRow<T>({ row, index, columns, template, virtualizer, start, selecta
   const interactive = (target: EventTarget | null) => target instanceof Element && Boolean(target.closest("button,a,input,textarea,select,[role=checkbox]"));
   return <div role="row" data-slot="data-grid-row" data-index={index} data-row-id={row.id} aria-rowindex={index + 2} aria-selected={!grouped && selectable ? row.getIsSelected() : undefined} aria-expanded={grouped ? row.getIsExpanded() : undefined}
     ref={virtualizer.measureElement} tabIndex={tabIndex} onFocus={onFocus}
-    className={cn(tableRowMin, "absolute top-0 left-0 grid min-h-(--grid-row-min) w-full text-sm", grouped ? groupRowStyle : tableRowStyle)}
+    className={cn(tableRowMin, "absolute top-0 left-0 grid min-h-(--grid-row-min) w-full text-sm", grouped ? groupRowStyle : tableRowStyle, (grouped || onRowClick) && "cursor-pointer")}
     style={{ gridTemplateColumns: template, transform: `translateY(${start}px)` }}
     onClick={(event) => { if (!interactive(event.target)) { if (grouped) row.toggleExpanded(); else onRowClick?.(row.original); } }}
     onDoubleClick={(event) => { if (!grouped && !interactive(event.target)) onOpen?.(row.original); }}
