@@ -1168,7 +1168,7 @@
     },
     {
       "name": "ragents.chat.start",
-      "description": "Start a run through a script template, without a message; the start options the template fixes apply. Returns once the start is accepted; progress and errors appear in the chat. In a running run it starts an embeddable script like ragents.runs.startScript. Rights: runs.read, runs.write and the template's release.",
+      "description": "Start a run through a script template, without a message. parameters are checked against the template's declared parameters before the start is accepted, so parameters-invalid comes back to the caller; options chooses start options for the new run as ragents.startOptions.select does, and the options the template fixes apply. Returns once the start is accepted; progress and later errors appear in the chat. In a running run it starts an embeddable script like ragents.runs.startScript. Rights: runs.read, runs.write and the template's release, with options also runs.create and the rights of each option.",
       "params": [
         {
           "name": "input",
@@ -1190,7 +1190,20 @@
                 "type": "string",
                 "minLength": 1
               },
-              "input": {}
+              "parameters": {
+                "type": "object",
+                "patternProperties": {
+                  "^.*$": {}
+                },
+                "description": "The run script's parameters by name, as ragents.runs.scriptParameters declares them"
+              },
+              "options": {
+                "type": "object",
+                "patternProperties": {
+                  "^.*$": {}
+                },
+                "description": "Start options for the new run by option id"
+              }
             },
             "additionalProperties": false
           }
@@ -2416,7 +2429,13 @@
                     "minLength": 1,
                     "pattern": "\\S"
                   },
-                  "input": {}
+                  "parameters": {
+                    "type": "object",
+                    "patternProperties": {
+                      "^.*$": {}
+                    },
+                    "description": "The run script's parameters by name"
+                  }
                 },
                 "additionalProperties": false
               },
@@ -2505,7 +2524,13 @@
                     "minLength": 1,
                     "description": "Absolute path of a RUN.md/setup.ts/tests.json package on the server. A local shell client inserts its actually existing package path; this is not an upload."
                   },
-                  "input": {}
+                  "parameters": {
+                    "type": "object",
+                    "patternProperties": {
+                      "^.*$": {}
+                    },
+                    "description": "The run script's parameters by name"
+                  }
                 },
                 "additionalProperties": false
               }
@@ -4839,8 +4864,51 @@
       "x-timeout-ms": 30000
     },
     {
+      "name": "ragents.runs.scriptParameters",
+      "description": "The parameters a script template declares, as a closed JSON Schema object: each property a string (format model for a model name), a number, an integer, a boolean or a choice of strings, required ones under required. Rights: runs.read, runs.write and the template's release.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "entry"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Id of the run"
+              },
+              "entry": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "ScriptParameters"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [],
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
+    },
+    {
       "name": "ragents.runs.scripts",
-      "description": "The run scripts the caller may start, and for a running run whether each can start there now: available, otherwise reason (not embeddable, a fixed start option differs from the run's). Rights: runs.read, runs.write.",
+      "description": "The run scripts the caller may start with their declared parameters, and for a running run whether each can start there now: available, otherwise reason (not embeddable, a fixed start option differs from the run's). Rights: runs.read, runs.write.",
       "params": [
         {
           "name": "input",
@@ -4873,6 +4941,7 @@
               "id",
               "title",
               "description",
+              "parameters",
               "available"
             ],
             "properties": {
@@ -4884,6 +4953,11 @@
               },
               "description": {
                 "type": "string"
+              },
+              "parameters": {
+                "type": "object",
+                "additionalProperties": true,
+                "x-typescript-type": "ScriptParameters"
               },
               "available": {
                 "type": "boolean"
@@ -5221,7 +5295,7 @@
     },
     {
       "name": "ragents.runs.startScript",
-      "description": "Start a run script and wait until its actor has the start input; errors come back to the caller instead of the chat. A new run starts as with ragents.chat.start. In a running run only a script whose RUN.md sets embeddable: true starts, its fixed start options must match the run's, and the primary actor stays. Every start opens a new room named after the script with its own actors. Result: the script actor, its address (room.handle), and which start of its package this was. Rights: runs.read, runs.write and the template's release.",
+      "description": "Start a run script and wait until its actor has the start input; errors come back to the caller instead of the chat. A new run starts as with ragents.chat.start. In a running run only a script whose RUN.md sets embeddable: true starts, its fixed start options must match the run's, it takes no start options, and the primary actor stays. Every start opens a new room named after the script with its own actors. Result: the script actor, its address (room.handle), and which start of its package this was. Rights: runs.read, runs.write and the template's release.",
       "params": [
         {
           "name": "input",
@@ -5243,7 +5317,20 @@
                 "type": "string",
                 "minLength": 1
               },
-              "input": {}
+              "parameters": {
+                "type": "object",
+                "patternProperties": {
+                  "^.*$": {}
+                },
+                "description": "The run script's parameters by name, as ragents.runs.scriptParameters declares them"
+              },
+              "options": {
+                "type": "object",
+                "patternProperties": {
+                  "^.*$": {}
+                },
+                "description": "Start options for the new run by option id"
+              }
             },
             "additionalProperties": false
           }

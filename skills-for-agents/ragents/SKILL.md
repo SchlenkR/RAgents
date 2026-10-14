@@ -33,7 +33,7 @@ ragents journal 7f3c1e64-... --tools
 ragents stop 7f3c1e64-...        # stop all run work; actors stay active and the next send continues it
 ragents stop 7f3c1e64-... --turn # interrupt only the running turn of the primary actor, the run stays active
 ragents stop --host              # shut down the remembered host
-ragents script 7f3c1e64-... demo.review  # start a run script inside the running run (ragents script <run> lists them)
+ragents script 7f3c1e64-... demo.review --parameters '{"topic":"Release notes"}'  # start a run script inside the running run (ragents script <run> lists them)
 ragents share 7f3c1e64-... bob:write     # replace whom the run is shared with (ragents share <run> prints it)
 ragents --help                   # the usage, like ragents help
 ```
@@ -41,7 +41,9 @@ ragents --help                   # the usage, like ragents help
 `run` starts the host if nothing answers at its address, creates the run with the absolute
 folder as an existing folder on the server (the server runs on the same machine), sends the task,
 and blocks until the turn is over. `--profile <profile|path>` selects a different profile,
-`--entry <template>` additionally starts the run via a skill or script template.
+`--entry <template>` additionally starts the run via a skill or script template, and
+`--parameters <json>` passes a script template's declared parameters as a JSON object; the host
+refuses missing, unknown, or wrongly typed parameters before it creates the run and names them.
 `--workstation <id>` instead binds the folder on the workspace signed in to the host
 with this id (`pnpm workspace-client <server-url> <folder> --id <id>`); `<folder>` is
 then its path there. If no such workspace is signed in, `run` aborts with a cause.

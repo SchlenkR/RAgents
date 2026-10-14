@@ -51,7 +51,7 @@ const workflow = async (t: TestContext) => {
             });
         },
         askService: () => ({ ask: async () => { throw new Error("Unexpected operator question."); } }),
-        reservedToolNames: () => [], serverProcessContextFor,
+        reservedToolNames: () => [], serverProcessContextFor, isolatedSandbox: async () => undefined,
         operations: { operation: () => { throw new Error("No operations registered."); }, invoke: async () => { throw new Error("No operations registered."); }, list: () => [] },
         directoryFor: () => directory,
         scriptSources: () => undefined,

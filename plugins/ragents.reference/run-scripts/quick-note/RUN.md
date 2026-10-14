@@ -8,7 +8,7 @@ shared-programs: notebook
 tags: Run scripts, Concept demo, TypeScript actors
 ---
 
-The start value `{ "text": "..." }` is the note; without one, the script notes when it was
-started. The script makes the shared notebook active with `actor_program_ensure`, sends it the
-note and ends the start with
-`context.finish`. Whether the roster check or this script comes first, the run has one notebook.
+The contract declares one optional parameter, `text`, a non-empty string that is the note; without
+it, the script notes when it was started. The script makes the shared notebook active with
+`actor_program_ensure`, sends it the note and ends the start with `context.finish`. Whether the
+roster check or this script comes first, the run has one notebook.

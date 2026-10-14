@@ -19,6 +19,6 @@ result list. The ideas are real model answers and are not checked for subject-ma
 An error in one helper leaves the result of the other in place. Empty answers and
 interrupted model turns appear as errors. The flow starts once and repeats
 neither tasks nor failed answers automatically. For new ideas, start a new run.
-The template needs no start values and triggers no model call before the button.
+The template declares no parameters and triggers no model call before the button.
 
 The homepage uses the same React view with explicitly marked preview data.

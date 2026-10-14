@@ -3,7 +3,7 @@ import test from "node:test";
 import { createTestContext } from "@ragents/server/testing";
 import program from "../src/server.js";
 
-const input = { id: "start", content: JSON.stringify({ input: null, options: {} }), artifactIds: [], sourceEventIds: [], subscriptionId: null, event: null };
+const input = { id: "start", content: JSON.stringify({ parameters: {}, options: {} }), artifactIds: [], sourceEventIds: [], subscriptionId: null, event: null };
 
 function setup(options: { missingProfile?: boolean; failActivation?: boolean } = {}) {
   const calls: { name: string; input: unknown }[] = [];

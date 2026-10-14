@@ -36,7 +36,7 @@ const host: RunPanelHost = {
 };
 function TopicGuide({ onCancel, onComplete }: EntryGuideContext) {
   return <div>
-    <button onClick={() => onComplete("Night bus")} type="button">Apply topic</button>
+    <button onClick={() => onComplete({ topic: "Night bus" })} type="button">Apply topic</button>
     <button onClick={onCancel} type="button">Cancel guide</button>
   </div>;
 }
@@ -90,8 +90,22 @@ const registry = new PluginRegistry({
     { id: "start.script", owner: "start", title: "Setup template", description: "Builds a mini-app", action: "script", coordinator: false },
     { id: "start.other", owner: "start", title: "Second template", description: "Builds something else", action: "script", coordinator: false },
     { id: "start.guided", owner: "start", title: "Round with a guide", description: "Asks for the topic first", action: "script", coordinator: false, guide: "start.topic" },
+    { id: "start.parameters", owner: "start", title: "Parameter template", description: "Declares parameters", action: "script", coordinator: false },
   ],
 });
+const noParameters = { type: "object", properties: {}, required: [], additionalProperties: false };
+const roundParameters = {
+  type: "object",
+  properties: {
+    topic: { type: "string", title: "Topic", description: "What the round talks about", maxLength: 160 },
+    rounds: { type: "integer", minimum: 1, maximum: 5 },
+    mode: { anyOf: [{ type: "string", const: "short" }, { type: "string", const: "long" }] },
+    verbose: { type: "boolean" },
+    model: { type: "string", format: "model" },
+  },
+  required: ["topic"],
+  additionalProperties: false,
+};
 const heldStarts = new Map<string, () => void>();
 const viewRevisions = new Map<string, number>();
 const emptyView = (runId: string) => ({ id: runId, revision: viewRevisions.get(runId) ?? 1, title: "Run", ownerId: "tester", primaryActorId: null, createdAt: "2026-09-24T10:00:00.000Z", forkedFrom: null,
@@ -102,8 +116,8 @@ const fixture = {
   elements: (query.has("growing-header") ? [{ id: "notes", title: "Notes" }] : []) as SurfaceElementDefinition[],
   notifications: [] as RunPanelHostMessage[],
   calls: [] as string[],
-  starts: [] as Array<{ runId: string; entry: string; input: unknown }>,
-  scriptStarts: [] as Array<{ runId: string; entry: string; input: unknown }>,
+  starts: [] as Array<{ runId: string; entry: string; parameters: unknown }>,
+  scriptStarts: [] as Array<{ runId: string; entry: string; parameters: unknown }>,
   metadataTexts,
   shares: [] as RunSharing[],
   sharing: { sharing: { everyone: null, users: [{ userId: "bob", label: "Bob", access: "read" }] }, users: [{ id: "bob", label: "Bob" }, { id: "carol", label: "Carol" }] } as RunSharingResult,
@@ -136,14 +150,15 @@ const fixture = {
     subscriptions.forEach((entry) => { if (entry.id !== "ragents.chat" && entry.runId === runId) entry.message({ kind: "run" }); });
   },
   activeRun() { return [...subscriptions].find((entry) => entry.id === "ragents.chat")?.runId; },
-  async call(contract: { id: string }, params: { runId?: string; entry?: string; input?: unknown; sharing?: RunSharing }) {
+  async call(contract: { id: string }, params: { runId?: string; entry?: string; parameters?: unknown; sharing?: RunSharing }) {
     fixture.calls.push(contract.id);
     switch (contract.id) {
       case "ragents.runs.list": return fixture.runs;
       case "ragents.runs.markViewed": return null;
       case "ragents.preferences.read": return null;
       case "ragents.startOptions.list": return query.has("dropdowns") ? [{ id: "start.dropdown.mode", owner: "start.dropdown", value: "careful", presentation: {}, selectable: false, locked: true, chosen: false }]
-        : query.has("preset") ? [{ id: "start.machine", owner: "start", value: "server", presentation: {}, selectable: true, locked: false, chosen: false }] : [];
+        : query.has("preset") ? [{ id: "start.machine", owner: "start", value: "server", presentation: {}, selectable: true, locked: false, chosen: false }]
+          : query.has("models") ? [{ id: "ragents.model", owner: "start", value: { model: "fast" }, presentation: { kind: "model", provider: "demo", options: ["fast", "deep"], thinkingOptions: ["off"] }, selectable: true, locked: false, chosen: false }] : [];
       case "ragents.startOptions.select": throw new Error("The workstation Notebook is not connected.");
       case "ragents.runs.sharing":
       case "ragents.runs.share": {
@@ -158,17 +173,20 @@ const fixture = {
       case "ragents.chat.actorHistory": return { actors: {} };
       case "ragents.chat.start": {
         const runId = params.runId!;
-        fixture.starts.push({ runId, entry: params.entry!, input: params.input });
+        fixture.starts.push({ runId, entry: params.entry!, parameters: params.parameters });
         if (fixture.startError !== undefined) throw new Error(fixture.startError);
         return fixture.holdStart ? new Promise<null>((resolve) => { heldStarts.set(runId, () => resolve(null)); }) : null;
       }
+      case "ragents.runs.scriptParameters": return params.entry === "start.parameters" ? roundParameters : noParameters;
       case "ragents.runs.scripts": return [
-        { id: "start.script", title: "Setup template", description: "Builds a mini-app", available: false, reason: "It starts only a new run; its RUN.md does not set embeddable: true." },
-        { id: "start.review", title: "Review", description: "Reviews the run", available: true },
-        { id: "start.strict", title: "Strict review", description: "Reviews strictly", available: true },
+        { id: "start.script", title: "Setup template", description: "Builds a mini-app", parameters: noParameters, available: false, reason: "It starts only a new run; its RUN.md does not set embeddable: true." },
+        { id: "start.review", title: "Review", description: "Reviews the run", parameters: noParameters, available: true },
+        { id: "start.strict", title: "Strict review", description: "Reviews strictly", parameters: noParameters, available: true },
+        { id: "start.parameters", title: "Parameter review", description: "Reviews with parameters", parameters: roundParameters, available: true },
       ];
       case "ragents.runs.startScript": {
-        fixture.scriptStarts.push({ runId: params.runId!, entry: params.entry!, input: params.input });
+        fixture.scriptStarts.push({ runId: params.runId!, entry: params.entry!, parameters: params.parameters });
+        if (fixture.startError !== undefined) throw new Error(fixture.startError);
         if (params.entry === "start.strict") throw new Error("The template fixes the start option demo.mode to strict, but this run has plain.");
         const started = { actorId: "script-review", handle: "review", count: 1 };
         return fixture.holdStart ? new Promise<typeof started>((resolve) => { heldStarts.set(params.entry!, () => resolve(started)); }) : started;
@@ -186,7 +204,7 @@ const fixture = {
 declare global { interface Window { runStartFixture: typeof fixture; } }
 window.runStartFixture = fixture;
 
-const access = createAccessContext({ enabled: true, user: { id: "tester", label: "Tester", rights, startEntries: ["start.script", "start.other", "start.guided"] } });
+const access = createAccessContext({ enabled: true, user: { id: "tester", label: "Tester", rights, startEntries: ["start.script", "start.other", "start.guided", "start.parameters"] } });
 const initialRun = query.get("run") ?? undefined;
 createRoot(document.getElementById("root")!).render(<QuasselHost><AccessContext.Provider value={{ ...access, logout: async () => {} }}>
   <RunPanelHostProvider value={host}>

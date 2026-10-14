@@ -91,6 +91,7 @@ Ids from results are reused programmatically, not copied by hand.
 | ragents.runs.resolveAction | host | no fixed rights |
 | ragents.runs.restartActor | host | no fixed rights |
 | ragents.runs.revoke | host | no fixed rights |
+| ragents.runs.scriptParameters | host | no fixed rights |
 | ragents.runs.scripts | host | no fixed rights |
 | ragents.runs.share | host | no fixed rights |
 | ragents.runs.sharing | host | no fixed rights |
@@ -1222,7 +1223,7 @@ Default client deadline: 4500000 ms; callers may override it.
 
 ## ragents.chat.start
 
-Start a run through a script template, without a message; the start options the template fixes apply. Returns once the start is accepted; progress and errors appear in the chat. In a running run it starts an embeddable script like ragents.runs.startScript. Rights: runs.read, runs.write and the template's release.
+Start a run through a script template, without a message. parameters are checked against the template's declared parameters before the start is accepted, so parameters-invalid comes back to the caller; options chooses start options for the new run as ragents.startOptions.select does, and the options the template fixes apply. Returns once the start is accepted; progress and later errors appear in the chat. In a running run it starts an embeddable script like ragents.runs.startScript. Rights: runs.read, runs.write and the template's release, with options also runs.create and the rights of each option.
 
 Owner: host. Rights: no fixed rights. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
@@ -1247,7 +1248,20 @@ Default client deadline: 30000 ms; callers may override it.
       "type": "string",
       "minLength": 1
     },
-    "input": {}
+    "parameters": {
+      "type": "object",
+      "patternProperties": {
+        "^.*$": {}
+      },
+      "description": "The run script's parameters by name, as ragents.runs.scriptParameters declares them"
+    },
+    "options": {
+      "type": "object",
+      "patternProperties": {
+        "^.*$": {}
+      },
+      "description": "Start options for the new run by option id"
+    }
   },
   "additionalProperties": false
 }
@@ -2418,7 +2432,13 @@ Default client deadline: 4500000 ms; callers may override it.
           "minLength": 1,
           "pattern": "\\S"
         },
-        "input": {}
+        "parameters": {
+          "type": "object",
+          "patternProperties": {
+            "^.*$": {}
+          },
+          "description": "The run script's parameters by name"
+        }
       },
       "additionalProperties": false
     },
@@ -2507,7 +2527,13 @@ Default client deadline: 4500000 ms; callers may override it.
           "minLength": 1,
           "description": "Absolute path of a RUN.md/setup.ts/tests.json package on the server. A local shell client inserts its actually existing package path; this is not an upload."
         },
-        "input": {}
+        "parameters": {
+          "type": "object",
+          "patternProperties": {
+            "^.*$": {}
+          },
+          "description": "The run script's parameters by name"
+        }
       },
       "additionalProperties": false
     }
@@ -4737,9 +4763,51 @@ Default client deadline: 30000 ms; callers may override it.
 }
 ```
 
+## ragents.runs.scriptParameters
+
+The parameters a script template declares, as a closed JSON Schema object: each property a string (format model for a model name), a number, an integer, a boolean or a choice of strings, required ones under required. Rights: runs.read, runs.write and the template's release.
+
+Owner: host. Rights: no fixed rights. Execution: the server.
+Default client deadline: 30000 ms; callers may override it.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId",
+    "entry"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Id of the run"
+    },
+    "entry": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "x-typescript-type": "ScriptParameters"
+}
+```
+
 ## ragents.runs.scripts
 
-The run scripts the caller may start, and for a running run whether each can start there now: available, otherwise reason (not embeddable, a fixed start option differs from the run's). Rights: runs.read, runs.write.
+The run scripts the caller may start with their declared parameters, and for a running run whether each can start there now: available, otherwise reason (not embeddable, a fixed start option differs from the run's). Rights: runs.read, runs.write.
 
 Owner: host. Rights: no fixed rights. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
@@ -4775,6 +4843,7 @@ Default client deadline: 30000 ms; callers may override it.
       "id",
       "title",
       "description",
+      "parameters",
       "available"
     ],
     "properties": {
@@ -4786,6 +4855,11 @@ Default client deadline: 30000 ms; callers may override it.
       },
       "description": {
         "type": "string"
+      },
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "x-typescript-type": "ScriptParameters"
       },
       "available": {
         "type": "boolean"
@@ -5117,7 +5191,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 ## ragents.runs.startScript
 
-Start a run script and wait until its actor has the start input; errors come back to the caller instead of the chat. A new run starts as with ragents.chat.start. In a running run only a script whose RUN.md sets embeddable: true starts, its fixed start options must match the run's, and the primary actor stays. Every start opens a new room named after the script with its own actors. Result: the script actor, its address (room.handle), and which start of its package this was. Rights: runs.read, runs.write and the template's release.
+Start a run script and wait until its actor has the start input; errors come back to the caller instead of the chat. A new run starts as with ragents.chat.start. In a running run only a script whose RUN.md sets embeddable: true starts, its fixed start options must match the run's, it takes no start options, and the primary actor stays. Every start opens a new room named after the script with its own actors. Result: the script actor, its address (room.handle), and which start of its package this was. Rights: runs.read, runs.write and the template's release.
 
 Owner: host. Rights: no fixed rights. Execution: the server.
 Default client deadline: 4500000 ms; callers may override it.
@@ -5142,7 +5216,20 @@ Default client deadline: 4500000 ms; callers may override it.
       "type": "string",
       "minLength": 1
     },
-    "input": {}
+    "parameters": {
+      "type": "object",
+      "patternProperties": {
+        "^.*$": {}
+      },
+      "description": "The run script's parameters by name, as ragents.runs.scriptParameters declares them"
+    },
+    "options": {
+      "type": "object",
+      "patternProperties": {
+        "^.*$": {}
+      },
+      "description": "Start options for the new run by option id"
+    }
   },
   "additionalProperties": false
 }

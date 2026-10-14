@@ -20,7 +20,7 @@ export const setupContext = (profiles = [{ name: "coordinator", driver: "agent" 
   return { calls, context: createTestContext<{ built?: boolean }>({ state: {}, functions }) };
 };
 
-export const startInput = (input: unknown) => ({
-  id: "start", content: JSON.stringify({ input, options: {} }), artifactIds: [],
+export const startInput = (parameters: { topic?: string }) => ({
+  id: "start", content: JSON.stringify({ parameters, options: {} }), artifactIds: [],
   sourceEventIds: [], subscriptionId: null, event: null,
 });

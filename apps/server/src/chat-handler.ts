@@ -3,6 +3,7 @@ import type { ChatAttachment, ChatAttachmentInput, ChatEvent } from "quassel/eve
 import type { PublicStartEntry, RunListDetail, RunShareAccess } from "@ragents/engine";
 import type { ChatContextUsage } from "./api/contracts.js";
 import type { ActorConversations } from "./ragents/actor-chat-history.js";
+import type { ScriptParameters } from "./plugin-support/actor-programs/script-parameters.js";
 import type { RunSharingResult } from "./api/contracts.js";
 
 export interface SessionInfo {
@@ -63,11 +64,18 @@ export interface StartedScript {
   readonly count: number;
 }
 
+/** What a run script start brings: the script's parameters and, for a new run, start options chosen with it. */
+export interface ScriptStartRequest {
+  readonly parameters?: unknown;
+  readonly options?: Readonly<Record<string, unknown>>;
+}
+
 /** A run script as a run lists it: whether it can start there now, and otherwise why not. */
 export interface RunScriptListing {
   readonly id: string;
   readonly title: string;
   readonly description: string;
+  readonly parameters: ScriptParameters;
   readonly available: boolean;
   readonly reason?: string;
 }
@@ -81,9 +89,10 @@ export interface ChatSessionLike {
   contextUsage?(actor: string, userId: string | null): Promise<ChatContextUsage | null>;
   capabilities?(actor: string, userId: string | null): Promise<{ input: string[]; model: string }>;
   attachment?(artifactId: string): { attachment: ChatAttachment; content: Uint8Array };
-  start(entryId: string, input: unknown, user?: ChatUser): void;
-  startAndWait?(entryId: string, input: unknown, user?: ChatUser, startedBy?: string, signal?: AbortSignal): Promise<StartedScript>;
-  runScripts?(entries: readonly PublicStartEntry[], userId: string | null): RunScriptListing[];
+  start(entryId: string, request: ScriptStartRequest, user?: ChatUser): Promise<void>;
+  startAndWait?(entryId: string, request: ScriptStartRequest, user?: ChatUser, startedBy?: string, signal?: AbortSignal): Promise<StartedScript>;
+  runScripts?(entries: readonly PublicStartEntry[], userId: string | null, signal?: AbortSignal): Promise<RunScriptListing[]>;
+  scriptParameters?(entryId: string, signal?: AbortSignal): Promise<ScriptParameters>;
   stop(): void | Promise<void>;
 }
 

@@ -102,6 +102,21 @@ test("every reference setup activates as a native actor package against the tool
   }
 });
 
+test("every reference script declares its parameters in its setup contract", async () => {
+  const { host, close } = await referenceFixture();
+  try {
+    const packages = folderRunScripts(pluginFolder("ragents.reference"), "ragents.reference");
+    for (const entry of packages) {
+      const parameters = await host.service(actorProgramsToken).scriptParameters({ entryId: entry.id, files: entry.script.files });
+      assert.equal(parameters.type, "object", entry.id);
+      assert.equal(parameters.additionalProperties, false, entry.id);
+      assert.ok(parameters.required.every((name) => name in parameters.properties), entry.id);
+    }
+  } finally {
+    await close();
+  }
+});
+
 test("the reference scripts stay honest about their kind", () => {
   const packages = folderRunScripts(pluginFolder("ragents.reference"), "ragents.reference");
   const byHandle = new Map(packages.map((entry) => [entry.script.handle, entry]));
@@ -143,7 +158,7 @@ test("the balcony setup builds its advisor and view through native core tools be
   });
   try {
     const { script, ...descriptor } = entry;
-    await session.startPackageAndWait({ ...script, entry: { ...descriptor, coordinator: script.coordinator } }, null);
+    await session.startPackageAndWait({ ...script, entry: { ...descriptor, coordinator: script.coordinator } }, {});
     scheduler.start();
     await scheduler.waitForIdle();
     const view = runtime.view(session.id);
@@ -215,7 +230,7 @@ for (const sample of ["word-game", "learning-afternoon"]) {
     });
     try {
       const { script, ...descriptor } = entry;
-      await session.startPackageAndWait({ ...script, entry: { ...descriptor, coordinator: script.coordinator } }, null);
+      await session.startPackageAndWait({ ...script, entry: { ...descriptor, coordinator: script.coordinator } }, {});
       scheduler.start();
       await scheduler.waitForIdle();
       const setup = runtime.view(session.id);
@@ -286,7 +301,7 @@ for (const sample of ["conversation-circle", "shared-actor-list"]) {
     try {
       await mkdir(path.join(await programs.workspaceDirectory(runId), `${sample}.${sample}`), { recursive: true });
       const { script, ...descriptor } = entry;
-      const started = await session.startPackageAndWait({ ...script, entry: { ...descriptor, coordinator: script.coordinator } }, null);
+      const started = await session.startPackageAndWait({ ...script, entry: { ...descriptor, coordinator: script.coordinator } }, {});
       const room = `${sample}-2`;
       assert.equal(started.handle, `${room}.${sample}`, "a folder an aborted start left behind moves the start to the next room");
       scheduler.start();
@@ -340,9 +355,9 @@ test("run-roster starts a run, joins it again as an embedded start, shares the n
   session.subscribe((event) => { if (event.kind === "system") texts.push(event.text); });
   try {
     scheduler.start();
-    const first = await session.startPackageAndWait(start, null);
+    const first = await session.startPackageAndWait(start, {});
     await scheduler.waitForIdle();
-    const second = await session.startAndWait(entry.id, null);
+    const second = await session.startAndWait(entry.id, {});
     await scheduler.waitForIdle();
     const view = runtime.view(session.id);
     assert.deepEqual([first.handle, first.count, second.handle, second.count], ["run-roster.run-roster", 1, "run-roster-2.run-roster", 1]);

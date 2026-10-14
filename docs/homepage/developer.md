@@ -607,7 +607,7 @@ action: skill uses the registered skill name. action: script contains a RunScrip
 
 fixedStartOptions sets start options for every run from the template, for example { "ragents.workspace.binding": { machine: "server", folder: "fresh" } }; in RUN.md the header line is called fixed-start-options. A different choice made beforehand is an error at start, and the Start page shows the option as fixed.
 
-Use as task opens the preparation chat with the editable start task for every skill, even after a guide. Only Create run sends the task with the skill reference; for a script, the start value is passed to the prepared actor.
+Use as task opens the preparation chat with the editable start task for every skill, even after a guide. Only Create run sends the task with the skill reference; for a script, the guide's object is passed to the prepared actor as its parameters.
 
 Contract fields: host.startEntries, start.id, start.title, start.description, start.order, start.listed, start.guide, start.tags, start.fixedStartOptions.
 
@@ -1387,9 +1387,9 @@ const starters = {
 
 placement puts the option in the input bar (composer) or below the input (page, default). The host shows it only at the chosen place; model and thinking level use composer and are therefore also in the chat input of every run.
 
-The object in the example is a script start value. A skill guide instead returns the text of the first message. The StartEntry refers to this identifier with guide.
+The object in the example is a run script's parameters. A skill guide instead returns the text of the first message. The StartEntry refers to this identifier with guide; a run script with parameters and without a guide gets a generated form.
 
-The reference plugin provides two complete guides: ConversationGuide collects topic and number of rounds for a conversation circle; SharedBoardGuide collects title and first entry for a shared collection board. Both begin with the run only after completion. The scripts check the input before the setup.
+The reference plugin provides two complete guides: ConversationGuide collects topic and number of rounds for a conversation circle; SharedBoardGuide collects title and first entry for a shared collection board. Both begin with the run only after completion. The host checks the values against the scripts' declared parameters before the setup.
 
 [Both React guides](../../plugins/ragents.reference/web/StartGuides.tsx)
 
@@ -1580,7 +1580,7 @@ coordinator: true
 The setup uses the actor program from this chapter.
 ```
 
-The package folder determines the handle. package.json.ragents.backend names the entry point with defineActor and onInput. The capabilities appear only in the TypeScript contract.
+The package folder determines the handle. package.json.ragents.backend names the entry point with defineActor and onInput. The capabilities and the parameters appear only in the TypeScript contract.
 
 Further prepared programs live under actors/<name>/. The host copies them into @actors; the setup activates them with actor_program_activate and an optional actor handle.
 
@@ -1604,13 +1604,14 @@ export default defineActor({
   state: Type.Object({ checked: Type.Optional(Type.Integer()) }),
   functions: {},
   input: { capabilities: [] },
+  parameters: Type.Object({ label: Type.Optional(Type.String({ minLength: 1, description: "Name of the check" })) }),
 }, {
   functions: {},
   onInput: () => {},
   onStart: (start, context) => {
     const checked = (context.state.read().checked ?? 0) + 1;
     context.state.replace({ checked });
-    context.finish({ checked, embedded: start.embedded }, { summary: `Checked ${checked} times.` });
+    context.finish({ checked, embedded: start.embedded }, { summary: `${start.parameters.label ?? "Check"} ran ${checked} times.` });
   },
   onResult: (result, context) => {
     context.log({ from: result.handle, start: result.count, summary: result.summary });
@@ -1618,7 +1619,7 @@ export default defineActor({
 });
 ```
 
-start carries input, options, embedded, startedBy, count, the number of this start of the package in the run, and room, the room this start opened. Without onStart, the start arrives in onInput as the JSON { input, options }.
+start carries parameters, typed by the contract's declaration and checked by the host before the run changed, options, embedded, startedBy, count, the number of this start of the package in the run, and room, the room this start opened. Without onStart, the start arrives in onInput as the JSON { parameters, options }.
 
 context.finish works in onStart, onInput, and onResult; outside onStart it names the start with { start: count }. A second finish of the same start fails the turn.
 
@@ -1628,7 +1629,7 @@ An embedded start adds its visible views to the app catalog without changing the
 
 shared-programs: notebook in RUN.md copies the plugin's shared package actors/notebook/ into the run; actor_program_ensure({ name: "notebook" }) makes it active once, whichever script comes first.
 
-Contract fields: run.finish.
+Contract fields: run.finish, appContract.parameters.
 
 ### Check input processing in a domain test
 
@@ -2279,6 +2280,8 @@ Generated automatically from the registered contracts; the host checks methods w
 | ragents.runs.restartActor | per run |
 
 | ragents.runs.revoke | per run |
+
+| ragents.runs.scriptParameters | per run |
 
 | ragents.runs.scripts | per run |
 
@@ -3152,6 +3155,7 @@ Source in the repository: apps/server/src/plugin-support/actor-programs/app-proj
 {
   state: schema, functions: Type.Record(Type.String(), actionSchema),
   input: Type.Optional(Type.Object({ capabilities: Type.Optional(Type.Array(Type.String(), { uniqueItems: true })) }, { additionalProperties: false })),
+  parameters: Type.Optional(schema),
   program: Type.Optional(Type.Literal(true)),
 }
 ```

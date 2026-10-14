@@ -301,8 +301,10 @@ The server-side `PluginHost` has registries for:
   which are frozen into the journal as plugin state when a run starts. An option names a schema,
   default value, `selectable`, `accept` (validates and normalizes a value or throws), and `describe`
   (presentation for the web). The host holds the value per run not yet started through
-  `ragents.startOptions.list` and `ragents.startOptions.select`, writes every value at the start as initial
-  plugin state under the option ID, and locks it afterwards. An option with `changeable` stays open:
+  `ragents.startOptions.list` and `ragents.startOptions.select`, or chosen together with a run script
+  start (`options` of `ragents.chat.start` and `ragents.runs.startScript`, with the same rights and
+  checks), writes every value at the start as initial plugin state under the option ID, and locks it
+  afterwards. An option with `changeable` stays open:
   after the start the host writes its choice to the journal as new plugin state
   (`plugin.state-replaced`; an unchanged value writes nothing), with the same rights and
   the same validation by `accept`, and whoever reads it follows the currently stored value. Every
@@ -1168,7 +1170,8 @@ build does not see its names.
    module.
 5. An entry without users drops out at the next version jump, as does a name.
 
-**Version contract.** `HOST_API_VERSION` is 18 for the single run stop. It increases with every incompatible change of a
+**Version contract.** `HOST_API_VERSION` is 19 for typed run script parameters (`RunManagement`
+starts and `ActorStart` carry `parameters` instead of `input`). It increases with every incompatible change of a
 list entry, a listed name, or a fully allowed library, not with every
 package version; whatever else a host module exports changes without a new number. The manifest names it
 in `api`; the host requires equality and otherwise aborts with a cause and the command to rebuild;
@@ -1728,8 +1731,9 @@ Instead, plugins fill typed slots for:
   (`docs/spec/core.md`, Pending actions).
 - guides (`guides`): per ID a React component that the host shows in a dialog when a
   template with `guide` is clicked; `onComplete` returns for a skill the text of the
-  first message, for a run script the start value as JSON (such as the conversation round
-  of `ragents.reference`)
+  first message, for a run script its parameters as a JSON object (such as the conversation round
+  of `ragents.reference`); a run script with parameters but without a guide gets the generated
+  parameter form instead
 
 The shared `main.tsx` bootstrap renders `RunPanelApp` for either host. The browser and the VS Code
 iframe use the same `PanelPage`, `StartPage`, and `RunsPage` with one current-server adapter.
@@ -2771,9 +2775,16 @@ from the host, and a Help sample, in the browser and in the VS Code panel alike.
 templates remain available by ID through this path.
 "New chat" and a `newRun` without a template open a fresh empty run whose task is created in the
 chat, only with `runs.create`. A template without a guide starts right away (`startLaunch` with
-`startEntryDirectly` from `apps/web/src/chat/requests.ts`): a run script through `ragents.chat.start`
-with the start value `null`, a skill through `ragents.chat.send` with its prepared task and the
-template as `entry`. A refused start names its reason on Start instead ("New runs are not enabled
+`startEntryDirectly` from `apps/web/src/chat/requests.ts`): a run script that declares no
+parameters (`ragents.runs.scriptParameters`) through `ragents.chat.start` with `parameters: {}`, a
+skill through `ragents.chat.send` with its prepared task and the template as `entry`. A run script
+that declares parameters and has no guide opens `StartEntryDialog` with the generated form
+(`ParameterForm` in `apps/web/src/ParameterForm.tsx`) in place of a guide: one field per parameter
+in declaration order, labeled with its `title` or name and described by its `description`, required
+ones marked; a string is a text field (a text area above 200 characters), a string with
+`format: "model"` a text field that suggests the configured models but takes any name, an integer or
+number a number field with its bounds, a boolean a checkbox, and a choice the segmented control or
+selection menu. Submitting starts with the filled values; the server's check decides. A refused start names its reason on Start instead ("New runs are not enabled
 for this user account.", "Free runs are not enabled for this user account.", or "This template is
 not enabled for this user account."). New browser runs use the server workspace.
 
@@ -2830,10 +2841,11 @@ responses start no run.
 When the run is created, the selected skill stays linked to the task and is loaded for
 its first turn. The current, edited task takes precedence over a
 default or example task in the skill.
-After its guide, a run script calls `ragents.chat.start { runId, entry, input }` with the guide result
-as `input`. Meanwhile the dialog shows "Starting run" with the progress bar in place of the hidden
-guide, which cannot answer a second time. A rejected request shows the guide again with its
-entries and names the reason above it ("The run could not be started: <reason>"). A workflow
+After its guide or form, a run script calls `ragents.chat.start { runId, entry, parameters }` with
+the result as `parameters`. Meanwhile the dialog shows "Starting run" with the progress bar in place of the hidden
+guide or form, which cannot answer a second time. A rejected request, such as `parameters-invalid`,
+shows the guide or form again with its entries and names the reason above it ("The run could not be
+started: <reason>"). A workflow
 without a coordinator says so. After `send` or `start` is accepted, the start dialog closes
 and opens the new run. In addition, the draft observes the existing run stream: as soon as
 the server delivers a run, the interface switches into this run even while the start response is still pending.
@@ -3232,12 +3244,13 @@ The system prompt control uses "Show prompt text" and "Hide prompt text" to togg
 complete texts inline below its choices; reading them changes neither selection nor scope.
 With `runs.write`, "Run script" (`RunScriptMenu`) sits in the fixed trailing controls behind a
 thin divider: an outline button in the primary color whose pop-out lists the run scripts from
-`ragents.runs.scripts` as the Start page's compact `StartTile` items filling their grid cells,
+`ragents.runs.scripts` (with each script's parameters) as the Start page's compact `StartTile` items filling their grid cells,
 with title, two lines of description, and a play icon at the top right. Available ones come
 first and unavailable ones after them disabled with their reason, each group in listed order.
 `HeaderDropdown` supplies the shared panel geometry; the script cards form two columns from a
-content width of 480 pixels and one column below it. A click starts the script through
-`ragents.runs.startScript`; until the answer its item is `starting` ("Starting ..." with a
+content width of 480 pixels and one column below it. A click starts a script without parameters through
+`ragents.runs.startScript` with `parameters: {}`; a script with parameters first shows the generated
+`ParameterForm` and starts with its values. Until the answer its item is `starting` ("Starting ..." with a
 spinner in the action position) and every other item is locked. Success closes the pop-out;
 a refusal stays visible in it. Its label stays visible when
 the header wraps.
@@ -5305,10 +5318,10 @@ from the exported contracts.
 
 Two web guides offer their own interface before the run: `Set up conversation circle`
 collects topic and number of rounds, `Set up collection board` title and first entry including a preview.
-Only `onComplete` passes the values to the respective run script; Cancel and Escape start
-nothing. The scripts validate inputs before the first capability calls and use them
-for the run title and the agent tasks. With an explicitly passed `null`, the default values described in the
-package apply. The further flow stays controlled by the model.
+Only `onComplete` passes the values to the respective run script as its parameters; Cancel and
+Escape start nothing. Both scripts declare their parameters as optional, so the host checks every
+value before the run changes; the scripts use them for the run title and the agent tasks, and
+without them the defaults described in the package apply. The further flow stays controlled by the model.
 `Moderated round without coordinator` additionally demonstrates `coordinator: false` and a
 different primary actor. `Take stock of the run` (`run-roster`) is the embeddable one: started from
 the run menu, `ragents script`, or the coordinator's `run_script_start`, it joins a running run in

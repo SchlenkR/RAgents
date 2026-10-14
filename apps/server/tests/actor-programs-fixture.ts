@@ -4,7 +4,10 @@ import path from "node:path";
 import type { TestContext } from "node:test";
 import { allGrants, setupRun } from "../../../packages/ragents/tests/support.ts";
 import type { ActorProgramsService } from "../src/plugin-support/actor-programs/service.ts";
+import type { ScriptParameters } from "../src/plugin-support/actor-programs/script-parameters.ts";
 import { runtimeFor, invocationResult } from "./actor-runtime-fixture.ts";
+
+export const noScriptParameters: ScriptParameters = {type: "object", properties: {}, required: [], additionalProperties: false};
 
 export const unavailableActorPrograms: ActorProgramsService = {
   async runInput() { throw new Error("Actor programs are not configured in this fixture."); },
@@ -14,6 +17,7 @@ export const unavailableActorPrograms: ActorProgramsService = {
   async importPackage() { throw new Error("Actor programs are not configured in this fixture."); },
   async copyPackage() { throw new Error("Actor programs are not configured in this fixture."); },
   async remove() { throw new Error("Actor programs are not configured in this fixture."); },
+  async scriptParameters() { throw new Error("Actor programs are not configured in this fixture."); },
   async installScript() { throw new Error("Actor programs are not configured in this fixture."); },
   enqueueStart() { throw new Error("Actor programs are not configured in this fixture."); },
   isScriptActor: () => false,
@@ -89,7 +93,7 @@ export const invokeActorFunction = async (fixture: Awaited<ReturnType<typeof act
 export const setupPackageFiles = (source?: string) => [
   {path: "package.json", content: JSON.stringify({name: "setup", private: true, type: "module", ragents: {title: "Setup", backend: "src/server.ts"}})},
   {path: "src/server.ts", content: source ?? `import {Type} from "typebox"; import {defineActor} from "@ragents/server";
-export default defineActor({state: Type.Object({ready: Type.Optional(Type.Boolean())}), functions: {}, input: {capabilities: []}}, {
+export default defineActor({state: Type.Object({ready: Type.Optional(Type.Boolean())}), functions: {}, input: {capabilities: []}, parameters: Type.Object({topic: Type.Optional(Type.String())})}, {
   functions: {}, onInput(_input, context) {context.state.replace({ready: true});},
 });`},
 ];

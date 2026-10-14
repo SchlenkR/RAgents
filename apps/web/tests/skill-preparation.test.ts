@@ -17,9 +17,15 @@ test("a skill guide without a task is an error and leads nowhere", () => {
   for (const value of [{ invalid: "No task" }, "", "   ", null]) assert.throws(() => guideOutcome(skill, value), /The guide for A skill must return a non-empty task/);
 });
 
-test("a run script guide starts with its value as the start input", () => {
+test("a run script guide starts with its value as the script's parameters", () => {
   const entry = { id: "example.script", owner: "example", title: "Setup", description: "A script", action: "script" as const, coordinator: true, guide: "example.guide" };
-  assert.deepEqual(guideOutcome(entry, { topic: "A topic" }), { kind: "start", value: { topic: "A topic" } });
+  assert.deepEqual(guideOutcome(entry, { topic: "A topic" }), { kind: "start", parameters: { topic: "A topic" } });
+  assert.deepEqual(guideOutcome(entry, {}), { kind: "start", parameters: {} });
+});
+
+test("a run script guide that does not return an object is an error and leads nowhere", () => {
+  const entry = { id: "example.script", owner: "example", title: "Setup", description: "A script", action: "script" as const, coordinator: true, guide: "example.guide" };
+  for (const value of ["A topic", 3, null, ["A topic"]]) assert.throws(() => guideOutcome(entry, value), /The guide for Setup must return the parameters of the script as an object/);
 });
 
 test("edited and discussed tasks keep their skill when actually created", () => {

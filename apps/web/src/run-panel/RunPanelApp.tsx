@@ -1,7 +1,7 @@
 import { Activity, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { canStartEntry, type AccessContext } from "../../../../packages/ragents/src/access";
 import { deleteSession, getStartOptions, markRunViewed, revokeRunShare, setStartOption, stopRun } from "../api";
-import { startEntryDirectly } from "../chat/requests";
+import { scriptParameters, startEntryDirectly } from "../chat/requests";
 import { initialStartOptionUpdates, withoutFixedStartOptions } from "../StartOptions";
 import { AccessScreen, useAccess } from "../AccessContext";
 import type { SessionInfo } from "../api";
@@ -121,16 +121,23 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
     openRun(id, startOptions);
     setFreshRunId(id);
   }, [openRun]);
-  /** A template without a guide starts right away; its result counts only as long as it is the current start. */
+  /** A template without a guide starts right away unless its script declares parameters; its result counts only as long as it is the current start. */
   const startLaunch = useCallback((next: Launch) => {
     setDraft(undefined);
     replaceLaunch(next);
     void launchRun(next, registry, access).then(
-      () => { if (launching.current === next.runId) openRun(next.runId); },
+      (asked) => {
+        if (launching.current !== next.runId) return;
+        if (asked === undefined) openRun(next.runId);
+        else {
+          replaceLaunch(undefined);
+          setDraft({ ...asked, session: { ...newDraft(), id: next.runId }, startOptions: next.startOptions && withoutFixedStartOptions(next.startOptions, asked.entry.fixedStartOptions) });
+        }
+      },
       (cause: unknown) => { if (launching.current === next.runId) setLaunch({ ...next, error: cause instanceof Error ? cause.message : String(cause) }); },
     );
   }, [access, openRun, registry, replaceLaunch]);
-  /** New chat opens a fresh run, a template with a guide only its guide over the current page, every other template starts right away. */
+  /** New chat opens a fresh run, a template with a guide only its guide over the current page, every other template starts right away or asks for its script's parameters. */
   const startNew = useCallback((entryId: string | undefined, startOptions?: Readonly<Record<string, unknown>>) => {
     const entry = registry.startEntries.find((candidate) => candidate.id === entryId);
     const guide = entry && registry.guideFor(entry);
@@ -138,7 +145,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
     if (entryId === undefined) openFreshRun(startOptions);
     else if (entry !== undefined && guide !== undefined) {
       replaceLaunch(undefined);
-      setDraft({ session: newDraft(), entry, guide, startOptions: startOptions && withoutFixedStartOptions(startOptions, entry.fixedStartOptions) });
+      setDraft({ session: newDraft(), entry, prompt: { kind: "guide", guide }, startOptions: startOptions && withoutFixedStartOptions(startOptions, entry.fixedStartOptions) });
     } else startLaunch({ runId: crypto.randomUUID(), entryId, startOptions });
   }, [openFreshRun, registry, replaceLaunch, startLaunch]);
   const newRunRefusal = useCallback((entryId: string | undefined): string | undefined => !canCreate ? "New runs are not enabled for this user account."
@@ -213,7 +220,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
     onStarted={() => { openRun(draft.session.id); setRunTitle((title) => title ?? NEW_RUN_TITLE); void refresh(); }}
     registry={registry}
     session={draft.session}
-    startDialog={{ entry: draft.entry, guide: draft.guide, onClose: () => setDraft(undefined) }}
+    startDialog={{ entry: draft.entry, prompt: draft.prompt, onClose: () => setDraft(undefined) }}
   />;
   const hasRunTitle = readRuns && Boolean(runId || launch);
   const listed = sessions.find((entry) => entry.id === runId);
@@ -375,17 +382,21 @@ interface Launch {
   readonly error?: string;
 }
 
-/** A click on a template of the start page: set start options, start the template, done. */
-async function launchRun(launch: Launch, registry: PluginRegistry, access: AccessContext): Promise<void> {
+/** A click on a template of the start page: set start options, start the template, done; a script that declares parameters is not started but returns the form to ask them in. */
+async function launchRun(launch: Launch, registry: PluginRegistry, access: AccessContext): Promise<Pick<StartDialog, "entry" | "prompt"> | undefined> {
   const entry = registry.startEntries.find((candidate) => candidate.id === launch.entryId);
   if (!entry) throw new Error("This template does not exist in this profile.");
   if (!canStartEntry(access, entry.id)) throw new Error(`${entry.title} is not enabled for this user account.`);
+  if (entry.action === "script") {
+    const parameters = await scriptParameters(launch.runId, entry.id);
+    if (Object.keys(parameters.properties).length > 0) return { entry, prompt: { kind: "form", parameters } };
+  }
   if (launch.startOptions) {
     const options = await getStartOptions(launch.runId);
     const preselected = withoutFixedStartOptions(launch.startOptions, entry.fixedStartOptions);
     for (const [id, value] of initialStartOptionUpdates(options, preselected)) await setStartOption(launch.runId, id, value);
   }
-  await startEntryDirectly(launch.runId, entry, null);
+  await startEntryDirectly(launch.runId, entry, {});
 }
 
 /** Header and below it the loading state, as the run panel later shows it centered in the chat; a single mini-app has no header. */

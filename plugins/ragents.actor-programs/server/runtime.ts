@@ -13,9 +13,10 @@ import { agentResultText, finishesOf, MAX_OPEN_STARTS, scriptResultContent, scri
 import { agentCapabilityBinding, operatorCapabilityBinding } from "./capability-resolver.js";
 import type { ActorOperationPort } from "./operations.js";
 import { compileClientProject, installClientSdk } from "@ragents/host/plugin-support/actor-programs/client-compiler.js";
-import { compileAppBackend, installServerSdk, packageIdentity, prepareAppProject, prepareAppWorkspace, projectSourceFiles, readAppPackage, typecheckServerProject, type AppContract } from "@ragents/host/plugin-support/actor-programs/app-project.js";
+import { compileAppBackend, describeRunScript, installServerSdk, packageIdentity, prepareAppProject, prepareAppWorkspace, projectSourceFiles, readAppPackage, typecheckServerProject, type AppContract } from "@ragents/host/plugin-support/actor-programs/app-project.js";
+import { scriptParametersOf, type ScriptParameters } from "@ragents/host/plugin-support/actor-programs/script-parameters.js";
 import { syncWorkspaceOwnership } from "@ragents/host/plugin-support/workspace-ownership.js";
-import { runManagedProcess, sandboxedLaunch, type WorkspaceProcessContext } from "@ragents/workspace-executor";
+import { runManagedProcess, sandboxedLaunch, type ProcessSandbox, type WorkspaceProcessContext } from "@ragents/workspace-executor";
 import { runModuleTemplates, templateById, templateFiles } from "./templates.js";
 import { createTestReport, testReporterArgument } from "./test-report.js";
 import { FRAME_BODY_CLASS, FRAME_DOCUMENT_CLASS, FRAME_ROOT_CLASS } from "@ragents/host/plugin-support/actor-programs/client-runtime.js";
@@ -182,6 +183,8 @@ export interface ActorProgramRuntimeOptions {
     /** Programs, tests, and builds run on the server, even with a workspace on a workstation. */
     serverProcessContextFor: (runId: string) => Promise<WorkspaceProcessContext>;
     isolatedProcessContextFor?: (runId: string, directories: readonly string[], readable: readonly string[]) => Promise<WorkspaceProcessContext>;
+    /** The sandbox for reading a run script's contract before any run exists. */
+    isolatedSandbox: (writable: readonly string[], readable: readonly string[]) => Promise<ProcessSandbox | undefined>;
     operations: ActorOperationPort;
     directoryFor: (runId: string) => string;
     scriptSources: (entryId: string, name: string) => readonly ActorProgramSource[] | undefined;
@@ -220,6 +223,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     readonly #recovered = new Set<string>();
     readonly #packageLocks = new Map<string, Promise<void>>();
     readonly #identities = new Map<string, string>();
+    readonly #parameters = new Map<string, Promise<ScriptParameters>>();
     readonly #epochs = new Map<string, number>();
     readonly #stopping = new Set<string>();
     readonly #namedApps: NamedAppSource[] = [];
@@ -536,6 +540,16 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const program = this.#program(runId, name);
         return { name, actorId: program.actorId, actorHandle: program.actorHandle, views: program.views.length };
     }
+    /** The parameters a run script declares, read from its setup contract before any run changes; one read per package content. */
+    scriptParameters(script: Pick<RunScriptSources, "entryId" | "files">, signal?: AbortSignal): Promise<ScriptParameters> {
+        const identity = packageIdentity(script.files);
+        const known = this.#parameters.get(identity);
+        if (known) return known;
+        const reading = describeRunScript(script.files, { sandbox: this.#options.isolatedSandbox, ...(signal ? { signal } : {}) }).then((contract) => scriptParametersOf(contract, script.entryId));
+        this.#parameters.set(identity, reading);
+        reading.catch(() => { if (this.#parameters.get(identity) === reading) this.#parameters.delete(identity); });
+        return reading;
+    }
     /** Every start opens a room named after the script; its setup and bundled programs live there, shared packages in the main room. */
     async installScript(context: CommandContext, runId: string, script: RunScriptSources, origin: string | null, signal?: AbortSignal): Promise<ActivatedActorProgram> {
         const root = await this.workspaceDirectory(runId);
@@ -671,8 +685,8 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const record = state.packages[delivery.name];
         const packages = record ? { ...state.packages, [delivery.name]: { ...record, open: [...record.open, { count: delivery.count, startedBy: delivery.startedBy }].slice(-MAX_OPEN_STARTS) } } : state.packages;
         if (pending) this.#writeScript(runId, { ...state, packages, deliveries }, undefined, view);
-        const { input: value, options } = JSON.parse(input.content) as { input: JsonValue; options: Record<string, JsonValue> };
-        return { start: { input: value, options, embedded: delivery.embedded, startedBy: delivery.startedBy, count: delivery.count, room: roomOfKey(delivery.name) } };
+        const { parameters, options } = JSON.parse(input.content) as { parameters: Record<string, JsonValue>; options: Record<string, JsonValue> };
+        return { start: { parameters, options, embedded: delivery.embedded, startedBy: delivery.startedBy, count: delivery.count, room: roomOfKey(delivery.name) } };
     }
     /** The trigger occurrence the host accepted for this input, recognized by the command that queued it. */
     #triggerOf(runId: string, actorId: string, sequence: number, view = this.view(runId)) {

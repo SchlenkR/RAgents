@@ -32,6 +32,8 @@ import type { Engine } from "../src/ragents/engine.ts";
 import { RunChatSession, type RunChatSessionOptions, type RunScriptStart } from "../src/ragents/session.ts";
 import { awaitWithSignal } from "../src/plugin-support/await-with-signal.ts";
 import { runScriptFromDirectory } from "../src/plugin-support/run-scripts.ts";
+import type { ScriptParameters } from "../src/plugin-support/actor-programs/script-parameters.ts";
+import { noScriptParameters } from "./actor-programs-fixture.ts";
 import { capabilityNames } from "@ragents/engine";
 
 const packageOf = (overrides: Partial<RunScriptPackage> = {}, entry: Partial<RunScriptStart["entry"]> = {}): RunScriptStart => ({
@@ -44,12 +46,18 @@ const packageOf = (overrides: Partial<RunScriptPackage> = {}, entry: Partial<Run
     title: "Example run", description: "A run from the test", ...entry},
 });
 
+const parametersOf = (properties: ScriptParameters["properties"], required: readonly string[] = []): ScriptParameters =>
+  ({type: "object", properties, required, additionalProperties: false});
+
+const topicParameters = parametersOf({topic: {type: "string"}});
+
 const createFixture = (runId: string, packages: readonly RunScriptStart[], controls: {
   prepare?: (signal?: AbortSignal) => Promise<void>;
   prepareWorkspace?: (signal?: AbortSignal) => Promise<void>;
   importPackage?: (signal?: AbortSignal) => Promise<void>;
   started?: (signal?: AbortSignal) => Promise<void>;
   stopping?: () => void;
+  parameters?: ScriptParameters;
 } = {}) => {
   const services = testServices();
   const journal = new Journal(":memory:", services);
@@ -123,6 +131,7 @@ const createFixture = (runId: string, packages: readonly RunScriptStart[], contr
     scriptEntryFor: (entryId) => packages.find((candidate) => candidate.entry.id === entryId),
     startEntryFor: () => undefined,
     actorPrograms: {
+      async scriptParameters() { return controls.parameters ?? noScriptParameters; },
       async installScript(context, id, script, _origin, signal) {
         await controls.importPackage?.(signal);
         signal?.throwIfAborted();
@@ -194,15 +203,16 @@ test("all script start entry points synchronously publish preparation, replay ea
       importPackage: importing.wait,
     });
     t.after(async () => { preparation.release(); workspace.release(); importing.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, { recursive: true, force: true }); });
-    const pending = method === "startPackageAndWait" ? f.session.startPackageAndWait(script, null) : f.session[method]("test.example", null);
+    const pending = method === "startPackageAndWait" ? f.session.startPackageAndWait(script, {}) : f.session[method]("test.example", {});
     void pending?.catch(() => {});
+    if (method === "start") await pending;
     assert.equal(f.session.started, true);
     assert.deepEqual(replayStatus(f.session), { kind: "status", running: false, startup: { status: "preparing", message: "Preparing run." } });
     assert.equal(f.journal.stateOf(f.session.id), null);
     await preparation.entered;
     const beforeDuplicate = statusesOf(f.events).length;
-    await assert.rejects(f.session.startAndWait("test.unknown", null), /is being started/);
-    await assert.rejects(f.session.startPackageAndWait(script, null), /is being started/);
+    await assert.rejects(f.session.startAndWait("test.unknown", {}), /is being started/);
+    await assert.rejects(f.session.startPackageAndWait(script, {}), /is being started/);
     assert.equal(statusesOf(f.events).length, beforeDuplicate);
     preparation.release();
     await workspace.entered;
@@ -231,7 +241,7 @@ test("all script start entry points synchronously publish preparation, replay ea
     f.live.publish(f.session.id, f.runtime.view(f.session.id).primaryActorId!, { kind: "turn-finished", turnId: "setup-turn" });
     assert.deepEqual(replayStatus(f.session), { kind: "status", running: false });
     const finalCount = statusesOf(f.events).length;
-    await assert.rejects(f.session.startAndWait("test.example", null), /already running/);
+    await assert.rejects(f.session.startAndWait("test.example", {}), /already running/);
     assert.equal(statusesOf(f.events).length, finalCount);
   });
 });
@@ -244,14 +254,14 @@ test("startup failures retain the actual cause for replay and retries replace th
       if (!failed) { failed = true; throw new Error(cause); }
     } });
     t.after(async () => { await f.session.drain(); f.journal.close(); rmSync(f.files, { recursive: true, force: true }); });
-    await assert.rejects(f.session.startAndWait("test.example", null), { message: cause });
+    await assert.rejects(f.session.startAndWait("test.example", {}), { message: cause });
     assert.deepEqual(replayStatus(f.session), { kind: "status", running: false, startup: { status: "failed", message: cause } });
     assert.equal(f.session.started, false);
     const replacement = f.createSession();
     replacement.attach();
     assert.deepEqual(replayStatus(replacement), { kind: "status", running: false });
     replacement.dispose();
-    const retry = f.session.startPackageAndWait(packageOf(), null);
+    const retry = f.session.startPackageAndWait(packageOf(), {});
     assert.equal(replayStatus(f.session).startup?.status, "preparing");
     await retry;
     assert.deepEqual(replayStatus(f.session), { kind: "status", running: false });
@@ -263,7 +273,7 @@ test("stop clears the loader while tracking unfinished preparation and never enq
     const blocked = phase();
     const f = createFixture(`startup-stop-${operationName.toLowerCase()}`, [packageOf()], { [operationName]: operationName === "importPackage" ? blocked.wait : () => blocked.wait() });
     t.after(async () => { blocked.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, { recursive: true, force: true }); });
-    const pending = f.session.startAndWait("test.example", null);
+    const pending = f.session.startAndWait("test.example", {});
     const rejected = assert.rejects(pending, /start was cancelled/);
     await blocked.entered;
     await f.session.stop();
@@ -299,7 +309,7 @@ test("stop marks an installed run before cancelling its unfinished start and lea
     stopping: () => { assert.equal(startSignal?.aborted, false); },
   });
   t.after(async () => { blocked.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, { recursive: true, force: true }); });
-  const pending = assert.rejects(f.session.startAndWait("test.example", null), /start was cancelled/);
+  const pending = assert.rejects(f.session.startAndWait("test.example", {}), /start was cancelled/);
   await blocked.entered;
   const primaryId = f.runtime.view(f.session.id).primaryActorId;
   assert.ok(primaryId);
@@ -393,7 +403,7 @@ test("dispose cancels preparation without replaying a stale startup", async (t) 
   const blocked = phase();
   const f = createFixture("startup-clear", [packageOf()], { prepare: () => blocked.wait() });
   t.after(async () => { blocked.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, { recursive: true, force: true }); });
-  const rejected = assert.rejects(f.session.startAndWait("test.example", null), /deleted/);
+  const rejected = assert.rejects(f.session.startAndWait("test.example", {}), /deleted/);
   await blocked.entered;
   f.session.dispose();
   assert.equal(replayStatus(f.session).startup, undefined);
@@ -409,7 +419,7 @@ test("dispose cancels preparation without replaying a stale startup", async (t) 
 });
 
 test("a local package transports all sources and node tests through the common import path", async () => {
-  const fixture = createFixture("local-package", []);
+  const fixture = createFixture("local-package", [], {parameters: topicParameters});
   const directory = path.join(fixture.files, "own-setup");
   mkdirSync(path.join(directory, "src", "lib"), {recursive: true});
   mkdirSync(path.join(directory, "tests"));
@@ -422,21 +432,21 @@ test("a local package transports all sources and node tests through the common i
     assert.throws(() => runScriptFromDirectory("own-setup"), /absolute server file path/);
     const {script, ...entry} = runScriptFromDirectory(directory);
     assert.deepEqual(script.files.map((file) => file.path), ["package.json", "src/lib/value.ts", "src/server.ts", "tests/app.test.ts"]);
-    await fixture.session.startPackageAndWait({...script, entry: {...entry, owner: "test", coordinator: script.coordinator}}, {topic: "Local topic"});
+    await fixture.session.startPackageAndWait({...script, entry: {...entry, owner: "test", coordinator: script.coordinator}}, {parameters: {topic: "Local topic"}});
     assert.deepEqual(fixture.imports, [{name: "own-setup", files: script.files, programs: []}]);
     const view = fixture.runtime.view("local-package");
     assert.equal(view.title, "Own setup");
     assert.ok(view.actors.some((actor) => actor.kind === "script" && actor.handle === "own-setup"));
-    assert.deepEqual(JSON.parse(view.inputs[0]!.content).input, {topic: "Local topic"});
+    assert.deepEqual(JSON.parse(view.inputs[0]!.content).parameters, {topic: "Local topic"});
     assert.equal(view.inputs[0]!.origin, undefined);
-    await assert.rejects(fixture.session.startPackageAndWait(packageOf(), null), /already running/);
+    await assert.rejects(fixture.session.startPackageAndWait(packageOf(), {}), /already running/);
   } finally {fixture.journal.close(); rmSync(fixture.files, {recursive: true, force: true});}
 });
 
 test("a script start tells the plugins its template after installing the script and before its first input", async () => {
   const fixture = createFixture("script-start-hook", [packageOf({ coordinator: false })]);
   try {
-    await fixture.session.startAndWait("test.example", null);
+    await fixture.session.startAndWait("test.example", {});
     assert.deepEqual(fixture.starts, [{entry: {id: "test.example", action: "script"}, actors: 1, inputs: 0}]);
     assert.equal(fixture.runtime.view("script-start-hook").inputs.length, 1);
   } finally {fixture.journal.close(); rmSync(fixture.files, {recursive: true, force: true});}
@@ -446,16 +456,16 @@ test("a rejected package exposes its failure before creating the coordinator", a
   const fixture = createFixture("bad-local-package", []);
   try {
     const script = packageOf({files: [{path: "tests/app.test.ts", content: "reject"}]});
-    await assert.rejects(fixture.session.startPackageAndWait(script, null), /Package tests failed/);
+    await assert.rejects(fixture.session.startPackageAndWait(script, {}), /Package tests failed/);
     assert.equal(fixture.runtime.view("bad-local-package").actors.filter((actor) => actor.kind !== "human").length, 0);
   } finally {fixture.journal.close(); rmSync(fixture.files, {recursive: true, force: true});}
 });
 
 test("a run script starts over HTTP with coordinator primary and the selected start values", async () => {
   const runId = "run-script-start-coordinator";
-  const fixture = createFixture(runId, [packageOf()]);
+  const fixture = createFixture(runId, [packageOf()], {parameters: topicParameters});
   try {
-    assert.equal(await startThroughChatHttp(fixture.session, runId, {entry: "test.example", input: {topic: "Test topic"}}), 202);
+    assert.equal(await startThroughChatHttp(fixture.session, runId, {entry: "test.example", parameters: {topic: "Test topic"}}), 202);
     const view = fixture.runtime.view(runId);
     assert.equal(view.title, "Example run");
     const primary = view.actors.find((actor) => actor.id === view.primaryActorId);
@@ -469,29 +479,115 @@ test("a run script starts over HTTP with coordinator primary and the selected st
     assert.equal(view.inputs.length, 1);
     assert.equal(view.inputs[0]?.actorId, script.id);
     const content = JSON.parse(view.inputs[0]!.content);
-    assert.deepEqual(content.input, {topic: "Test topic"});
+    assert.deepEqual(content.parameters, {topic: "Test topic"});
     assert.deepEqual(Object.keys(content.options).sort(), ["ragents.model", "ragents.resume-after-restart", "ragents.system-prompt"]);
     assert.equal(content.options["ragents.resume-after-restart"], "on");
     assert.ok(fixture.systemTexts().some((text) => text.includes('The run script "Example run" runs as @example')));
   } finally {fixture.journal.close(); rmSync(fixture.files, {recursive: true, force: true});}
 });
 
+const roundParameters = parametersOf({ topic: { type: "string" }, rounds: { type: "integer", maximum: 5 } }, ["topic"]);
+
+test("a start whose parameters miss a required one, add an unknown one or mistype one is refused before any run exists", async (t) => {
+  const fixture = createFixture("parameters-refused", [packageOf()], { parameters: roundParameters });
+  t.after(async () => { await fixture.session.drain(); fixture.session.dispose(); fixture.journal.close(); rmSync(fixture.files, { recursive: true, force: true }); });
+  const refusals: Array<[unknown, RegExp]> = [
+    [undefined, /parameters is missing required field topic/],
+    [null, /parameters is missing required field topic/],
+    [{ rounds: 2 }, /parameters is missing required field topic/],
+    [{ topic: "Launch", extra: 1 }, /parameters has unknown field extra/],
+    [{ topic: 3 }, /topic must be string, got 3/],
+    [{ topic: "Launch", rounds: 9 }, /rounds must be <= 5, got 9/],
+    [["Launch"], /parameters must be object/],
+  ];
+  for (const [parameters, complaint] of refusals) {
+    await assert.rejects(fixture.session.startAndWait("test.example", { parameters }), (error: unknown) =>
+      error instanceof DomainError && error.code === "parameters-invalid" && error.status === 400 && complaint.test(error.message)
+      && error.message.startsWith("The parameters of the run script test.example are invalid: ")
+      && error.message.endsWith(" Its parameters: topic (string, required); rounds (integer, optional)."), JSON.stringify(parameters));
+    assert.equal(fixture.journal.stateOf(fixture.session.id), null, "no run is created");
+    assert.equal(fixture.session.started, false);
+    assert.deepEqual(fixture.imports, []);
+    assert.deepEqual(fixture.starts, []);
+  }
+  await fixture.session.startAndWait("test.example", { parameters: { topic: "Launch" } });
+  assert.deepEqual(JSON.parse(fixture.runtime.view(fixture.session.id).inputs[0]!.content).parameters, { topic: "Launch" }, "the host adds no defaults");
+});
+
+test("ragents.runs.startScript and ragents.chat.start refuse invalid parameters with parameters-invalid; neither creates a run", async (t) => {
+  const fixture = createFixture("parameters-rpc", [packageOf()], { parameters: roundParameters });
+  t.after(async () => { await fixture.session.drain(); fixture.session.dispose(); fixture.journal.close(); rmSync(fixture.files, { recursive: true, force: true }); });
+  const startScript = coreMethods(coreSources({ get: async () => fixture.session })).find((entry) => entry.contract.id === coreContracts.runs.startScript.id)!;
+  await assert.rejects(async () => startScript.execute({ runId: fixture.session.id, entry: "test.example", parameters: { topic: 3 } } as never, methodContext()),
+    { code: "parameters-invalid", status: 400, message: /topic must be string, got 3\. Its parameters: topic \(string, required\); rounds \(integer, optional\)\.$/ });
+  assert.equal(fixture.journal.stateOf(fixture.session.id), null);
+  const errors = fixture.systemTexts().filter((text) => text.startsWith("Error")).length;
+  assert.equal(await startThroughChatHttp(fixture.session, fixture.session.id, { entry: "test.example", parameters: { topic: "Launch", rounds: 9 } }), 400, "the start is refused");
+  assert.equal(fixture.systemTexts().filter((text) => text.startsWith("Error")).length, errors, "a refused chat start leaves nothing in the chat");
+  assert.equal(fixture.journal.stateOf(fixture.session.id), null);
+  assert.deepEqual(fixture.imports, []);
+  assert.equal(await startThroughChatHttp(fixture.session, fixture.session.id, { entry: "test.example", parameters: { topic: "Launch", rounds: 2 } }), 202);
+  assert.deepEqual(JSON.parse(fixture.runtime.view(fixture.session.id).inputs[0]!.content).parameters, { topic: "Launch", rounds: 2 });
+});
+
+test("start options in a start request are chosen like ragents.startOptions.select and only for a start that passed the parameter check", async (t) => {
+  const restart = (session: RunChatSession) => session.startOptions(null).find((option) => option.id === "ragents.resume-after-restart")!;
+  const refused = createFixture("request-options-refused", [packageOf()], { parameters: roundParameters });
+  t.after(async () => { await refused.session.drain(); refused.session.dispose(); refused.journal.close(); rmSync(refused.files, { recursive: true, force: true }); });
+  await assert.rejects(refused.session.startAndWait("test.example", { parameters: { topic: 3 }, options: { "ragents.resume-after-restart": "off" } }), { code: "parameters-invalid" });
+  assert.equal(restart(refused.session).chosen, false);
+  await assert.rejects(refused.session.startAndWait("test.example", { parameters: { topic: "Launch" }, options: { "ragents.resume-after-restart": "maybe" } }),
+    /Invalid value for start option ragents\.resume-after-restart/);
+  await assert.rejects(refused.session.startAndWait("test.example", { parameters: { topic: "Launch" }, options: { "test.unknown": 1 } }), { code: "option-unknown", status: 404 });
+  assert.equal(refused.journal.stateOf(refused.session.id), null, "no run is created");
+
+  const accepted = createFixture("request-options-accepted", [packageOf()]);
+  t.after(async () => { await accepted.session.drain(); accepted.session.dispose(); accepted.journal.close(); rmSync(accepted.files, { recursive: true, force: true }); });
+  assert.equal(restart(accepted.session).value, "on");
+  await accepted.session.startAndWait("test.example", { options: { "ragents.resume-after-restart": "off" } });
+  const content = JSON.parse(accepted.runtime.view(accepted.session.id).inputs[0]!.content);
+  assert.equal(content.options["ragents.resume-after-restart"], "off");
+  assert.deepEqual(content.parameters, {});
+});
+
+test("ragents.runs.scripts lists the declared parameters, ragents.runs.scriptParameters returns them for one template", async (t) => {
+  const plain = packageOf({}, { id: "test.plain" });
+  const fixture = createFixture("parameters-listing", [packageOf(), plain], { parameters: roundParameters });
+  t.after(async () => { await fixture.session.drain(); fixture.session.dispose(); fixture.journal.close(); rmSync(fixture.files, { recursive: true, force: true }); });
+  const provider: ChatSessionProvider = { get: async () => fixture.session, hasRun: () => false, list: async () => [], delete: async () => undefined };
+  const plugins = { startEntries: { describe: () => [packageOf().entry, plain.entry] }, startOptions: new StartOptionContributionRegistry() };
+  const methods = coreMethods(coreSources(provider, { plugins: plugins as never }));
+  const method = (id: string) => methods.find((entry) => entry.contract.id === id)!;
+  const listed = await method(coreContracts.runs.scripts.id).execute({ runId: fixture.session.id } as never, methodContext());
+  assert.deepEqual(listed, [
+    { id: "test.example", title: "Example run", description: "A run from the test", parameters: roundParameters, available: true },
+    { id: "test.plain", title: "Example run", description: "A run from the test", parameters: roundParameters, available: true },
+  ]);
+  assert.deepEqual(await method(coreContracts.runs.scriptParameters.id).execute({ runId: fixture.session.id, entry: "test.plain" } as never, methodContext()), roundParameters);
+  await assert.rejects(async () => method(coreContracts.runs.scriptParameters.id).execute({ runId: fixture.session.id, entry: "test.unknown" } as never, methodContext()),
+    { code: "entry-unknown", status: 404 });
+  const reader = createAccessContext({ enabled: true, user: { id: "alice", label: "Alice", rights: ["runs.read", "runs.write"], startEntries: ["test.plain"] } });
+  await assert.rejects(async () => method(coreContracts.runs.scriptParameters.id).execute({ runId: fixture.session.id, entry: "test.example" } as never, methodContext(reader)),
+    { code: "access-denied", status: 403 });
+  assert.equal(fixture.journal.stateOf(fixture.session.id), null, "reading parameters creates no run");
+});
+
 test("unlisted scripts stay absent from run-script listings and start by ID only with permission", async (t) => {
   const runId = "unlisted-script";
   const script = packageOf({ coordinator: false }, { listed: false });
-  const fixture = createFixture(runId, [script]);
+  const fixture = createFixture(runId, [script], { parameters: parametersOf({ row: { type: "integer" } }) });
   t.after(async () => { await fixture.session.drain(); fixture.session.dispose(); fixture.journal.close(); rmSync(fixture.files, { recursive: true, force: true }); });
-  assert.deepEqual(fixture.session.runScripts([script.entry], null), []);
+  assert.deepEqual(await fixture.session.runScripts([script.entry], null), []);
   const user = { id: "alice", label: "Alice", rights: ["runs.read", "runs.write"] };
   const denied = createAccessContext({ enabled: true, user });
-  assert.equal(await startThroughChatHttp(fixture.session, runId, { entry: script.entry.id, input: { row: 3 } }, denied), 403);
+  assert.equal(await startThroughChatHttp(fixture.session, runId, { entry: script.entry.id, parameters: { row: 3 } }, denied), 403);
   assert.equal(fixture.session.started, false);
   assert.deepEqual(fixture.imports, []);
   const permitted = createAccessContext({ enabled: true, user: { ...user, startEntries: [script.entry.id] } });
-  assert.equal(await startThroughChatHttp(fixture.session, runId, { entry: script.entry.id, input: { row: 3 } }, permitted), 202);
+  assert.equal(await startThroughChatHttp(fixture.session, runId, { entry: script.entry.id, parameters: { row: 3 } }, permitted), 202);
   assert.equal(fixture.session.started, true);
   assert.equal(fixture.runtime.view(runId).actors.some((actor) => actor.kind === "script" && actor.handle === script.handle), true);
-  assert.deepEqual(fixture.session.runScripts([script.entry], user.id), []);
+  assert.deepEqual(await fixture.session.runScripts([script.entry], user.id), []);
 });
 
 test("authenticated HTTP script starts use the trusted user's label despite Owner defaults and a forged request user", async (t) => {
@@ -504,7 +600,7 @@ test("authenticated HTTP script starts use the trusted user's label despite Owne
     const started = t.mock.method(fixture.session, "start");
     t.after(async () => { await fixture.session.drain(); fixture.session.dispose(); fixture.journal.close(); rmSync(fixture.files, { recursive: true, force: true }); });
     assert.equal(await startThroughChatHttp(fixture.session, runId, {
-      entry: "test.example", input: null, user: { id: "owner", label: "Owner" }, ownerDisplayName: "Owner",
+      entry: "test.example", user: { id: "owner", label: "Owner" }, ownerDisplayName: "Owner",
     }, access), 202);
     const view = fixture.runtime.view(runId);
     const humans = view.actors.filter((actor) => actor.kind === "human");
@@ -558,7 +654,7 @@ test("without a coordinator the setup actor is immediately primary and can selec
   const runId = "run-script-start-headless";
   const fixture = createFixture(runId, [packageOf({coordinator: false})]);
   try {
-    await fixture.session.startAndWait("test.example", null);
+    await fixture.session.startAndWait("test.example", {});
     let view = fixture.runtime.view(runId);
     const script = view.actors.find((actor) => actor.kind === "script");
     assert.ok(script);
@@ -567,7 +663,7 @@ test("without a coordinator the setup actor is immediately primary and can selec
     assert.equal(view.actors.filter((actor) => actor.kind === "agent").length, 0);
     assert.equal(view.inputs.length, 1);
     assert.equal(view.inputs[0].actorId, script.id);
-    assert.equal(JSON.parse(view.inputs[0].content).input, null);
+    assert.deepEqual(JSON.parse(view.inputs[0].content).parameters, {});
     const before = structuredClone(fixture.runtime.events(runId));
     await assert.rejects(fixture.session.send("Start again"), { code: "actor-chat-unsupported", status: 400 });
     assert.deepEqual(fixture.runtime.events(runId), before);
@@ -591,16 +687,14 @@ test("unknown templates, rejected packages and existing runs produce named error
   const broken = packageOf({files: [{path: "src/server.ts", content: "reject"}]}, {id: "test.broken"});
   const fixture = createFixture(runId, [packageOf(), broken]);
   try {
-    fixture.session.start("test.nowhere", null);
-    await fixture.session.settle();
-    assert.ok(fixture.systemTexts().some((text) => text.includes("is not a script template of this profile")));
-    fixture.session.start("test.broken", null);
+    await assert.rejects(fixture.session.start("test.nowhere", {}), { code: "entry-unknown", message: /is not a script template of this profile/ });
+    await fixture.session.start("test.broken", {});
     await fixture.session.settle();
     assert.ok(fixture.systemTexts().some((text) => text.includes("Package tests failed")));
     assert.equal(fixture.runtime.view(runId).actors.filter((actor) => actor.kind !== "human").length, 0);
-    await fixture.session.startAndWait("test.example", null);
+    await fixture.session.startAndWait("test.example", {});
     assert.ok(fixture.runtime.view(runId).actors.some((actor) => actor.kind === "script"));
-    await assert.rejects(fixture.session.startAndWait("test.example", null), /only starts a new run/);
+    await assert.rejects(fixture.session.startAndWait("test.example", {}), /only starts a new run/);
   } finally {fixture.journal.close(); rmSync(fixture.files, {recursive: true, force: true});}
 });
 
@@ -608,7 +702,7 @@ test("bundled actor packages go to the installation together with the setup befo
   const runId = "run-script-start-programs";
   const fixture = createFixture(runId, [packageOf({programs: [{name: "shared-list", files: packageOf().files}]})]);
   try {
-    await fixture.session.startAndWait("test.example", null);
+    await fixture.session.startAndWait("test.example", {});
     assert.equal(fixture.systemTexts().filter((text) => text.startsWith("Error")).length, 0);
     assert.equal(fixture.runtime.view(runId).inputs.length, 1);
     assert.deepEqual(fixture.imports.map((entry) => [entry.name, entry.programs]), [["example", ["shared-list"]]]);
@@ -629,7 +723,7 @@ for (const phaseName of ["prepare", "prepareWorkspace", "importPackage", "starte
     t.after(async () => { preparation.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, {recursive: true, force: true}); });
     const method = coreMethods(coreSources({get: async () => f.session})).find((entry) => entry.contract.id === coreContracts.runs.startScript.id)!;
     const caller = new AbortController();
-    const pending = method.execute({runId: f.session.id, entry: "test.example", input: null}, {...methodContext(), signal: caller.signal});
+    const pending = method.execute({runId: f.session.id, entry: "test.example"}, {...methodContext(), signal: caller.signal});
     const cancelled = assert.rejects(pending, /cancelled|disconnected/);
     await preparation.entered;
     assert.ok(preparationSignal);
@@ -644,7 +738,7 @@ for (const phaseName of ["prepare", "prepareWorkspace", "importPackage", "starte
       assert.equal(f.starts.length, 1);
     }
     pause = false;
-    await method.execute({runId: f.session.id, entry: "test.example", input: null}, methodContext());
+    await method.execute({runId: f.session.id, entry: "test.example"}, methodContext());
     assert.equal(f.journal.stateOf(f.session.id)?.inputs.size, 1);
     assert.equal(f.imports.length, 1);
     if (phaseName === "started") {
@@ -690,7 +784,7 @@ test("a cancelled initial script never accepts setup input when a chat sender ke
   }});
   t.after(async () => { lifecycle.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, {recursive: true, force: true}); });
   const caller = new AbortController();
-  const first = f.session.startAndWait("test.example", {cancelled: true}, undefined, undefined, caller.signal);
+  const first = f.session.startAndWait("test.example", {}, undefined, undefined, caller.signal);
   const cancelled = assert.rejects(first, /disconnected/);
   await lifecycle.entered;
   const second = f.session.send("Accepted chat message");

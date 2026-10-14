@@ -6,7 +6,7 @@ import program from "../src/server.ts";
 import type { LearningState } from "../src/state.ts";
 
 const inputOf = (content: string): ActorInput => ({ id: "input", content, artifactIds: [], sourceEventIds: [], subscriptionId: null, event: null });
-const setupInput = inputOf(JSON.stringify({ input: null, options: {} }));
+const setupInput = inputOf(JSON.stringify({ parameters: {}, options: {} }));
 const startInput = inputOf("START_LEARNING_AFTERNOON");
 const eventOf = (helper: string, type: string, payload: Record<string, unknown>, eventId = `${helper}-${type}`): ActorInput => ({
   ...inputOf(""),

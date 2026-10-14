@@ -4,10 +4,9 @@ import { parseChatAttachments, type ChatAttachment, type ChatAttachmentInput, ty
 import { estimateContextUsage } from "@ragents/agent";
 import { modelContextOf } from "@ragents/engine/src/agents/model-context";
 import { attachmentContentPath, type ChatContextUsage } from "../api/contracts.js";
-import type { ChatSessionLike, ChatUser, RunScriptListing, StartedScript } from "../chat-handler.js";
+import type { ChatSessionLike, ChatUser, RunScriptListing, ScriptStartRequest, StartedScript } from "../chat-handler.js";
 import {
   addressOf,
-  assertJsonValue,
   attachmentInputKind,
   capabilityNames,
   DomainError,
@@ -31,6 +30,7 @@ import {
   type ModelSelection,
 } from "@ragents/engine";
 import type { ActivatedActorProgram, ActorProgramsService } from "../plugin-support/actor-programs/service.js";
+import { checkedParameters, type ScriptParameters } from "../plugin-support/actor-programs/script-parameters.js";
 import { awaitWithSignal, sharedPreparation } from "../plugin-support/await-with-signal.js";
 import { modelLabel } from "../plugin-support/model-aliases.js";
 import type { StartOptionState } from "../plugin-support/start-options-contract.js";
@@ -76,9 +76,6 @@ const messageOf = (error: unknown): string => error instanceof Error ? error.mes
 
 const userIdOf = (user: ChatUser | undefined): string | null => user?.id ?? null;
 
-const startValueOf = (input: unknown): JsonValue | null =>
-  input === undefined || input === null ? null : (assertJsonValue(input, "Start value of the run script"), input);
-
 /** Who starts a run, through which template, and which start options it fixes. */
 interface StartChoice {
   readonly userId: string | null;
@@ -92,7 +89,7 @@ const freeChoice = (userId: string | null): StartChoice => ({ userId, entry: nul
 /** A script template together with the package the host installs when it is clicked. */
 export type RunScriptStart = RunScriptPackage & { entry: PublicStartEntry };
 
-export type RunScriptPrograms = Pick<ActorProgramsService, "installScript" | "enqueueStart" | "isScriptActor">;
+export type RunScriptPrograms = Pick<ActorProgramsService, "scriptParameters" | "installScript" | "enqueueStart" | "isScriptActor">;
 
 export interface RunChatSessionOptions {
   engine: Engine;
@@ -374,28 +371,70 @@ export class RunChatSession implements ChatSessionLike {
     return { attachment: this.#attachmentInfo(artifact), content };
   }
 
-  /** Starts a run script: in a new run its first turn builds the run, in a running run only an embeddable one joins it. */
-  start(entryId: string, input: unknown, user?: ChatUser): void {
-    void this.#track(() => this.#start(entryId, input, user));
+  /** Starts a run script, in a new run or as an embeddable one in a running run; refused parameters and options go to the caller, later errors to the chat. */
+  async start(entryId: string, request: ScriptStartRequest, user?: ChatUser): Promise<void> {
+    const found = this.#scriptEntry(entryId);
+    this.#assertOptionsBeforeStart(request);
+    await this.#checkedParameters(found, request);
+    void this.#track(() => this.#start(entryId, request, user));
   }
 
   /** startedBy is the actor that receives the script's result; without it, the owner. */
-  async startAndWait(entryId: string, input: unknown, user?: ChatUser, startedBy?: string, signal?: AbortSignal): Promise<StartedScript> {
-    return this.#track(() => this.#start(entryId, input, user, startedBy, signal));
+  async startAndWait(entryId: string, request: ScriptStartRequest, user?: ChatUser, startedBy?: string, signal?: AbortSignal): Promise<StartedScript> {
+    return this.#track(() => this.#start(entryId, request, user, startedBy, signal));
   }
 
   /** The script templates among these entries, and whether each can start in this run now. */
-  runScripts(entries: readonly PublicStartEntry[], userId: string | null): RunScriptListing[] {
+  async runScripts(entries: readonly PublicStartEntry[], userId: string | null, signal?: AbortSignal): Promise<RunScriptListing[]> {
     const started = this.#runStarted();
-    return entries.flatMap((entry) => {
-      if (entry.listed === false) return [];
-      const found = this.#scriptEntryFor(entry.id);
-      if (!found) return [];
+    const listed = entries.flatMap((entry) => {
+      const found = entry.listed === false ? undefined : this.#scriptEntryFor(entry.id);
+      return found ? [{ entry, found }] : [];
+    });
+    return Promise.all(listed.map(async ({ entry, found }) => {
       const reason = !started ? undefined
         : !found.embeddable ? "It starts only a new run; its RUN.md does not set embeddable: true."
         : this.#optionConflict(found.entry, userId);
-      return [{ id: entry.id, title: entry.title, description: entry.description, available: reason === undefined, ...(reason ? { reason } : {}) }];
-    });
+      const parameters = await this.#parametersOf(found, signal);
+      return { id: entry.id, title: entry.title, description: entry.description, parameters, available: reason === undefined, ...(reason ? { reason } : {}) };
+    }));
+  }
+
+  /** The parameters a script template declares; the web asks before it starts one, to know whether a form is needed. */
+  async scriptParameters(entryId: string, signal?: AbortSignal): Promise<ScriptParameters> {
+    return this.#parametersOf(this.#scriptEntry(entryId), signal);
+  }
+
+  #scriptEntry(entryId: string): RunScriptStart {
+    const found = this.#scriptEntryFor(entryId);
+    if (!found) throw new DomainError("entry-unknown", `The template ${entryId} is not a script template of this profile.`, 404);
+    return found;
+  }
+
+  #parametersOf(found: RunScriptStart, signal?: AbortSignal): Promise<ScriptParameters> {
+    return this.#actorPrograms.scriptParameters({ entryId: found.entry.id, files: found.files }, signal);
+  }
+
+  /** The checked parameters of a start; a refused value changes nothing. */
+  async #checkedParameters(found: RunScriptStart, request: ScriptStartRequest, signal?: AbortSignal): Promise<Readonly<Record<string, JsonValue>>> {
+    return checkedParameters(await this.#parametersOf(found, signal), request.parameters, found.entry.id);
+  }
+
+  #assertOptionsBeforeStart(request: ScriptStartRequest): void {
+    if (Object.keys(request.options ?? {}).length > 0 && this.#runStarted()) throw new DomainError("option-locked", "Start options apply only to a new run; this run is already running.", 409);
+  }
+
+  /** Start options chosen together with a start apply only before the run starts, like a separate choice; a refused one leaves the earlier choices as they were. */
+  async #chooseOptions(request: ScriptStartRequest, userId: string | null): Promise<void> {
+    this.#assertOptionsBeforeStart(request);
+    const before = new Map(this.#startValues);
+    try {
+      for (const [optionId, value] of Object.entries(request.options ?? {})) await this.selectStartOption(optionId, value, userId);
+    } catch (error) {
+      this.#startValues.clear();
+      for (const [optionId, value] of before) this.#startValues.set(optionId, value);
+      throw error;
+    }
   }
 
   #optionConflict(entry: PublicStartEntry, userId: string | null): string | undefined {
@@ -407,8 +446,8 @@ export class RunChatSession implements ChatSessionLike {
     }
   }
 
-  async startPackageAndWait(script: RunScriptStart, input: unknown, user?: ChatUser, signal?: AbortSignal): Promise<StartedScript> {
-    return this.#track(() => this.#startPackage(() => script, input, user, undefined, signal));
+  async startPackageAndWait(script: RunScriptStart, request: ScriptStartRequest, user?: ChatUser, signal?: AbortSignal): Promise<StartedScript> {
+    return this.#track(() => this.#startPackage(() => script, request, user, undefined, signal));
   }
 
   #track<T>(work: () => Promise<T>, reportError = true): Promise<T> {
@@ -708,22 +747,18 @@ export class RunChatSession implements ChatSessionLike {
     return this.#startingPreparation.wait(signal);
   }
 
-  #start(entryId: string, input: unknown, user?: ChatUser, startedBy?: string, signal?: AbortSignal): Promise<StartedScript> {
-    return this.#startPackage(() => {
-      const found = this.#scriptEntryFor(entryId);
-      if (!found) throw new DomainError("entry-unknown", `The template ${entryId} is not a script template of this profile.`, 404);
-      return found;
-    }, input, user, startedBy, signal);
+  #start(entryId: string, request: ScriptStartRequest, user?: ChatUser, startedBy?: string, signal?: AbortSignal): Promise<StartedScript> {
+    return this.#startPackage(() => this.#scriptEntry(entryId), request, user, startedBy, signal);
   }
 
   #runStarted(): boolean {
     return !this.#initialStartup && this.startLocked && this.#engine.runtime.view(this.id).actors.some((actor) => actor.kind !== "human");
   }
 
-  async #startPackage(resolve: () => RunScriptStart, input: unknown, user?: ChatUser, startedBy?: string, callerSignal?: AbortSignal): Promise<StartedScript> {
+  async #startPackage(resolve: () => RunScriptStart, request: ScriptStartRequest, user?: ChatUser, startedBy?: string, callerSignal?: AbortSignal): Promise<StartedScript> {
     callerSignal?.throwIfAborted();
     if (this.#startingPreparation?.signal.aborted) await awaitWithSignal(this.#startingPreparation.promise.catch(() => undefined), callerSignal);
-    if (this.#runStarted()) return this.#startInRun(resolve(), input, user, startedBy, callerSignal);
+    if (this.#runStarted()) return this.#startInRun(resolve(), request, user, startedBy, callerSignal);
     if (this.#starting) throw new DomainError("run-starting", "The run is being started.", 409);
     const cancellation = new AbortController();
     this.#startCancellation = cancellation;
@@ -733,12 +768,14 @@ export class RunChatSession implements ChatSessionLike {
       try {
         signal.throwIfAborted();
         const found = resolve();
+        const parameters = await this.#checkedParameters(found, request, signal);
+        signal.throwIfAborted();
+        await this.#chooseOptions(request, userIdOf(user));
         const choice = this.#startChoice(found.entry, userIdOf(user));
-        const startValue = startValueOf(input);
         await this.#prepare(this.id, this.#emitSystem(), signal);
         signal.throwIfAborted();
         this.#assertUsable(this.id);
-        started = await this.#startWithScript(found, startValue, signal, user, choice, callerSignal);
+        started = await this.#startWithScript(found, parameters, signal, user, choice, callerSignal);
         signal.throwIfAborted();
         this.#setStartup(undefined);
       } catch (error) {
@@ -757,11 +794,12 @@ export class RunChatSession implements ChatSessionLike {
   }
 
   /** Starts in a running run wait for each other; each checks what can refuse it before the run changes, and none touches the primary actor or the startup status. */
-  async #startInRun(found: RunScriptStart, input: unknown, user?: ChatUser, startedBy?: string, callerSignal?: AbortSignal): Promise<StartedScript> {
+  async #startInRun(found: RunScriptStart, request: ScriptStartRequest, user?: ChatUser, startedBy?: string, callerSignal?: AbortSignal): Promise<StartedScript> {
     if (!found.embeddable) {
       throw new DomainError("run-started", `The run is already running; the run script "${found.entry.title}" only starts a new run. A run script starts inside a running run only if its RUN.md sets embeddable: true.`, 409);
     }
-    const startValue = startValueOf(input);
+    await this.#chooseOptions(request, userIdOf(user));
+    const parameters = await this.#checkedParameters(found, request, callerSignal);
     const cancellation = new AbortController();
     this.#scriptStarts.add(cancellation);
     const operation = this.#scriptQueue.then(async () => {
@@ -779,7 +817,7 @@ export class RunChatSession implements ChatSessionLike {
       const installed = await this.#installScript(found, signal, startedBy);
       signal.throwIfAborted();
       this.#assertUsable(this.id);
-      return this.#enqueueStart(installed, startValue, choice, true, startedBy);
+      return this.#enqueueStart(installed, parameters, choice, true, startedBy);
     });
     this.#scriptQueue = operation.catch(() => undefined);
     try {
@@ -817,7 +855,7 @@ export class RunChatSession implements ChatSessionLike {
     this.#assertUsable(this.id);
   }
 
-  async #startWithScript(found: RunScriptStart, input: JsonValue | null, signal: AbortSignal, user: ChatUser | undefined, choice: StartChoice, callerSignal?: AbortSignal): Promise<StartedScript | undefined> {
+  async #startWithScript(found: RunScriptStart, parameters: Readonly<Record<string, JsonValue>>, signal: AbortSignal, user: ChatUser | undefined, choice: StartChoice, callerSignal?: AbortSignal): Promise<StartedScript | undefined> {
     const { entry } = found;
     const pending = this.#initialStartup;
     if (pending && pending.script?.entryId !== entry.id) {
@@ -851,7 +889,7 @@ export class RunChatSession implements ChatSessionLike {
       this.#initialStartup = undefined;
       return undefined;
     }
-    const started = this.#enqueueStart(installed, input, choice, false);
+    const started = this.#enqueueStart(installed, parameters, choice, false);
     this.#initialStartup = undefined;
     if (found.coordinator) this.#emit({ kind: "system", text: `The run script "${entry.title}" runs as @${installed.actorHandle} and sets up the run.` });
     return started;
@@ -868,13 +906,13 @@ export class RunChatSession implements ChatSessionLike {
     );
   }
 
-  #enqueueStart(installed: ActivatedActorProgram, input: JsonValue | null, choice: StartChoice, embedded: boolean, startedBy?: string): StartedScript {
+  #enqueueStart(installed: ActivatedActorProgram, parameters: Readonly<Record<string, JsonValue>>, choice: StartChoice, embedded: boolean, startedBy?: string): StartedScript {
     const ownerId = this.#engine.runtime.state(this.id).ownerId;
     const options = Object.fromEntries(this.#engine.startOptions.entries()
       .map((option) => [option.option.id, this.#startValueOf(option, choice)]));
     const { count } = this.#actorPrograms.enqueueStart(
       {actorId: ownerId, commandId: `run-script-input:${this.id}:${installed.name}:${randomUUID()}`},
-      this.id, installed.name, {content: JSON.stringify({ input, options }), embedded, startedBy: startedBy ?? ownerId},
+      this.id, installed.name, {content: JSON.stringify({ parameters, options }), embedded, startedBy: startedBy ?? ownerId},
     );
     return { actorId: installed.actorId, handle: installed.actorHandle, count };
   }

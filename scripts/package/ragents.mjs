@@ -27,12 +27,13 @@ const usage = `Usage: ragents <command> [arguments]
 
   acp [--profile <p>]             serve Agent Client Protocol v1 over stdio for an editor
   run <folder> "<task>"            start the host without UI, create a run and wait for the end
-                                   (--share <user>[:read|:write], --share-all <read|write>)
+                                   (--entry <template> [--parameters <json>],
+                                   --share <user>[:read|:write], --share-all <read|write>)
   send <run> "<text>"              follow-up message in the same run; continues a stopped run
   journal <run> [--tools]          read the history of a run
   stop <run> [--turn]              stop all run work; --turn interrupts only the primary turn
   stop --host                      stop the remembered host
-  script <run> [<entry>]           list the run scripts or start one inside the run (--input <json>)
+  script <run> [<entry>]           list the run scripts or start one inside the run (--parameters <json>)
   share <run> [<user>[:read|:write]...] [--all <read|write>] [--none]
                                    print or replace whom a run is shared with
   connect <server-url>             fetch the client profile with its bundles and start the local server with it

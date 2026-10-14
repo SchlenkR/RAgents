@@ -19,7 +19,7 @@ into a form, not into a chat widget. Progress and completed answers can be recon
 conversation after a reload; a failed model answer can be requested again without counting
 another answer.
 
-The template needs no start values. The setup runs once and does not start a model call yet.
+The template declares no parameters. The setup runs once and does not start a model call yet.
 Only an action in the app sends text to the advisor. Questions and recommendations
 remain model answers; the app does not check their subject-matter quality automatically.
 

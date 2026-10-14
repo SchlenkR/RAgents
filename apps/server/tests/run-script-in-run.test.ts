@@ -54,29 +54,36 @@ export default defineActor(${contract}, { functions: {}, ${handlers} });`,
   ...extra,
 });
 
-const logState = "{ state: Type.Object({ log: Type.Optional(Type.Array(Type.Any())) }), functions: {}, input: { capabilities: [] } }";
+const noParameters = "Type.Object({})";
+const topicParameters = "Type.Object({ topic: Type.Optional(Type.String()) })";
+const roundParameters = "Type.Object({ topic: Type.String(), rounds: Type.Optional(Type.Integer({ minimum: 1, maximum: 5 })) })";
+const roundSchema = { type: "object", properties: { topic: { type: "string" }, rounds: { type: "integer", minimum: 1, maximum: 5 } }, required: ["topic"], additionalProperties: false };
+const emptySchema = { type: "object", properties: {}, required: [], additionalProperties: false };
+
+const logContract = (parameters = noParameters) =>
+  `{ state: Type.Object({ log: Type.Optional(Type.Array(Type.Any())) }), functions: {}, input: { capabilities: [] }, parameters: ${parameters} }`;
 const append = (entry: string) => `context.state.replace({ log: [...context.state.read().log ?? [], ${entry}] })`;
 
 /** A setup that logs every delivery in its state; with onStart it logs starts separately. */
-const loggingScript = (name: string, withStart: boolean) => program(name, logState,
+const loggingScript = (name: string, withStart: boolean, parameters?: string) => program(name, logContract(parameters),
   `onInput: (input, context) => { ${append('{ kind: "input", content: input.content }')}; },
   ${withStart ? `onStart: (start, context) => { ${append('{ kind: "start", ...start }')}; },` : ""}`);
 
 /** Finishes every start with a summary and logs a line while doing so. */
-const finishingScript = (name: string) => program(name, logState,
+const finishingScript = (name: string) => program(name, logContract(topicParameters),
   `onInput: () => {},
-  onStart: (start, context) => { context.log("working on " + start.count); context.finish({ checked: start.input }, { summary: "Reviewed " + start.count }); },`);
+  onStart: (start, context) => { context.log("working on " + start.count); context.finish({ checked: start.parameters }, { summary: "Reviewed " + start.count }); },`);
 
 /** Starts another run script from its own start and logs the result it gets back. */
 const callerScript = (name: string, entry: string) => program(name,
-  '{ state: Type.Object({ log: Type.Optional(Type.Array(Type.Any())) }), functions: {}, input: { capabilities: ["run_script_start"] } }',
+  `{ state: Type.Object({ log: Type.Optional(Type.Array(Type.Any())) }), functions: {}, input: { capabilities: ["run_script_start"] }, parameters: ${noParameters} }`,
   `onInput: (input, context) => { ${append('{ kind: "input", content: input.content }')}; },
-  onStart: async (_start, context) => { const started = await context.functions.run_script_start({ entry: "${entry}", input: "from-caller" }); ${append('{ kind: "started", ...started }')}; },
+  onStart: async (_start, context) => { const started = await context.functions.run_script_start({ entry: "${entry}", parameters: { topic: "from-caller" } }); ${append('{ kind: "started", ...started }')}; },
   onResult: (result, context) => { ${append('{ kind: "result", ...result }')}; },`);
 
 /** Keeps its start open until an input names it; misuses finish on request. */
 const laterScript = (name: string) => program(name,
-  "{ state: Type.Object({ pending: Type.Optional(Type.Number()) }), functions: {}, input: { capabilities: [] } }",
+  `{ state: Type.Object({ pending: Type.Optional(Type.Number()) }), functions: {}, input: { capabilities: [] }, parameters: ${noParameters} }`,
   `onStart: (start, context) => { context.state.replace({ pending: start.count }); },
   onInput: (input, context) => {
     if (input.content === "done") context.finish("late", { start: context.state.read().pending, summary: "Late" });
@@ -84,7 +91,7 @@ const laterScript = (name: string) => program(name,
     if (input.content === "unnamed") context.finish("no start");
   },`);
 
-const boardScript = (name: string) => program(name, logState, "onInput: () => {},", {
+const boardScript = (name: string) => program(name, logContract(), "onInput: () => {},", {
   "src/client.tsx": 'document.body.dataset.ready = "true"; export {};',
 });
 
@@ -92,7 +99,7 @@ const pingScript = (name: string, version: string) => files({
   "package.json": packageJson(name),
   "src/server.ts": `import { defineActor } from "@ragents/server";
 import { Type } from "typebox";
-export default defineActor({ state: Type.Object({}), input: { capabilities: [] }, functions: { run: { label: "Run", input: Type.Object({}), output: Type.String(), capabilities: ["native_ping"] } } }, {
+export default defineActor({ state: Type.Object({}), input: { capabilities: [] }, parameters: ${noParameters}, functions: { run: { label: "Run", input: Type.Object({}), output: Type.String(), capabilities: ["native_ping"] } } }, {
   functions: { run: async (_input, context) => "${version}:" + await context.functions.native_ping({ value: "ping" }) },
   onInput: () => {},
 });`,
@@ -107,7 +114,7 @@ export default defineActor({ state: Type.Object({}), functions: { label: { label
 
 const brokenScript = (name: string) => files({
   "package.json": packageJson(name),
-  "src/server.ts": 'import { defineActor } from "@ragents/server";\nimport { Type } from "typebox";\nconst wrong: number = "text";\nexport default defineActor({ state: Type.Object({}), functions: {}, input: { capabilities: [] } }, { functions: {}, onInput: () => {} });',
+  "src/server.ts": 'import { defineActor } from "@ragents/server";\nimport { Type } from "typebox";\nconst wrong: number = "text";\nexport default defineActor({ state: Type.Object({}), functions: {}, input: { capabilities: [] }, parameters: Type.Object({}) }, { functions: {}, onInput: () => {} });',
 });
 
 const script = (handle: string, source: ActorProgramFile[], options: { embeddable?: boolean; programs?: RunScriptStart["programs"]; shared?: string[]; fixed?: Record<string, string>; coordinator?: boolean } = {}): RunScriptStart => ({
@@ -152,8 +159,8 @@ const fixture = async (t: TestContext, scripts: RunScriptStart[], extra: {
   });
   let session: RunChatSession | undefined;
   const management = {
-    scripts: () => session!.runScripts(scripts.map((entry) => entry.entry), null),
-    startScript: (_runId: string, entryId: string, input: unknown, startedBy: string) => session!.startAndWait(entryId, input, undefined, startedBy),
+    scripts: (_runId: string, signal?: AbortSignal) => session!.runScripts(scripts.map((entry) => entry.entry), null, signal),
+    startScript: (_runId: string, entryId: string, parameters: unknown, startedBy: string) => session!.startAndWait(entryId, { parameters }, undefined, startedBy),
   } as unknown as RunManagement;
   const contributor = createRunScriptToolContributor(() => management);
   const shared = (name: string) => { const files = extra.shared?.get(name); return files ? { pluginId: "demo.shared", files } : undefined; };
@@ -206,7 +213,7 @@ const fixture = async (t: TestContext, scripts: RunScriptStart[], extra: {
     const id = `call-${name}-${++calls}`;
     return tool(name).run({ runtime: setup.runtime, caller: { runId, actorId, turnId: turnId ?? null }, context: (toolCallId: string) => ({ actorId, commandId: toolCallId, ...turnId ? { turnId } : {} }), signal: undefined } as unknown as ToolScope, id, input as never);
   };
-  return { setup, programs, session, runId, hooks, chat, actorsDirectory, view, actorOf, logOf, rooms, scriptState, systemTexts, idle, tool, callTool };
+  return { setup, programs, session, runId, hooks, chat, startOptions, actorsDirectory, view, actorOf, logOf, rooms, scriptState, systemTexts, idle, tool, callTool };
 };
 
 type Fixture = Awaited<ReturnType<typeof fixture>>;
@@ -222,47 +229,47 @@ const snapshot = (f: Fixture) => ({
 });
 
 test("an embeddable script joins a running run in a room of its own, keeps the primary actor, and every start gets its own room and actors", async (t) => {
-  const setupScript = script("demo-setup", loggingScript("demo-setup", true), { embeddable: false });
-  const review = script("demo-review", loggingScript("demo-review", true));
-  const legacy = script("demo-legacy", loggingScript("demo-legacy", false));
+  const setupScript = script("demo-setup", loggingScript("demo-setup", true, topicParameters), { embeddable: false });
+  const review = script("demo-review", loggingScript("demo-review", true, topicParameters));
+  const legacy = script("demo-legacy", loggingScript("demo-legacy", false, topicParameters));
   const f = await fixture(t, [setupScript, review, legacy]);
-  const created = await f.session.startAndWait("demo.demo-setup", { topic: "Launch" });
+  const created = await f.session.startAndWait("demo.demo-setup", { parameters: { topic: "Launch" } });
   assert.deepEqual(created, { actorId: f.actorOf("demo-setup.demo-setup")!.id, handle: "demo-setup.demo-setup", count: 1 });
   assert.deepEqual(f.rooms(), [["demo-setup", null]], "a new run started from a script opens the script's room too");
   const primary = f.view().primaryActorId;
   assert.equal(primary, created.actorId);
   const owner = f.view().ownerId;
 
-  await assert.rejects(f.session.startAndWait("demo.demo-setup", null), (error: unknown) =>
+  await assert.rejects(f.session.startAndWait("demo.demo-setup", {}), (error: unknown) =>
     error instanceof DomainError && error.code === "run-started" && /embeddable: true/.test(error.message));
 
-  const first = await f.session.startAndWait("demo.demo-review", { topic: "first" });
-  const second = await f.session.startAndWait("demo.demo-review", { topic: "second" });
+  const first = await f.session.startAndWait("demo.demo-review", { parameters: { topic: "first" } });
+  const second = await f.session.startAndWait("demo.demo-review", { parameters: { topic: "second" } });
   assert.deepEqual([first.handle, second.handle], ["demo-review.demo-review", "demo-review-2.demo-review"]);
   assert.notEqual(second.actorId, first.actorId, "a repeated start gets its own actor");
   assert.deepEqual([first.count, second.count], [1, 1]);
-  await f.session.startAndWait("demo.demo-legacy", { topic: "old" });
-  await f.session.startAndWait("demo.demo-legacy", null);
+  await f.session.startAndWait("demo.demo-legacy", { parameters: { topic: "old" } });
+  await f.session.startAndWait("demo.demo-legacy", {});
   await f.idle();
 
   assert.deepEqual(f.rooms(), [["demo-setup", null], ["demo-review", null], ["demo-review-2", null], ["demo-legacy", null], ["demo-legacy-2", null]]);
   assert.equal(f.view().primaryActorId, primary, "an embedded start never changes the primary actor");
   assert.deepEqual(f.hooks, ["demo.demo-setup"], "only the new run tells the plugins about its start");
-  assert.deepEqual(f.logOf("demo-setup.demo-setup"), [{ kind: "start", input: { topic: "Launch" }, options: { "demo.mode": "plain" }, embedded: false, startedBy: owner, count: 1, room: "demo-setup" }]);
-  assert.deepEqual(f.logOf("demo-review.demo-review"), [{ kind: "start", input: { topic: "first" }, options: { "demo.mode": "plain" }, embedded: true, startedBy: owner, count: 1, room: "demo-review" }]);
-  assert.deepEqual(f.logOf("demo-review-2.demo-review"), [{ kind: "start", input: { topic: "second" }, options: { "demo.mode": "plain" }, embedded: true, startedBy: owner, count: 1, room: "demo-review-2" }],
+  assert.deepEqual(f.logOf("demo-setup.demo-setup"), [{ kind: "start", parameters: { topic: "Launch" }, options: { "demo.mode": "plain" }, embedded: false, startedBy: owner, count: 1, room: "demo-setup" }]);
+  assert.deepEqual(f.logOf("demo-review.demo-review"), [{ kind: "start", parameters: { topic: "first" }, options: { "demo.mode": "plain" }, embedded: true, startedBy: owner, count: 1, room: "demo-review" }]);
+  assert.deepEqual(f.logOf("demo-review-2.demo-review"), [{ kind: "start", parameters: { topic: "second" }, options: { "demo.mode": "plain" }, embedded: true, startedBy: owner, count: 1, room: "demo-review-2" }],
     "every start names the room it actually opened");
   assert.deepEqual([f.logOf("demo-legacy.demo-legacy"), f.logOf("demo-legacy-2.demo-legacy")], [
-    [{ kind: "input", content: JSON.stringify({ input: { topic: "old" }, options: { "demo.mode": "plain" } }) }],
-    [{ kind: "input", content: JSON.stringify({ input: null, options: { "demo.mode": "plain" } }) }],
+    [{ kind: "input", content: JSON.stringify({ parameters: { topic: "old" }, options: { "demo.mode": "plain" } }) }],
+    [{ kind: "input", content: JSON.stringify({ parameters: {}, options: { "demo.mode": "plain" } }) }],
   ], "without onStart the start arrives in onInput exactly as before");
 
-  f.setup.runtime.enqueueInput({ actorId: owner, commandId: "plain-input" }, f.runId, { actorId: first.actorId, content: JSON.stringify({ input: "forged", options: {} }) });
+  f.setup.runtime.enqueueInput({ actorId: owner, commandId: "plain-input" }, f.runId, { actorId: first.actorId, content: JSON.stringify({ parameters: { topic: "forged" }, options: {} }) });
   await f.idle();
-  assert.deepEqual(f.logOf("demo-review.demo-review").at(-1), { kind: "input", content: JSON.stringify({ input: "forged", options: {} }) }, "an input with the text of a start is no start");
+  assert.deepEqual(f.logOf("demo-review.demo-review").at(-1), { kind: "input", content: JSON.stringify({ parameters: { topic: "forged" }, options: {} }) }, "an input with the text of a start is no start");
 
   f.setup.runtime.stopActor({ actorId: owner, commandId: "stop-review" }, f.runId, first.actorId, "Paused");
-  const third = await f.session.startAndWait("demo.demo-review", { topic: "third" });
+  const third = await f.session.startAndWait("demo.demo-review", { parameters: { topic: "third" } });
   await f.idle();
   assert.deepEqual([third.handle, third.count], ["demo-review-3.demo-review", 1]);
   const stopped = f.actorOf("demo-review.demo-review");
@@ -278,21 +285,21 @@ test("bundled programs land in the room of their start, so equal names of differ
   const same = script("demo-same", loggingScript("demo-same", false), { programs: [{ name: "demo-list", files: listProgram("one") }] });
   const other = script("demo-other", loggingScript("demo-other", false), { programs: [{ name: "demo-list", files: listProgram("two") }, { name: "demo-extra", files: listProgram("extra") }] });
   const f = await fixture(t, [setupScript, review, same, other]);
-  await f.session.startAndWait("demo.demo-setup", null);
-  await f.session.startAndWait("demo.demo-review", null);
+  await f.session.startAndWait("demo.demo-setup", {});
+  await f.session.startAndWait("demo.demo-review", {});
   const list = (room: string) => path.join(f.actorsDirectory, `${room}.demo-list`, "src", "server.ts");
   assert.match(await readFile(list("demo-review"), "utf8"), /"one"/);
   const owner = f.view().ownerId;
   await f.programs.activate({ actorId: owner, commandId: "activate-list" }, f.runId, "demo-review.demo-list");
   assert.equal(f.actorOf("demo-review.demo-list")?.room, "demo-review", "a bundled program's actor joins the room of its package");
-  await f.session.startAndWait("demo.demo-review", null);
+  await f.session.startAndWait("demo.demo-review", {});
   assert.match(await readFile(list("demo-review-2"), "utf8"), /"one"/);
-  await f.session.startAndWait("demo.demo-other", null);
+  await f.session.startAndWait("demo.demo-other", {});
   assert.match(await readFile(list("demo-other"), "utf8"), /"two"/);
   assert.match(await readFile(list("demo-review"), "utf8"), /"one"/, "another script's program of the same name stays apart");
 
   await import("node:fs/promises").then(({ mkdir, writeFile }) => mkdir(path.dirname(list("demo-same")), { recursive: true }).then(() => writeFile(list("demo-same"), "left over")));
-  const started = await f.session.startAndWait("demo.demo-same", null);
+  const started = await f.session.startAndWait("demo.demo-same", {});
   assert.equal(started.handle, "demo-same-2.demo-same", "a room whose bundle folders exist already is skipped");
   assert.equal(await readFile(list("demo-same"), "utf8"), "left over");
   assert.deepEqual(readdirSync(f.actorsDirectory).filter((name) => name.includes(".")).sort(), [
@@ -308,27 +315,27 @@ test("a main room actor with the setup's name, a failed package and incompatible
   const strict = script("demo-strict", loggingScript("demo-strict", false), { fixed: { "demo.mode": "strict" } });
   const plain = script("demo-plain", loggingScript("demo-plain", false), { fixed: { "demo.mode": "plain" } });
   const f = await fixture(t, [setupScript, taken, broken, strict, plain]);
-  await f.session.startAndWait("demo.demo-setup", null);
+  await f.session.startAndWait("demo.demo-setup", {});
   const owner = f.view().ownerId;
   f.setup.runtime.createScriptActor({ actorId: owner, commandId: "foreign" }, f.runId, { handle: "demo-taken", displayName: "Foreign helper", grants: [], toolNames: null });
   await f.idle();
   const before = snapshot(f);
 
-  await assert.rejects(f.session.startAndWait("demo.demo-taken", null), /Handle @demo-taken already belongs to the actor @demo-taken; a name means one actor in its room and the main room/);
+  await assert.rejects(f.session.startAndWait("demo.demo-taken", {}), /Handle @demo-taken already belongs to the actor @demo-taken; a name means one actor in its room and the main room/);
   assert.deepEqual(snapshot(f), before, "neither the room nor a folder or a record stays behind");
-  await assert.rejects(f.session.startAndWait("demo.demo-broken", null), /Typecheck of demo-broken/);
+  await assert.rejects(f.session.startAndWait("demo.demo-broken", {}), /Typecheck of demo-broken/);
   assert.deepEqual(snapshot(f), before, "the copied bundled program, the package folder and the ownership record are removed again");
   assert.equal(f.actorOf("demo-broken"), undefined);
-  await assert.rejects(f.session.startAndWait("demo.demo-strict", null), (error: unknown) =>
+  await assert.rejects(f.session.startAndWait("demo.demo-strict", {}), (error: unknown) =>
     error instanceof DomainError && error.code === "start-option-fixed" && error.message.includes("demo.mode") && error.message.includes('"strict"') && error.message.includes('"plain"'));
   assert.deepEqual(snapshot(f), before);
-  const listed = f.session.runScripts([strict.entry, plain.entry, setupScript.entry], null);
+  const listed = await f.session.runScripts([strict.entry, plain.entry, setupScript.entry], null);
   assert.deepEqual(listed.map(({ id, available }) => [id, available]), [["demo.demo-strict", false], ["demo.demo-plain", true], ["demo.demo-setup", false]]);
   assert.match(listed[0]!.reason ?? "", /fixes the start option demo\.mode to "strict", but this run already has a different value there: "plain"/);
   assert.equal(listed[1]!.reason, undefined);
   assert.equal(listed[2]!.reason, "It starts only a new run; its RUN.md does not set embeddable: true.");
 
-  const started = await f.session.startAndWait("demo.demo-plain", null);
+  const started = await f.session.startAndWait("demo.demo-plain", {});
   assert.equal(started.handle, "demo-plain.demo-plain");
 });
 
@@ -337,7 +344,7 @@ test("a failed start whose ownership record cannot be removed again does not blo
   const fixable = script("demo-fixable", brokenScript("demo-fixable"));
   const scripts = [setupScript, fixable];
   const f = await fixture(t, scripts);
-  await f.session.startAndWait("demo.demo-setup", null);
+  await f.session.startAndWait("demo.demo-setup", {});
   await f.idle();
   const replace = f.setup.runtime.replacePluginState.bind(f.setup.runtime);
   let scriptWrites = 0;
@@ -345,14 +352,14 @@ test("a failed start whose ownership record cannot be removed again does not blo
     if (input.pluginId === ACTOR_SCRIPT_STATE_ID && ++scriptWrites === 2) throw new Error("journal write refused");
     return replace(context, runId, input);
   }) as typeof f.setup.runtime.replacePluginState;
-  await assert.rejects(f.session.startAndWait("demo.demo-fixable", null), /Typecheck of demo-fixable.*ownership record could not be removed again \(journal write refused\)/s);
+  await assert.rejects(f.session.startAndWait("demo.demo-fixable", {}), /Typecheck of demo-fixable.*ownership record could not be removed again \(journal write refused\)/s);
   f.setup.runtime.replacePluginState = replace;
   assert.ok(f.scriptState().packages["demo-fixable.demo-fixable"], "the stale claim stayed");
   assert.equal(f.actorOf("demo-fixable.demo-fixable"), undefined);
   assert.equal(existsSync(path.join(f.actorsDirectory, "demo-fixable.demo-fixable")), false);
   assert.deepEqual(f.rooms(), [["demo-setup", null]], "a failed start opens no room");
   scripts[1] = script("demo-fixable", loggingScript("demo-fixable", true));
-  const started = await f.session.startAndWait("demo.demo-fixable", null);
+  const started = await f.session.startAndWait("demo.demo-fixable", {});
   await f.idle();
   assert.deepEqual([started.handle, started.count], ["demo-fixable.demo-fixable", 1]);
   assert.equal(f.logOf("demo-fixable.demo-fixable").length, 1);
@@ -360,10 +367,10 @@ test("a failed start whose ownership record cannot be removed again does not blo
 
 test("a start input is never queued unrecognizable: a refused record queues nothing, a refused input leaves no record", async (t) => {
   const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false });
-  const review = script("demo-review", loggingScript("demo-review", true));
+  const review = script("demo-review", loggingScript("demo-review", true, topicParameters));
   const f = await fixture(t, [setupScript, review]);
-  await f.session.startAndWait("demo.demo-setup", null);
-  await f.session.startAndWait("demo.demo-review", "first");
+  await f.session.startAndWait("demo.demo-setup", {});
+  await f.session.startAndWait("demo.demo-review", { parameters: { topic: "first" } });
   await f.idle();
   const reviewId = f.actorOf("demo-review.demo-review")!.id;
   const queued = () => f.view().inputs.length;
@@ -374,7 +381,7 @@ test("a start input is never queued unrecognizable: a refused record queues noth
     if (input.pluginId === ACTOR_SCRIPT_STATE_ID) throw new Error("journal write refused");
     return replace(context, runId, input);
   }) as typeof f.setup.runtime.replacePluginState;
-  await assert.rejects(f.session.startAndWait("demo.demo-review", "refused record"), /journal write refused/);
+  await assert.rejects(f.session.startAndWait("demo.demo-review", { parameters: { topic: "refused record" } }), /journal write refused/);
   f.setup.runtime.replacePluginState = replace;
   assert.equal(queued(), before, "without its record no start input is queued");
 
@@ -383,7 +390,7 @@ test("a start input is never queued unrecognizable: a refused record queues noth
     if (context.commandId.startsWith("run-script-input:")) throw new Error("input refused");
     return enqueue(context, runId, input);
   }) as typeof f.setup.runtime.enqueueInput;
-  await assert.rejects(f.session.startAndWait("demo.demo-review", "refused input"), /input refused/);
+  await assert.rejects(f.session.startAndWait("demo.demo-review", { parameters: { topic: "refused input" } }), /input refused/);
   f.setup.runtime.enqueueInput = enqueue;
   assert.deepEqual(f.scriptState().deliveries, []);
   assert.equal(f.scriptState().packages["demo-review-2.demo-review"]!.count, 0, "the refused start gives its number back");
@@ -391,23 +398,23 @@ test("a start input is never queued unrecognizable: a refused record queues noth
   const state = f.scriptState();
   f.setup.runtime.replacePluginState({ actorId: f.view().ownerId, commandId: "dangling" }, f.runId, { pluginId: ACTOR_SCRIPT_STATE_ID, scope: { kind: "run" },
     state: { ...state, deliveries: [{ commandId: "never-queued", actorId: reviewId, kind: "start", name: "demo-review.demo-review", count: 9, embedded: true, startedBy: "nobody" }] } as never });
-  const next = await f.session.startAndWait("demo.demo-review", "second");
+  const next = await f.session.startAndWait("demo.demo-review", { parameters: { topic: "second" } });
   await f.idle();
   assert.deepEqual([next.handle, next.count], ["demo-review-3.demo-review", 1]);
   assert.deepEqual(f.scriptState().deliveries, [], "a record whose input never came is dropped");
-  assert.deepEqual(f.logOf("demo-review.demo-review").map((entry) => [entry.input, entry.count]), [["first", 1]]);
-  assert.deepEqual(f.logOf("demo-review-3.demo-review").map((entry) => [entry.input, entry.count]), [["second", 1]]);
+  assert.deepEqual(f.logOf("demo-review.demo-review").map((entry) => [entry.parameters, entry.count]), [[{ topic: "first" }, 1]]);
+  assert.deepEqual(f.logOf("demo-review-3.demo-review").map((entry) => [entry.parameters, entry.count]), [[{ topic: "second" }, 1]]);
 });
 
 test("repeated starts keep the run script state small: one record per room's package and no delivery left behind", async (t) => {
   const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false });
-  const idleScript = script("demo-idle", program("demo-idle", "{ state: Type.Object({ starts: Type.Optional(Type.Number()) }), functions: {}, input: { capabilities: [] } }",
+  const idleScript = script("demo-idle", program("demo-idle", `{ state: Type.Object({ starts: Type.Optional(Type.Number()) }), functions: {}, input: { capabilities: [] }, parameters: ${noParameters} }`,
     "onInput: () => {}, onStart: (_start, context) => { context.state.replace({ starts: (context.state.read().starts ?? 0) + 1 }); },"));
   const review = script("demo-review", finishingScript("demo-review"));
   const f = await fixture(t, [setupScript, idleScript, review]);
-  await f.session.startAndWait("demo.demo-setup", null);
-  for (let round = 0; round < 3; round += 1) await f.session.startAndWait("demo.demo-idle", null);
-  for (let round = 0; round < 3; round += 1) await f.session.startAndWait("demo.demo-review", round);
+  await f.session.startAndWait("demo.demo-setup", {});
+  for (let round = 0; round < 3; round += 1) await f.session.startAndWait("demo.demo-idle", {});
+  for (let round = 0; round < 3; round += 1) await f.session.startAndWait("demo.demo-review", { parameters: { topic: String(round) } });
   await f.idle();
   const state = f.scriptState();
   assert.deepEqual(state.deliveries, []);
@@ -426,20 +433,20 @@ test("a finished start reaches its starter once: the owner in the chat, a TypeSc
   const caller = script("demo-caller", callerScript("demo-caller", "demo.demo-review"));
   const later = script("demo-later", laterScript("demo-later"));
   const f = await fixture(t, [setupScript, review, caller, later]);
-  await f.session.startAndWait("demo.demo-setup", null);
+  await f.session.startAndWait("demo.demo-setup", {});
   const owner = f.view().ownerId;
 
-  await f.session.startAndWait("demo.demo-review", "by owner");
+  await f.session.startAndWait("demo.demo-review", { parameters: { topic: "by owner" } });
   await f.idle();
   assert.ok(f.systemTexts().includes("@demo-review.demo-review: working on 1"), f.systemTexts().join(" | "));
   assert.ok(f.systemTexts().includes("@demo-review.demo-review: Reviewed 1"), "the owner reads the summary in the chat");
 
-  await f.session.startAndWait("demo.demo-caller", null);
+  await f.session.startAndWait("demo.demo-caller", {});
   await f.idle();
   const callerId = f.actorOf("demo-caller.demo-caller")!.id;
   assert.deepEqual(f.logOf("demo-caller.demo-caller"), [
     { kind: "started", handle: "demo-review-2.demo-review", count: 1 },
-    { kind: "result", handle: "demo-review-2.demo-review", count: 1, result: { checked: "from-caller" }, summary: "Reviewed 1" },
+    { kind: "result", handle: "demo-review-2.demo-review", count: 1, result: { checked: { topic: "from-caller" } }, summary: "Reviewed 1" },
   ], "the caller reads the started script's address from its own room");
   assert.deepEqual(f.rooms().at(-1), ["demo-review-2", "demo-caller"], "a room opened from a room records where it was opened");
   assert.equal(f.systemTexts().includes("@demo-review-2.demo-review: Reviewed 1"), false, "a result for another actor is not the owner's chat entry");
@@ -449,7 +456,7 @@ test("a finished start reaches its starter once: the owner in the chat, a TypeSc
     grants: [{ capability: "script.start", scope: { kind: "run" }, delegable: false }],
   });
   const planner = view.actors.find((actor) => actor.handle === "planner")!;
-  assert.deepEqual(await f.callTool("run_script_start", planner.id, { entry: "demo.demo-review", input: { topic: "agent" } }), { handle: "demo-review-3.demo-review", count: 1 });
+  assert.deepEqual(await f.callTool("run_script_start", planner.id, { entry: "demo.demo-review", parameters: { topic: "agent" } }), { handle: "demo-review-3.demo-review", count: 1 });
   await f.idle();
   const message = f.view().inputs.find((input) => input.actorId === planner.id)!;
   assert.equal(message.presentation, "background");
@@ -457,7 +464,7 @@ test("a finished start reaches its starter once: the owner in the chat, a TypeSc
   assert.deepEqual(f.scriptState().packages["demo-review-3.demo-review"]!.open, []);
   assert.equal(f.view().inputs.filter((input) => input.actorId === callerId).length, 2, "every result is delivered once");
 
-  await f.session.startAndWait("demo.demo-later", null);
+  await f.session.startAndWait("demo.demo-later", {});
   await f.idle();
   const laterId = f.actorOf("demo-later.demo-later")!.id;
   let sent = 0;
@@ -481,9 +488,9 @@ test("a finished start reaches its starter once: the owner in the chat, a TypeSc
 
 test("the coordinator holds script.start without passing it on; the run functions list and start scripts for their caller", async (t) => {
   const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false, coordinator: true });
-  const review = script("demo-review", loggingScript("demo-review", true));
+  const review = script("demo-review", loggingScript("demo-review", true, roundParameters));
   const f = await fixture(t, [setupScript, review]);
-  await f.session.startAndWait("demo.demo-setup", null);
+  await f.session.startAndWait("demo.demo-setup", {});
   await f.idle();
   const view = f.view();
   const coordinator = view.actors.find((actor) => actor.handle === "coordinator")!;
@@ -498,12 +505,19 @@ test("the coordinator holds script.start without passing it on; the run function
   assert.equal(start.available(f.setup.agent, f.setup.view), false);
 
   assert.deepEqual(await f.callTool("run_script_list", coordinator.id, {}), [
-    { entry: "demo.demo-setup", title: "demo-setup", description: "The script demo-setup", available: false, reason: "It starts only a new run; its RUN.md does not set embeddable: true." },
-    { entry: "demo.demo-review", title: "demo-review", description: "The script demo-review", available: true },
+    { entry: "demo.demo-setup", title: "demo-setup", description: "The script demo-setup", parameters: emptySchema, available: false, reason: "It starts only a new run; its RUN.md does not set embeddable: true." },
+    { entry: "demo.demo-review", title: "demo-review", description: "The script demo-review", parameters: roundSchema, available: true },
   ]);
-  assert.deepEqual(await f.callTool("run_script_start", coordinator.id, { entry: "demo.demo-review" }), { handle: "demo-review.demo-review", count: 1 });
+  const before = snapshot(f);
+  for (const parameters of [undefined, { rounds: 9 }]) {
+    await assert.rejects(Promise.resolve(f.callTool("run_script_start", coordinator.id, { entry: "demo.demo-review", ...parameters ? { parameters } : {} })), (error: unknown) =>
+      error instanceof DomainError && error.code === "parameters-invalid" && /parameters is missing required field topic/.test(error.message) && error.message.endsWith("Its parameters: topic (string, required); rounds (integer, optional)."));
+  }
+  assert.deepEqual(snapshot(f), before, "a refused start changes nothing");
+  assert.deepEqual(await f.callTool("run_script_start", coordinator.id, { entry: "demo.demo-review", parameters: { topic: "Launch", rounds: 2 } }), { handle: "demo-review.demo-review", count: 1 });
   await f.idle();
   assert.equal(f.logOf("demo-review.demo-review")[0]!.startedBy, coordinator.id);
+  assert.deepEqual(f.logOf("demo-review.demo-review")[0]!.parameters, { topic: "Launch", rounds: 2 });
   assert.equal(f.view().primaryActorId, coordinator.id);
 });
 
@@ -511,13 +525,13 @@ test("every embedded start exposes the view of its own room and preserves the pr
   const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false });
   const board = script("demo-board", boardScript("demo-board"));
   const f = await fixture(t, [setupScript, board]);
-  await f.session.startAndWait("demo.demo-setup", null);
+  await f.session.startAndWait("demo.demo-setup", {});
   const primary = f.view().primaryActorId;
-  await f.session.startAndWait("demo.demo-board", null);
+  await f.session.startAndWait("demo.demo-board", {});
   const apps = () => f.programs.apps(f.runId).map(({ id, actorId, actorHandle, visible }) => ({ id, actorId, actorHandle, visible }));
   const first = { id: "demo-board.demo-board--main", actorId: f.actorOf("demo-board.demo-board")!.id, actorHandle: "demo-board.demo-board", visible: true };
   assert.deepEqual(apps(), [first]);
-  await f.session.startAndWait("demo.demo-board", null);
+  await f.session.startAndWait("demo.demo-board", {});
   assert.deepEqual(apps(), [first, { id: "demo-board-2.demo-board--main", actorId: f.actorOf("demo-board-2.demo-board")!.id, actorHandle: "demo-board-2.demo-board", visible: true }]);
   assert.equal(f.view().primaryActorId, primary);
 });
@@ -526,11 +540,11 @@ test("the chat shows runtime output of run script actors, not of other TypeScrip
   const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false });
   const review = script("demo-review", finishingScript("demo-review"));
   const f = await fixture(t, [setupScript, review]);
-  await f.session.startAndWait("demo.demo-setup", null);
+  await f.session.startAndWait("demo.demo-setup", {});
   await f.programs.importPackage({ actorId: f.view().ownerId, commandId: "own-program" }, f.runId, "demo-own", finishingScript("demo-own"));
   const own = f.actorOf("demo-own")!;
   f.setup.runtime.enqueueInput({ actorId: f.view().ownerId, commandId: "own-input" }, f.runId, { actorId: own.id, content: "hello" });
-  await f.session.startAndWait("demo.demo-review", null);
+  await f.session.startAndWait("demo.demo-review", {});
   await f.idle();
   assert.equal(f.systemTexts().filter((text) => text.startsWith("@demo-review.demo-review: ")).length, 2);
   assert.equal(f.systemTexts().some((text) => text.includes("demo-own")), false);
@@ -548,8 +562,8 @@ test("every package reactivates from the sources of the script that installed it
     operations: ping.operations,
     sources: (entryId, name) => entryId === `demo.${name}` && current.has(name) ? pingScript(name, current.get(name)!) : undefined,
   });
-  await f.session.startAndWait("demo.demo-alpha", null);
-  await f.session.startAndWait("demo.demo-beta", null);
+  await f.session.startAndWait("demo.demo-alpha", {});
+  await f.session.startAndWait("demo.demo-beta", {});
   await f.idle();
   const call = async (handle: string, requestId: string) => {
     const found = f.programs.programs(f.runId).find((entry) => entry.name === handle)!;
@@ -567,7 +581,7 @@ test("every package reactivates from the sources of the script that installed it
 
 test("an older script state counts as no script origin and never blocks the run", async (t) => {
   const f = await fixture(t, [script("demo-setup", loggingScript("demo-setup", true), { embeddable: false })]);
-  await f.session.startAndWait("demo.demo-setup", null);
+  await f.session.startAndWait("demo.demo-setup", {});
   await f.idle();
   const owner = f.view().ownerId;
   f.setup.runtime.replacePluginState({ actorId: owner, commandId: "old-shape" }, f.runId, { pluginId: ACTOR_SCRIPT_STATE_ID, scope: { kind: "run" }, state: { version: 1, entryId: "demo.demo-setup" } });
@@ -579,13 +593,13 @@ test("an older script state counts as no script origin and never blocks the run"
 
 test("ragents.runs.scripts and ragents.runs.startScript answer the caller; concurrent starts queue and install once", async (t) => {
   const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false });
-  const review = script("demo-review", loggingScript("demo-review", true));
+  const review = script("demo-review", loggingScript("demo-review", true, topicParameters));
   const f = await fixture(t, [setupScript, review]);
   const provider: ChatSessionProvider = { get: async () => f.session, hasRun: () => true, list: async () => [], delete: async () => undefined };
   const plugins = { startEntries: { describe: () => [setupScript.entry, review.entry] } };
   const methods = coreMethods(coreSources(provider, { plugins: plugins as never }));
   const method = (id: string) => methods.find((entry) => entry.contract.id === id)!;
-  const created = await method(coreContracts.runs.startScript.id).execute({ runId: f.runId, entry: "demo.demo-setup", input: null } as never, methodContext());
+  const created = await method(coreContracts.runs.startScript.id).execute({ runId: f.runId, entry: "demo.demo-setup" } as never, methodContext());
   assert.deepEqual(created, { actorId: f.actorOf("demo-setup.demo-setup")!.id, handle: "demo-setup.demo-setup", count: 1 });
   await assert.rejects(async () => method(coreContracts.runs.startScript.id).execute({ runId: f.runId, entry: "demo.demo-setup" } as never, methodContext()), { code: "run-started", status: 409 });
   assert.deepEqual((await method(coreContracts.runs.scripts.id).execute({ runId: f.runId } as never, methodContext()) as { id: string; available: boolean }[])
@@ -594,18 +608,169 @@ test("ragents.runs.scripts and ragents.runs.startScript answer the caller; concu
   assert.deepEqual((await method(coreContracts.runs.scripts.id).execute({ runId: f.runId } as never, methodContext(reader)) as { id: string }[]).map(({ id }) => id),
     ["demo.demo-review"], "only the scripts the caller may start");
 
-  const racing = await Promise.all([f.session.startAndWait("demo.demo-review", "a"), f.session.startAndWait("demo.demo-review", "b"), f.session.startAndWait("demo.demo-review", "c")]);
+  const racing = await Promise.all([f.session.startAndWait("demo.demo-review", { parameters: { topic: "a" } }), f.session.startAndWait("demo.demo-review", { parameters: { topic: "b" } }), f.session.startAndWait("demo.demo-review", { parameters: { topic: "c" } })]);
   assert.deepEqual(racing.map((started) => [started.handle, started.count]), [["demo-review.demo-review", 1], ["demo-review-2.demo-review", 1], ["demo-review-3.demo-review", 1]],
     "concurrent starts wait for each other instead of failing, each in a room of its own");
   assert.equal(f.view().actors.filter((actor) => actor.handle === "demo-review").length, 3);
-  const again = await method(coreContracts.runs.startScript.id).execute({ runId: f.runId, entry: "demo.demo-review", input: { topic: "rpc" } } as never, methodContext());
+  const again = await method(coreContracts.runs.startScript.id).execute({ runId: f.runId, entry: "demo.demo-review", parameters: { topic: "rpc" } } as never, methodContext());
   assert.deepEqual(again, { actorId: f.actorOf("demo-review-4.demo-review")!.id, handle: "demo-review-4.demo-review", count: 1 });
   assert.equal(existsSync(path.join(f.actorsDirectory, "demo-review-4.demo-review")), true);
 });
 
+const allKinds = `Type.Object({
+  topic: Type.String(),
+  rounds: Type.Optional(Type.Integer({ minimum: 1, maximum: 5 })),
+  weight: Type.Optional(Type.Number()),
+  strict: Type.Optional(Type.Boolean()),
+  style: Type.Optional(Type.Union([Type.Literal("calm"), Type.Literal("loud")])),
+  mood: Type.Optional(Type.Enum(["happy", "sad"])),
+  model: Type.Optional(Type.String({ format: "model" })),
+})`;
+const allKindsList = "topic (string, required); rounds (integer, optional); weight (number, optional); strict (boolean, optional); style (one of calm, loud, optional); mood (one of happy, sad, optional); model (model, optional)";
+
+/** Logs the typed parameters of every start; reading them with their declared types is part of what the host typechecks. */
+const typedScript = (name: string) => program(name, logContract(allKinds),
+  `onInput: () => {},
+  onStart: (start, context) => { ${append('{ kind: "start", parameters: start.parameters, shout: start.parameters.topic.toUpperCase(), rounds: start.parameters.rounds ?? 2, style: start.parameters.style ?? "calm" }')}; },`);
+
+test("a script receives exactly the parameters it was started with, typed as its contract declares them", async (t) => {
+  const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false });
+  const typed = script("demo-typed", typedScript("demo-typed"));
+  const f = await fixture(t, [setupScript, typed]);
+  await f.session.startAndWait("demo.demo-setup", {});
+  await f.session.startAndWait("demo.demo-typed", { parameters: { topic: "Launch" } });
+  await f.session.startAndWait("demo.demo-typed", { parameters: { topic: "Launch", rounds: 3, weight: 0.5, strict: true, style: "loud", mood: "sad", model: "fast" } });
+  await f.idle();
+  assert.deepEqual(f.logOf("demo-typed.demo-typed"), [{ kind: "start", parameters: { topic: "Launch" }, shout: "LAUNCH", rounds: 2, style: "calm" }],
+    "optional parameters stay absent: the script applies its own defaults");
+  assert.deepEqual(f.logOf("demo-typed-2.demo-typed"), [{ kind: "start", parameters: { topic: "Launch", rounds: 3, weight: 0.5, strict: true, style: "loud", mood: "sad", model: "fast" },
+    shout: "LAUNCH", rounds: 3, style: "loud" }]);
+});
+
+test("missing, unknown and wrongly typed parameters are refused with parameters-invalid, name the violation and list the parameters, and change nothing", async (t) => {
+  const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false });
+  const typed = script("demo-typed", typedScript("demo-typed"));
+  const f = await fixture(t, [setupScript, typed]);
+  await f.session.startAndWait("demo.demo-setup", {});
+  await f.idle();
+  const before = snapshot(f);
+  const refusals: Array<[unknown, RegExp]> = [
+    [undefined, /parameters is missing required field topic/],
+    [{ rounds: 2 }, /parameters is missing required field topic/],
+    [{ topic: "Launch", color: "red" }, /parameters has unknown field color/],
+    [{ topic: 5 }, /topic must be string, got 5/],
+    [{ topic: "Launch", rounds: 2.5 }, /rounds must be integer, got 2\.5/],
+    [{ topic: "Launch", rounds: "3" }, /rounds must be integer, got "3"/],
+    [{ topic: "Launch", rounds: 9 }, /rounds must be <= 5, got 9/],
+    [{ topic: "Launch", strict: "yes" }, /strict must be boolean, got "yes"/],
+    [{ topic: "Launch", style: "quiet" }, /style got "quiet", allowed values: calm, loud/],
+    [{ topic: "Launch", mood: "angry" }, /mood must be equal to one of the allowed values, got "angry"/],
+    [{ topic: "Launch", model: 7 }, /model must be string, got 7/],
+  ];
+  for (const [parameters, complaint] of refusals) {
+    await assert.rejects(f.session.startAndWait("demo.demo-typed", { parameters }), (error: unknown) =>
+      error instanceof DomainError && error.code === "parameters-invalid" && error.status === 400 && complaint.test(error.message)
+      && error.message.startsWith("The parameters of the run script demo.demo-typed are invalid: ")
+      && error.message.endsWith(` Its parameters: ${allKindsList}.`), JSON.stringify(parameters));
+    assert.deepEqual(snapshot(f), before, JSON.stringify(parameters));
+  }
+});
+
+test("a script without parameters in its contract, with a nested parameter or with parameters but no input refuses its start and changes nothing", async (t) => {
+  const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false });
+  const undeclared = script("demo-undeclared", program("demo-undeclared", "{ state: Type.Object({}), functions: {}, input: { capabilities: [] } }", "onInput: () => {},"));
+  const nested = script("demo-nested", program("demo-nested", logContract("Type.Object({ owner: Type.Object({ name: Type.String() }), tags: Type.Array(Type.String()), topic: Type.String() })"), "onInput: () => {},"));
+  const withoutInput = script("demo-without-input", program("demo-without-input", `{ state: Type.Object({}), functions: {}, parameters: ${noParameters} }`, ""));
+  const reading = script("demo-reading", program("demo-reading", logContract(noParameters), "onInput: () => {}, onStart: (start, context) => { context.log(start.input); },"));
+  const f = await fixture(t, [setupScript, undeclared, nested, withoutInput, reading]);
+  await assert.rejects(f.session.startAndWait("demo.demo-undeclared", {}), /The run script demo\.demo-undeclared declares no parameters; its setup contract needs input and parameters, Type\.Object\(\{\}\) for a script without parameters\./);
+  assert.equal(f.setup.journal.hasRun(f.runId), false, "the first start of a new run fails before the run exists");
+  assert.equal(f.session.started, false);
+  await f.session.startAndWait("demo.demo-setup", {});
+  await f.idle();
+  const before = snapshot(f);
+  await assert.rejects(f.session.startAndWait("demo.demo-undeclared", { parameters: {} }), /Type\.Object\(\{\}\) for a script without parameters/);
+  await assert.rejects(f.session.startAndWait("demo.demo-nested", { parameters: { topic: "Launch" } }), /The parameters owner, tags of the run script demo\.demo-nested are not plain values: .*never an object or an array\./);
+  await assert.rejects(f.session.startAndWait("demo.demo-without-input", {}), /parameters need input and onInput/);
+  await assert.rejects(f.session.startAndWait("demo.demo-reading", {}), /Typecheck of demo-reading.*[Pp]roperty 'input' does not exist/s);
+  assert.deepEqual(snapshot(f), before);
+  await assert.rejects(f.session.scriptParameters("demo.demo-nested"), /are not plain values/);
+  await assert.rejects(f.session.runScripts([undeclared.entry], null), /declares no parameters/);
+});
+
+test("the parameters of a package are read once per content, and a failed read is not remembered", async (t) => {
+  const f = await fixture(t, []);
+  const declared = loggingScript("demo-declared", false, topicParameters);
+  const read = (entryId: string, files: ActorProgramFile[]) => f.programs.scriptParameters({ entryId, files });
+  const first = read("demo.declared", declared);
+  assert.equal(read("demo.other", declared), first, "equal content is read once");
+  assert.deepEqual((await first).required, []);
+  const changed = loggingScript("demo-declared", false, roundParameters);
+  assert.notEqual(read("demo.declared", changed), first, "changed content is read again");
+  assert.deepEqual((await read("demo.declared", changed)).required, ["topic"]);
+  const undeclared = program("demo-undeclared", "{ state: Type.Object({}), functions: {}, input: { capabilities: [] } }", "onInput: () => {},");
+  const failed = read("demo.undeclared", undeclared);
+  await assert.rejects(failed, /declares no parameters/);
+  assert.notEqual(read("demo.undeclared", undeclared), failed);
+  await assert.rejects(read("demo.undeclared", undeclared), /declares no parameters/);
+});
+
+test("ragents.runs.scripts lists the declared parameters, ragents.runs.scriptParameters returns them for one template", async (t) => {
+  const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false });
+  const review = script("demo-review", loggingScript("demo-review", true, roundParameters));
+  const typed = script("demo-typed", typedScript("demo-typed"));
+  const f = await fixture(t, [setupScript, review, typed]);
+  const provider: ChatSessionProvider = { get: async () => f.session, hasRun: () => true, list: async () => [], delete: async () => undefined };
+  const plugins = { startEntries: { describe: () => [setupScript.entry, review.entry, typed.entry] }, startOptions: f.startOptions };
+  const methods = coreMethods(coreSources(provider, { plugins: plugins as never }));
+  const method = (id: string) => methods.find((entry) => entry.contract.id === id)!;
+  const listed = await method(coreContracts.runs.scripts.id).execute({ runId: f.runId } as never, methodContext()) as { id: string; parameters: unknown }[];
+  assert.deepEqual(listed.map(({ id, parameters }) => [id, parameters]), [["demo.demo-setup", emptySchema], ["demo.demo-review", roundSchema], ["demo.demo-typed", {
+    type: "object", required: ["topic"], additionalProperties: false,
+    properties: { topic: { type: "string" }, rounds: { type: "integer", minimum: 1, maximum: 5 }, weight: { type: "number" }, strict: { type: "boolean" },
+      style: { anyOf: [{ const: "calm", type: "string" }, { const: "loud", type: "string" }] }, mood: { enum: ["happy", "sad"] }, model: { type: "string", format: "model" } },
+  }]]);
+  const parameters = (entry: string) => method(coreContracts.runs.scriptParameters.id).execute({ runId: f.runId, entry } as never, methodContext());
+  assert.deepEqual(await parameters("demo.demo-review"), roundSchema);
+  assert.deepEqual(await parameters("demo.demo-setup"), emptySchema);
+  await assert.rejects(async () => parameters("demo.demo-missing"), { code: "entry-unknown", status: 404 });
+  const reader = createAccessContext({ enabled: true, user: { id: "alice", label: "Alice", rights: ["runs.read", "runs.write"], startEntries: ["demo.demo-review"] } });
+  assert.deepEqual(await method(coreContracts.runs.scriptParameters.id).execute({ runId: f.runId, entry: "demo.demo-review" } as never, methodContext(reader)), roundSchema);
+  await assert.rejects(async () => method(coreContracts.runs.scriptParameters.id).execute({ runId: f.runId, entry: "demo.demo-setup" } as never, methodContext(reader)), { code: "access-denied", status: 403 });
+  assert.equal(f.setup.journal.hasRun(f.runId), false, "reading parameters starts nothing");
+});
+
+test("start options in a start request apply to a new run like ragents.startOptions.select and are refused in a running run", async (t) => {
+  const setupScript = script("demo-setup", loggingScript("demo-setup", true), { embeddable: false });
+  const review = script("demo-review", loggingScript("demo-review", true));
+  const f = await fixture(t, [setupScript, review]);
+  const provider: ChatSessionProvider = { get: async () => f.session, hasRun: () => f.session.started, list: async () => [], delete: async () => undefined };
+  const plugins = { startEntries: { describe: () => [setupScript.entry, review.entry] }, startOptions: f.startOptions };
+  const startScript = coreMethods(coreSources(provider, { plugins: plugins as never })).find((entry) => entry.contract.id === coreContracts.runs.startScript.id)!;
+  const creator = createAccessContext({ enabled: true, user: { id: "alice", label: "Alice", rights: ["runs.read", "runs.write", "runs.create"], startEntries: ["demo.demo-setup", "demo.demo-review"] } });
+  const reader = createAccessContext({ enabled: true, user: { id: "bob", label: "Bob", rights: ["runs.read", "runs.write"], startEntries: ["demo.demo-setup", "demo.demo-review"] } });
+
+  await assert.rejects(async () => startScript.execute({ runId: f.runId, entry: "demo.demo-setup", options: { "demo.mode": "strict" } } as never, methodContext(reader)), { code: "access-denied", status: 403, message: /runs\.create/ });
+  assert.equal(f.session.started, false, "a refused choice starts nothing");
+  await assert.rejects(async () => startScript.execute({ runId: f.runId, entry: "demo.demo-setup", options: { "demo.mode": "loud" } } as never, methodContext(creator)), /Invalid value for start option demo\.mode/);
+  assert.equal(f.session.started, false);
+  await startScript.execute({ runId: f.runId, entry: "demo.demo-setup", options: { "demo.mode": "strict" } } as never, methodContext(creator));
+  await f.idle();
+  assert.deepEqual((f.logOf("demo-setup.demo-setup")[0]!.options), { "demo.mode": "strict" }, "the chosen value is the run's value");
+  assert.equal(f.session.startOptions("alice").find((option) => option.id === "demo.mode")!.value, "strict");
+
+  const before = snapshot(f);
+  await assert.rejects(f.session.startAndWait("demo.demo-review", { options: { "demo.mode": "strict" } }), { code: "option-locked", status: 409 });
+  await assert.rejects(async () => startScript.execute({ runId: f.runId, entry: "demo.demo-review", options: { "demo.mode": "plain" } } as never, methodContext(creator)), { code: "option-locked", status: 409 });
+  assert.deepEqual(snapshot(f), before, "options never change a running run");
+  await f.session.startAndWait("demo.demo-review", {});
+  await f.idle();
+  assert.deepEqual(f.logOf("demo-review.demo-review")[0]!.options, { "demo.mode": "strict" });
+});
+
 /** Ensures a shared package on every start and logs what ensure reported. */
 const ensuringScript = (name: string, target: string) => program(name,
-  '{ state: Type.Object({ log: Type.Optional(Type.Array(Type.Any())) }), functions: {}, input: { capabilities: ["actor_program_ensure"] } }',
+  `{ state: Type.Object({ log: Type.Optional(Type.Array(Type.Any())) }), functions: {}, input: { capabilities: ["actor_program_ensure"] }, parameters: ${noParameters} }`,
   `onInput: () => {},
   onStart: async (_start, context) => { const ensured = await context.functions.actor_program_ensure({ name: "${target}" }); ${append("ensured.status")}; },`);
 
@@ -621,9 +786,9 @@ export default defineActor({ state: Type.Object({}), input: { capabilities: [] }
 
 test("a stale ownership record under the key of a new room counts as not installed and is replaced", async (t) => {
   const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false });
-  const review = script("demo-review", loggingScript("demo-review", true));
+  const review = script("demo-review", loggingScript("demo-review", true, topicParameters));
   const f = await fixture(t, [setupScript, review]);
-  await f.session.startAndWait("demo.demo-setup", null);
+  await f.session.startAndWait("demo.demo-setup", {});
   await f.idle();
   const owner = f.view().ownerId;
   const withRecord = (key: string) => {
@@ -632,12 +797,12 @@ test("a stale ownership record under the key of a new room counts as not install
       state: { ...state, packages: { ...state.packages, [key]: { origin: { kind: "script", entryId: "other.demo-review" }, identity: "left over", count: 7, open: [] } } } as never });
   };
   withRecord("demo-review.demo-review");
-  const started = await f.session.startAndWait("demo.demo-review", "first");
+  const started = await f.session.startAndWait("demo.demo-review", { parameters: { topic: "first" } });
   assert.deepEqual([started.handle, started.count], ["demo-review.demo-review", 1]);
   assert.deepEqual(f.scriptState().packages["demo-review.demo-review"]!.origin, { kind: "script", entryId: "demo.demo-review" });
   await f.idle();
   withRecord("demo-review-2.demo-review");
-  const second = await f.session.startAndWait("demo.demo-review", "second");
+  const second = await f.session.startAndWait("demo.demo-review", { parameters: { topic: "second" } });
   assert.deepEqual([second.handle, second.count], ["demo-review-2.demo-review", 1]);
   assert.deepEqual(f.scriptState().packages["demo-review-2.demo-review"]!.origin, { kind: "script", entryId: "demo.demo-review" });
 });
@@ -648,12 +813,12 @@ test("a shared package used by two scripts is installed once and ensured by both
   const alpha = script("demo-alpha", ensuringScript("demo-alpha", "demo-notes"), { shared: ["demo-notes"] });
   const beta = script("demo-beta", ensuringScript("demo-beta", "demo-notes"), { shared: ["demo-notes"] });
   const f = await fixture(t, [setupScript, alpha, beta], { operations: ping.operations, shared: new Map([["demo-notes", notesPackage("v1")]]) });
-  await f.session.startAndWait("demo.demo-setup", null);
-  await f.session.startAndWait("demo.demo-alpha", null);
+  await f.session.startAndWait("demo.demo-setup", {});
+  await f.session.startAndWait("demo.demo-alpha", {});
   await f.idle();
   assert.equal(existsSync(path.join(f.actorsDirectory, "demo-notes")), true, "the script installs the shared package in the main room before its setup");
-  await f.session.startAndWait("demo.demo-beta", null);
-  await f.session.startAndWait("demo.demo-alpha", null);
+  await f.session.startAndWait("demo.demo-beta", {});
+  await f.session.startAndWait("demo.demo-alpha", {});
   await f.idle();
   assert.deepEqual([f.logOf("demo-alpha.demo-alpha"), f.logOf("demo-beta.demo-beta"), f.logOf("demo-alpha-2.demo-alpha")], [["activated"], ["active"], ["active"]]);
   assert.deepEqual(f.view().actors.filter((actor) => actor.handle === "demo-notes").map((actor) => actor.room), [null], "every room shares the one actor in the main room");
@@ -678,7 +843,7 @@ test("ensure activates, restarts, installs and returns an active package unchang
   const ping = pingOperation();
   const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false });
   const f = await fixture(t, [setupScript], { operations: ping.operations, shared: new Map([["demo-notes", notesPackage("v1")]]) });
-  await f.session.startAndWait("demo.demo-setup", null);
+  await f.session.startAndWait("demo.demo-setup", {});
   await f.idle();
   const owner = f.view().ownerId;
   const ensure = (label: string, name = "demo-notes") => f.callTool("actor_program_ensure", owner, { name }).then((result) => (result as { status: string }).status, (error: Error) => `${label}: ${error.message}`);
@@ -702,7 +867,7 @@ test("a contract drift reloads a shared package from its plugin, but keeps a pac
   const shared = new Map([["demo-notes", notesPackage("v1")]]);
   const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false });
   const f = await fixture(t, [setupScript], { operations: ping.operations, shared });
-  await f.session.startAndWait("demo.demo-setup", null);
+  await f.session.startAndWait("demo.demo-setup", {});
   const owner = f.view().ownerId;
   await f.callTool("actor_program_ensure", owner, { name: "demo-notes" });
   const call = async (requestId: string) => {
@@ -733,7 +898,7 @@ test("a package the host did not install never counts as the shared one, for ens
   const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false });
   const user = script("demo-user", loggingScript("demo-user", false), { shared: ["demo-notes"] });
   const f = await fixture(t, [setupScript, user], { operations: ping.operations, shared: new Map([["demo-notes", notesPackage("v1")]]) });
-  await f.session.startAndWait("demo.demo-setup", null);
+  await f.session.startAndWait("demo.demo-setup", {});
   await f.idle();
   const owner = f.view().ownerId;
   const foreign = /demo-notes is the shared actor package of demo\.shared, but this run has a package demo-notes that the host did not install/;
@@ -742,7 +907,7 @@ test("a package the host did not install never counts as the shared one, for ens
   const impostor = f.actorOf("demo-notes")!;
   await assert.rejects(Promise.resolve(f.callTool("actor_program_ensure", owner, { name: "demo-notes" })), foreign, "an impostor under the shared name is never active");
   const before = snapshot(f);
-  await assert.rejects(f.session.startAndWait("demo.demo-user", null), foreign);
+  await assert.rejects(f.session.startAndWait("demo.demo-user", {}), foreign);
   assert.deepEqual(snapshot(f), before, "the start fails before anything changes");
   assert.deepEqual(f.programs.programOf(f.runId, impostor.id)?.origin, { kind: "run", installedBy: owner });
 
@@ -751,7 +916,7 @@ test("a package the host did not install never counts as the shared one, for ens
   await f.programs.importPackage({ actorId: owner, commandId: "twin" }, f.runId, "demo-notes", notesPackage("v1"));
   const twin = f.actorOf("demo-notes")!;
   await assert.rejects(Promise.resolve(f.callTool("actor_program_ensure", owner, { name: "demo-notes" })), foreign, "the same content without a record is not the shared package either");
-  await assert.rejects(f.session.startAndWait("demo.demo-user", null), foreign);
+  await assert.rejects(f.session.startAndWait("demo.demo-user", {}), foreign);
   assert.deepEqual(f.programs.programOf(f.runId, twin.id)?.origin, { kind: "run", installedBy: owner }, "a later start does not give it an origin");
   assert.equal(f.scriptState().packages["demo-notes"], undefined);
 });
@@ -760,7 +925,7 @@ test("a shared package changed in the run is refused by ensure instead of being 
   const ping = pingOperation();
   const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false });
   const f = await fixture(t, [setupScript], { operations: ping.operations, shared: new Map([["demo-notes", notesPackage("v1")]]) });
-  await f.session.startAndWait("demo.demo-setup", null);
+  await f.session.startAndWait("demo.demo-setup", {});
   const owner = f.view().ownerId;
   assert.equal((await f.callTool("actor_program_ensure", owner, { name: "demo-notes" }) as { status: string }).status, "installed");
   const server = path.join(f.actorsDirectory, "demo-notes", "src", "server.ts");
@@ -776,11 +941,11 @@ test("concurrent script starts and ensure calls for the same shared package wait
   const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false });
   const users = names.map((name, index) => script(`demo-user-${index + 1}`, loggingScript(`demo-user-${index + 1}`, false), { shared: [name] }));
   const f = await fixture(t, [setupScript, ...users], { operations: ping.operations, shared: new Map(names.map((name) => [name, notesPackage("v1")])) });
-  await f.session.startAndWait("demo.demo-setup", null);
+  await f.session.startAndWait("demo.demo-setup", {});
   const owner = f.view().ownerId;
   for (const [index, name] of names.entries()) {
     const [started, ensured] = await Promise.allSettled([
-      f.session.startAndWait(`demo.demo-user-${index + 1}`, null),
+      f.session.startAndWait(`demo.demo-user-${index + 1}`, {}),
       Promise.resolve(f.callTool("actor_program_ensure", owner, { name })),
     ]);
     assert.equal(started.status, "fulfilled", String((started as PromiseRejectedResult).reason));
@@ -795,7 +960,7 @@ test("a failed start leaves a record that another writer changed after the claim
   const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false });
   const broken = script("demo-broken", brokenScript("demo-broken"));
   const f = await fixture(t, [setupScript, broken]);
-  await f.session.startAndWait("demo.demo-setup", null);
+  await f.session.startAndWait("demo.demo-setup", {});
   await f.idle();
   const owner = f.view().ownerId;
   const third = { origin: { kind: "script", entryId: "demo.demo-other" }, identity: "third writer", count: 3, open: [] };
@@ -814,7 +979,7 @@ test("a failed start leaves a record that another writer changed after the claim
     }
     return view;
   }) as typeof f.setup.runtime.replacePluginState;
-  await assert.rejects(f.session.startAndWait("demo.demo-broken", null), /Typecheck of demo-broken/);
+  await assert.rejects(f.session.startAndWait("demo.demo-broken", {}), /Typecheck of demo-broken/);
   f.setup.runtime.replacePluginState = replace;
   assert.equal(interleaved, true);
   assert.deepEqual(f.scriptState().packages["demo-broken.demo-broken"], third, "the release does not restore its snapshot over a later change");
@@ -825,7 +990,7 @@ test("a concurrent remove and ensure of the same shared package settle one after
   const ping = pingOperation();
   const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false });
   const f = await fixture(t, [setupScript], { operations: ping.operations, shared: new Map([["demo-notes", notesPackage("v1")]]) });
-  await f.session.startAndWait("demo.demo-setup", null);
+  await f.session.startAndWait("demo.demo-setup", {});
   const owner = f.view().ownerId;
   await f.callTool("actor_program_ensure", owner, { name: "demo-notes" });
   const notes = f.actorOf("demo-notes")!;
@@ -844,7 +1009,7 @@ test("a concurrent remove and ensure of the same shared package settle one after
 
 /** Spawns an LLM helper without a model driver in its own room, so a test can run its turn by hand. */
 const helperScript = (name: string) => program(name,
-  '{ state: Type.Object({}), functions: {}, input: { capabilities: ["agent_spawn"] } }',
+  `{ state: Type.Object({}), functions: {}, input: { capabilities: ["agent_spawn"] }, parameters: ${noParameters} }`,
   `onInput: () => {},
   onStart: async (_start, context) => { await context.functions.agent_spawn({ name: "helper", description: "works by hand", profile: "manual", tools: null }); },`);
 
@@ -852,8 +1017,8 @@ test("package names and actor addresses in the program functions are relative to
   const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false });
   const review = script("demo-review", helperScript("demo-review"));
   const f = await fixture(t, [setupScript, review]);
-  await f.session.startAndWait("demo.demo-setup", null);
-  await f.session.startAndWait("demo.demo-review", null);
+  await f.session.startAndWait("demo.demo-setup", {});
+  await f.session.startAndWait("demo.demo-review", {});
   await f.idle();
   const helper = f.actorOf("demo-review.helper")!;
   assert.equal(helper.room, "demo-review", "an agent spawned by a script joins the script's room");

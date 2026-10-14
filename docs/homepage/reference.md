@@ -5711,7 +5711,7 @@ In the global space of a user with runs.read.
 
 List run scripts
 
-The run scripts of this profile that can join this run: entry, title, description, and whether each can start now or why not.
+The run scripts of this profile that can join this run: entry, title, description, the parameters each declares as a JSON Schema object, and whether each can start now or why not.
 
 Owner: ragents.runtime. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
@@ -5738,6 +5738,7 @@ Only with the capability script.start, which the coordinator holds and passes to
       "entry",
       "title",
       "description",
+      "parameters",
       "available"
     ],
     "properties": {
@@ -5749,6 +5750,12 @@ Only with the capability script.start, which the coordinator holds and passes to
       },
       "description": {
         "type": "string"
+      },
+      "parameters": {
+        "type": "object",
+        "patternProperties": {
+          "^.*$": {}
+        }
       },
       "available": {
         "type": "boolean"
@@ -5768,7 +5775,7 @@ Start run script
 
 Start a run script from run_script_list inside this run, in a room of its own; returns its actor's address and which start of it this is.
 
-A run script is a prepared setup of this profile: a TypeScript actor that arranges its own participants and views in this run; for a single new LLM agent use agent_spawn instead. entry is the entry from run_script_list; input is the script's start value, if it takes one. The script joins the run without changing the primary actor. Every start opens a new room named after the script (name, name-2, ...) with its own actors, so a repeated start never reuses the actors of an earlier one; handle is the setup actor's address from your room, such as name-2.name. When it finishes a start, you receive its summary and result as a message; do not wait or poll for it in the same turn.
+A run script is a prepared setup of this profile: a TypeScript actor that arranges its own participants and views in this run; for a single new LLM agent use agent_spawn instead. entry is the entry from run_script_list; parameters are the script's parameters by name as run_script_list declares them, required ones always. The script joins the run without changing the primary actor. Every start opens a new room named after the script (name, name-2, ...) with its own actors, so a repeated start never reuses the actors of an earlier one; handle is the setup actor's address from your room, such as name-2.name. When it finishes a start, you receive its summary and result as a message; do not wait or poll for it in the same turn.
 
 Owner: ragents.runtime. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
@@ -5788,8 +5795,12 @@ Only with the capability script.start, which the coordinator holds and passes to
       "minLength": 1,
       "description": "The entry from run_script_list"
     },
-    "input": {
-      "description": "Start value of the script; omit it for none"
+    "parameters": {
+      "type": "object",
+      "patternProperties": {
+        "^.*$": {}
+      },
+      "description": "The script's parameters by name; omit it for a script without parameters"
     }
   },
   "additionalProperties": false
@@ -7659,6 +7670,12 @@ actor_program_create creates a package with fixed local dependencies and returns
       },
       "additionalProperties": false
     },
+    "parameters": {
+      "type": "object",
+      "patternProperties": {
+        "^.*$": {}
+      }
+    },
     "program": {
       "type": "boolean",
       "const": true
@@ -9241,7 +9258,7 @@ The global coordinator picks a run script from the existing catalog and creates 
 User workflow. Tags: Use case, Concept demo, Global coordinator.
 
 1. Click the Global coordinator input in the header and ask: Show the available prepared run scripts and start Set up conversation circle on the topic of learning together with two rounds.
-2. After sending, wait for the answer in the history. If the start value is unclear, answer the question based on the catalog shown; do not copy a model id or run id.
+2. After sending, wait for the answer in the history. If a parameter is unclear, answer the question based on the catalog shown; do not copy a model id or run id.
 3. Open the new run from the run list. Expected: A separate run with the requested topic and the prepared setup is created. Acceptance of the start alone does not prove a completed conversation contribution.
 4. After the first actual contribution, open Actors at the bottom and select a conversation partner in the inspector. At the top of the global chat, ask: What does this actor do? Expected: The question receives the run and the selected actor as separate orientation; the visible question text stays unchanged.
 5. After sending, open another run. Expected: The question already sent stays bound to its original selection, even if it is processed only later. The global history and both runs stay reachable separately.

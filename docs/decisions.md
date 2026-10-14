@@ -1,5 +1,36 @@
 # Decisions
 
+## 2026-10-14: Run scripts declare typed parameters
+
+Chapters: `spec/typescript-platform.md` (Run scripts as prepared actor programs); `spec/plugins.md`
+(PluginHost registrations: start options; Bundle, build tool, and host API; Web as plugin host: start
+flow, guides, run script menu; reference cases); usage: `usage.md` (Start run scripts; Control RAgents as an agent; Drive runs from
+external clients).
+
+A run script took an untyped start value (`input`, `Type.Any()` in the API) that every script
+checked by hand in `onStart`, some not at all. A caller could not learn what a script expects, a
+bad value surfaced only as a failed turn after the run already existed, and every script with
+inputs needed its own React guide. Start options, the other half of a start, were a second call.
+A run script is now called like a TypeScript function: its setup contract declares
+`parameters: Type.Object({...})` with named, typed values, required or optional, and every script
+declares it (`Type.Object({})` for none). Parameters are plain values (string, string with
+`format: "model"`, integer, number, boolean, choice of strings), so every caller and a generated
+form can supply them. The host needs the declaration before a run exists, but the contract lives in
+the script's code and is otherwise read only while installing inside a run; it therefore builds the
+setup package in a temporary folder and reads the contract with a short-lived Node process, cached
+per package content, instead of moving the declaration into RUN.md as a second, untyped copy. Every
+start checks the parameters before anything changes (`parameters-invalid`), `onStart` gets them
+typed, `ragents.runs.scriptParameters`, `ragents.runs.scripts`, and `run_script_list` publish
+them, and `ragents.chat.start` and `ragents.runs.startScript` take `parameters` and, for a new run,
+`options` in the same call. `input` is removed without a compatibility path. A model parameter is
+an ordinary string with `format: "model"` rather than a list of the profile's aliases: a script may
+take any model name and decides itself what it accepts, or offers its own choice. `fixed-start-options`
+stays in RUN.md, because it is template policy that the Start page and VS Code need without
+building the script. The contract read runs in the profile's isolated process sandbox (only off when
+the operator turned the sandbox off), because a local package started through the management
+methods can be written by a model. `HOST_API_VERSION` becomes 19: plugins that start scripts through
+`RunManagement` or read `ActorStart` must be rebuilt against the new shapes.
+
 ## 2026-10-13: Start stays behind an open run, and actor messages show with their trigger
 
 Chapters: `spec/plugins.md` (Web as plugin host; run chat turn triggers); usage: `usage.md` (Switch runs;

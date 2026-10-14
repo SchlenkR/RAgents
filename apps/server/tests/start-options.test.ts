@@ -1,4 +1,4 @@
-import { unavailableActorPrograms } from "./actor-programs-fixture.ts";
+import { noScriptParameters, unavailableActorPrograms } from "./actor-programs-fixture.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Type } from "typebox";
@@ -116,7 +116,7 @@ const fixture = (runId: string, contributions: readonly StartOptionContribution[
     },
     scriptEntryFor: (entryId) => scriptStartOf(entries.find((entry) => entry.id === entryId)),
     startEntryFor: (entryId) => entries.find((entry) => entry.id === entryId),
-    actorPrograms: unavailableActorPrograms,
+    actorPrograms: { ...unavailableActorPrograms, scriptParameters: async () => noScriptParameters },
   });
   return { journal, runtime, session, prepared, startOptions };
 };
@@ -485,7 +485,7 @@ test("a script template fixes its start option through the same place", async ()
   const conflicting = fixture("fixed-script-conflict", [workspaceChoice, modelStartOption(modelChoice(), "off")], [cloningScript]);
   try {
     await conflicting.session.selectStartOption("test.workspace.source", "empty", "alice");
-    await assert.rejects(conflicting.session.startAndWait(cloningScript.id, null, alice), (error: unknown) =>
+    await assert.rejects(conflicting.session.startAndWait(cloningScript.id, {}, alice), (error: unknown) =>
       error instanceof DomainError && error.code === "start-option-fixed");
     assert.deepEqual(conflicting.prepared, [], "rejected before anything is prepared");
     assert.equal(conflicting.journal.stateOf("fixed-script-conflict"), null);
@@ -495,11 +495,30 @@ test("a script template fixes its start option through the same place", async ()
   const seen: string[] = [];
   const started = fixture("fixed-script", [recordedSource(seen), modelStartOption(modelChoice(), "off")], [cloningScript]);
   try {
-    await assert.rejects(started.session.startAndWait(cloningScript.id, null, alice), /Actor programs are not configured/);
+    await assert.rejects(started.session.startAndWait(cloningScript.id, {}, alice), /Actor programs are not configured/);
     assert.equal(storedStartOption(started.journal.stateOf("fixed-script"), "test.workspace.source"), "clone", "the run is created with the fixed value");
     assert.ok(seen.includes("accept clone alice"), seen.join(", "));
   } finally {
     started.journal.close();
+  }
+});
+
+test("an option chosen in the start request of a script template follows the same rule as a separate choice", async () => {
+  const conflicting = fixture("fixed-script-request-conflict", [workspaceChoice, modelStartOption(modelChoice(), "off")], [cloningScript]);
+  try {
+    await assert.rejects(conflicting.session.startAndWait(cloningScript.id, { options: { "test.workspace.source": "empty" } }, alice), (error: unknown) =>
+      error instanceof DomainError && error.code === "start-option-fixed" && error.status === 409);
+    assert.deepEqual(conflicting.prepared, [], "rejected before anything is prepared");
+    assert.equal(conflicting.journal.stateOf("fixed-script-request-conflict"), null);
+  } finally {
+    conflicting.journal.close();
+  }
+  const agreeing = fixture("fixed-script-request-agree", [workspaceChoice, modelStartOption(modelChoice(), "off")], [cloningScript]);
+  try {
+    await assert.rejects(agreeing.session.startAndWait(cloningScript.id, { options: { "test.workspace.source": "clone" } }, alice), /Actor programs are not configured/);
+    assert.equal(storedStartOption(agreeing.journal.stateOf("fixed-script-request-agree"), "test.workspace.source"), "clone");
+  } finally {
+    agreeing.journal.close();
   }
 });
 

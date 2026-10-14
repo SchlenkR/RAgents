@@ -163,7 +163,8 @@ test("Start in the browser shows the tiles of Start in VS Code and starts like t
     await start.getByRole("button", { name: /Discussion circle/ }).click();
     await page.getByRole("list", { name: "Templates", exact: true }).waitFor({ state: "detached" });
     const [script] = await calls(page, "ragents.chat.start");
-    assert.deepEqual({ entry: script?.entry, input: script?.input }, { entry: "demo.circle", input: null });
+    assert.deepEqual({ entry: script?.entry, parameters: script?.parameters }, { entry: "demo.circle", parameters: {} }, "A script without declared parameters starts with none.");
+    assert.deepEqual((await calls(page, "ragents.runs.scriptParameters")).map((call) => call.entry), ["demo.circle"], "The start first asked which parameters the script declares.");
 
     start = await openStart(page);
     await start.getByRole("button", { name: /Collection board/ }).click();

@@ -5,9 +5,12 @@ const contract = {
   state: Type.Object({ built: Type.Optional(Type.Boolean()) }, { additionalProperties: false }),
   functions: {},
   input: { capabilities: ["model_list", "agent_spawn", "run_configure", "actor_input"] },
+  parameters: Type.Object({
+    topic: Type.Optional(Type.String({ minLength: 1, maxLength: 160, pattern: "\\S", description: "What the round talks about" })),
+  }),
 } as const;
 
-type Start = { input: { topic?: string } | null };
+type Start = { parameters: { topic?: string } };
 
 const guestOf = (name: string): string =>
   name === "kai" ? "You are Kai, pragmatic and brief." : "You are Lena, thorough and deliberate.";
@@ -18,7 +21,7 @@ export default defineActor(contract, {
     const state = context.state.read();
     if (state && state.built) return;
     const start = JSON.parse(input.content) as Start;
-    const topic = start.input && start.input.topic ? start.input.topic : "What makes a good team?";
+    const topic = start.parameters.topic?.trim() ?? "What makes a good team?";
 
     const catalog = await context.functions.model_list({});
     const profiles = catalog.profiles.filter((profile) => profile.driver === "agent" && profile.name !== "coordinator");

@@ -1,5 +1,6 @@
 import { serviceToken, type AccessContext, type ActorProgramExecutor, type CapabilityGrant, type CommandContext, type RunView } from "@ragents/engine";
 import type { ActorProgramDefinition, ActorProgramIdentity, ActorTriggerProgress, ActorViewListing } from "./contract.js";
+import type { ScriptParameters } from "./script-parameters.js";
 export interface ActorProgramSource {
     path: string;
     content: string;
@@ -60,6 +61,8 @@ export interface ActorProgramsService extends ActorProgramExecutor {
         readonly isolated: boolean;
     }, signal?: AbortSignal): Promise<ActivatedActorProgram>;
     remove(context: CommandContext, runId: string, name: string): Promise<{ removed: string }>;
+    /** The parameters a run script declares in its setup contract, read before any run changes. */
+    scriptParameters(script: Pick<RunScriptSources, "entryId" | "files">, signal?: AbortSignal): Promise<ScriptParameters>;
     /** Installs a run script with its bundled programs in a new room opened from `origin`, shared packages in the main room; a failure leaves the run unchanged. */
     installScript(context: CommandContext, runId: string, script: RunScriptSources, origin: string | null, signal?: AbortSignal): Promise<ActivatedActorProgram>;
     /** Queues a start input for the installed script, named by its package key, so that its program recognizes it as a start. */

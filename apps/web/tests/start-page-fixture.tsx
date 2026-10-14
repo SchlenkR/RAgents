@@ -112,6 +112,7 @@ const fixture = {
       case "ragents.runs.view": return fixture.views.has(runId) ? emptyView(runId) : null;
       case "ragents.chat.actorHistory": return { actors: {} };
       case "ragents.chat.capabilities": return { input: ["text", "image", "file"], model: "z-ai/glm-5.3-flash" };
+      case "ragents.runs.scriptParameters": return { type: "object", properties: {}, required: [], additionalProperties: false };
       case "ragents.chat.start":
       case "ragents.chat.send": {
         fixture.views.add(runId);

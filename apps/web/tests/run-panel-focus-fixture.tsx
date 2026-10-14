@@ -62,6 +62,7 @@ const fixture = {
         if (query.get("delayedView") === "true") await new Promise<void>((resolve) => { fixture.resolveView = resolve; });
         return actorChat && params?.runId === "existing" ? actorView : null;
       }
+      case "ragents.runs.scriptParameters": return { type: "object", properties: {}, required: [], additionalProperties: false };
       case "ragents.chat.start": return null;
       case "ragents.chat.actorHistory": return { actors: {} };
       default: throw new Error(`Unexpected fixture RPC: ${contract.id}`);

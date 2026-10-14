@@ -6,7 +6,7 @@ import program from "../src/server.ts";
 import { participants, type WordGameState } from "../src/state.ts";
 
 const message = (content: string): ActorInput => ({ id: "input", content, artifactIds: [], sourceEventIds: [], subscriptionId: null, event: null });
-const firstInput = message(JSON.stringify({ input: null, options: {} }));
+const firstInput = message(JSON.stringify({ parameters: {}, options: {} }));
 const words = ["Beach", "Sand", "Desert", "Camel", "Oasis", "Water", "River", "Bridge", "City", "House", "Garden", "Flower"];
 type History = CapabilityContracts["event_query"]["output"];
 
@@ -221,7 +221,7 @@ test("missing or multiple model outputs are not taken as a word", async () => {
 });
 
 test("invalid start data stays visible as an error and starts no model", async () => {
-  for (const content of ["no JSON", JSON.stringify({ input: "Beach", options: {} }), JSON.stringify({ input: null, options: [] })]) {
+  for (const content of ["no JSON", JSON.stringify({ parameters: { word: "Beach" }, options: {} }), JSON.stringify({ parameters: "Beach", options: {} }), JSON.stringify({ parameters: {}, options: [] }), JSON.stringify({ input: null, options: {} })]) {
     const { context, calls } = fixture();
     await program.onInput(message(content), context);
     assert.equal(context.state.read().status, "error");
@@ -231,7 +231,7 @@ test("invalid start data stays visible as an error and starts no model", async (
 
 test("accepts the profile start options without deriving its own model settings from them", async () => {
   const { context, calls } = fixture();
-  await program.onInput(message(JSON.stringify({ input: null, options: {
+  await program.onInput(message(JSON.stringify({ parameters: {}, options: {
     "ragents.model": { model: "test-model", thinking: "off" },
     "ragents.system-prompt": { promptIds: [], shareWithAgents: false },
   } })), context);

@@ -296,7 +296,7 @@ for (const host of ["browser", "vscode"] as const) {
     assert.equal(await apply.isVisible(), false, "The guide waits behind the progress, so it cannot answer twice.");
     assert.equal(await dialog.locator("[data-tile]").count(), 0);
     const [, started] = await starts(page);
-    assert.deepEqual({ entry: started!.entry, input: started!.input }, { entry: "start.guided", input: "Night bus" }, "The guide supplies the start value.");
+    assert.deepEqual({ entry: started!.entry, parameters: started!.parameters }, { entry: "start.guided", parameters: { topic: "Night bus" } }, "The guide supplies the parameters.");
     await page.evaluate((runId) => window.runStartFixture.releaseStart(runId), started!.runId);
     await page.waitForFunction((runId) => window.runStartFixture.activeRun() === runId, started!.runId);
     await page.locator('[data-slot="dialog-content"]').waitFor({ state: "detached" });
@@ -347,6 +347,15 @@ test("a preset start option the server refuses keeps a new run from starting and
   assert.equal(await page.getByRole("button", { name: "Apply topic" }).count(), 0, "The guide does not open with a refused preset.");
   assert.equal(await page.getByRole("dialog").locator("[data-tile]").count(), 0, "The dialog offers no template instead.");
   assert.deepEqual(await starts(page), []);
+
+  await page.evaluate(() => {
+    window.runStartFixture.command({ type: "selectRun", runId: null });
+    window.runStartFixture.command({ type: "newRun", entryId: "start.parameters", startOptions: { "start.machine": { client: "notebook" } } });
+  });
+  await refusal.waitFor();
+  await pause(page);
+  assert.equal(await page.getByRole("form", { name: "Parameters" }).count(), 0, "The parameter form does not open with a refused preset.");
+  assert.deepEqual(await starts(page), []);
 }, "?preset"));
 
 test("a template with a guide asks first in VS Code, like in the web app, and starts with its answer", browserOnly, () => withPanel(async (page) => {
@@ -354,7 +363,7 @@ test("a template with a guide asks first in VS Code, like in the web app, and st
   await page.getByRole("button", { name: "Apply topic" }).click();
   await page.waitForFunction(() => window.runStartFixture.starts.length === 1);
   const [guided] = await starts(page);
-  assert.deepEqual({ entry: guided!.entry, input: guided!.input }, { entry: "start.guided", input: "Night bus" }, "The guide supplies the start value.");
+  assert.deepEqual({ entry: guided!.entry, parameters: guided!.parameters }, { entry: "start.guided", parameters: { topic: "Night bus" } }, "The guide supplies the parameters.");
   await page.evaluate((runId) => { window.runStartFixture.views.add(runId); window.runStartFixture.runChanged(runId); }, guided!.runId);
   await page.waitForFunction((runId) => window.runStartFixture.activeRun() === runId, guided!.runId);
   const notifications = await page.evaluate(() => window.runStartFixture.notifications);
@@ -423,7 +432,7 @@ test("the run script button lists the run scripts of the open run as start items
   const script = (title: string) => list.getByRole("button").filter({ has: page.getByText(title, { exact: true }) });
   await button.click();
   await script("Review").waitFor();
-  assert.deepEqual(await list.getByRole("button").evaluateAll((tiles) => tiles.map((tile) => tile.getAttribute("data-tile"))), ["Review", "Strict review", "Setup template"],
+  assert.deepEqual(await list.getByRole("button").evaluateAll((tiles) => tiles.map((tile) => tile.getAttribute("data-tile"))), ["Review", "Strict review", "Parameter review", "Setup template"],
     "Available scripts come first, unavailable ones after them, each in their listed order.");
   const dialog = page.getByRole("dialog", { name: "Run script", exact: true });
   await dialog.evaluate((element) => Promise.all(element.getAnimations().map((animation) => animation.finished)));
@@ -439,7 +448,7 @@ test("the run script button lists the run scripts of the open run as start items
   await page.evaluate(() => { window.runStartFixture.holdStart = true; });
   await script("Review").click();
   await page.waitForFunction(() => window.runStartFixture.scriptStarts.length === 1);
-  assert.deepEqual(await page.evaluate(() => window.runStartFixture.scriptStarts), [{ runId: "existing", entry: "start.review", input: null }]);
+  assert.deepEqual(await page.evaluate(() => window.runStartFixture.scriptStarts), [{ runId: "existing", entry: "start.review", parameters: {} }]);
   assert.equal(await script("Review").getAttribute("aria-busy"), "true", "The clicked script shows that it is starting.");
   assert.equal(await script("Review").locator('[data-slot="start-action"]').textContent(), "Starting ...");
   assert.equal(await script("Review").getAttribute("aria-label"), "Start Review");
@@ -451,6 +460,128 @@ test("the run script button lists the run scripts of the open run as start items
   await script("Strict review").click();
   await page.getByRole("alert").filter({ hasText: "fixes the start option demo.mode" }).waitFor();
   assert.equal(await list.isVisible(), true, "A refused start keeps the list open with its reason.");
+}));
+
+test("a script without declared parameters is asked for them first and then starts with none", browserOnly, () => withPanel(async (page) => {
+  await page.evaluate(() => window.runStartFixture.command({ type: "newRun", entryId: "start.script" }));
+  await page.waitForFunction(() => window.runStartFixture.starts.length === 1);
+  const [started] = await starts(page);
+  assert.deepEqual({ entry: started!.entry, parameters: started!.parameters }, { entry: "start.script", parameters: {} });
+  const order = await page.evaluate(() => window.runStartFixture.calls);
+  assert.ok(order.includes("ragents.runs.scriptParameters") && order.indexOf("ragents.runs.scriptParameters") < order.indexOf("ragents.chat.start"), "The declared parameters are asked before the start.");
+  assert.equal(await page.getByRole("dialog").count(), 0, "A script without parameters opens no dialog.");
+}));
+
+for (const host of ["browser", "vscode"] as const) {
+  test(`a script that declares parameters asks for them in the start dialog and starts with the submitted values in ${host}`, browserOnly, () => withPanel(async (page) => {
+    const templates = page.getByRole("list", { name: "Templates", exact: true });
+    const dialog = page.getByRole("dialog");
+    const form = dialog.getByRole("form", { name: "Parameters" });
+    const submit = form.getByRole("button", { name: "Start", exact: true });
+    const topic = form.getByRole("textbox", { name: "Topic *", exact: true });
+    await templates.locator('button[data-tile="Parameter template"]').click();
+    await form.waitFor();
+    assert.equal(await dialog.count(), 1, "The form is the only dialog.");
+    assert.equal(await dialog.getByRole("heading", { name: "Parameter template", exact: true }).count(), 1);
+    assert.deepEqual(await starts(page), [], "Nothing starts before the form is submitted.");
+    assert.deepEqual(await form.locator("label").allTextContents(), ["Topic *", "rounds", "verbose", "model"], "A label is the title or the parameter name, required ones are marked.");
+    assert.equal(await form.getByText("What the round talks about", { exact: true }).count(), 1, "The description stands with its field.");
+    assert.deepEqual(await form.locator("datalist option").evaluateAll((options) => options.map((option) => option.getAttribute("value"))), ["demo/fast", "demo/deep"],
+      "The model parameter offers the names of the run's model option.");
+    assert.equal(await form.getByRole("combobox", { name: "model", exact: true }).getAttribute("list"), await form.locator("datalist").getAttribute("id"));
+    await mkdir(join(tmpdir(), "ragents-browser-shots"), { recursive: true });
+    await page.screenshot({ animations: "disabled", path: join(tmpdir(), "ragents-browser-shots", `start-parameters-${host}.png`) });
+
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.locator('[data-slot="dialog-content"]').waitFor({ state: "detached" });
+    await templates.waitFor();
+    assert.deepEqual(await starts(page), [], "Cancel creates no run.");
+    assert.equal(await activeRun(page), undefined);
+
+    await templates.locator('button[data-tile="Parameter template"]').click();
+    await form.waitFor();
+    await submit.click();
+    await form.getByRole("alert").filter({ hasText: "This field is required." }).waitFor();
+    assert.deepEqual(await starts(page), [], "A missing required value does not start.");
+    await topic.fill("Night bus");
+    await form.getByRole("spinbutton", { name: "rounds", exact: true }).fill("9");
+    await submit.click();
+    await form.getByRole("alert").filter({ hasText: "Maximum: 5." }).waitFor();
+    assert.deepEqual(await starts(page), [], "A value out of range does not start.");
+    await form.getByRole("spinbutton", { name: "rounds", exact: true }).fill("3");
+    await form.getByRole("button", { name: "long", exact: true }).click();
+    await form.getByRole("checkbox", { name: "verbose", exact: true }).click();
+    await form.getByRole("combobox", { name: "model", exact: true }).fill("demo/deep");
+
+    await page.evaluate(() => { window.runStartFixture.startError = "The parameters of the run script start.parameters are invalid: topic is too long."; });
+    await submit.click();
+    await dialog.getByRole("alert").filter({ hasText: "The run could not be started: The parameters of the run script start.parameters are invalid: topic is too long." }).waitFor();
+    assert.equal(await topic.inputValue(), "Night bus", "A refused start keeps the form open with its values.");
+
+    await page.evaluate(() => { window.runStartFixture.startError = undefined; window.runStartFixture.holdStart = true; });
+    await submit.click();
+    await page.waitForFunction(() => window.runStartFixture.starts.length === 2);
+    const progress = dialog.locator('[data-startup="working"]');
+    await progress.waitFor();
+    assert.equal(await progress.locator("strong").textContent(), "Starting run");
+    assert.equal(await form.isVisible(), false, "The form waits behind the progress, so it cannot submit twice.");
+    const [, started] = await starts(page);
+    assert.deepEqual({ entry: started!.entry, parameters: started!.parameters },
+      { entry: "start.parameters", parameters: { topic: "Night bus", rounds: 3, mode: "long", verbose: true, model: "demo/deep" } },
+      "Only filled values are sent, numbers as numbers and booleans as booleans.");
+    await page.evaluate((runId) => window.runStartFixture.releaseStart(runId), started!.runId);
+    await page.waitForFunction((runId) => window.runStartFixture.activeRun() === runId, started!.runId);
+    await page.locator('[data-slot="dialog-content"]').waitFor({ state: "detached" });
+    assert.equal(await page.getByRole("dialog").count(), 0, "The started run opens without a dialog.");
+  }, host === "browser" ? "?host=browser&models" : "?models"));
+}
+
+test("only the filled parameters are sent and a script keeps its other defaults", browserOnly, () => withPanel(async (page) => {
+  await page.evaluate(() => window.runStartFixture.command({ type: "newRun", entryId: "start.parameters" }));
+  const form = page.getByRole("dialog").getByRole("form", { name: "Parameters" });
+  await form.getByRole("textbox", { name: "Topic *", exact: true }).fill("  Night bus  ");
+  assert.equal(await form.locator("datalist").count(), 0, "Without a model option the model parameter is a plain text field.");
+  await form.getByRole("button", { name: "Start", exact: true }).click();
+  await page.waitForFunction(() => window.runStartFixture.starts.length === 1);
+  const [started] = await starts(page);
+  assert.deepEqual(started!.parameters, { topic: "Night bus" });
+}));
+
+test("a run script that declares parameters asks for them in the run script menu and starts with the submitted values", browserOnly, () => withPanel(async (page) => {
+  await page.evaluate(() => { window.runStartFixture.views.add("existing"); window.runStartFixture.command({ type: "selectRun", runId: "existing" }); });
+  await page.waitForFunction(() => window.runStartFixture.activeRun() === "existing");
+  const menu = page.getByRole("dialog", { name: "Run script", exact: true });
+  const form = menu.getByRole("form", { name: "Parameters" });
+  const submit = form.getByRole("button", { name: "Start", exact: true });
+  const scriptStarts = () => page.evaluate(() => window.runStartFixture.scriptStarts);
+  await page.getByRole("button", { name: "Run script", exact: true }).click();
+  await menu.locator('button[data-tile="Parameter review"]').click();
+  await form.waitFor();
+  assert.deepEqual(await scriptStarts(), [], "Choosing the script starts nothing yet.");
+  assert.equal(await menu.getByRole("list", { name: "Run scripts" }).count(), 0, "The form takes the place of the list.");
+  assert.equal(await menu.getByText("Reviews with parameters", { exact: true }).count(), 1);
+  await mkdir(join(tmpdir(), "ragents-browser-shots"), { recursive: true });
+  await page.screenshot({ animations: "disabled", path: join(tmpdir(), "ragents-browser-shots", "run-script-parameters.png") });
+  await submit.click();
+  await form.getByRole("alert").filter({ hasText: "This field is required." }).waitFor();
+  assert.deepEqual(await scriptStarts(), []);
+
+  await menu.getByRole("button", { name: "Cancel", exact: true }).click();
+  await menu.getByRole("list", { name: "Run scripts" }).waitFor();
+  assert.equal(await form.count(), 0, "Cancel returns to the list.");
+  await menu.locator('button[data-tile="Parameter review"]').click();
+  await form.getByRole("textbox", { name: "Topic *", exact: true }).fill("Night bus");
+  await form.getByRole("spinbutton", { name: "rounds", exact: true }).fill("2");
+
+  await page.evaluate(() => { window.runStartFixture.startError = "rounds must be <= 5, got 9."; });
+  await submit.click();
+  await menu.getByRole("alert").filter({ hasText: "rounds must be <= 5, got 9." }).waitFor();
+  assert.equal(await form.getByRole("textbox", { name: "Topic *", exact: true }).inputValue(), "Night bus", "A refused start keeps the form with its values.");
+
+  await page.evaluate(() => { window.runStartFixture.startError = undefined; });
+  await submit.click();
+  await menu.waitFor({ state: "detached" });
+  assert.deepEqual((await scriptStarts()).slice(1), [{ runId: "existing", entry: "start.parameters", parameters: { topic: "Night bus", rounds: 2 } }]);
 }));
 
 const settleDropdown = (page: Page) => page.evaluate(async () => {

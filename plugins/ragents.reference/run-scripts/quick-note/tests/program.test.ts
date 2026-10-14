@@ -3,7 +3,7 @@ import test from "node:test";
 import { createTestContext } from "@ragents/server/testing";
 import program from "../src/server.ts";
 
-const start = (input: unknown) => ({ input, options: {}, embedded: true, startedBy: "owner-id", count: 1, room: "quick-note" });
+const start = (parameters: { text?: string }) => ({ parameters, options: {}, embedded: true, startedBy: "owner-id", count: 1, room: "quick-note" });
 
 const note = (status: "active" | "installed" = "installed") => {
   const calls: { name: string; input: unknown }[] = [];
@@ -25,14 +25,10 @@ test("sends the note to the shared notebook and reports it", async () => {
   assert.deepEqual(context.finished, [{ result: { note: "Ask about the budget", notebook: "installed" }, summary: "Noted: Ask about the budget" }]);
 });
 
-test("without a start value it notes when it started; an invalid value changes nothing", async () => {
+test("without a text it notes when it started", async () => {
   const { calls, context } = note("active");
-  await program.onStart!(start(null), context);
+  await program.onStart!(start({}), context);
   assert.match(String((calls[1]!.input as { message: string }).message), /^Started at /);
-  const invalid = note();
-  await assert.rejects(async () => program.onStart!(start({ text: "" }), invalid.context), /start value/);
-  assert.deepEqual(invalid.calls, []);
-  assert.deepEqual(invalid.context.finished, []);
 });
 
 test("an ordinary message is refused", async () => {

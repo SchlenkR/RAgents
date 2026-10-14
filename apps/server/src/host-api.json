@@ -1,5 +1,5 @@
 {
-  "version": 18,
+  "version": 19,
   "server": {
     "@ragents/engine": [
       "DomainError",
@@ -83,6 +83,7 @@
     ],
     "@ragents/host/plugin-support/actor-programs/app-project": [
       "compileAppBackend",
+      "describeRunScript",
       "installServerSdk",
       "packageIdentity",
       "prepareAppProject",
@@ -124,6 +125,9 @@
       "resolveActorView"
     ],
     "@ragents/host/plugin-support/actor-programs/program-runner": [],
+    "@ragents/host/plugin-support/actor-programs/script-parameters": [
+      "scriptParametersOf"
+    ],
     "@ragents/host/plugin-support/actor-programs/service": [
       "actorProgramsToken"
     ],

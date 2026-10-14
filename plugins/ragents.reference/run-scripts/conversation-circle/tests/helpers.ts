@@ -20,8 +20,8 @@ export const setupContext = (profiles = [{ name: "coordinator", driver: "agent" 
   return { calls, context: createTestContext<{ built?: boolean }>({ state: {}, functions }) };
 };
 
-export const start = (input: unknown, room: string | null = "conversation-circle") => ({
-  input, options: {}, embedded: false, startedBy: "owner-id", count: 1, room,
+export const start = (parameters: { topic?: string; rounds?: number }, room: string | null = "conversation-circle") => ({
+  parameters, options: {}, embedded: false, startedBy: "owner-id", count: 1, room,
 });
 
 export const message = (content: string) => ({

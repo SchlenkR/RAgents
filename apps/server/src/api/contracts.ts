@@ -9,6 +9,7 @@ import type { ListedSession } from "../chat-handler.js";
 import type { ActorConversations } from "../ragents/actor-chat-history.js";
 import { PREFERENCE_KEYS, PREFERENCE_VALUE_LIMIT, type PreferenceKey } from "../preferences-contract.js";
 import type { StartOptionState } from "../plugin-support/start-options-contract.js";
+import type { ScriptParameters } from "../plugin-support/actor-programs/script-parameters.js";
 import type { RunPreparationRequest, RunPreparationResponse } from "../run-preparation-contract.js";
 import type { RunTransferExport, RunTransferImport } from "../run-transfer.js";
 import type { SettingsResponse, SettingsSkillDetail } from "../settings.js";
@@ -17,6 +18,13 @@ import type { TitleModelSettings } from "../title-settings-contract.js";
 export { runContracts };
 
 const runId = Type.String({ minLength: 1, maxLength: 64, description: "Id of the run" });
+const scriptParameters = openJson<ScriptParameters>("ScriptParameters");
+const scriptStart = Type.Object({
+  runId,
+  entry: Type.String({ minLength: 1 }),
+  parameters: Type.Optional(Type.Record(Type.String(), Type.Any(), { description: "The run script's parameters by name, as ragents.runs.scriptParameters declares them" })),
+  options: Type.Optional(Type.Record(Type.String({ minLength: 1, maxLength: 128 }), Type.Any(), { description: "Start options for the new run by option id" })),
+}, { additionalProperties: false });
 
 const attachment = Type.Object({
   name: Type.String({ minLength: 1 }),
@@ -128,21 +136,28 @@ export const coreContracts = {
     }),
     scripts: defineOperation({
       id: "ragents.runs.scripts",
-      description: "The run scripts the caller may start, and for a running run whether each can start there now: available, otherwise reason (not embeddable, a fixed start option differs from the run's). Rights: runs.read, runs.write.",
+      description: "The run scripts the caller may start with their declared parameters, and for a running run whether each can start there now: available, otherwise reason (not embeddable, a fixed start option differs from the run's). Rights: runs.read, runs.write.",
       input: Type.Object({ runId }, { additionalProperties: false }),
       result: Type.Array(Type.Object({
         id: Type.String(),
         title: Type.String(),
         description: Type.String(),
+        parameters: scriptParameters,
         available: Type.Boolean(),
         reason: Type.Optional(Type.String()),
       }, { additionalProperties: false })),
     }),
+    scriptParameters: defineOperation({
+      id: "ragents.runs.scriptParameters",
+      description: "The parameters a script template declares, as a closed JSON Schema object: each property a string (format model for a model name), a number, an integer, a boolean or a choice of strings, required ones under required. Rights: runs.read, runs.write and the template's release.",
+      input: Type.Object({ runId, entry: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
+      result: scriptParameters,
+    }),
     startScript: defineOperation({
       id: "ragents.runs.startScript",
       timeoutMs: 75 * 60_000,
-      description: "Start a run script and wait until its actor has the start input; errors come back to the caller instead of the chat. A new run starts as with ragents.chat.start. In a running run only a script whose RUN.md sets embeddable: true starts, its fixed start options must match the run's, and the primary actor stays. Every start opens a new room named after the script with its own actors. Result: the script actor, its address (room.handle), and which start of its package this was. Rights: runs.read, runs.write and the template's release.",
-      input: Type.Object({ runId, entry: Type.String({ minLength: 1 }), input: Type.Optional(Type.Any()) }, { additionalProperties: false }),
+      description: "Start a run script and wait until its actor has the start input; errors come back to the caller instead of the chat. A new run starts as with ragents.chat.start. In a running run only a script whose RUN.md sets embeddable: true starts, its fixed start options must match the run's, it takes no start options, and the primary actor stays. Every start opens a new room named after the script with its own actors. Result: the script actor, its address (room.handle), and which start of its package this was. Rights: runs.read, runs.write and the template's release.",
+      input: scriptStart,
       result: Type.Object({ actorId: Type.String(), handle: Type.String(), count: Type.Integer({ minimum: 1 }) }, { additionalProperties: false }),
     }),
   },
@@ -169,8 +184,8 @@ export const coreContracts = {
     }),
     start: defineOperation({
       id: "ragents.chat.start",
-      description: "Start a run through a script template, without a message; the start options the template fixes apply. Returns once the start is accepted; progress and errors appear in the chat. In a running run it starts an embeddable script like ragents.runs.startScript. Rights: runs.read, runs.write and the template's release.",
-      input: Type.Object({ runId, entry: Type.String({ minLength: 1 }), input: Type.Optional(Type.Any()) }, { additionalProperties: false }),
+      description: "Start a run through a script template, without a message. parameters are checked against the template's declared parameters before the start is accepted, so parameters-invalid comes back to the caller; options chooses start options for the new run as ragents.startOptions.select does, and the options the template fixes apply. Returns once the start is accepted; progress and later errors appear in the chat. In a running run it starts an embeddable script like ragents.runs.startScript. Rights: runs.read, runs.write and the template's release, with options also runs.create and the rights of each option.",
+      input: scriptStart,
       result: Type.Null(),
     }),
     capabilities: defineOperation({

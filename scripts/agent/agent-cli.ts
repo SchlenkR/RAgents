@@ -25,7 +25,7 @@ export const usage = (): string => `Usage: ragents <command> [arguments]
 
   acp [--profile <p>] [--data-dir <folder>]
       Serve Agent Client Protocol v1 over stdio for an editor. Logs go to stderr.
-  run [<folder>] "<task>" [--profile <p>] [--entry <template>] [--workstation <id>] [--json]
+  run [<folder>] "<task>" [--profile <p>] [--entry <template>] [--parameters <json>] [--workstation <id>] [--json]
       [--share <user>[:read|:write]]... [--share-all <read|write>]
       Starts the profile's host if none is running, creates a run with a path binding to the
       folder, sends the task and waits until the turn ends. A single value is always the task:
@@ -35,7 +35,9 @@ export const usage = (): string => `Usage: ragents <command> [arguments]
       (pnpm workspace-client <server-url> <folder> --id <id>) instead of on the server; without
       it, run aborts, and without <folder> there is no --workstation. --share shares the new run
       with a user of the profile (repeatable, read without a level), --share-all with every
-      user; a refusal aborts before the task is sent.
+      user; a refusal aborts before the task is sent. --parameters (needs --entry) is the JSON
+      object of the template's parameters by name; the host refuses missing, unknown or wrongly
+      typed ones before the run changes.
   send <run> "<text>" [--profile <p>] [--json]
       Follow-up message in the same run, same waiting. In a stopped run it continues the run: the
       primary actor gets what waited together with the text in one turn.
@@ -48,10 +50,13 @@ export const usage = (): string => `Usage: ragents <command> [arguments]
       Interrupt only the running turn of the primary actor; the run stays active
   stop --host [--profile <p>]     stop the remembered host
   script <run> [--profile <p>] [--json]
-      List the run scripts of the profile and whether each can start in the running run.
-  script <run> <entry> [--input <json>] [--profile <p>] [--json]
+      List the run scripts of the profile and whether each can start in the running run; --json
+      adds the parameters each one declares.
+  script <run> <entry> [--parameters <json>] [--profile <p>] [--json]
       Start the run script inside the run, as its owner; prints its actor and which start of it
-      this is. Only a script whose RUN.md sets embeddable: true joins a running run.
+      this is. --parameters is the JSON object of the script's parameters by name; the host
+      refuses missing, unknown or wrongly typed ones. Only a script whose RUN.md sets
+      embeddable: true joins a running run.
   share <run> [--profile <p>] [--json]
       Print whom the run is shared with, one line per target; for its owner or runs.read.all.
   share <run> [<user>[:read|:write]...] [--all <read|write>] [--none] [--profile <p>] [--json]
@@ -72,21 +77,23 @@ host.PORT of the profile; RAGENTS_TOKEN is sent as a bearer token if the profile
 sign-in. A host started this way does not build the UI - an agent does not need it; ragents
 start <profile> starts it with the UI.`;
 
+type ScriptParameterValues = Readonly<Record<string, unknown>>;
+
 export type AgentCommand =
-  | { readonly kind: "run"; readonly profile: string; readonly folder: string | undefined; readonly text: string; readonly entry: string | undefined; readonly json: boolean; readonly workstation?: string; readonly sharing?: RunSharing }
+  | { readonly kind: "run"; readonly profile: string; readonly folder: string | undefined; readonly text: string; readonly entry: string | undefined; readonly json: boolean; readonly parameters?: ScriptParameterValues; readonly workstation?: string; readonly sharing?: RunSharing }
   | { readonly kind: "send"; readonly profile: string; readonly runId: string; readonly text: string; readonly json: boolean }
   | { readonly kind: "journal"; readonly profile: string; readonly runId: string; readonly json: boolean; readonly tools: boolean }
   | { readonly kind: "stop-turn"; readonly profile: string; readonly runId: string }
   | { readonly kind: "stop-run"; readonly profile: string; readonly runId: string }
   | { readonly kind: "stop-host"; readonly profile: string }
-  | { readonly kind: "script"; readonly profile: string; readonly runId: string; readonly entry: string | undefined; readonly input: unknown; readonly json: boolean }
+  | { readonly kind: "script"; readonly profile: string; readonly runId: string; readonly entry: string | undefined; readonly parameters: ScriptParameterValues | undefined; readonly json: boolean }
   | { readonly kind: "share"; readonly profile: string; readonly runId: string; readonly sharing: RunSharing | undefined; readonly json: boolean };
 
 interface Flags {
   readonly profile: string;
   readonly entry: string | undefined;
   readonly workstation: string | undefined;
-  readonly input: string | undefined;
+  readonly parameters: string | undefined;
   readonly shares: readonly string[];
   readonly shareAll: string | undefined;
   readonly all: string | undefined;
@@ -98,7 +105,7 @@ interface Flags {
   readonly positional: readonly string[];
 }
 
-const VALUE_FLAGS = new Set(["--profile", "--entry", "--workstation", "--input", "--share", "--share-all", "--all"]);
+const VALUE_FLAGS = new Set(["--profile", "--entry", "--workstation", "--parameters", "--share", "--share-all", "--all"]);
 
 const scan = (argv: readonly string[], allowed: readonly string[]): Flags => {
   const positional: string[] = [];
@@ -126,7 +133,7 @@ const scan = (argv: readonly string[], allowed: readonly string[]): Flags => {
     profile: values.get("--profile") ?? defaultProfile(),
     entry: values.get("--entry"),
     workstation: values.get("--workstation"),
-    input: values.get("--input"),
+    parameters: values.get("--parameters"),
     shares,
     shareAll: values.get("--share-all"),
     all: values.get("--all"),
@@ -158,7 +165,7 @@ const sharingOf = (specs: readonly string[], everyone: string | undefined, flag:
 export const parseArguments = (argv: readonly string[]): AgentCommand => {
   const [command, ...rest] = argv;
   if (command === "run") {
-    const flags = scan(rest, ["--profile", "--entry", "--workstation", "--json", "--share", "--share-all"]);
+    const flags = scan(rest, ["--profile", "--entry", "--parameters", "--workstation", "--json", "--share", "--share-all"]);
     if (flags.positional.length > 2) throw new Error(`run takes at most two values, not ${flags.positional.length}.`);
     const [folder, text] = flags.positional.length === 2 ? flags.positional : [undefined, flags.positional[0]];
     if (!text) throw new Error(`run needs "<task>", optionally preceded by <folder>.\n\n${usage()}`);
@@ -167,8 +174,10 @@ export const parseArguments = (argv: readonly string[]): AgentCommand => {
     if (flags.workstation !== undefined && !WORKSPACE_CLIENT_ID_PATTERN.test(flags.workstation)) {
       throw new Error(`Invalid workstation id: ${flags.workstation} (8 to 64 characters from letters, digits, _ and -).`);
     }
+    if (flags.parameters !== undefined && flags.entry === undefined) throw new Error("--parameters needs --entry, the template it starts.");
     const shared = flags.shares.length > 0 || flags.shareAll !== undefined;
     return { kind: "run", profile: flags.profile, folder, text, entry: flags.entry, json: flags.json,
+      ...(flags.parameters !== undefined ? { parameters: parsedParameters(flags.parameters) } : {}),
       ...(flags.workstation ? { workstation: flags.workstation } : {}),
       ...(shared ? { sharing: sharingOf(flags.shares, flags.shareAll, "--share-all") } : {}) };
   }
@@ -200,13 +209,13 @@ export const parseArguments = (argv: readonly string[]): AgentCommand => {
     return { kind: flags.turn ? "stop-turn" : "stop-run", profile: flags.profile, runId };
   }
   if (command === "script") {
-    const flags = scan(rest, ["--profile", "--input", "--json"]);
+    const flags = scan(rest, ["--profile", "--parameters", "--json"]);
     const [runId, entry, ...extra] = flags.positional;
     if (!runId) throw new Error(`script needs <run>, optionally followed by <entry>.\n\n${usage()}`);
     if (extra.length > 0) throw new Error(`script takes at most two values, not ${flags.positional.length}.`);
     if (!RUN_ID_PATTERN.test(runId)) throw new Error(`Invalid run id: ${runId}`);
-    if (flags.input !== undefined && entry === undefined) throw new Error("--input needs <entry>, the run script it starts.");
-    return { kind: "script", profile: flags.profile, runId, entry, input: flags.input === undefined ? null : parsedInput(flags.input), json: flags.json };
+    if (flags.parameters !== undefined && entry === undefined) throw new Error("--parameters needs <entry>, the run script it starts.");
+    return { kind: "script", profile: flags.profile, runId, entry, parameters: flags.parameters === undefined ? undefined : parsedParameters(flags.parameters), json: flags.json };
   }
   if (command === "share") {
     const flags = scan(rest, ["--profile", "--all", "--none", "--json"]);
@@ -220,12 +229,14 @@ export const parseArguments = (argv: readonly string[]): AgentCommand => {
   throw new Error(command ? `Unknown command: ${command}\n\n${usage()}` : usage());
 };
 
-const parsedInput = (text: string): unknown => {
+const parsedParameters = (text: string): ScriptParameterValues => {
   try {
-    return JSON.parse(text);
+    const parsed: unknown = JSON.parse(text);
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) return parsed as ScriptParameterValues;
   } catch (error) {
-    throw new Error(`--input is not JSON: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`--parameters is not JSON: ${error instanceof Error ? error.message : String(error)}`);
   }
+  throw new Error("--parameters must be a JSON object of parameters by name.");
 };
 
 /** A template first sets up the run and determines its chat partner in doing so; until then the server rejects the message. */
@@ -484,7 +495,7 @@ const runCommand = async (command: Extract<AgentCommand, { kind: "run" }>, write
     note(`== Shared with ${sharingLines(shared.sharing).join(", ")}`);
   }
   const entry = command.entry;
-  if (entry) await withLoginHint(() => rpc.call(coreContracts.chat.start, { runId, entry }));
+  if (entry) await withLoginHint(() => rpc.call(coreContracts.chat.start, { runId, entry, ...(command.parameters ? { parameters: command.parameters } : {}) }));
   const outcome = await withLoginHint(() => follow({ rpc, baseUrl, runId, text: command.text, json: command.json, write,
     send: () => command.entry
       ? sendWhenChatReady(rpc, runId, command.text)
@@ -550,7 +561,7 @@ const scriptCommand = async (command: Extract<AgentCommand, { kind: "script" }>,
     }
     return 0;
   }
-  const started = await withLoginHint(() => rpc.call(coreContracts.runs.startScript, { runId: command.runId, entry: command.entry!, input: command.input }));
+  const started = await withLoginHint(() => rpc.call(coreContracts.runs.startScript, { runId: command.runId, entry: command.entry!, ...(command.parameters ? { parameters: command.parameters } : {}) }));
   write(command.json ? JSON.stringify(started) : `script: @${started.handle}, start ${started.count}`);
   write(`run: ${command.runId}`);
   return 0;

@@ -60,8 +60,8 @@ export interface CapabilityContracts { "actor_input": { input: { /** Artifacts t
 "roslyn_solutions": { input: { [key: string]: unknown }; output: string };
 "run_configure": { input: { /** Handle or ID of the actor the user's chat talks to */ "primaryActor"?: string; /** New title of the run */ "title"?: string; }; output: null };
 "run_list": { input: { /** How many of the newest runs; 5 when omitted */ "limit"?: number; }; output: { /** Whether older runs follow */ "hasMore": boolean; "runs": Array<{ /** ISO time of the run's last change */ "lastActivity": string; /** As the run list shows it; locked for a run whose journal cannot be read */ "status": ("ended") | ("idle") | ("locked") | ("running") | ("stopped") | ("waiting"); /** One line, shortened with ... beyond 200 characters */ "title": string; }>; } };
-"run_script_list": { input: { [key: string]: never }; output: Array<{ "available": boolean; "description": string; "entry": string; "reason"?: string; "title": string; }> };
-"run_script_start": { input: { /** The entry from run_script_list */ "entry": string; /** Start value of the script; omit it for none */ "input"?: unknown; }; output: { "count": number; "handle": string; } };
+"run_script_list": { input: { [key: string]: never }; output: Array<{ "available": boolean; "description": string; "entry": string; "parameters": { [key: string]: unknown }; "reason"?: string; "title": string; }> };
+"run_script_start": { input: { /** The entry from run_script_list */ "entry": string; /** The script's parameters by name; omit it for a script without parameters */ "parameters"?: { [key: string]: unknown }; }; output: { "count": number; "handle": string; } };
 "run_stop": { input: { [key: string]: never }; output: { "requested": true; } };
 "show_document": { input: { /** The complete text you produced yourself; never the content of an existing file, which file_path names instead. file_path and content exclude each other: valid are { title, file_path } for a file read reaches and { title, content } for text you wrote, each with an optional format; exactly one of the two must be set. */ "content"?: string; /** The file to show, named as read names it: relative to the working directory, absolute, or starting with an alias such as @documents; the display reads it, so its content is never retyped. file_path and content exclude each other: valid are { title, file_path } for a file read reaches and { title, content } for text you wrote, each with an optional format; exactly one of the two must be set. */ "file_path"?: string; /** Rendering; defaults to the file extension for a file and to markdown for content */ "format"?: ("html") | ("markdown") | ("text"); /** Title of the display, e.g. the file name */ "title": string; }; output: string };
 "task_output": { input: { /** The ID of the background command, as bash returned it */ "task_id": string; }; output: string };
@@ -140,17 +140,19 @@ export interface ActorInput {
     readonly sourceActorId: string | null; readonly sourceActorHandle: string | null; readonly payload: {readonly text?:string; readonly [key:string]:unknown} } | null;
   readonly trigger?: ActorTrigger;
 }
-export interface ActorStart {
-  readonly input: unknown; readonly options: Readonly<Record<string, unknown>>;
+export interface ActorStart<Parameters = Readonly<Record<string, never>>> {
+  /** The run script's parameters, checked by the host against the contract's parameters before the run changed. */
+  readonly parameters: Parameters; readonly options: Readonly<Record<string, unknown>>;
   readonly embedded: boolean; readonly startedBy: string; readonly count: number;
   /** The room this start opened, where the setup actor and everything it creates stand; null in the main room. */
   readonly room: string | null;
 }
 export interface ActorResult { readonly handle: string; readonly count: number; readonly result: unknown; readonly summary?: string }
 export interface ActorFunction { label: string; description?: string; input: TSchema; output: TSchema; capabilities?: readonly string[]; confirmation?: string; tool?: { name: string; targets?: readonly string[]; card?: boolean } }
-export interface ActorContract { state: TSchema; functions: Readonly<Record<string, ActorFunction>>; input?: {capabilities?: readonly string[]} }
+export interface ActorContract { state: TSchema; functions: Readonly<Record<string, ActorFunction>>; input?: {capabilities?: readonly string[]}; parameters?: TSchema }
+export type ActorStartOf<C extends ActorContract> = ActorStart<C extends {parameters: TSchema} ? Static<C['parameters']> : Readonly<Record<string, never>>>;
 export type ActorFunctions<C extends ActorContract> = { [K in keyof C['functions']]: (input: Static<C['functions'][K]['input']>, context: RunContext<Static<C['state']>>) => Static<C['functions'][K]['output']> | Promise<Static<C['functions'][K]['output']>> };
-export type ActorImplementation<C extends ActorContract> = {functions: ActorFunctions<C>} & (C extends {input: unknown} ? {onInput: (input: ActorInput, context: RunContext<Static<C['state']>>) => void | Promise<void>; onStart?: (start: ActorStart, context: RunContext<Static<C['state']>>) => void | Promise<void>; onResult?: (result: ActorResult, context: RunContext<Static<C['state']>>) => void | Promise<void>} : {onInput?: never; onStart?: never; onResult?: never});
+export type ActorImplementation<C extends ActorContract> = {functions: ActorFunctions<C>} & (C extends {input: unknown} ? {onInput: (input: ActorInput, context: RunContext<Static<C['state']>>) => void | Promise<void>; onStart?: (start: ActorStartOf<C>, context: RunContext<Static<C['state']>>) => void | Promise<void>; onResult?: (result: ActorResult, context: RunContext<Static<C['state']>>) => void | Promise<void>} : {onInput?: never; onStart?: never; onResult?: never});
 export declare function defineActor<const C extends ActorContract>(contract: C, implementation: ActorImplementation<C>): {contract:C} & ActorImplementation<C>;
 export type ProgramWeekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 /** An absolute ISO time, a duration after the program first reached the wait, or the latest daily or weekday wall time since then. */

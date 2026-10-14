@@ -5,6 +5,7 @@ const contract = {
   state: Type.Object({ reports: Type.Optional(Type.Number()) }, { additionalProperties: false }),
   functions: {},
   input: { capabilities: ["actor_list", "actor_program_ensure", "actor_input", ] },
+  parameters: Type.Object({}),
 } as const;
 
 export default defineActor(contract, {

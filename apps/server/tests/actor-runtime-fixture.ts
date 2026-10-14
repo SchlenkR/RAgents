@@ -26,7 +26,7 @@ export const runtimeFor = (setup: ReturnType<typeof setupRun>, directory: string
       if (!actor) throw new Error(`Unknown test actor ${actorId}`);
       return [...agentTools, ...hostTools()].filter((tool) => tool.available(actor, view));
     },
-    askService: () => askService, reservedToolNames: () => [], serverProcessContextFor, isolatedProcessContextFor: serverProcessContextFor,
+    askService: () => askService, reservedToolNames: () => [], serverProcessContextFor, isolatedProcessContextFor: serverProcessContextFor, isolatedSandbox: async () => undefined,
     operations: {operation: (id) => operations.operation(id), invoke: (id, context, input) => operations.invoke(id, context, input), list: () => operations.describe()},
     directoryFor,
     scriptSources,

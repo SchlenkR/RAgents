@@ -372,7 +372,7 @@ this copy is what gets loaded:
 plugins/<id>/run-scripts/<name>/
   RUN.md                  title, description, order, optional listed, guide, coordinator, embeddable, shared-programs, fixed-start-options
   package.json            ragents.backend points to the setup entry point
-  src/server.ts           defineActor with input, onInput, and optional onStart
+  src/server.ts           defineActor with input, parameters, onInput, and optional onStart
   tests/program.test.ts    normal node:test domain tests
   actors/<program-name>/  optional further actor programs, private to this script
 
@@ -385,12 +385,38 @@ identifier is `<plugin>.<name>`.
 are in the TypeScript contract under `input.capabilities` or on a function. There is no second
 capability list in the Markdown file.
 
+A run script is called like a TypeScript function with named parameters. The setup contract
+declares them in `parameters` as a `Type.Object` next to `input`, `Type.Object({})` for a script
+that takes none; a setup contract without `parameters` cannot start. Each parameter is a plain value:
+a string, a string with `format: "model"` for a model name (an alias or `provider/model`; the script
+decides what it accepts and passes it on, for example to `agent_spawn`, which refuses an unknown
+model), an integer, a number, a boolean, or a choice of strings (`Type.Union` of `Type.Literal`s or
+`Type.Enum`); `Type.Optional` makes one optional. Nested objects and arrays are not parameters, so
+every caller and the generated form can supply each value. The host reads the declaration from the
+setup contract before any run changes: it builds the setup package in a temporary folder and lets a
+short-lived Node process of the server return the contract in the profile's isolated process sandbox
+(`isolatedSandbox` of the sandbox services: only the temporary folder writable and the host's
+libraries readable), once per package content (`describeRunScript`, cached by `packageIdentity`). Every start checks the given parameters against
+it before anything else: missing parameters count as `{}`, and a missing required, unknown, or
+wrongly typed one is refused with `parameters-invalid` (400), naming every violation with its path
+and listing all parameters with kind and whether they are required. A refused start creates no run
+and changes no running run; `ragents.chat.start`, which otherwise reports start errors in the chat,
+also returns this refusal to its caller before it accepts the start. `onStart` receives the checked values typed by the declaration
+(`start.parameters`, `ActorStartOf<C>` in `@ragents/server`), so the script itself validates
+nothing and gives optional parameters their defaults in code. `ragents.runs.scriptParameters
+{ runId, entry }` returns a template's parameters as a closed JSON Schema object; `ragents.runs.scripts`
+and `run_script_list` carry them per template.
+
 The loader reads package files and optional subprograms without following foreign directories.
 Missing or invalid package parts are hard errors. Registered run script contracts transport files;
 they do not require already generated build IDs. Further TypeScript files are included through
 normal relative imports.
 
-`ragents.chat.start { runId, entry, input }` creates the run with the title and the start options.
+`ragents.chat.start { runId, entry, parameters?, options? }` creates the run with the title and the
+start options. `options` chooses start options of the new run by id in the same call, checked like
+`ragents.startOptions.select` (with `runs.create` and each option's rights) after the parameters and
+before the template's fixed options; in a running run, options are refused with `option-locked`
+(409).
 The host prepares the workspace, chooses the script's room (`core.md`, Rooms: the script's handle,
 then `-2`, `-3`, and so on, skipping a name whose package folders an aborted start left behind),
 copies the bundled programs from `actors/` into that room's packages (`@actors/<room>.<name>/`),
@@ -441,7 +467,8 @@ Plugins authorize by this identity, never by handle.
 
 A script whose `RUN.md` sets `embeddable: true` also starts inside a run that is already running.
 Four ways start one there, all through the same session path: `ragents.chat.start` returns once the
-start is accepted and reports errors in the chat; `ragents.runs.startScript` waits and returns the
+start is accepted (refusing invalid parameters and start options to the caller) and reports later
+errors in the chat; `ragents.runs.startScript` waits and returns the
 script actor with its address and which start of its package this was, or the error;
 `ragents.runs.scripts` lists the templates the caller may start with `available` and otherwise a
 `reason`. The run header's "Run script" button lists them as Start page items, `ragents script <run> [<entry>]` on the
@@ -467,7 +494,7 @@ TypeScript actor whose package a run script installed, attributed with its addre
 `@room.handle: ...`; without
 `runs.inspect` it becomes the general processing notice like every system entry.
 
-`run_script_list` and `run_script_start({ entry, input? })` act on the caller's own run and need the
+`run_script_list` and `run_script_start({ entry, parameters? })` act on the caller's own run and need the
 capability `script.start`. The owner holds it like every capability; whoever gets it from the owner
 holds it without passing it on (`firstHandCapabilities` in the engine vocabulary). So the coordinator
 and the TypeScript actors that the owner installs, such as a run script, can start scripts, while
@@ -487,11 +514,11 @@ A stop reports the cancelled start immediately and prevents further setup steps.
 is already running and cannot be cancelled stays tracked until it completes; during that time, the
 start also stays locked. The package activation receives the abort signal.
 
-The setup actor then receives the start value as JSON in `input.content`:
-`{ "input": <guide result or null>, "options": { "<option-id>": <value> } }`. The shape of the
-guide result belongs to the package; the handler checks it before setting up. A program that also
+The setup actor then receives the start as JSON in `input.content`:
+`{ "parameters": { "<name>": <value> }, "options": { "<option-id>": <value> } }`, with the
+parameters the host checked against the declaration. A program that also
 implements `onStart(start, context)` gets every start there instead of in `onInput`: `start` carries
-`input`, `options`, `embedded` (started inside a running run), `startedBy` (the actor ID of the
+`parameters`, `options`, `embedded` (started inside a running run), `startedBy` (the actor ID of the
 starter), `count` (which start of this package it is; since every start has its own room and
 package, a script's setup package receives one start), and `room` (the room this start opened, where
 the setup actor and everything it creates stand; `null` in the main room). The setup's own functions
@@ -532,8 +559,8 @@ bring the mini-app of their TypeScript actor and start the model work only after
 in the app. The homepage imports the same view components for its explicitly labeled local
 previews. After setup, both programs reject unknown direct messages as errors without changing the
 existing program state. Their start commands and subscribed events remain the intended inputs;
-another pass needs a new run. Their package tests check configured starts, explicit default
-starts, invalid inputs, and the order of setup. The server test `reference-run-scripts.test.ts`
+another pass needs a new run. Their package tests check configured starts, the defaults of
+optional parameters, and the order of setup; invalid parameters are the host's check. The server test `reference-run-scripts.test.ts`
 activates the bundled packages against the tools of the `core` profile so that outdated examples
 are noticed, and starts the discussion round and the collection board in a room with a suffix to
 check that the coordinator in the main room reaches every address the setup hands it.
@@ -570,3 +597,8 @@ runtime.
   delivered. A result whose starter is stopped is reported as runtime output of the script instead.
 - A server restart between recording a start and queueing its input leaves a record without input;
   it only costs that start's number, which the next start skips.
+- Reading a run script's parameters runs the top level of its setup module in a Node process of the
+  server, in the profile's isolated process sandbox with a safe environment, but before any run
+  exists, so without a run's own sandbox settings; with the sandbox turned off by the operator it
+  runs without one. The first read of a package costs a build and a process start, about half a
+  second; later reads come from memory until restart.

@@ -1,5 +1,5 @@
 /** The number of the host API a plugin is built against; it changes with every incompatible change of a list, a listed name or a library. */
-export const HOST_API_VERSION = 18;
+export const HOST_API_VERSION = 19;
 
 /** A library the host shares whole, as its installed version exports it; host code instead names each value it offers. */
 export const LIBRARY = "library";
@@ -31,7 +31,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     ],
     "@ragents/host/host-version": ["readHostApiVersion", "readHostVersion", "readPackageVersion"],
     "@ragents/host/plugin-support/actor-programs/app-project": [
-      "compileAppBackend", "installServerSdk", "packageIdentity", "prepareAppProject", "prepareAppWorkspace", "projectSourceFiles",
+      "compileAppBackend", "describeRunScript", "installServerSdk", "packageIdentity", "prepareAppProject", "prepareAppWorkspace", "projectSourceFiles",
       "readAppPackage", "typecheckServerProject",
     ],
     "@ragents/host/plugin-support/actor-programs/calendar": ["calendarTimeZone", "nextCalendarOccurrence"],
@@ -47,6 +47,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
       "ACTOR_VIEW_ID_MAX_LENGTH", "actorProgramContracts", "appPermissionsSchema", "appTriggersSchema", "relativeName", "resolveActorView",
     ],
     "@ragents/host/plugin-support/actor-programs/program-runner": [],
+    "@ragents/host/plugin-support/actor-programs/script-parameters": ["scriptParametersOf"],
     "@ragents/host/plugin-support/actor-programs/service": ["actorProgramsToken"],
     "@ragents/host/plugin-support/actor-programs/tailwind": ["buildTailwind"],
     "@ragents/host/plugin-support/actor-programs/workflow/prompt-reader": ["createPromptReader"],

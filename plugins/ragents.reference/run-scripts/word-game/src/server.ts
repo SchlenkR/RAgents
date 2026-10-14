@@ -16,9 +16,11 @@ const dispatch = async (state: WordGameState, context: RunContext<WordGameState>
   return { ...state, status: "running", pendingInputId: enqueued.payload.inputId };
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
+
 const payloadOf = (value: unknown): Record<string, unknown> => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("An event has an invalid payload.");
-  return value as Record<string, unknown>;
+  if (!isRecord(value)) throw new Error("An event has an invalid payload.");
+  return value;
 };
 
 export default defineActor(contract, {
@@ -38,9 +40,9 @@ export default defineActor(contract, {
       if (!state.status) {
         await context.functions.run_configure({ title: "Word game", primaryActor: context.actor.id });
         const start = payloadOf(JSON.parse(input.content));
-        if (start.input !== null || !start.options || typeof start.options !== "object" || Array.isArray(start.options)
-          || Object.keys(start).some((key) => key !== "input" && key !== "options")) {
-          throw new Error("The word game expects no start value; start options must be an object.");
+        if (!isRecord(start.parameters) || Object.keys(start.parameters).length > 0 || !isRecord(start.options)
+          || Object.keys(start).some((key) => key !== "parameters" && key !== "options")) {
+          throw new Error("The word game takes no parameters; start options must be an object.");
         }
         const catalog = await context.functions.model_list({});
         const profile = catalog.profiles.find((entry) => entry.driver === "agent" && entry.name === "standard");

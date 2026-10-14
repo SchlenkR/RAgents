@@ -1,7 +1,8 @@
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { existsSync, readFileSync } from "node:fs";
-import { lstat, mkdir, readFile, readdir, realpath, symlink, unlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, unlink, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { build } from "esbuild";
 import ts from "typescript";
@@ -11,6 +12,8 @@ import { canonicalHash, schemaComplaints, typeScriptTypesFromSchema, type Native
 import { runtimeLibraries, webRuntimeLibraries } from "./runtime-libraries.js";
 import { appPermissionsSchema, appTriggersSchema } from "./contract.js";
 import { programGuardDiagnostics } from "./program-guards.js";
+import { runManagedProcess, safeProcessEnvironment, type ProcessSandbox } from "@ragents/workspace-executor";
+import { withoutPrivateEnvironment } from "@ragents/workspace-executor/src/safe-environment.ts";
 
 const webRequire = createRequire(new URL("../../../../web/package.json", import.meta.url));
 const rootRequire = createRequire(new URL("../../../../../package.json", import.meta.url));
@@ -31,6 +34,7 @@ const libraryDirectory = (name: string): string => {
     throw new Error(`The installed package ${name} has no package metadata.`);
   }
 };
+const toolkit = fileURLToPath(new URL("../../../../../node_modules", import.meta.url));
 const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
 const link = async (source: string, target: string): Promise<void> => {
   await mkdir(path.dirname(target), { recursive: true });
@@ -78,6 +82,7 @@ const actionSchema = Type.Object({
 export const appContractSchema = Type.Object({
   state: schema, functions: Type.Record(Type.String(), actionSchema),
   input: Type.Optional(Type.Object({ capabilities: Type.Optional(Type.Array(Type.String(), { uniqueItems: true })) }, { additionalProperties: false })),
+  parameters: Type.Optional(schema),
   program: Type.Optional(Type.Literal(true)),
 }, { additionalProperties: false });
 export type AppContract = Static<typeof appContractSchema>;
@@ -182,17 +187,19 @@ export interface ActorInput {
     readonly sourceActorId: string | null; readonly sourceActorHandle: string | null; readonly payload: {readonly text?:string; readonly [key:string]:unknown} } | null;
   readonly trigger?: ActorTrigger;
 }
-export interface ActorStart {
-  readonly input: unknown; readonly options: Readonly<Record<string, unknown>>;
+export interface ActorStart<Parameters = Readonly<Record<string, never>>> {
+  /** The run script's parameters, checked by the host against the contract's parameters before the run changed. */
+  readonly parameters: Parameters; readonly options: Readonly<Record<string, unknown>>;
   readonly embedded: boolean; readonly startedBy: string; readonly count: number;
   /** The room this start opened, where the setup actor and everything it creates stand; null in the main room. */
   readonly room: string | null;
 }
 export interface ActorResult { readonly handle: string; readonly count: number; readonly result: unknown; readonly summary?: string }
 export interface ActorFunction { label: string; description?: string; input: TSchema; output: TSchema; capabilities?: readonly string[]; confirmation?: string; tool?: { name: string; targets?: readonly string[]; card?: boolean } }
-export interface ActorContract { state: TSchema; functions: Readonly<Record<string, ActorFunction>>; input?: {capabilities?: readonly string[]} }
+export interface ActorContract { state: TSchema; functions: Readonly<Record<string, ActorFunction>>; input?: {capabilities?: readonly string[]}; parameters?: TSchema }
+export type ActorStartOf<C extends ActorContract> = ActorStart<C extends {parameters: TSchema} ? Static<C['parameters']> : Readonly<Record<string, never>>>;
 export type ActorFunctions<C extends ActorContract> = { [K in keyof C['functions']]: (input: Static<C['functions'][K]['input']>, context: RunContext<Static<C['state']>>) => Static<C['functions'][K]['output']> | Promise<Static<C['functions'][K]['output']>> };
-export type ActorImplementation<C extends ActorContract> = {functions: ActorFunctions<C>} & (C extends {input: unknown} ? {onInput: (input: ActorInput, context: RunContext<Static<C['state']>>) => void | Promise<void>; onStart?: (start: ActorStart, context: RunContext<Static<C['state']>>) => void | Promise<void>; onResult?: (result: ActorResult, context: RunContext<Static<C['state']>>) => void | Promise<void>} : {onInput?: never; onStart?: never; onResult?: never});
+export type ActorImplementation<C extends ActorContract> = {functions: ActorFunctions<C>} & (C extends {input: unknown} ? {onInput: (input: ActorInput, context: RunContext<Static<C['state']>>) => void | Promise<void>; onStart?: (start: ActorStartOf<C>, context: RunContext<Static<C['state']>>) => void | Promise<void>; onResult?: (result: ActorResult, context: RunContext<Static<C['state']>>) => void | Promise<void>} : {onInput?: never; onStart?: never; onResult?: never});
 export declare function defineActor<const C extends ActorContract>(contract: C, implementation: ActorImplementation<C>): {contract:C} & ActorImplementation<C>;
 export type ProgramWeekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 /** An absolute ISO time, a duration after the program first reached the wait, or the latest daily or weekday wall time since then. */
@@ -389,18 +396,16 @@ export const typecheckServerProject = (directory: string, backend?: string): str
   }), ...programGuardDiagnostics(program, directory)];
 };
 
-export const compileAppBackend = async (options: {
-  directory: string; backend: string; runId: string; executor: NativeTypeScriptExecutor; signal?: AbortSignal; isolated?: boolean;
-}): Promise<{ contract: AppContract; javaScript: string; hash: string }> => {
-  const signal = AbortSignal.any([...(options.signal ? [options.signal] : []), AbortSignal.timeout(15_000)]);
-  const entry = path.resolve(options.directory, options.backend);
-  if (!entry.startsWith(`${options.directory}${path.sep}`)) throw new Error("The backend entry lies outside the app.");
+const bundleBackend = async (directory: string, backend: string): Promise<string> => {
+  const entry = path.resolve(directory, backend);
+  if (!entry.startsWith(`${directory}${path.sep}`)) throw new Error("The backend entry lies outside the app.");
   const result = await build({
-    stdin: { contents: `import actor from ${JSON.stringify(`./${options.backend}`)};
+    stdin: { contents: `import actor from ${JSON.stringify(`./${backend}`)};
 export const describe = () => {
   for (const name of Object.keys(actor.contract.functions ?? {})) if (typeof actor.functions?.[name] !== 'function') throw new Error('Missing function ' + name);
   if (Boolean(actor.contract.input) !== (typeof actor.onInput === 'function')) throw new Error('input and onInput must be present together.');
   for (const name of ['onStart', 'onResult']) if (actor[name] !== undefined && (typeof actor[name] !== 'function' || !actor.contract.input)) throw new Error(name + ' needs input and onInput.');
+  if (actor.contract.parameters !== undefined && !actor.contract.input) throw new Error('parameters need input and onInput: a run script receives its start as an input.');
   return JSON.parse(JSON.stringify(actor.contract));
 };
 export const handle = async (request, context) => {
@@ -425,16 +430,65 @@ export const handle = async (request, context) => {
   else if (request.start && actor.onStart) await actor.onStart(request.start, handlerContext);
   else await actor.onInput(request.input, handlerContext);
   return { finishes };
-};`, resolveDir: options.directory, sourcefile: "actor-entry.ts", loader: "ts" },
-    absWorkingDir: options.directory, platform: "node", format: "esm", target: "node22", bundle: true, packages: "external", write: false, logLevel: "silent",
+};`, resolveDir: directory, sourcefile: "actor-entry.ts", loader: "ts" },
+    absWorkingDir: directory, platform: "node", format: "esm", target: "node22", bundle: true, packages: "external", write: false, logLevel: "silent",
   });
+  return result.outputFiles![0]!.text;
+};
+
+const checkedContract = (described: unknown): AppContract => {
+  if (!Value.Check(appContractSchema, described)) throw new Error(`The backend export needs defineActor({state, functions, input?, parameters?}, {functions, onInput?}) with valid action contracts: ${schemaComplaints(appContractSchema, described, "contract")}`);
+  return described;
+};
+
+export const compileAppBackend = async (options: {
+  directory: string; backend: string; runId: string; executor: NativeTypeScriptExecutor; signal?: AbortSignal; isolated?: boolean;
+}): Promise<{ contract: AppContract; javaScript: string; hash: string }> => {
+  const signal = AbortSignal.any([...(options.signal ? [options.signal] : []), AbortSignal.timeout(15_000)]);
+  const javaScript = await bundleBackend(options.directory, options.backend);
   options.signal?.throwIfAborted();
-  const javaScript = result.outputFiles![0]!.text;
   const described = await options.executor.execute({
     program: { entry: "server.mjs", files: [{ fileName: "server.mjs", text: javaScript }], exportName: "describe" },
     input: {}, state: {}, cwd: options.directory, ...(options.isolated ? { isolated: true } : {}),
     context: { runId: options.runId, invocationId: "app-contract", invocationKind: "tool", principal: { id: "app-build", kind: "service" }, capabilities: [] },
   }, { signal, call: async () => { throw new Error("Run calls are not available while loading the app contract."); }, log: () => undefined });
-  if (!Value.Check(appContractSchema, described.result)) throw new Error(`The backend export needs defineActor({state, functions, input?}, {functions, onInput?}) with valid action contracts: ${schemaComplaints(appContractSchema, described.result, "contract")}`);
-  return { contract: described.result, javaScript, hash: canonicalHash({ javaScript }) };
+  return { contract: checkedContract(described.result), javaScript, hash: canonicalHash({ javaScript }) };
+};
+
+/** The contract of a run script's setup package before any run exists: built in a temporary folder and read by a short-lived Node process of the server. */
+export const describeRunScript = async (files: readonly { path: string; content: string }[], options: {
+  sandbox: (writable: readonly string[], readable: readonly string[]) => Promise<ProcessSandbox | undefined>; signal?: AbortSignal;
+}): Promise<AppContract> => {
+  const { signal } = options;
+  const directory = await realpath(await mkdtemp(path.join(os.tmpdir(), "ragents-script-")));
+  try {
+    for (const file of files) {
+      const target = path.resolve(directory, file.path);
+      if (!target.startsWith(`${directory}${path.sep}`)) throw new Error(`The run script file ${file.path} lies outside its package.`);
+      await mkdir(path.dirname(target), { recursive: true });
+      await writeFile(target, file.content);
+    }
+    await prepareAppProject(directory);
+    const pkg = await readAppPackage(directory);
+    if (!pkg.backend) throw new Error("A run script needs a backend that defines its setup actor.");
+    const entry = path.join(directory, "contract.mjs");
+    await writeFile(entry, await bundleBackend(directory, pkg.backend));
+    const sandbox = await options.sandbox([directory], [await realpath(toolkit)]);
+    const temporary = path.join(directory, ".build", "tmp");
+    await mkdir(temporary, { recursive: true });
+    const run = { command: await realpath(process.execPath), args: ["--input-type=module", "-e", "const { describe } = await import(process.argv[1]); process.stdout.write(JSON.stringify(describe()));", pathToFileURL(entry).href] };
+    const launch = sandbox ? await sandbox.wrap(run) : run;
+    let output = "";
+    let errors = "";
+    const result = await runManagedProcess({
+      command: launch.command, args: [...launch.args], cwd: directory, label: "Run script contract", timeoutMs: 15_000, ...(signal ? { signal } : {}),
+      env: withoutPrivateEnvironment({ ...safeProcessEnvironment(process.env), HOME: directory, TMPDIR: temporary, TMP: temporary, TEMP: temporary }),
+      onStdout: (chunk) => { output += chunk.toString(); }, onStderr: (chunk) => { errors = (errors + chunk.toString()).slice(-4000); },
+    });
+    if (result.timedOut) throw new Error("Reading the run script contract took longer than 15 seconds.");
+    if (result.code !== 0) throw new Error(`Reading the run script contract failed: ${errors.trim() || `exit code ${result.code}`}`);
+    return checkedContract(JSON.parse(output));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 };

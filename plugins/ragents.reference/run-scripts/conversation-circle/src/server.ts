@@ -5,21 +5,11 @@ const contract = {
   state: Type.Object({ built: Type.Optional(Type.Boolean()) }, { additionalProperties: false }),
   functions: {},
   input: { capabilities: ["model_list", "agent_spawn", "actor_input", "run_configure"] },
+  parameters: Type.Object({
+    topic: Type.Optional(Type.String({ minLength: 1, maxLength: 160, pattern: "\\S", description: "The question the circle discusses" })),
+    rounds: Type.Optional(Type.Integer({ minimum: 1, maximum: 5, description: "How many rounds the coordinator leads" })),
+  }),
 } as const;
-
-const settingsFrom = (value: unknown): { topic: string; rounds: number } => {
-  if (value === null) return { topic: "Should city centers become car-free?", rounds: 2 };
-  if (typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("The start value needs topic (1 to 160 characters) and rounds (an integer from 1 to 5).");
-  }
-  const settings = value as Record<string, unknown>;
-  if (Object.keys(settings).some((key) => key !== "topic" && key !== "rounds")
-    || typeof settings.topic !== "string" || !settings.topic.trim() || settings.topic.trim().length > 160
-    || typeof settings.rounds !== "number" || !Number.isInteger(settings.rounds) || settings.rounds < 1 || settings.rounds > 5) {
-    throw new Error("The start value needs topic (1 to 160 characters) and rounds (an integer from 1 to 5).");
-  }
-  return { topic: settings.topic.trim(), rounds: settings.rounds };
-};
 
 const roleOf = (name: string): string => {
   if (name === "mira") return "You are Mira and you ask curious questions.";
@@ -41,9 +31,8 @@ export default defineActor(contract, {
   onInput: () => {},
   onStart: async (start, context) => {
     if (context.state.read().built) return;
-    const settings = settingsFrom(start.input);
-    const topic = settings.topic;
-    const rounds = settings.rounds;
+    const topic = start.parameters.topic?.trim() ?? "Should city centers become car-free?";
+    const rounds = start.parameters.rounds ?? 2;
 
     const catalog = await context.functions.model_list({});
     const profiles = catalog.profiles.filter((profile) => profile.driver === "agent" && profile.name !== "coordinator");

@@ -12,7 +12,7 @@ const available = defineToolAvailability({
 const listMetadata = {
   name: "run_script_list",
   label: "List run scripts",
-  description: "The run scripts of this profile that can join this run: entry, title, description, and whether each can start now or why not.",
+  description: "The run scripts of this profile that can join this run: entry, title, description, the parameters each declares as a JSON Schema object, and whether each can start now or why not.",
 } as const;
 
 const startMetadata = {
@@ -21,7 +21,7 @@ const startMetadata = {
   description: "Start a run script from run_script_list inside this run, in a room of its own; returns its actor's address and which start of it this is.",
   longDescription: "A run script is a prepared setup of this profile: a TypeScript actor that arranges its own participants and views in this run; "
     + "for a single new LLM agent use agent_spawn instead. "
-    + "entry is the entry from run_script_list; input is the script's start value, if it takes one. The script joins the run "
+    + "entry is the entry from run_script_list; parameters are the script's parameters by name as run_script_list declares them, required ones always. The script joins the run "
     + "without changing the primary actor. Every start opens a new room named after the script (name, name-2, ...) with its own actors, "
     + "so a repeated start never reuses the actors of an earlier one; handle is the setup actor's address from your room, such as name-2.name. "
     + "When it finishes a start, you receive its summary and result as a message; do not wait or poll for it in the same turn.",
@@ -31,6 +31,7 @@ const listing = Type.Array(Type.Object({
   entry: Type.String(),
   title: Type.String(),
   description: Type.String(),
+  parameters: Type.Record(Type.String(), Type.Unknown()),
   available: Type.Boolean(),
   reason: Type.Optional(Type.String()),
 }, { additionalProperties: false }));
@@ -41,18 +42,19 @@ export const createRunScriptToolContributor = (management: () => RunManagement):
     schema: Type.Object({}, { additionalProperties: false }),
     resultSchema: listing,
     available,
-    run: ({ caller }) => management().scripts(caller.runId).map(({ id, ...script }) => ({ entry: id, ...script })),
+    run: async ({ caller, signal }) => (await management().scripts(caller.runId, signal))
+      .map(({ id, parameters, ...script }) => ({ entry: id, ...script, parameters: { ...parameters, required: [...parameters.required] } })),
   });
   const start = defineRunFunction({
     ...startMetadata,
     schema: Type.Object({
       entry: Type.String({ minLength: 1, description: "The entry from run_script_list" }),
-      input: Type.Optional(Type.Unknown({ description: "Start value of the script; omit it for none" })),
+      parameters: Type.Optional(Type.Record(Type.String(), Type.Unknown(), { description: "The script's parameters by name; omit it for a script without parameters" })),
     }, { additionalProperties: false }),
     resultSchema: Type.Object({ handle: Type.String(), count: Type.Integer({ minimum: 1 }) }, { additionalProperties: false }),
     available,
     run: async ({ caller, runtime }, _toolCallId, input) => {
-      const started = await management().startScript(caller.runId, input.entry, (input.input ?? null) as JsonValue | null, caller.actorId);
+      const started = await management().startScript(caller.runId, input.entry, (input.parameters ?? {}) as Readonly<Record<string, JsonValue>>, caller.actorId);
       const view = runtime.view(caller.runId);
       const actor = view.actors.find((candidate) => candidate.id === started.actorId);
       const room = view.actors.find((candidate) => candidate.id === caller.actorId)?.room ?? null;

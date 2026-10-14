@@ -16,26 +16,21 @@ test("binds the list to the real list helper and assigns its first call", async 
   assert.match(assignment.message, /Coffee/);
   assert.deepEqual(context.state.read(), { built: true });
   const completedCalls = calls.length;
-  await program.onStart!(start(null), context);
+  await program.onStart!(start({}), context);
   await program.onInput!(message("Hello"), context);
   assert.equal(calls.length, completedCalls);
 });
 
-test("the default start stays defined and invalid values start nothing", async () => {
-  const initial = setupContext();
-  await program.onStart!(start(null), initial.context);
-  assert.match(JSON.stringify(initial.calls), /Hello from the run script/);
-  for (const input of [{ title: "Plan" }, { title: "", firstEntry: "Coffee" }, { title: "Plan", firstEntry: "" }, { title: "x".repeat(161), firstEntry: "Coffee" }, { title: "Plan", firstEntry: "Coffee", extra: true }, 3]) {
-    const { calls, context } = setupContext();
-    await assert.rejects(async () => program.onStart!(start(input), context), /start value needs title/);
-    assert.deepEqual(calls, []);
-    assert.deepEqual(context.state.read(), {});
-  }
+test("without parameters the board has an explicit title and first entry", async () => {
+  const { calls, context } = setupContext();
+  await program.onStart!(start({}), context);
+  assert.deepEqual(calls.find((call) => call.name === "run_configure")?.input, { title: "Collection board: Shared list" });
+  assert.match(JSON.stringify(calls), /Hello from the run script/);
 });
 
 test("uses the actually created handle in the room, and the main room's addresses for the coordinator", async () => {
   const { calls, context } = setupContext(undefined, "-2");
-  await program.onStart!(start(null, "shared-actor-list-2"), context);
+  await program.onStart!(start({}, "shared-actor-list-2"), context);
   assert.deepEqual(calls.find((call) => call.name === "actor_program_activate")?.input,
     { name: "shared-list", actor: "@list-helper-2" });
   const [assignment, briefing] = calls.filter((call) => call.name === "actor_input").map((call) => call.input as { to: string; message: string });

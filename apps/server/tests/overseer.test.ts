@@ -89,6 +89,7 @@ test("global coordinator persists separately and manages ordinary runs through t
           askService: () => ({ask: async () => {throw new Error("Unexpected question");}}),
           reservedToolNames: () => [],
           serverProcessContextFor: async (runId) => ({runId, cwd: dataDirectory, root: dataDirectory, home: dataDirectory, env: {...process.env}}),
+          isolatedSandbox: async () => undefined,
           operations: {list: () => [], operation: () => undefined, invoke: async () => {throw new Error("Unexpected operation");}},
           directoryFor: (runId) => path.join(dataDirectory, "programs", runId),
           scriptSources: () => undefined,
@@ -187,14 +188,20 @@ test("global coordinator persists separately and manages ordinary runs through t
     assert.equal(stopped.stopped, true);
     assert.equal(management!.view(runId).primaryActorId, runView.primaryActorId);
 
-    const script = await call(overseerContracts.createRun, { title: "Prepared run", script: "Test script", input: { topic: "Test" } });
+    const script = await call(overseerContracts.createRun, { title: "Prepared run", script: "Test script", parameters: { topic: "Test" } });
     const scriptView = management!.view(script.runId as string);
     assert.equal(scriptView.title, "Prepared run");
     assert.ok(scriptView.actors.some((actor) => actor.kind === "script"));
-    assert.deepEqual(JSON.parse(scriptView.inputs[0].content).input, { topic: "Test" });
+    assert.deepEqual(JSON.parse(scriptView.inputs[0].content).parameters, { topic: "Test" });
     await assert.rejects(call(overseerContracts.createRun, { title: "Error", script: "Missing" }), /Valid titles and ids.*Test script/);
     await assert.rejects(call(overseerContracts.createRun, { title: "Error", message: "Hi", options: { "test.language": "xx" } }), /Valid languages/);
     await assert.rejects(call(overseerContracts.createRun, { title: "Compiler error", script: "Broken script" }), /Build failed|Expected/);
+    const invalid = (pattern: RegExp) => (error: unknown) => error instanceof DomainError && error.code === "parameters-invalid" && pattern.test(error.message);
+    const listedRuns = async () => (await provider.list()).length;
+    const runsBeforeRefusal = await listedRuns();
+    await assert.rejects(call(overseerContracts.createRun, { title: "Refused", script: "Test script", parameters: { color: "red" } }), invalid(/parameters has unknown field color\. Its parameters: topic \(string, optional\)\.$/));
+    await assert.rejects(call(overseerContracts.createRun, { title: "Refused", script: "Test script", parameters: { topic: 3 } }), invalid(/topic must be string, got 3/));
+    assert.equal(await listedRuns(), runsBeforeRefusal, "a refused start creates no run");
     await assert.rejects(call(overseerContracts.createRun, { title: "Contradiction", script: "English script", options: { "test.language": "de" } }), (error: unknown) =>
       error instanceof DomainError && error.code === "start-option-fixed" && error.message.includes("English script"));
     const english = await call(overseerContracts.createRun, { title: "English", script: "English script" });
@@ -208,12 +215,15 @@ test("global coordinator persists separately and manages ordinary runs through t
       await mkdir(path.dirname(target), {recursive: true});
       await writeFile(target, file.content);
     }
-    const local = await call(overseerContracts.createRun, { title: "Own setup", packageDirectory, input: { topic: "Local" } });
+    const local = await call(overseerContracts.createRun, { title: "Own setup", packageDirectory, parameters: { topic: "Local" } });
     const localView = management!.view(local.runId as string);
     assert.equal(localView.title, "Own setup");
     assert.ok(localView.actors.some((actor) => actor.kind === "script" && actor.handle === "own-setup"));
-    assert.deepEqual(JSON.parse(localView.inputs[0]!.content).input, { topic: "Local" });
+    assert.deepEqual(JSON.parse(localView.inputs[0]!.content).parameters, { topic: "Local" });
     assert.ok(!provider.plugins.startEntries.describe().some((entry) => entry.title === "Local package"));
+    const runsBeforePackageRefusal = await listedRuns();
+    await assert.rejects(call(overseerContracts.createRun, { title: "Refused package", packageDirectory, parameters: { topic: ["Local"] } }), invalid(/topic must be string/));
+    assert.equal(await listedRuns(), runsBeforePackageRefusal, "a refused package start creates no run either");
 
     const bound = await call(overseerContracts.createRun, { title: "On the workstation", message: "Build", options: { "test.machine": "workstation" } });
     const admin = createAccessContext({ enabled: true, user: { id: "root", label: "Root", rights: ["*"] } });

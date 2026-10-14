@@ -33,11 +33,11 @@ export type ManagedRunStart = {
   sharing?: RunSharing;
   /** Who chooses the start options and owns the run: the user of the request, null without sign-in. */
   user: ChatUser | null;
-} & ({ kind: "message"; message: string } | { kind: "script"; entryId: string; input: JsonValue }
+} & ({ kind: "message"; message: string } | { kind: "script"; entryId: string; parameters: Readonly<Record<string, JsonValue>> }
   | {
     kind: "package";
     directory: string;
-    input: JsonValue;
+    parameters: Readonly<Record<string, JsonValue>>;
     /** The plugin that starts the package; it stands as the owner of this start's template. */
     owner: string;
   });
@@ -56,9 +56,9 @@ export interface RunManagement {
   interruptTurn: (runId: string, actorId: string, reason: string) => Promise<void>;
   resetGlobal: (runId: string) => Promise<void>;
   /** The run scripts the run's owner may start, and whether each can start in the run now. */
-  scripts: (runId: string) => readonly RunScriptListing[];
+  scripts: (runId: string, signal?: AbortSignal) => Promise<readonly RunScriptListing[]>;
   /** Starts a run script in the run as its owner would; startedBy is the actor that receives its result. */
-  startScript: (runId: string, entryId: string, input: JsonValue | null, startedBy: string) => Promise<StartedScript>;
+  startScript: (runId: string, entryId: string, parameters: Readonly<Record<string, JsonValue>>, startedBy: string) => Promise<StartedScript>;
 }
 
 export const globalChatToken = serviceToken<GlobalChatPolicy>("host.global-chat");

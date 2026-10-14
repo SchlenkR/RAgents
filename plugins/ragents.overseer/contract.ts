@@ -36,8 +36,8 @@ const sharing = Type.Object({
 const commonStart = { title: text(), options: Type.Optional(jsonObject), sharing: Type.Optional(sharing) };
 const createInput = Type.Union([
   object({ ...commonStart, message: text() }),
-  object({ ...commonStart, script: text(), input: Type.Optional(Type.Any()) }),
-  object({ ...commonStart, packageDirectory: Type.String({ minLength: 1, description: "Absolute path of a RUN.md/setup.ts/tests.json package on the server. A local shell client inserts its actually existing package path; this is not an upload." }), input: Type.Optional(Type.Any()) }),
+  object({ ...commonStart, script: text(), parameters: Type.Optional(Type.Record(Type.String(), Type.Any(), { description: "The run script's parameters by name" })) }),
+  object({ ...commonStart, packageDirectory: Type.String({ minLength: 1, description: "Absolute path of a RUN.md/setup.ts/tests.json package on the server. A local shell client inserts its actually existing package path; this is not an upload." }), parameters: Type.Optional(Type.Record(Type.String(), Type.Any(), { description: "The run script's parameters by name" })) }),
 ]);
 const domainObject = (name: string, source = "packages/ragents/src/domain/model.ts") => Type.Object({}, {
   additionalProperties: true, "x-typescript-type": name, "x-source": source,

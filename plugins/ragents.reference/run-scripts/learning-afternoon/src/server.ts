@@ -33,6 +33,7 @@ const contract = {
     },
   },
   input: { capabilities: ["model_list", "agent_spawn", "run_configure", "actor_input", "event_subscribe", "event_unsubscribe", "event_query"] },
+  parameters: Type.Object({}),
 } as const;
 
 const startMarker = "START_LEARNING_AFTERNOON";

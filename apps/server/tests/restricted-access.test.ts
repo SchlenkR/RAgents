@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Type } from "typebox";
 import { createAccessContext, emptyUsage, PluginHost, unrestrictedAccess, type AccessContext, type PluginState, type RunView } from "@ragents/engine";
 import { coreContracts } from "../src/api/contracts.ts";
 import { coreMethods } from "../src/api/core-methods.ts";
@@ -77,17 +78,68 @@ test("direct requests allow only released setups and messages to existing runs",
   assert.equal(await denied(coreContracts.chat.send.id, { runId: "new", text: "Free run" }), 403);
   assert.equal(await denied(coreContracts.chat.sendToActor.id, { runId: "new", actorId: "helper", text: "Free actor" }), 403);
   assert.equal(await denied(coreContracts.chat.start.id, { runId: "new", entry: "example.other" }), 403);
+  assert.equal(await denied(coreContracts.chat.start.id, { runId: "new", entry: "example.other", parameters: {} }), 403);
+  assert.equal(await denied(coreContracts.runs.startScript.id, { runId: "new", entry: "example.other", parameters: {} }), 403);
+  assert.equal(await denied(coreContracts.runs.scriptParameters.id, { runId: "existing", entry: "example.other" }), 403);
+  assert.equal(await denied(coreContracts.chat.start.id, { runId: "new", entry: "example.allowed", options: { "example.option": "x" } }), 403, "choosing start options needs runs.create");
+  assert.equal(await denied(coreContracts.runs.startScript.id, { runId: "existing", entry: "example.allowed", options: { "example.option": "x" } }), 403);
   assert.deepEqual(opened, []);
   assert.equal(await denied(coreContracts.prepare.id, { runId: "new", messages: [{ role: "user", text: "Prepare" }] }), 403);
   assert.equal(await denied(coreContracts.startOptions.list.id, { runId: "new" }), 403);
   assert.equal(await denied(coreContracts.settings.read.id, {}), 403);
-  assert.equal((await server.call(coreContracts.chat.start.id, { runId: "new", entry: "example.allowed", input: {} })).result, null);
+  assert.equal((await server.call(coreContracts.chat.start.id, { runId: "new", entry: "example.allowed", parameters: {} })).result, null);
   assert.equal((await server.call(coreContracts.chat.send.id, { runId: "new", text: "Continue" })).result, null);
   assert.equal((await server.call(coreContracts.chat.sendToActor.id, { runId: "existing", actorId: "helper", text: "Help" })).result, null);
   assert.equal((await server.call(coreContracts.chat.send.id, { runId: "admin-created", text: "Free run" }, { "x-test-admin": "yes" })).result, null);
   assert.deepEqual(starts, ["example.allowed"]);
   assert.deepEqual(messages, ["Continue", "Help", "Free run"]);
   assert.deepEqual((await server.call(coreContracts.chat.capabilities.id, { runId: "existing" })).result, { input: ["text"], model: "" });
+});
+
+test("start options chosen with a script start need runs.create and the rights of each option; the parameters reach the session unchanged", async (t) => {
+  const requests: unknown[] = [];
+  const provider = {
+    hasRun: () => false,
+    list: async () => [],
+    delete: async () => {},
+    get: async () => ({
+      running: false,
+      subscribe: () => () => {},
+      start: (entry: string, request: unknown) => { requests.push([entry, request]); },
+      startAndWait: async (entry: string, request: unknown) => { requests.push([entry, request]); return { actorId: "script", handle: "setup", count: 1 }; },
+      stop: () => {},
+    }),
+  };
+  const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: "/private/tmp/ragents-access-tests" });
+  host.register({ manifest: { id: "example" }, register: (registration) => registration.startOptions({
+    id: "example.private", rights: ["example.private"], schema: Type.String(), selectable: () => true, defaultValue: () => "a", accept: (value) => value, describe: () => ({ label: "Private" }),
+  }) });
+  const accessOf = (...rights: string[]) => createAccessContext({ enabled: false, user: { id: "operator", label: "Operator", rights: ["runs.read", "runs.write", ...rights], startEntries: ["example.allowed"] } });
+  const users: Record<string, AccessContext> = { reader: accessOf(), creator: accessOf("runs.create"), privileged: accessOf("runs.create", "example.private") };
+  const server = await startRpcServer(t, {
+    methods: coreMethods(coreSources(provider, { plugins: host })),
+    accessFor: (request) => users[String(request.headers["x-test-user"])] ?? users.reader!,
+    local: false,
+  });
+  const start = async (method: string, user: string, params: Record<string, unknown>): Promise<string> => {
+    const reply = await server.call(method, { runId: "new", entry: "example.allowed", ...params }, { "x-test-user": user });
+    return reply.error?.message ?? "";
+  };
+  const chosen = { parameters: { topic: "Launch" }, options: { "example.private": "b" } };
+  for (const method of [coreContracts.chat.start.id, coreContracts.runs.startScript.id]) {
+    const accepted = requests.length;
+    assert.match(await start(method, "reader", chosen), /runs\.create/);
+    assert.match(await start(method, "creator", chosen), /example\.private/);
+    assert.equal(requests.length, accepted, "a refused choice reaches no session");
+    assert.equal(await start(method, "reader", { parameters: { topic: "Launch" } }), "");
+    assert.equal(await start(method, "privileged", chosen), "");
+  }
+  assert.deepEqual(requests, [
+    ["example.allowed", { parameters: { topic: "Launch" }, options: undefined }],
+    ["example.allowed", { parameters: { topic: "Launch" }, options: { "example.private": "b" } }],
+    ["example.allowed", { parameters: { topic: "Launch" }, options: undefined }],
+    ["example.allowed", { parameters: { topic: "Launch" }, options: { "example.private": "b" } }],
+  ]);
 });
 
 const exampleHost = (defaultStartEntry?: string): PluginHost => {

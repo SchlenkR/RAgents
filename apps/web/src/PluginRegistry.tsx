@@ -75,7 +75,7 @@ export type JsonValue = string | number | boolean | null | JsonValue[] | { [key:
 export interface EntryGuideContext {
   entry: StartEntry;
   session: SessionContext;
-  /** A skill guide returns a draft for preparation; a script guide returns its start value. */
+  /** A skill guide returns a draft for preparation; a script guide returns its parameters. */
   onComplete: (result: JsonValue) => void;
   onCancel: () => void;
 }
@@ -105,8 +105,8 @@ export interface SessionContext {
   /** With entryId the message starts the run through this skill template and the start options it fixes. */
   send: (text: string, attachments?: ChatAttachmentInput[], entryId?: string) => Promise<void>;
   session: SessionInfo;
-  /** Starts the run through a run script entry, without a message; the value becomes the script's start input. */
-  start: (entryId: string, input: JsonValue | null) => Promise<void>;
+  /** Starts the run through a run script entry, without a message, with the parameters its setup contract declares. */
+  start: (entryId: string, parameters: Readonly<Record<string, JsonValue>>) => Promise<void>;
 }
 
 export interface EntityReference {

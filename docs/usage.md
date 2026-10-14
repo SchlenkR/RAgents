@@ -441,14 +441,16 @@ for longer lists.
 
 The homepage samples are available on Start as run scripts: collection board,
 balcony wizard, study afternoon, and word game. In the built-in help, "Start sample" selects
-the matching template directly. A template's guide still comes first. After its answer the guide
-dialog shows "Starting run" until the run opens; if the server refuses the start, the guide stays
-open with its entries and names the reason.
+the matching template directly. A template's guide still comes first. A run script without a guide
+that declares parameters shows a form with one field per parameter instead, required ones marked;
+one without parameters starts right away. After the guide's answer or the form's submit the dialog
+shows "Starting run" until the run opens; if the server refuses the start, for example because a
+parameter is invalid, the guide or form stays open with its entries and names the reason.
 Word game and study afternoon first set up their participants and mini-app without a model call;
 the work begins with the start button in the app. Their homepage previews use
 the same interfaces with labeled example data and do not call any models.
 
-How a run script is structured, which start value it receives, and how `fixed-start-options` fixes a
+How a run script is structured, how it declares its parameters, and how `fixed-start-options` fixes a
 start option is in [typescript-platform.md](spec/typescript-platform.md) under
 "Run scripts as prepared actor programs" and in [plugins.md](spec/plugins.md) under
 "PluginHost registrations"; the setup dialogs of the reference cases under
@@ -1632,8 +1634,9 @@ from the registered workstations); `<folder>` is then the path on that workstati
 counterpart is `pnpm workspace-client <server-url> <folder> --id <id>`. Without a registered
 workstation of that ID the command fails and names the registered ones.
 
-`--entry <template>` additionally starts the run through a skill or script template. If that program
-chooses its chat partner during setup, the task waits instead of failing. `send` performs the
+`--entry <template>` additionally starts the run through a skill or script template, and
+`--parameters <json>` passes a script template's parameters as a JSON object (`ragents.chat.start`).
+If that program chooses its chat partner during setup, the task waits instead of failing. `send` performs the
 same operation in an existing run. `journal` reads the history from the profile's data directory
 without a server, using the same code as `pnpm driver journal`; with `RAGENTS_URL` set, it reads it
 from the server through `ragents.runs.events`, which requires `runs.inspect`. `stop <runId>`
@@ -1647,8 +1650,8 @@ active, and without an active turn nothing happens. `stop --host` terminates exa
 in `host.json`, never a process pattern, and only if the host at the recorded address reports that same PID from
 `/health`; otherwise it fails, leaves the process alone and removes the stale record.
 `script <runId>` lists the run scripts through `ragents.runs.scripts`, one per line with id, title,
-and the reason if one cannot join; `script <runId> <entry> [--input <json>]` starts it inside the
-run through `ragents.runs.startScript` as the run's user and prints `script: @<handle>, start <n>`;
+and the reason if one cannot join; `script <runId> <entry> [--parameters <json>]` starts it inside the
+run with its parameters as a JSON object through `ragents.runs.startScript` as the run's user and prints `script: @<handle>, start <n>`;
 a refusal is an error with exit code 1. `--json` prints the RPC results instead.
 
 `run --share <user>[:read|:write]` (repeatable, `read` without a level) and `--share-all
@@ -1749,8 +1752,22 @@ curl -s http://localhost:4710/rpc -H 'content-type: application/json' \
 
 The response contains either `result` or `error`; `error.data` provides `code` and `status`.
 
+A run script is started like a function with named parameters. `ragents.runs.scriptParameters`
+with `runId` and `entry` returns the parameters a template declares as a closed JSON Schema object
+(property kinds string, string with `format: "model"`, integer, number, boolean, or a choice of
+strings; required ones under `required`), and `ragents.runs.scripts` lists them per template.
+`ragents.chat.start` with `runId`, `entry`, `parameters`, and optional `options` (start option
+values by id, for a new run) starts a new run in one call; invalid parameters are refused with
+`parameters-invalid` before a run exists, the message naming every violation and all parameters:
+
+```sh
+curl -s http://localhost:4710/rpc -H 'content-type: application/json' \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"ragents.chat.start","params":{"runId":"<new-uuid>","entry":"demo.review","parameters":{"topic":"Release notes","rounds":2}}}'
+```
+
 A run script whose `RUN.md` sets `embeddable: true` also starts inside a running run:
-`ragents.runs.startScript` with `runId`, `entry`, and `input` waits and returns the script actor,
+`ragents.runs.startScript` with `runId`, `entry`, and `parameters` waits and returns the script actor,
 its address `room.handle`, and which start of its package this was, or the reason in `error`. The
 primary actor stays; every start opens a room of its own, so a repeated start gets its own actors.
 

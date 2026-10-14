@@ -291,6 +291,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       scriptEntryFor: (entryId) => globalPolicy ? undefined : this.plugins.startEntries.scriptPackage(entryId),
       startEntryFor: (entryId) => globalPolicy ? undefined : this.plugins.startEntries.entry(entryId),
       actorPrograms: {
+        scriptParameters: (...args) => this.plugins.service(actorProgramsToken).scriptParameters(...args),
         installScript: (...args) => this.plugins.service(actorProgramsToken).installScript(...args),
         enqueueStart: (...args) => this.plugins.service(actorProgramsToken).enqueueStart(...args),
         isScriptActor: (runId, actorId) => this.plugins.optionalService(actorProgramsToken)?.isScriptActor(runId, actorId) ?? false,
@@ -451,14 +452,14 @@ export class RunSessionProvider implements ChatSessionProvider {
         if (engine.scheduler.isRunning(runId, actorId)) throw new DomainError("turn-cleanup-pending", "The interrupted turn is still cleaning up.", 409);
       },
       resetGlobal: (runId) => this.resetGlobalConversation(runId),
-      scripts: (runId) => {
+      scripts: (runId, signal) => {
         const access = this.ownerAccess(runId);
-        return this.openSession(runId).runScripts(this.plugins.startEntries.describe().filter((entry) => canStartEntry(access, entry.id)), access.user?.id ?? null);
+        return this.openSession(runId).runScripts(this.plugins.startEntries.describe().filter((entry) => canStartEntry(access, entry.id)), access.user?.id ?? null, signal);
       },
-      startScript: (runId, entryId, input, startedBy) => {
+      startScript: (runId, entryId, parameters, startedBy) => {
         const access = this.ownerAccess(runId);
         if (!canStartEntry(access, entryId)) throw new DomainError("access-denied", `The run script ${entryId} is not enabled for the owner of this run.`, 403);
-        return this.openSession(runId).startAndWait(entryId, input, access.user ? { id: access.user.id, label: access.user.label } : undefined, startedBy);
+        return this.openSession(runId).startAndWait(entryId, { parameters }, access.user ? { id: access.user.id, label: access.user.label } : undefined, startedBy);
       },
     };
   }
@@ -481,11 +482,11 @@ export class RunSessionProvider implements ChatSessionProvider {
       if (!user || configuredUsers() === undefined) throw sharingUnavailable();
       session.shareBeforeStart(user.id, checkedProfileSharing(start.sharing, user.id, notShared(), this.shareableUsers()));
     }
-    if (start.kind === "script") await session.startAndWait(start.entryId, start.input, user, undefined, signal);
+    if (start.kind === "script") await session.startAndWait(start.entryId, { parameters: start.parameters }, user, undefined, signal);
     else if (start.kind === "package") {
       if (!local) throw new Error("The run script package was not loaded");
       const { script, ...entry } = local;
-      await session.startPackageAndWait({ ...script, entry: { ...entry, coordinator: script.coordinator, owner: start.owner } }, start.input, user, signal);
+      await session.startPackageAndWait({ ...script, entry: { ...entry, coordinator: script.coordinator, owner: start.owner } }, { parameters: start.parameters }, user, signal);
     }
     else await session.sendAndWait(start.message, user, signal);
     return id;

@@ -64,6 +64,8 @@ interface HarnessOptions {
   readonly hold?: boolean;
 }
 
+const startLine = (entry: string, parameters: unknown): string => parameters === undefined ? entry : `${entry}:${JSON.stringify(parameters)}`;
+
 /** A server that advances a turn in the run view for every message and reports it in the channel ragents.run, without a journal file. */
 const harness = async (t: TestContext, outcome: TurnOutcome, options: HarnessOptions = {}) => {
   const { binding = true, refusals = 0, clients = [], startEntries = [] } = options;
@@ -123,16 +125,16 @@ const harness = async (t: TestContext, outcome: TurnOutcome, options: HarnessOpt
         selections.push({ runId, optionId, value });
         return { id: optionId, owner: "test", value, presentation: null, selectable: true, locked: false };
       }),
-      implement(coreContracts.chat.start, ({ entry }) => {
-        entries.push(entry);
+      implement(coreContracts.chat.start, ({ entry, parameters }) => {
+        entries.push(startLine(entry, parameters));
         return null;
       }),
       implement(coreContracts.runs.scripts, () => [
-        { id: "demo.review", title: "Review", description: "Reviews the run", available: true },
-        { id: "demo.setup", title: "Setup", description: "Sets up a run", available: false, reason: "It starts only a new run." },
+        { id: "demo.review", title: "Review", description: "Reviews the run", parameters: { type: "object", properties: { topic: { type: "string" } }, required: ["topic"], additionalProperties: false }, available: true },
+        { id: "demo.setup", title: "Setup", description: "Sets up a run", parameters: { type: "object", properties: {}, required: [], additionalProperties: false }, available: false, reason: "It starts only a new run." },
       ]),
-      implement(coreContracts.runs.startScript, ({ entry, input }) => {
-        entries.push(`${entry}:${JSON.stringify(input)}`);
+      implement(coreContracts.runs.startScript, ({ entry, parameters }) => {
+        entries.push(startLine(entry, parameters));
         if (entry === "demo.setup") throw new DomainError("run-started", "The run is already running.", 409);
         return { actorId: "script-1", handle: "review", count: 2 };
       }),
@@ -312,13 +314,20 @@ test("stop ends all run work and --turn interrupts only the primary turn; journa
 test("script lists the run scripts of a run and starts one inside it, errors come back as such", { timeout: 20_000 }, async (t) => {
   const context = await harness(t, "completed");
   const runId = "7b1f0c9e-5d2a-4c8e-9f3b-2a6d8e4c1b70";
-  assert.equal(await execute({ kind: "script", profile: "developer", runId, entry: undefined, input: null, json: false }, collect(context.lines)), 0);
+  assert.equal(await execute({ kind: "script", profile: "developer", runId, entry: undefined, parameters: undefined, json: false }, collect(context.lines)), 0);
   assert.deepEqual(context.lines, ["demo.review  Review", "demo.setup  Setup (not available: It starts only a new run.)"]);
+  const listed: string[] = [];
+  assert.equal(await execute({ kind: "script", profile: "developer", runId, entry: undefined, parameters: undefined, json: true }, collect(listed)), 0);
+  assert.deepEqual(listed.map((line) => (JSON.parse(line) as { id: string; parameters: unknown }).parameters), [
+    { type: "object", properties: { topic: { type: "string" } }, required: ["topic"], additionalProperties: false },
+    { type: "object", properties: {}, required: [], additionalProperties: false },
+  ], "--json shows the parameters each script declares");
   const started: string[] = [];
-  assert.equal(await execute({ kind: "script", profile: "developer", runId, entry: "demo.review", input: { topic: "Launch" }, json: false }, collect(started)), 0);
+  assert.equal(await execute({ kind: "script", profile: "developer", runId, entry: "demo.review", parameters: { topic: "Launch" }, json: false }, collect(started)), 0);
   assert.deepEqual(started, ["script: @review, start 2", `run: ${runId}`]);
   assert.deepEqual(context.entries, ['demo.review:{"topic":"Launch"}']);
-  await assert.rejects(execute({ kind: "script", profile: "developer", runId, entry: "demo.setup", input: null, json: false }, collect([])), /already running/);
+  await assert.rejects(execute({ kind: "script", profile: "developer", runId, entry: "demo.setup", parameters: undefined, json: false }, collect([])), /already running/);
+  assert.deepEqual(context.entries, ['demo.review:{"topic":"Launch"}', "demo.setup"], "without --parameters the request carries none");
 });
 
 test("stop --host stops the remembered host and removes the record", { timeout: 20_000 }, async (t) => {
@@ -407,6 +416,14 @@ test("a template may set up its chat partner first; the task waits for it", { ti
   assert.equal(context.messages[0]!.text, "Task at the template");
 });
 
+test("run hands the parameters of its template to ragents.chat.start", { timeout: 20_000 }, async (t) => {
+  const review: PublicStartEntry = { id: "demo.review", owner: "demo", title: "Review", description: "Reviews", action: "script", coordinator: false };
+  const context = await harness(t, "completed", { binding: false, startEntries: [review] });
+  assert.equal(await execute({ kind: "run", profile: "developer", folder: undefined, text: "Review it", entry: "demo.review", json: false, parameters: { topic: "Launch", rounds: 2 } }, collect(context.lines)), 0);
+  assert.deepEqual(context.entries, ['demo.review:{"topic":"Launch","rounds":2}']);
+  assert.equal(context.messages[0]!.text, "Review it");
+});
+
 test("RAGENTS_PROFILE is the default profile of all agent commands", (t) => {
   const previous = process.env.RAGENTS_PROFILE;
   t.after(() => {
@@ -441,6 +458,9 @@ test("the facade hands every agent command to the agent command line and omits r
   assert.doesNotMatch(spawnSync(process.execPath, [facade, "--help"], { encoding: "utf8" }).stdout, /\n {2}resume <run> /);
   assert.doesNotMatch(usage(), /\n {2}resume <run> /);
   assert.match(usage(), /\n {2}stop <run> --turn \[--profile <p>\]/);
+  assert.match(usage(), /\n {2}script <run> <entry> \[--parameters <json>\] \[--profile <p>\] \[--json\]/);
+  assert.match(usage(), /--entry <template>\] \[--parameters <json>\]/);
+  assert.doesNotMatch(usage(), /--input/);
 });
 
 test("the facade prints the version of its package with --version and -v", () => {
@@ -480,11 +500,23 @@ test("the command line names command, folder, task and switches", () => {
   assert.throws(() => parseArguments(["stop", "--turn"]), /stop needs/);
   assert.throws(() => parseArguments(["stop", "..\/escape"]), /Invalid run id/);
   assert.throws(() => parseArguments(["resume", "abc"]), /Unknown command/);
-  assert.deepEqual(parseArguments(["script", "abc"]), { kind: "script", profile: "developer", runId: "abc", entry: undefined, input: null, json: false });
-  assert.deepEqual(parseArguments(["script", "abc", "demo.review", "--input", '{"topic":"Launch"}', "--json"]),
-    { kind: "script", profile: "developer", runId: "abc", entry: "demo.review", input: { topic: "Launch" }, json: true });
-  assert.throws(() => parseArguments(["script", "abc", "--input", "{}"]), /--input needs <entry>/);
-  assert.throws(() => parseArguments(["script", "abc", "demo.review", "--input", "{topic"]), /--input is not JSON/);
+  assert.deepEqual(parseArguments(["script", "abc"]), { kind: "script", profile: "developer", runId: "abc", entry: undefined, parameters: undefined, json: false });
+  assert.deepEqual(parseArguments(["script", "abc", "demo.review", "--parameters", '{"topic":"Launch"}', "--json"]),
+    { kind: "script", profile: "developer", runId: "abc", entry: "demo.review", parameters: { topic: "Launch" }, json: true });
+  assert.deepEqual(parseArguments(["script", "abc", "demo.review", "--parameters", "{}"]),
+    { kind: "script", profile: "developer", runId: "abc", entry: "demo.review", parameters: {}, json: false });
+  assert.throws(() => parseArguments(["script", "abc", "--parameters", "{}"]), /--parameters needs <entry>/);
+  assert.throws(() => parseArguments(["script", "abc", "demo.review", "--parameters", "{topic"]), /--parameters is not JSON/);
+  for (const notAnObject of ["null", "5", '"Launch"', "true", '["Launch"]']) {
+    assert.throws(() => parseArguments(["script", "abc", "demo.review", "--parameters", notAnObject]), /--parameters must be a JSON object/, notAnObject);
+  }
+  assert.throws(() => parseArguments(["script", "abc", "demo.review", "--input", "{}"]), /Unknown argument: --input/);
+  assert.deepEqual(parseArguments(["run", "Review it", "--entry", "demo.review", "--parameters", '{"topic":"Launch"}']), {
+    kind: "run", profile: "developer", folder: undefined, text: "Review it", entry: "demo.review", json: false, parameters: { topic: "Launch" },
+  });
+  assert.throws(() => parseArguments(["run", "Review it", "--parameters", "{}"]), /--parameters needs --entry/);
+  assert.throws(() => parseArguments(["run", "Review it", "--entry", "demo.review", "--parameters", "[]"]), /--parameters must be a JSON object/);
+  assert.throws(() => parseArguments(["run", "Review it", "--entry", "demo.review", "--input", "{}"]), /Unknown argument: --input/);
   assert.throws(() => parseArguments(["script"]), /script needs <run>/);
   assert.throws(() => parseArguments([]), /Usage/);
   assert.throws(() => parseArguments(["dance"]), /Unknown command/);

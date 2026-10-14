@@ -1427,8 +1427,9 @@ instead of the server (binding <code>{ machine: { client, label }, folder: { pat
 from the registered workstations); <code>&lt;folder&gt;</code> is then the path on that workstation. The
 counterpart is <code>pnpm workspace-client &lt;server-url&gt; &lt;folder&gt; --id &lt;id&gt;</code>. Without a registered
 workstation of that ID the command fails and names the registered ones.</p>
-<p><code>--entry &lt;template&gt;</code> additionally starts the run through a skill or script template. If that program
-chooses its chat partner during setup, the task waits instead of failing. <code>send</code> performs the
+<p><code>--entry &lt;template&gt;</code> additionally starts the run through a skill or script template, and
+<code>--parameters &lt;json&gt;</code> passes a script template&#39;s parameters as a JSON object (<code>ragents.chat.start</code>).
+If that program chooses its chat partner during setup, the task waits instead of failing. <code>send</code> performs the
 same operation in an existing run. <code>journal</code> reads the history from the profile&#39;s data directory
 without a server, using the same code as <code>pnpm driver journal</code>; with <code>RAGENTS_URL</code> set, it reads it
 from the server through <code>ragents.runs.events</code>, which requires <code>runs.inspect</code>. <code>stop &lt;runId&gt;</code>
@@ -1442,8 +1443,8 @@ active, and without an active turn nothing happens. <code>stop --host</code> ter
 in <code>host.json</code>, never a process pattern, and only if the host at the recorded address reports that same PID from
 <code>/health</code>; otherwise it fails, leaves the process alone and removes the stale record.
 <code>script &lt;runId&gt;</code> lists the run scripts through <code>ragents.runs.scripts</code>, one per line with id, title,
-and the reason if one cannot join; <code>script &lt;runId&gt; &lt;entry&gt; [--input &lt;json&gt;]</code> starts it inside the
-run through <code>ragents.runs.startScript</code> as the run&#39;s user and prints <code>script: @&lt;handle&gt;, start &lt;n&gt;</code>;
+and the reason if one cannot join; <code>script &lt;runId&gt; &lt;entry&gt; [--parameters &lt;json&gt;]</code> starts it inside the
+run with its parameters as a JSON object through <code>ragents.runs.startScript</code> as the run&#39;s user and prints <code>script: @&lt;handle&gt;, start &lt;n&gt;</code>;
 a refusal is an error with exit code 1. <code>--json</code> prints the RPC results instead.</p>
 <p><code>run --share &lt;user&gt;[:read|:write]</code> (repeatable, <code>read</code> without a level) and <code>--share-all &lt;read|write&gt;</code> share the new run with users of the profile or with all of them, through
 <code>ragents.runs.share</code> on the fresh run identifier after the start options and before the task; a
@@ -1525,8 +1526,19 @@ requests as Server-Sent Events:</p>
   -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:1,&quot;method&quot;:&quot;ragents.runs.list&quot;,&quot;params&quot;:{}}&#39;
 </code></pre>
 <p>The response contains either <code>result</code> or <code>error</code>; <code>error.data</code> provides <code>code</code> and <code>status</code>.</p>
+<p>A run script is started like a function with named parameters. <code>ragents.runs.scriptParameters</code>
+with <code>runId</code> and <code>entry</code> returns the parameters a template declares as a closed JSON Schema object
+(property kinds string, string with <code>format: &quot;model&quot;</code>, integer, number, boolean, or a choice of
+strings; required ones under <code>required</code>), and <code>ragents.runs.scripts</code> lists them per template.
+<code>ragents.chat.start</code> with <code>runId</code>, <code>entry</code>, <code>parameters</code>, and optional <code>options</code> (start option
+values by id, for a new run) starts a new run in one call; invalid parameters are refused with
+<code>parameters-invalid</code> before a run exists, the message naming every violation and all parameters:</p>
+<pre><code class="language-sh">curl -s http://localhost:4710/rpc -H &#39;content-type: application/json&#39; \
+  -H &quot;Authorization: Bearer $ACCESS_TOKEN&quot; \
+  -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:2,&quot;method&quot;:&quot;ragents.chat.start&quot;,&quot;params&quot;:{&quot;runId&quot;:&quot;&lt;new-uuid&gt;&quot;,&quot;entry&quot;:&quot;demo.review&quot;,&quot;parameters&quot;:{&quot;topic&quot;:&quot;Release notes&quot;,&quot;rounds&quot;:2}}}&#39;
+</code></pre>
 <p>A run script whose <code>RUN.md</code> sets <code>embeddable: true</code> also starts inside a running run:
-<code>ragents.runs.startScript</code> with <code>runId</code>, <code>entry</code>, and <code>input</code> waits and returns the script actor,
+<code>ragents.runs.startScript</code> with <code>runId</code>, <code>entry</code>, and <code>parameters</code> waits and returns the script actor,
 its address <code>room.handle</code>, and which start of its package this was, or the reason in <code>error</code>. The
 primary actor stays; every start opens a room of its own, so a repeated start gets its own actors.</p>
 <p><code>ragents.runs.share</code> with <code>runId</code> and <code>sharing</code> (<code>everyone</code> and <code>users</code> with <code>userId</code> and

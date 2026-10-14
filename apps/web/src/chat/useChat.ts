@@ -14,7 +14,7 @@ export function useChat(sessionId: string, onEvent?: (event: ChatEvent) => void,
   startup: ChatStartupStatus | undefined;
   send: (text: string, attachments?: ChatAttachmentInput[], userLocation?: ChatUserLocation) => Promise<void>;
   startSkill: (entryId: string, text: string, attachments?: ChatAttachmentInput[]) => Promise<void>;
-  start: (entryId: string, input: unknown) => Promise<void>;
+  start: (entryId: string, parameters: Readonly<Record<string, unknown>>) => Promise<void>;
 } {
   const [messages, dispatch] = useReducer(applyEvents, [] as Message[]);
   const [running, setRunning] = useState(false);
@@ -68,7 +68,7 @@ export function useChat(sessionId: string, onEvent?: (event: ChatEvent) => void,
   const startSkill = useCallback((entryId: string, text: string, attachments?: ChatAttachmentInput[]) =>
     startSkillEntry(sessionId, entryId, text, attachments), [sessionId]);
 
-  const start = useCallback((entryId: string, input: unknown) => startChatEntry(sessionId, entryId, input), [sessionId]);
+  const start = useCallback((entryId: string, parameters: Readonly<Record<string, unknown>>) => startChatEntry(sessionId, entryId, parameters), [sessionId]);
 
   return { messages, running, connected, startup, send, startSkill, start };
 }

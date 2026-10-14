@@ -18,9 +18,9 @@ Activated visible views enter the app catalog automatically. The browser shows t
 
 ## Package and execution
 
-A reusable script template lives under plugins/<plugin-id>/run-scripts/<name>/. RUN.md names title, description, and optionally order, guide, tags, coordinator, and embeddable. The folder determines the actor handle; coordinator is true by default, embeddable false. The plugin must be active in the profile.
+A reusable script template lives under plugins/<plugin-id>/run-scripts/<name>/. RUN.md names title, description, and optionally order, listed, guide, tags, category, coordinator, embeddable, shared-programs, and fixed-start-options. The folder determines the actor handle; coordinator is true by default, embeddable false. The plugin must be active in the profile.
 
-package.json contains private: true, type: module, and ragents.backend with the entry point src/server.ts. It exports defineActor from @ragents/server with state, functions, and input as well as the onInput implementation and optionally onStart. Capabilities appear only in the TypeScript contract, not again in RUN.md.
+package.json contains private: true, type: module, and ragents.backend with the entry point src/server.ts. It exports defineActor from @ragents/server with state, functions, input, and parameters as well as the onInput implementation and optionally onStart. Capabilities appear only in the TypeScript contract, not again in RUN.md.
 
 Domain tests are regular node:test files under tests/**/*.test.ts. createTestContext from @ragents/server/testing provides state and typed functions as mocks under functions. Tests call program.onInput or program.functions and check the result, stored state, and actual calls separately. A return value is never stored as state; context.state.replace serves that purpose.
 
@@ -28,11 +28,13 @@ Further actor programs live under actors/<name>/. The host takes them into the p
 
 A program several scripts use lives as a shared actor package under plugins/<plugin-id>/actors/<name>/; RUN.md names it in shared-programs: a, b. The host copies it into the run; each script calls actor_program_ensure({ name }), which returns an active package unchanged and installs or activates it only once.
 
-## Start value and contact
+## Parameters and contact
 
-ragents.chat.start passes { runId, entry, input }. The setup actor receives in the content of its ActorInput the JSON { input: <guide result or null>, options: { <option-id>: <value> } }. The shape of the guide result belongs to the package and is checked before use.
+A run script is called like a function with named parameters. Its setup contract declares them as parameters: Type.Object({ ... }), Type.Object({}) for none. Each one is a string (format: "model" for a model name, an alias or provider/model), an integer, a number, a boolean, or a choice of strings; Type.Optional makes it optional. Nested objects and arrays are not parameters.
 
-With onStart(start, context), the program receives every start there instead of in onInput: start carries input, options, embedded, startedBy (the actor ID of the starter), count (which start of this package in the run it is), and room (the room this start opened, null in the main room). A message for an actor in another room, such as the coordinator in the main room, names the start's actors as room.name. Other inputs keep arriving in onInput.
+The host reads the declaration before the run changes and checks every start: a missing required, unknown, or wrongly typed parameter is refused with parameters-invalid, naming every violation and all parameters, and no run is created. ragents.runs.scriptParameters returns the declaration; ragents.chat.start passes { runId, entry, parameters, options? }, where options chooses start options for the new run. The setup actor receives in the content of its ActorInput the JSON { parameters: { <name>: <value> }, options: { <option-id>: <value> } }.
+
+With onStart(start, context), the program receives every start there instead of in onInput: start carries parameters, typed by the declaration, options, embedded, startedBy (the actor ID of the starter), count (which start of this package in the run it is), and room (the room this start opened, null in the main room). A message for an actor in another room, such as the coordinator in the main room, names the start's actors as room.name. Other inputs keep arriving in onInput.
 
 With embeddable: true, the script also starts inside a running run, through ragents.chat.start or ragents.runs.startScript, which waits and returns the actor or the error. The primary actor stays, the template's fixed start options must match the run's, and every start opens a room of its own named after the script, with its own setup actor and bundled programs; shared packages stay in the main room.
 
@@ -208,11 +210,11 @@ The setup creates a real LLM list helper and binds the bundled program
 intrinsic state of this actor. `actor_program_activate` checks and activates the package
 the host has already copied. No separate app actor or second list implementation is created.
 
-The guide passes `{ "title": "...", "firstEntry": "..." }`. The title has 1 to 160 characters,
-the first entry 1 to 2000 characters. `null` starts with "Shared list" and
-"Hello from the run script". Invalid values are rejected before the setup. After the setup,
-the list helper receives the explicit task to create the first entry through its function.
-The package tests check configuration, state, and the actual call order.
+The contract declares two optional parameters: `title` with 1 to 160 characters and `firstEntry`
+with 1 to 2000 characters. The guide passes both; without them the board is called "Shared list"
+and its first entry is "Hello from the run script". The host rejects other values before the run
+changes. After the setup, the list helper receives the explicit task to create the first entry
+through its function. The package tests check configuration, state, and the actual call order.
 ```
 
 #### src/server.ts
@@ -225,21 +227,11 @@ const contract = {
   state: Type.Object({ built: Type.Optional(Type.Boolean()) }, { additionalProperties: false }),
   functions: {},
   input: { capabilities: ["model_list", "agent_spawn", "actor_program_activate", "actor_input", "run_configure"] },
+  parameters: Type.Object({
+    title: Type.Optional(Type.String({ minLength: 1, maxLength: 160, pattern: "\\S", description: "What the collection board collects" })),
+    firstEntry: Type.Optional(Type.String({ minLength: 1, maxLength: 2000, pattern: "\\S", description: "The first entry of the list" })),
+  }),
 } as const;
-
-const settingsFrom = (value: unknown): { title: string; firstEntry: string } => {
-  if (value === null) return { title: "Shared list", firstEntry: "Hello from the run script" };
-  if (typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("The start value needs title (1 to 160 characters) and firstEntry (1 to 2000 characters).");
-  }
-  const settings = value as Record<string, unknown>;
-  if (Object.keys(settings).some((key) => key !== "title" && key !== "firstEntry")
-    || typeof settings.title !== "string" || !settings.title.trim() || settings.title.trim().length > 160
-    || typeof settings.firstEntry !== "string" || !settings.firstEntry.trim() || settings.firstEntry.trim().length > 2000) {
-    throw new Error("The start value needs title (1 to 160 characters) and firstEntry (1 to 2000 characters).");
-  }
-  return { title: settings.title.trim(), firstEntry: settings.firstEntry.trim() };
-};
 
 /** The address of a name of this start's room as the coordinator in the main room writes it. */
 const addressIn = (room: string | null, name: string): string => room === null ? name : `${room}.${name}`;
@@ -249,9 +241,8 @@ export default defineActor(contract, {
   onInput: () => {},
   onStart: async (start, context) => {
     if (context.state.read().built) return;
-    const settings = settingsFrom(start.input);
-    const title = settings.title;
-    const firstEntry = settings.firstEntry;
+    const title = start.parameters.title?.trim() ?? "Shared list";
+    const firstEntry = start.parameters.firstEntry?.trim() ?? "Hello from the run script";
 
     const catalog = await context.functions.model_list({});
     const profiles = catalog.profiles.filter((profile) => profile.driver === "agent" && profile.name !== "coordinator");
@@ -311,8 +302,8 @@ export const setupContext = (profiles = [{ name: "coordinator", driver: "agent" 
   return { calls, context: createTestContext<{ built?: boolean }>({ state: {}, functions }) };
 };
 
-export const start = (input: unknown, room: string | null = "shared-actor-list") => ({
-  input, options: {}, embedded: false, startedBy: "owner-id", count: 1, room,
+export const start = (parameters: { title?: string; firstEntry?: string }, room: string | null = "shared-actor-list") => ({
+  parameters, options: {}, embedded: false, startedBy: "owner-id", count: 1, room,
 });
 
 export const message = (content: string) => ({
@@ -341,26 +332,21 @@ test("binds the list to the real list helper and assigns its first call", async 
   assert.match(assignment.message, /Coffee/);
   assert.deepEqual(context.state.read(), { built: true });
   const completedCalls = calls.length;
-  await program.onStart!(start(null), context);
+  await program.onStart!(start({}), context);
   await program.onInput!(message("Hello"), context);
   assert.equal(calls.length, completedCalls);
 });
 
-test("the default start stays defined and invalid values start nothing", async () => {
-  const initial = setupContext();
-  await program.onStart!(start(null), initial.context);
-  assert.match(JSON.stringify(initial.calls), /Hello from the run script/);
-  for (const input of [{ title: "Plan" }, { title: "", firstEntry: "Coffee" }, { title: "Plan", firstEntry: "" }, { title: "x".repeat(161), firstEntry: "Coffee" }, { title: "Plan", firstEntry: "Coffee", extra: true }, 3]) {
-    const { calls, context } = setupContext();
-    await assert.rejects(async () => program.onStart!(start(input), context), /start value needs title/);
-    assert.deepEqual(calls, []);
-    assert.deepEqual(context.state.read(), {});
-  }
+test("without parameters the board has an explicit title and first entry", async () => {
+  const { calls, context } = setupContext();
+  await program.onStart!(start({}), context);
+  assert.deepEqual(calls.find((call) => call.name === "run_configure")?.input, { title: "Collection board: Shared list" });
+  assert.match(JSON.stringify(calls), /Hello from the run script/);
 });
 
 test("uses the actually created handle in the room, and the main room's addresses for the coordinator", async () => {
   const { calls, context } = setupContext(undefined, "-2");
-  await program.onStart!(start(null, "shared-actor-list-2"), context);
+  await program.onStart!(start({}, "shared-actor-list-2"), context);
   assert.deepEqual(calls.find((call) => call.name === "actor_program_activate")?.input,
     { name: "shared-list", actor: "@list-helper-2" });
   const [assignment, briefing] = calls.filter((call) => call.name === "actor_input").map((call) => call.input as { to: string; message: string });
@@ -401,7 +387,7 @@ A deterministic setup: the script sets up mira, jon, and ada as ordinary LLMs an
 the briefing to the coordinator.
 The card tests the model, this script tests the platform.
 
-The guide passes `{ "topic": "...", "rounds": 2 }`. `topic` contains 1 to 160 characters, `rounds` is an integer from 1 to 5. The start value `null` explicitly chooses the topic "Should city centers become car-free?" and two rounds. Other incomplete or invalid values are rejected before the setup. Topic and number of rounds control the display and the task, and the topic also controls the run title.
+The contract declares two optional parameters: `topic` with 1 to 160 characters and `rounds`, an integer from 1 to 5. The guide passes both; without them the circle discusses "Should city centers become car-free?" in two rounds. The host rejects other values before the run changes. Topic and number of rounds control the display and the task, and the topic also controls the run title.
 ```
 
 #### src/server.ts
@@ -414,21 +400,11 @@ const contract = {
   state: Type.Object({ built: Type.Optional(Type.Boolean()) }, { additionalProperties: false }),
   functions: {},
   input: { capabilities: ["model_list", "agent_spawn", "actor_input", "run_configure"] },
+  parameters: Type.Object({
+    topic: Type.Optional(Type.String({ minLength: 1, maxLength: 160, pattern: "\\S", description: "The question the circle discusses" })),
+    rounds: Type.Optional(Type.Integer({ minimum: 1, maximum: 5, description: "How many rounds the coordinator leads" })),
+  }),
 } as const;
-
-const settingsFrom = (value: unknown): { topic: string; rounds: number } => {
-  if (value === null) return { topic: "Should city centers become car-free?", rounds: 2 };
-  if (typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("The start value needs topic (1 to 160 characters) and rounds (an integer from 1 to 5).");
-  }
-  const settings = value as Record<string, unknown>;
-  if (Object.keys(settings).some((key) => key !== "topic" && key !== "rounds")
-    || typeof settings.topic !== "string" || !settings.topic.trim() || settings.topic.trim().length > 160
-    || typeof settings.rounds !== "number" || !Number.isInteger(settings.rounds) || settings.rounds < 1 || settings.rounds > 5) {
-    throw new Error("The start value needs topic (1 to 160 characters) and rounds (an integer from 1 to 5).");
-  }
-  return { topic: settings.topic.trim(), rounds: settings.rounds };
-};
 
 const roleOf = (name: string): string => {
   if (name === "mira") return "You are Mira and you ask curious questions.";
@@ -450,9 +426,8 @@ export default defineActor(contract, {
   onInput: () => {},
   onStart: async (start, context) => {
     if (context.state.read().built) return;
-    const settings = settingsFrom(start.input);
-    const topic = settings.topic;
-    const rounds = settings.rounds;
+    const topic = start.parameters.topic?.trim() ?? "Should city centers become car-free?";
+    const rounds = start.parameters.rounds ?? 2;
 
     const catalog = await context.functions.model_list({});
     const profiles = catalog.profiles.filter((profile) => profile.driver === "agent" && profile.name !== "coordinator");
@@ -511,8 +486,8 @@ export const setupContext = (profiles = [{ name: "coordinator", driver: "agent" 
   return { calls, context: createTestContext<{ built?: boolean }>({ state: {}, functions }) };
 };
 
-export const start = (input: unknown, room: string | null = "conversation-circle") => ({
-  input, options: {}, embedded: false, startedBy: "owner-id", count: 1, room,
+export const start = (parameters: { topic?: string; rounds?: number }, room: string | null = "conversation-circle") => ({
+  parameters, options: {}, embedded: false, startedBy: "owner-id", count: 1, room,
 });
 
 export const message = (content: string) => ({
@@ -537,7 +512,7 @@ test("topic and number of rounds control participants and task", async () => {
   assert.match(JSON.stringify(calls.at(-1)), /exactly 3 conversation rounds/);
   assert.deepEqual(context.state.read(), { built: true });
   const completedCalls = calls.length;
-  await program.onStart!(start(null), context);
+  await program.onStart!(start({}), context);
   await program.onInput!(message("Hello"), context);
   assert.equal(calls.length, completedCalls);
 });
@@ -545,7 +520,7 @@ test("topic and number of rounds control participants and task", async () => {
 test("the coordinator gets the participants' addresses from the main room, in the room this start actually opened", async () => {
   const task = async (room: string | null) => {
     const { calls, context } = setupContext();
-    await program.onStart!(start(null, room), context);
+    await program.onStart!(start({}, room), context);
     return calls.at(-1)?.input as { to: string; message: string };
   };
   const repeated = await task("conversation-circle-2");
@@ -554,17 +529,11 @@ test("the coordinator gets the participants' addresses from the main room, in th
   assert.match((await task(null)).message, /^The circle is ready: @mira, @jon, @ada are set up\./);
 });
 
-test("null has an explicit default, invalid values have no effect", async () => {
-  const initial = setupContext();
-  await program.onStart!(start(null), initial.context);
-  assert.match(JSON.stringify(initial.calls), /Should city centers become car-free/);
-  assert.match(JSON.stringify(initial.calls.at(-1)), /exactly 2 conversation rounds/);
-  for (const input of [{ topic: "Plan" }, { topic: "", rounds: 2 }, { topic: "Plan", rounds: 6 }, { topic: "Plan", rounds: 1.5 }, { topic: "Plan", rounds: 2, extra: true }, "Plan"]) {
-    const { calls, context } = setupContext();
-    await assert.rejects(async () => program.onStart!(start(input), context), /start value needs topic/);
-    assert.deepEqual(calls, []);
-    assert.deepEqual(context.state.read(), {});
-  }
+test("without parameters the circle has an explicit topic and two rounds", async () => {
+  const { calls, context } = setupContext();
+  await program.onStart!(start({}), context);
+  assert.match(JSON.stringify(calls), /Should city centers become car-free/);
+  assert.match(JSON.stringify(calls.at(-1)), /exactly 2 conversation rounds/);
 });
 ```
 
@@ -598,7 +567,8 @@ tags: Run scripts, Use case, Concept demo, Primary actor, Agent teams
 Reference case for `coordinator: false`: the host spawns no coordinator, the script uses
 `run_configure` to choose the moderator as primary actor and sets the run title. The chat binds as soon as
 the primary actor is determined. The moderator keeps its own actor prompt even as primary actor; it receives the concrete task
-through the first ActorInput. A start value `{ "topic": "..." }` sets the topic.
+through the first ActorInput. The contract declares one optional parameter, `topic` with 1 to 160
+characters, which sets the topic; without it the round is about "What makes a good team?".
 ```
 
 #### src/server.ts
@@ -611,9 +581,12 @@ const contract = {
   state: Type.Object({ built: Type.Optional(Type.Boolean()) }, { additionalProperties: false }),
   functions: {},
   input: { capabilities: ["model_list", "agent_spawn", "run_configure", "actor_input"] },
+  parameters: Type.Object({
+    topic: Type.Optional(Type.String({ minLength: 1, maxLength: 160, pattern: "\\S", description: "What the round talks about" })),
+  }),
 } as const;
 
-type Start = { input: { topic?: string } | null };
+type Start = { parameters: { topic?: string } };
 
 const guestOf = (name: string): string =>
   name === "kai" ? "You are Kai, pragmatic and brief." : "You are Lena, thorough and deliberate.";
@@ -624,7 +597,7 @@ export default defineActor(contract, {
     const state = context.state.read();
     if (state && state.built) return;
     const start = JSON.parse(input.content) as Start;
-    const topic = start.input && start.input.topic ? start.input.topic : "What makes a good team?";
+    const topic = start.parameters.topic?.trim() ?? "What makes a good team?";
 
     const catalog = await context.functions.model_list({});
     const profiles = catalog.profiles.filter((profile) => profile.driver === "agent" && profile.name !== "coordinator");
@@ -693,8 +666,8 @@ export const setupContext = (profiles = [{ name: "coordinator", driver: "agent" 
   return { calls, context: createTestContext<{ built?: boolean }>({ state: {}, functions }) };
 };
 
-export const startInput = (input: unknown) => ({
-  id: "start", content: JSON.stringify({ input, options: {} }), artifactIds: [],
+export const startInput = (parameters: { topic?: string }) => ({
+  id: "start", content: JSON.stringify({ parameters, options: {} }), artifactIds: [],
   sourceEventIds: [], subscriptionId: null, event: null,
 });
 ```
@@ -717,13 +690,19 @@ test("sets up the moderator and guests and hands the chat to the moderator", asy
   assert.match(JSON.stringify(calls.at(-1)), /Good collaboration/);
   assert.deepEqual(context.state.read(), { built: true });
   const completedCalls = calls.length;
-  await program.onInput!(startInput(null), context);
+  await program.onInput!(startInput({}), context);
   assert.equal(calls.length, completedCalls);
+});
+
+test("without a topic the round has an explicit default", async () => {
+  const { calls, context } = setupContext();
+  await program.onInput!(startInput({}), context);
+  assert.deepEqual(calls.find((call) => call.name === "run_configure")?.input, { title: "Moderated round: What makes a good team?", primaryActor: "@moderator" });
 });
 
 test("without a usable role the setup stays unchanged", async () => {
   const { calls, context } = setupContext([{ name: "coordinator", driver: "agent" }]);
-  await assert.rejects(async () => program.onInput!(startInput(null), context), /No role/);
+  await assert.rejects(async () => program.onInput!(startInput({}), context), /No role/);
   assert.deepEqual(calls.map((call) => call.name), ["model_list"]);
   assert.deepEqual(context.state.read(), {});
 });
@@ -1115,7 +1094,7 @@ into a form, not into a chat widget. Progress and completed answers can be recon
 conversation after a reload; a failed model answer can be requested again without counting
 another answer.
 
-The template needs no start values. The setup runs once and does not start a model call yet.
+The template declares no parameters. The setup runs once and does not start a model call yet.
 Only an action in the app sends text to the advisor. Questions and recommendations
 remain model answers; the app does not check their subject-matter quality automatically.
 
@@ -1133,6 +1112,7 @@ const contract = {
   state: Type.Object({ built: Type.Optional(Type.Boolean()) }, { additionalProperties: false }),
   functions: {},
   input: { capabilities: ["model_list", "agent_spawn", "actor_program_activate", "run_configure"] },
+  parameters: Type.Object({}),
 } as const;
 
 const instructions = `You conduct a balcony interview in a standalone app. The user sees your current question or, at the end, your recommendation. You have no tools and answer as normal text.
@@ -1167,7 +1147,7 @@ import test from "node:test";
 import { createTestContext } from "@ragents/server/testing";
 import program from "../src/server.js";
 
-const input = { id: "start", content: JSON.stringify({ input: null, options: {} }), artifactIds: [], sourceEventIds: [], subscriptionId: null, event: null };
+const input = { id: "start", content: JSON.stringify({ parameters: {}, options: {} }), artifactIds: [], sourceEventIds: [], subscriptionId: null, event: null };
 
 function setup(options: { missingProfile?: boolean; failActivation?: boolean } = {}) {
   const calls: { name: string; input: unknown }[] = [];
@@ -1285,7 +1265,7 @@ result list. The ideas are real model answers and are not checked for subject-ma
 An error in one helper leaves the result of the other in place. Empty answers and
 interrupted model turns appear as errors. The flow starts once and repeats
 neither tasks nor failed answers automatically. For new ideas, start a new run.
-The template needs no start values and triggers no model call before the button.
+The template declares no parameters and triggers no model call before the button.
 
 The homepage uses the same React view with explicitly marked preview data.
 ```
@@ -1360,6 +1340,7 @@ const contract = {
     },
   },
   input: { capabilities: ["model_list", "agent_spawn", "run_configure", "actor_input", "event_subscribe", "event_unsubscribe", "event_query"] },
+  parameters: Type.Object({}),
 } as const;
 
 const startMarker = "START_LEARNING_AFTERNOON";
@@ -1594,7 +1575,7 @@ import program from "../src/server.ts";
 import type { LearningState } from "../src/state.ts";
 
 const inputOf = (content: string): ActorInput => ({ id: "input", content, artifactIds: [], sourceEventIds: [], subscriptionId: null, event: null });
-const setupInput = inputOf(JSON.stringify({ input: null, options: {} }));
+const setupInput = inputOf(JSON.stringify({ parameters: {}, options: {} }));
 const startInput = inputOf("START_LEARNING_AFTERNOON");
 const eventOf = (helper: string, type: string, payload: Record<string, unknown>, eventId = `${helper}-${type}`): ActorInput => ({
   ...inputOf(""),
@@ -1912,6 +1893,7 @@ export const contract = {
     },
   },
   input: { capabilities: ["model_list", "agent_spawn", "run_configure", "event_subscribe", "event_query", "actor_input"] },
+  parameters: Type.Object({}),
 } as const;
 ```
 
@@ -1936,9 +1918,11 @@ const dispatch = async (state: WordGameState, context: RunContext<WordGameState>
   return { ...state, status: "running", pendingInputId: enqueued.payload.inputId };
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
+
 const payloadOf = (value: unknown): Record<string, unknown> => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("An event has an invalid payload.");
-  return value as Record<string, unknown>;
+  if (!isRecord(value)) throw new Error("An event has an invalid payload.");
+  return value;
 };
 
 export default defineActor(contract, {
@@ -1958,9 +1942,9 @@ export default defineActor(contract, {
       if (!state.status) {
         await context.functions.run_configure({ title: "Word game", primaryActor: context.actor.id });
         const start = payloadOf(JSON.parse(input.content));
-        if (start.input !== null || !start.options || typeof start.options !== "object" || Array.isArray(start.options)
-          || Object.keys(start).some((key) => key !== "input" && key !== "options")) {
-          throw new Error("The word game expects no start value; start options must be an object.");
+        if (!isRecord(start.parameters) || Object.keys(start.parameters).length > 0 || !isRecord(start.options)
+          || Object.keys(start).some((key) => key !== "parameters" && key !== "options")) {
+          throw new Error("The word game takes no parameters; start options must be an object.");
         }
         const catalog = await context.functions.model_list({});
         const profile = catalog.profiles.find((entry) => entry.driver === "agent" && entry.name === "standard");
@@ -2121,7 +2105,7 @@ import program from "../src/server.ts";
 import { participants, type WordGameState } from "../src/state.ts";
 
 const message = (content: string): ActorInput => ({ id: "input", content, artifactIds: [], sourceEventIds: [], subscriptionId: null, event: null });
-const firstInput = message(JSON.stringify({ input: null, options: {} }));
+const firstInput = message(JSON.stringify({ parameters: {}, options: {} }));
 const words = ["Beach", "Sand", "Desert", "Camel", "Oasis", "Water", "River", "Bridge", "City", "House", "Garden", "Flower"];
 type History = CapabilityContracts["event_query"]["output"];
 
@@ -2336,7 +2320,7 @@ test("missing or multiple model outputs are not taken as a word", async () => {
 });
 
 test("invalid start data stays visible as an error and starts no model", async () => {
-  for (const content of ["no JSON", JSON.stringify({ input: "Beach", options: {} }), JSON.stringify({ input: null, options: [] })]) {
+  for (const content of ["no JSON", JSON.stringify({ parameters: { word: "Beach" }, options: {} }), JSON.stringify({ parameters: "Beach", options: {} }), JSON.stringify({ parameters: {}, options: [] }), JSON.stringify({ input: null, options: {} })]) {
     const { context, calls } = fixture();
     await program.onInput(message(content), context);
     assert.equal(context.state.read().status, "error");
@@ -2346,7 +2330,7 @@ test("invalid start data stays visible as an error and starts no model", async (
 
 test("accepts the profile start options without deriving its own model settings from them", async () => {
   const { context, calls } = fixture();
-  await program.onInput(message(JSON.stringify({ input: null, options: {
+  await program.onInput(message(JSON.stringify({ parameters: {}, options: {
     "ragents.model": { model: "test-model", thinking: "off" },
     "ragents.system-prompt": { promptIds: [], shareWithAgents: false },
   } })), context);
@@ -2416,6 +2400,7 @@ const contract = {
   state: Type.Object({ reports: Type.Optional(Type.Number()) }, { additionalProperties: false }),
   functions: {},
   input: { capabilities: ["actor_list", "actor_program_ensure", "actor_input", ] },
+  parameters: Type.Object({}),
 } as const;
 
 export default defineActor(contract, {
@@ -2444,7 +2429,7 @@ import test from "node:test";
 import { createTestContext } from "@ragents/server/testing";
 import program from "../src/server.ts";
 
-const start = { input: null, options: {}, embedded: true, startedBy: "owner-id", count: 1, room: "run-roster" };
+const start = { parameters: {}, options: {}, embedded: true, startedBy: "owner-id", count: 1, room: "run-roster" };
 const actor = (handle: string, kind: "human" | "agent" | "script", lifecycle = "idle") =>
   ({ id: `id-${handle}`, handle, displayName: handle, kind, lifecycle, createdBy: null, description: null, toolCount: null });
 
@@ -2515,10 +2500,10 @@ shared-programs: notebook
 tags: Run scripts, Concept demo, TypeScript actors
 ---
 
-The start value `{ "text": "..." }` is the note; without one, the script notes when it was
-started. The script makes the shared notebook active with `actor_program_ensure`, sends it the
-note and ends the start with
-`context.finish`. Whether the roster check or this script comes first, the run has one notebook.
+The contract declares one optional parameter, `text`, a non-empty string that is the note; without
+it, the script notes when it was started. The script makes the shared notebook active with
+`actor_program_ensure`, sends it the note and ends the start with `context.finish`. Whether the
+roster check or this script comes first, the run has one notebook.
 ```
 
 #### src/server.ts
@@ -2531,22 +2516,18 @@ const contract = {
   state: Type.Object({}, { additionalProperties: false }),
   functions: {},
   input: { capabilities: ["actor_program_ensure", "actor_input", ] },
+  parameters: Type.Object({
+    text: Type.Optional(Type.String({ minLength: 1, pattern: "\\S", description: "The note; without it the note says when the script started" })),
+  }),
 } as const;
-
-const noteOf = (input: unknown, now: string): string => {
-  if (input === null) return `Started at ${now}.`;
-  const text = typeof input === "object" && input !== null && "text" in input ? (input as { text: unknown }).text : undefined;
-  if (typeof text !== "string" || !text.trim()) throw new Error('The start value is { "text": "..." } with the note, or none.');
-  return text.trim();
-};
 
 export default defineActor(contract, {
   functions: {},
   onInput: () => {
-    throw new Error("The quick note answers only starts; start it again with the note as its start value.");
+    throw new Error("The quick note answers only starts; start it again with the note as its text parameter.");
   },
   onStart: async (start, context) => {
-    const note = noteOf(start.input, context.std.now());
+    const note = start.parameters.text?.trim() ?? `Started at ${context.std.now()}.`;
     const notebook = await context.functions.actor_program_ensure({ name: "notebook" });
     await context.functions.actor_input({ to: `@${notebook.handle}`, message: note });
     context.finish({ note, notebook: notebook.status }, { summary: `Noted: ${note}` });
@@ -2562,7 +2543,7 @@ import test from "node:test";
 import { createTestContext } from "@ragents/server/testing";
 import program from "../src/server.ts";
 
-const start = (input: unknown) => ({ input, options: {}, embedded: true, startedBy: "owner-id", count: 1, room: "quick-note" });
+const start = (parameters: { text?: string }) => ({ parameters, options: {}, embedded: true, startedBy: "owner-id", count: 1, room: "quick-note" });
 
 const note = (status: "active" | "installed" = "installed") => {
   const calls: { name: string; input: unknown }[] = [];
@@ -2584,14 +2565,10 @@ test("sends the note to the shared notebook and reports it", async () => {
   assert.deepEqual(context.finished, [{ result: { note: "Ask about the budget", notebook: "installed" }, summary: "Noted: Ask about the budget" }]);
 });
 
-test("without a start value it notes when it started; an invalid value changes nothing", async () => {
+test("without a text it notes when it started", async () => {
   const { calls, context } = note("active");
-  await program.onStart!(start(null), context);
+  await program.onStart!(start({}), context);
   assert.match(String((calls[1]!.input as { message: string }).message), /^Started at /);
-  const invalid = note();
-  await assert.rejects(async () => program.onStart!(start({ text: "" }), invalid.context), /start value/);
-  assert.deepEqual(invalid.calls, []);
-  assert.deepEqual(invalid.context.finished, []);
 });
 
 test("an ordinary message is refused", async () => {
@@ -2667,8 +2644,8 @@ export interface CapabilityContracts { "actor_input": { input: { /** Artifacts t
 "roslyn_solutions": { input: { [key: string]: unknown }; output: string };
 "run_configure": { input: { /** Handle or ID of the actor the user's chat talks to */ "primaryActor"?: string; /** New title of the run */ "title"?: string; }; output: null };
 "run_list": { input: { /** How many of the newest runs; 5 when omitted */ "limit"?: number; }; output: { /** Whether older runs follow */ "hasMore": boolean; "runs": Array<{ /** ISO time of the run's last change */ "lastActivity": string; /** As the run list shows it; locked for a run whose journal cannot be read */ "status": ("ended") | ("idle") | ("locked") | ("running") | ("stopped") | ("waiting"); /** One line, shortened with ... beyond 200 characters */ "title": string; }>; } };
-"run_script_list": { input: { [key: string]: never }; output: Array<{ "available": boolean; "description": string; "entry": string; "reason"?: string; "title": string; }> };
-"run_script_start": { input: { /** The entry from run_script_list */ "entry": string; /** Start value of the script; omit it for none */ "input"?: unknown; }; output: { "count": number; "handle": string; } };
+"run_script_list": { input: { [key: string]: never }; output: Array<{ "available": boolean; "description": string; "entry": string; "parameters": { [key: string]: unknown }; "reason"?: string; "title": string; }> };
+"run_script_start": { input: { /** The entry from run_script_list */ "entry": string; /** The script's parameters by name; omit it for a script without parameters */ "parameters"?: { [key: string]: unknown }; }; output: { "count": number; "handle": string; } };
 "run_stop": { input: { [key: string]: never }; output: { "requested": true; } };
 "show_document": { input: { /** The complete text you produced yourself; never the content of an existing file, which file_path names instead. file_path and content exclude each other: valid are { title, file_path } for a file read reaches and { title, content } for text you wrote, each with an optional format; exactly one of the two must be set. */ "content"?: string; /** The file to show, named as read names it: relative to the working directory, absolute, or starting with an alias such as @documents; the display reads it, so its content is never retyped. file_path and content exclude each other: valid are { title, file_path } for a file read reaches and { title, content } for text you wrote, each with an optional format; exactly one of the two must be set. */ "file_path"?: string; /** Rendering; defaults to the file extension for a file and to markdown for content */ "format"?: ("html") | ("markdown") | ("text"); /** Title of the display, e.g. the file name */ "title": string; }; output: string };
 "task_output": { input: { /** The ID of the background command, as bash returned it */ "task_id": string; }; output: string };
@@ -2747,17 +2724,19 @@ export interface ActorInput {
     readonly sourceActorId: string | null; readonly sourceActorHandle: string | null; readonly payload: {readonly text?:string; readonly [key:string]:unknown} } | null;
   readonly trigger?: ActorTrigger;
 }
-export interface ActorStart {
-  readonly input: unknown; readonly options: Readonly<Record<string, unknown>>;
+export interface ActorStart<Parameters = Readonly<Record<string, never>>> {
+  /** The run script's parameters, checked by the host against the contract's parameters before the run changed. */
+  readonly parameters: Parameters; readonly options: Readonly<Record<string, unknown>>;
   readonly embedded: boolean; readonly startedBy: string; readonly count: number;
   /** The room this start opened, where the setup actor and everything it creates stand; null in the main room. */
   readonly room: string | null;
 }
 export interface ActorResult { readonly handle: string; readonly count: number; readonly result: unknown; readonly summary?: string }
 export interface ActorFunction { label: string; description?: string; input: TSchema; output: TSchema; capabilities?: readonly string[]; confirmation?: string; tool?: { name: string; targets?: readonly string[]; card?: boolean } }
-export interface ActorContract { state: TSchema; functions: Readonly<Record<string, ActorFunction>>; input?: {capabilities?: readonly string[]} }
+export interface ActorContract { state: TSchema; functions: Readonly<Record<string, ActorFunction>>; input?: {capabilities?: readonly string[]}; parameters?: TSchema }
+export type ActorStartOf<C extends ActorContract> = ActorStart<C extends {parameters: TSchema} ? Static<C['parameters']> : Readonly<Record<string, never>>>;
 export type ActorFunctions<C extends ActorContract> = { [K in keyof C['functions']]: (input: Static<C['functions'][K]['input']>, context: RunContext<Static<C['state']>>) => Static<C['functions'][K]['output']> | Promise<Static<C['functions'][K]['output']>> };
-export type ActorImplementation<C extends ActorContract> = {functions: ActorFunctions<C>} & (C extends {input: unknown} ? {onInput: (input: ActorInput, context: RunContext<Static<C['state']>>) => void | Promise<void>; onStart?: (start: ActorStart, context: RunContext<Static<C['state']>>) => void | Promise<void>; onResult?: (result: ActorResult, context: RunContext<Static<C['state']>>) => void | Promise<void>} : {onInput?: never; onStart?: never; onResult?: never});
+export type ActorImplementation<C extends ActorContract> = {functions: ActorFunctions<C>} & (C extends {input: unknown} ? {onInput: (input: ActorInput, context: RunContext<Static<C['state']>>) => void | Promise<void>; onStart?: (start: ActorStartOf<C>, context: RunContext<Static<C['state']>>) => void | Promise<void>; onResult?: (result: ActorResult, context: RunContext<Static<C['state']>>) => void | Promise<void>} : {onInput?: never; onStart?: never; onResult?: never});
 export declare function defineActor<const C extends ActorContract>(contract: C, implementation: ActorImplementation<C>): {contract:C} & ActorImplementation<C>;
 export type ProgramWeekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 /** An absolute ISO time, a duration after the program first reached the wait, or the latest daily or weekday wall time since then. */

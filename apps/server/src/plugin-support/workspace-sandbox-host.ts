@@ -36,6 +36,7 @@ import {
   workspaceProcessContext,
   type AddressedRoots,
   type BrowserNetworkPolicy,
+  type ProcessSandbox,
   type ResolvedWorkspaceRoot,
   type SandboxHomeEnvironment,
   type SeenFile,
@@ -76,6 +77,8 @@ export interface SandboxServices {
   /** The context for work that runs on the server (TypeScript platform, actor programs); never the folder of a workstation. */
   serverProcessContextFor: (runId: string) => Promise<WorkspaceProcessContext>;
   isolatedProcessContextFor: (runId: string, directories: readonly string[], readable: readonly string[]) => Promise<WorkspaceProcessContext>;
+  /** The sandbox for a check of the profile's own packages outside any run: only these folders, as for a package-isolated program; none only if the operator turned the sandbox off. */
+  isolatedSandbox: (writable: readonly string[], readable: readonly string[]) => Promise<ProcessSandbox | undefined>;
   /** Bootstrap a contributed server workspace without recursively resolving it or caching its temporary roots. */
   serverProcessContextForWorkspace?: (runId: string, workspace: SessionWorkspace) => Promise<WorkspaceProcessContext>;
   registerWorkspaceRoot: (root: RegisteredWorkspaceRoot) => void;
@@ -106,6 +109,7 @@ export interface WorkspaceSandboxHostOptions {
   processSandbox?: RunProcessSandboxes;
   processSandboxFor?: (runId: string) => Promise<RunProcessSandboxes | undefined>;
   isolatedProcessSandboxFor?: (runId: string) => Promise<RunProcessSandboxes | undefined>;
+  isolatedProcessSandbox?: () => Promise<RunProcessSandboxes | undefined>;
   restrictedFor?: (runId: string) => boolean;
   /** The bash of this server's executor; required on Windows, otherwise the system's when not set. */
   bash?: string;
@@ -347,6 +351,15 @@ export class WorkspaceSandboxHost implements SandboxServices {
       env: withoutPrivateEnvironment({ ...safeProcessEnvironment(context.env), HOME: own, USERPROFILE: own, TMPDIR: temporary, TMP: temporary, TEMP: temporary, CLAUDE_CODE_TMPDIR: temporary }),
       sandbox,
     };
+  }
+
+  async isolatedSandbox(writable: readonly string[], readable: readonly string[]): Promise<ProcessSandbox | undefined> {
+    const sandboxes = await this.#options.isolatedProcessSandbox?.();
+    if (!sandboxes) return undefined;
+    const folders = await Promise.all(writable.map(resolvedWorkspacePath));
+    const temporaryDirectory = path.join(folders[0]!, ".build", "tmp");
+    await mkdir(temporaryDirectory, { recursive: true });
+    return sandboxes.forRun({ writable: folders, readable: await Promise.all(readable.map(resolvedWorkspacePath)), temporary: await realpath(temporaryDirectory), isolated: true });
   }
 
   async serverProcessContextForWorkspace(runId: string, workspace: SessionWorkspace): Promise<WorkspaceProcessContext> {

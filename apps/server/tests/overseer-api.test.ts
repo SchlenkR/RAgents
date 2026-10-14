@@ -112,7 +112,7 @@ test("the management methods validate input, resolve references, page events and
   for (const input of [{ limit: 0 }, { limit: 201 }, { limit: 1.5 }, { limit: "no" }, { after: -1 }, { type: "made.up" }, { unknown: 1 }]) {
     assert.equal((await failure(overseerContracts.readEvents.id, { run: "first", ...input })).code, RPC_ERROR_CODES.invalidParams, JSON.stringify(input));
   }
-  for (const input of [{ title: "x" }, { title: "x", message: "hi", script: "test.script" }, { title: "x", message: "hi", input: {} }, { title: " ", message: "hi" }, { title: "x", message: " " }, { title: "x", script: "test.script", packageDirectory: directory }]) {
+  for (const input of [{ title: "x" }, { title: "x", message: "hi", script: "test.script" }, { title: "x", message: "hi", parameters: {} }, { title: "x", script: "test.script", input: {} }, { title: "x", script: "test.script", parameters: "topic" }, { title: "x", script: "test.script", parameters: ["topic"] }, { title: " ", message: "hi" }, { title: "x", message: " " }, { title: "x", script: "test.script", packageDirectory: directory }]) {
     assert.equal((await failure(overseerContracts.createRun.id, input)).code, RPC_ERROR_CODES.invalidParams, JSON.stringify(input));
   }
   assert.equal((await failure(overseerContracts.createRun.id, { title: "x", packageDirectory: "relative" })).data?.code, "invalid-package-directory");
@@ -130,10 +130,10 @@ test("the management methods validate input, resolve references, page events and
   assert.equal(created.accepted, true);
   assert.deepEqual(starts[0], { kind: "message", title: "New task", user: { id: "inspector", label: "Inspector" }, message: "Hello", options: { "test.language": "en" } });
   pauseCreate = false;
-  assert.ok((await call(overseerContracts.createRun.id, { title: "Script", script: "Preparation", input: { topic: "Test" } })).result);
-  assert.deepEqual(starts[1], { kind: "script", title: "Script", user: { id: "inspector", label: "Inspector" }, entryId: "test.script", input: { topic: "Test" } });
-  assert.ok((await call(overseerContracts.createRun.id, { title: "Package", packageDirectory: directory, input: { size: 2 } })).result);
-  assert.deepEqual(starts[2], { kind: "package", title: "Package", user: { id: "inspector", label: "Inspector" }, directory, input: { size: 2 }, owner: "ragents.overseer" });
+  assert.ok((await call(overseerContracts.createRun.id, { title: "Script", script: "Preparation", parameters: { topic: "Test" } })).result);
+  assert.deepEqual(starts[1], { kind: "script", title: "Script", user: { id: "inspector", label: "Inspector" }, entryId: "test.script", parameters: { topic: "Test" } });
+  assert.ok((await call(overseerContracts.createRun.id, { title: "Package", packageDirectory: directory, parameters: { size: 2 } })).result);
+  assert.deepEqual(starts[2], { kind: "package", title: "Package", user: { id: "inspector", label: "Inspector" }, directory, parameters: { size: 2 }, owner: "ragents.overseer" });
   assert.ok((await call(overseerContracts.sendMessage.id, { run: created.runId, message: " Check " })).result);
   assert.deepEqual(sends, [[created.runId, "Check"]]);
   assert.ok((await call(overseerContracts.stopRun.id, { run: created.runId })).result);
@@ -143,8 +143,10 @@ test("the management methods validate input, resolve references, page events and
   assert.deepEqual(catalog.options[0].schema, JSON.parse(JSON.stringify(host.startOptions.entries()[0].option.schema)));
   assert.equal(catalog.options[0].value, "de");
   assert.deepEqual(catalog.entries.map((entry) => entry.id), ["test.script"]);
-  assert.ok((await call(overseerContracts.createRun.id, { title: "Row action", script: "test.internal", input: { row: 3 } })).result);
-  assert.deepEqual(starts[3], { kind: "script", title: "Row action", user: { id: "inspector", label: "Inspector" }, entryId: "test.internal", input: { row: 3 } });
+  assert.ok((await call(overseerContracts.createRun.id, { title: "Row action", script: "test.internal", parameters: { row: 3 } })).result);
+  assert.deepEqual(starts[3], { kind: "script", title: "Row action", user: { id: "inspector", label: "Inspector" }, entryId: "test.internal", parameters: { row: 3 } });
+  assert.ok((await call(overseerContracts.createRun.id, { title: "Without parameters", script: "Preparation" })).result);
+  assert.deepEqual(starts[4], { kind: "script", title: "Without parameters", user: { id: "inspector", label: "Inspector" }, entryId: "test.script", parameters: {} }, "a start without parameters carries none");
   const unknown = await call(overseerContracts.createRun.id, { title: "Unknown", script: "missing" });
   assert.doesNotMatch(unknown.error?.message ?? "", /test.internal/);
   const reference = (await call(overseerContracts.readReference.id, {})).result as string;

@@ -59,6 +59,7 @@ export interface RunWorkspaceRuntimeOptions {
   processSandbox?: RunProcessSandboxes;
   processSandboxFor?: (runId: string) => Promise<RunProcessSandboxes | undefined>;
   isolatedProcessSandboxFor?: (runId: string) => Promise<RunProcessSandboxes | undefined>;
+  isolatedProcessSandbox?: () => Promise<RunProcessSandboxes | undefined>;
   restrictedFor?: (runId: string) => boolean;
   /** The server's bash from RAGENTS_BASH; required on Windows for the bash tool. */
   bash?: string;
@@ -172,6 +173,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
       ...(options.processSandbox ? { processSandbox: options.processSandbox } : {}),
       ...(options.processSandboxFor ? { processSandboxFor: options.processSandboxFor } : {}),
       ...(options.isolatedProcessSandboxFor ? { isolatedProcessSandboxFor: options.isolatedProcessSandboxFor } : {}),
+      ...(options.isolatedProcessSandbox ? { isolatedProcessSandbox: options.isolatedProcessSandbox } : {}),
       ...(options.restrictedFor ? { restrictedFor: options.restrictedFor } : {}),
       ...(options.bash === undefined ? {} : { bash: options.bash }),
       ...(options.rg === undefined ? {} : { rg: options.rg }),

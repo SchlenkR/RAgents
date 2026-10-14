@@ -5,21 +5,11 @@ const contract = {
   state: Type.Object({ built: Type.Optional(Type.Boolean()) }, { additionalProperties: false }),
   functions: {},
   input: { capabilities: ["model_list", "agent_spawn", "actor_program_activate", "actor_input", "run_configure"] },
+  parameters: Type.Object({
+    title: Type.Optional(Type.String({ minLength: 1, maxLength: 160, pattern: "\\S", description: "What the collection board collects" })),
+    firstEntry: Type.Optional(Type.String({ minLength: 1, maxLength: 2000, pattern: "\\S", description: "The first entry of the list" })),
+  }),
 } as const;
-
-const settingsFrom = (value: unknown): { title: string; firstEntry: string } => {
-  if (value === null) return { title: "Shared list", firstEntry: "Hello from the run script" };
-  if (typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("The start value needs title (1 to 160 characters) and firstEntry (1 to 2000 characters).");
-  }
-  const settings = value as Record<string, unknown>;
-  if (Object.keys(settings).some((key) => key !== "title" && key !== "firstEntry")
-    || typeof settings.title !== "string" || !settings.title.trim() || settings.title.trim().length > 160
-    || typeof settings.firstEntry !== "string" || !settings.firstEntry.trim() || settings.firstEntry.trim().length > 2000) {
-    throw new Error("The start value needs title (1 to 160 characters) and firstEntry (1 to 2000 characters).");
-  }
-  return { title: settings.title.trim(), firstEntry: settings.firstEntry.trim() };
-};
 
 /** The address of a name of this start's room as the coordinator in the main room writes it. */
 const addressIn = (room: string | null, name: string): string => room === null ? name : `${room}.${name}`;
@@ -29,9 +19,8 @@ export default defineActor(contract, {
   onInput: () => {},
   onStart: async (start, context) => {
     if (context.state.read().built) return;
-    const settings = settingsFrom(start.input);
-    const title = settings.title;
-    const firstEntry = settings.firstEntry;
+    const title = start.parameters.title?.trim() ?? "Shared list";
+    const firstEntry = start.parameters.firstEntry?.trim() ?? "Hello from the run script";
 
     const catalog = await context.functions.model_list({});
     const profiles = catalog.profiles.filter((profile) => profile.driver === "agent" && profile.name !== "coordinator");

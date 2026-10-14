@@ -37,7 +37,7 @@ const create = async (context: ManagementContext, body: CreateInput, access: Acc
   const runId = await (async () => {
     if ("packageDirectory" in body) {
       if (!path.isAbsolute(body.packageDirectory)) throw new DomainError("invalid-package-directory", "packageDirectory must be an absolute server path", 400);
-      return context.management().create({ ...common, kind: "package", directory: body.packageDirectory, input: (body.input ?? null) as JsonValue, owner: OVERSEER_PLUGIN_ID }, signal);
+      return context.management().create({ ...common, kind: "package", directory: body.packageDirectory, parameters: (body.parameters ?? {}) as Readonly<Record<string, JsonValue>>, owner: OVERSEER_PLUGIN_ID }, signal);
     }
     if ("script" in body) {
       const entries = context.root.startEntries.describe().filter((entry) => entry.action === "script");
@@ -46,7 +46,7 @@ const create = async (context: ManagementContext, body: CreateInput, access: Acc
       const direct = entries.find((entry) => entry.id === body.script.trim());
       const matching = direct ? [direct] : listed.filter((entry) => entry.title.toLocaleLowerCase("en-US") === wanted);
       if (matching.length !== 1) throw new DomainError("invalid-script", `The run script is unknown or ambiguous. Valid titles and ids: ${listed.map((entry) => `${entry.title} (${entry.id})`).join(", ") || "none"}`, 400);
-      return context.management().create({ ...common, kind: "script", entryId: matching[0].id, input: (body.input ?? null) as JsonValue }, signal);
+      return context.management().create({ ...common, kind: "script", entryId: matching[0].id, parameters: (body.parameters ?? {}) as Readonly<Record<string, JsonValue>> }, signal);
     }
     return context.management().create({ ...common, kind: "message", message: body.message.trim() }, signal);
   })();

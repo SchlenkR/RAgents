@@ -94,6 +94,15 @@ export const coreMethods = (sources: CoreMethodSources): MethodContribution[] =>
     assertRunRights(access, runId, kind, policy);
     return sessions.get(runId);
   };
+  /** The released template, and for chosen start options the same rights a separate choice needs. */
+  const startableEntry = (access: AccessContext, entry: string, options: Readonly<Record<string, unknown>> | undefined): string => {
+    const trimmed = entry.trim();
+    if (!canStartEntry(access, trimmed)) throw new DomainError("access-denied", "This setup is not enabled for this access.", 403);
+    const chosen = Object.keys(options ?? {});
+    if (chosen.length > 0 && !access.can("runs.create")) throw new DomainError("access-denied", "Choosing start options needs runs.create.", 403);
+    for (const optionId of chosen) sources.plugins.startOptions.assertRights(optionId, access);
+    return trimmed;
+  };
   const assertMaySend = (access: AccessContext, runId: string) => {
     if (!access.can("runs.create") && !sessions.hasRun?.(runId) && !global?.isCoordinator(runId)) throw new DomainError("access-denied", "Free runs are not enabled for this access.", 403);
   };
@@ -136,24 +145,28 @@ export const coreMethods = (sources: CoreMethodSources): MethodContribution[] =>
       await guardedForUser(access, () => current.sendToActor!(actorId, message.text, message.attachments, userOf(access), signal));
       return null;
     }),
-    implement(coreContracts.chat.start, async ({ runId, entry, input }, { access }) => {
-      const trimmed = entry.trim();
-      if (!canStartEntry(access, trimmed)) throw new DomainError("access-denied", "This setup is not enabled for this access.", 403);
+    implement(coreContracts.chat.start, async ({ runId, entry, parameters, options }, { access }) => {
+      const trimmed = startableEntry(access, entry, options);
       const current = await session(access, runId, "write");
-      current.start(trimmed, input === undefined ? null : input, userOf(access));
+      await current.start(trimmed, { parameters, options }, userOf(access));
       return null;
     }),
-    implement(coreContracts.runs.scripts, async ({ runId }, { access }) => {
+    implement(coreContracts.runs.scripts, async ({ runId }, { access, signal }) => {
       const current = await session(access, runId, "write");
       if (!current.runScripts) throw new DomainError("script-start-unavailable", "This run cannot start run scripts.", 404);
-      return current.runScripts(sources.plugins.startEntries.describe().filter((entry) => canStartEntry(access, entry.id)), userIdOf(access));
+      return current.runScripts(sources.plugins.startEntries.describe().filter((entry) => canStartEntry(access, entry.id)), userIdOf(access), signal);
     }),
-    implement(coreContracts.runs.startScript, async ({ runId, entry, input }, { access, signal }) => {
-      const trimmed = entry.trim();
-      if (!canStartEntry(access, trimmed)) throw new DomainError("access-denied", "This setup is not enabled for this access.", 403);
+    implement(coreContracts.runs.scriptParameters, async ({ runId, entry }, { access, signal }) => {
+      const trimmed = startableEntry(access, entry, undefined);
+      const current = await session(access, runId, "write");
+      if (!current.scriptParameters) throw new DomainError("script-start-unavailable", "This run cannot start run scripts.", 404);
+      return current.scriptParameters(trimmed, signal);
+    }),
+    implement(coreContracts.runs.startScript, async ({ runId, entry, parameters, options }, { access, signal }) => {
+      const trimmed = startableEntry(access, entry, options);
       const current = await session(access, runId, "write");
       if (!current.startAndWait) throw new DomainError("script-start-unavailable", "This run cannot start run scripts.", 404);
-      return current.startAndWait(trimmed, input === undefined ? null : input, userOf(access), undefined, signal);
+      return current.startAndWait(trimmed, { parameters, options }, userOf(access), undefined, signal);
     }),
     implement(coreContracts.chat.capabilities, async ({ runId, actor }, { access }) => {
       const current = await session(access, runId, "read");

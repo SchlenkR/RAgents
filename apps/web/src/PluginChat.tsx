@@ -30,7 +30,7 @@ import { withToolSummaries } from "./toolLine";
 import { runViewFrom } from "./run-view";
 import { StartOptionControls, StartOptionPresetErrors, StartOptionsProvider, useStartOptions } from "./StartOptions";
 import { useAttachmentCapabilities } from "./chat/useAttachmentCapabilities";
-import { StartEntryDialog } from "./StartEntryDialog";
+import { StartEntryDialog, type StartPrompt } from "./StartEntryDialog";
 import { StatusGroup } from "./StatusGroup";
 import { RunPanelHeader } from "./run-panel/RunPanelHeader";
 import { DockToolsContext, DockWorkspace, type DockPanelDrag, type DockPanelOpen } from "./run-panel/DockWorkspace";
@@ -50,7 +50,6 @@ import {
   primaryChatActor,
   useSurfaceController,
   type ChatDisplayOptions,
-  type EntryGuideContribution,
   type PluginEvent,
   type PluginRegistry,
   type SessionContext,
@@ -65,10 +64,10 @@ const chatElementClass = "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col ove
 /** The shared run panel or one mini-app in an editor. */
 export type ChatLayout = "panel" | { element: string };
 
-/** A draft that shows only the guide of its template until the run starts. */
+/** A draft that shows only the guide or parameter form of its template until the run starts. */
 export interface StartDialog {
   readonly entry: StartEntry;
-  readonly guide: EntryGuideContribution;
+  readonly prompt: StartPrompt;
   readonly onClose: () => void;
 }
 
@@ -345,7 +344,7 @@ function ChatWorkspace({
     return {
       ...session,
       send: (text, attachments, entryId) => attempt(() => session.send(text, attachments, entryId)),
-      start: (entryId, input) => attempt(() => session.start(entryId, input)),
+      start: (entryId, parameters) => attempt(() => session.start(entryId, parameters)),
     };
   }, [onStarted, session]);
   const attention = registry.attention
@@ -380,7 +379,7 @@ function ChatWorkspace({
     />
   );
 
-  if (startDialog) return <StartEntryDialog entry={startDialog.entry} guide={startDialog.guide} onClose={startDialog.onClose} onStarted={onStarted} registry={registry} session={startSession} />;
+  if (startDialog) return <StartEntryDialog entry={startDialog.entry} onClose={startDialog.onClose} onStarted={onStarted} prompt={startDialog.prompt} registry={registry} session={startSession} />;
 
   const status = registry.sessionStatus.filter((entry) => !entry.readRight || access.can(entry.readRight)).map(({ id, order, Status }) => <StatusGroup container={statusContainer} key={id} label="Run actions" order={order}>
     <Status navigation={navigation} session={session} />

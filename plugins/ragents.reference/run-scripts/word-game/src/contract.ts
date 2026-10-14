@@ -20,4 +20,5 @@ export const contract = {
     },
   },
   input: { capabilities: ["model_list", "agent_spawn", "run_configure", "event_subscribe", "event_query", "actor_input"] },
+  parameters: Type.Object({}),
 } as const;

@@ -5,6 +5,7 @@ const contract = {
   state: Type.Object({ built: Type.Optional(Type.Boolean()) }, { additionalProperties: false }),
   functions: {},
   input: { capabilities: ["model_list", "agent_spawn", "actor_program_activate", "run_configure"] },
+  parameters: Type.Object({}),
 } as const;
 
 const instructions = `You conduct a balcony interview in a standalone app. The user sees your current question or, at the end, your recommendation. You have no tools and answer as normal text.

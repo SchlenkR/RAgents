@@ -12,7 +12,7 @@ test("topic and number of rounds control participants and task", async () => {
   assert.match(JSON.stringify(calls.at(-1)), /exactly 3 conversation rounds/);
   assert.deepEqual(context.state.read(), { built: true });
   const completedCalls = calls.length;
-  await program.onStart!(start(null), context);
+  await program.onStart!(start({}), context);
   await program.onInput!(message("Hello"), context);
   assert.equal(calls.length, completedCalls);
 });
@@ -20,7 +20,7 @@ test("topic and number of rounds control participants and task", async () => {
 test("the coordinator gets the participants' addresses from the main room, in the room this start actually opened", async () => {
   const task = async (room: string | null) => {
     const { calls, context } = setupContext();
-    await program.onStart!(start(null, room), context);
+    await program.onStart!(start({}, room), context);
     return calls.at(-1)?.input as { to: string; message: string };
   };
   const repeated = await task("conversation-circle-2");
@@ -29,15 +29,9 @@ test("the coordinator gets the participants' addresses from the main room, in th
   assert.match((await task(null)).message, /^The circle is ready: @mira, @jon, @ada are set up\./);
 });
 
-test("null has an explicit default, invalid values have no effect", async () => {
-  const initial = setupContext();
-  await program.onStart!(start(null), initial.context);
-  assert.match(JSON.stringify(initial.calls), /Should city centers become car-free/);
-  assert.match(JSON.stringify(initial.calls.at(-1)), /exactly 2 conversation rounds/);
-  for (const input of [{ topic: "Plan" }, { topic: "", rounds: 2 }, { topic: "Plan", rounds: 6 }, { topic: "Plan", rounds: 1.5 }, { topic: "Plan", rounds: 2, extra: true }, "Plan"]) {
-    const { calls, context } = setupContext();
-    await assert.rejects(async () => program.onStart!(start(input), context), /start value needs topic/);
-    assert.deepEqual(calls, []);
-    assert.deepEqual(context.state.read(), {});
-  }
+test("without parameters the circle has an explicit topic and two rounds", async () => {
+  const { calls, context } = setupContext();
+  await program.onStart!(start({}), context);
+  assert.match(JSON.stringify(calls), /Should city centers become car-free/);
+  assert.match(JSON.stringify(calls.at(-1)), /exactly 2 conversation rounds/);
 });
