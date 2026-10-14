@@ -2133,8 +2133,9 @@ The choice follows the role, not taste:
 - Icon buttons are `Button` with `size="icon"` (smaller `icon-xs`, small `icon-sm`, large `icon-lg`), a
   lucide icon as child, and a required `aria-label`; their meaning stays available to assistive technology.
   Prefer a visible label when the icon alone would be unclear.
-  Close and Back in dialog headers are round icon buttons (`rounded-full`) with an X
-  or an arrow. The overview corner on the left of the header is deliberately not a
+  `shape="round"` makes any button a circle (a pill with text), also inside a button group; icon
+  sizes stay those of `size`. Close and Back in dialog headers are round outline icon buttons with an X
+  or an arrow, and a round outline play button with a primary icon starts something from a row. The overview corner on the left of the header is deliberately not a
   library button (see below).
 - `size="sm"` in rows, cards, and toolbars, `size="lg"` for highlighted
   header actions, otherwise the default height.

@@ -198,7 +198,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
           <DialogTitle render={<strong />}>Settings</DialogTitle>
           <span className="truncate text-[0.7rem] text-muted-foreground max-[520px]:hidden">Adjust models and appearance</span>
         </span>
-        <Button aria-label="Close" className="rounded-full" onClick={onClose} ref={closeRef} size="icon" variant="outline">
+        <Button aria-label="Close" shape="round" onClick={onClose} ref={closeRef} size="icon" variant="outline">
           <XIcon />
         </Button>
       </header>
@@ -667,7 +667,7 @@ function SkillDetail({ onBack, skill }: { onBack: () => void; skill: SettingsSki
   return (
     <div className={settingsPageClass}>
       <header className="grid justify-items-start gap-3">
-        <Button aria-label="Back to contributions" className="rounded-full" onClick={onBack} size="icon" variant="outline"><ArrowLeftIcon /></Button>
+        <Button aria-label="Back to contributions" shape="round" onClick={onBack} size="icon" variant="outline"><ArrowLeftIcon /></Button>
         <span className="grid gap-1">
           <h2 className={settingsPageTitleClass}>{skill.id}</h2>
           <p className="text-[0.73rem] text-muted-foreground">{skill.owner}{files.length > 0 && ` / ${files.length} ${files.length === 1 ? "file" : "files"}`}</p>

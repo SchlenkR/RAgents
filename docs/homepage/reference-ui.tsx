@@ -167,7 +167,7 @@ function ControlsShowcase() {
         <Button size="sm" variant="outline">Small</Button>
         <Button size="lg" variant="outline">Large</Button>
         <TooltipProvider>
-          <Tooltip><TooltipTrigger render={<Button aria-label="Close" className="rounded-full" size="icon" variant="outline" />}><XIcon /></TooltipTrigger><TooltipContent>Close</TooltipContent></Tooltip>
+          <Tooltip><TooltipTrigger render={<Button aria-label="Close" shape="round" size="icon" variant="outline" />}><XIcon /></TooltipTrigger><TooltipContent>Close</TooltipContent></Tooltip>
           <Tooltip><TooltipTrigger render={<Button aria-label="Back" size="icon" variant="ghost" />}><ArrowLeftIcon /></TooltipTrigger><TooltipContent>Back</TooltipContent></Tooltip>
         </TooltipProvider>
         <Button size="sm" variant="ghost"><Trash2Icon />With icon</Button>

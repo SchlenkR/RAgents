@@ -362,7 +362,7 @@ export function DocumentModal({ document, onClose }: DocumentModalProps) {
         <DialogTitle className={copyClass} render={<span />}>
           <DocumentHead document={document} />
         </DialogTitle>
-        <Button aria-label="Close" className="rounded-full" onClick={onClose} size="icon" aria-description="Close" variant="outline">
+        <Button aria-label="Close" shape="round" onClick={onClose} size="icon" aria-description="Close" variant="outline">
           <XIcon />
         </Button>
       </header>

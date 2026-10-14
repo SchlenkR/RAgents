@@ -136,7 +136,7 @@ export function ListDetail({ label, items, selectedId, onSelect, disabled = fals
         data-tone={selected?.tone ?? "neutral"}
         id={`${prefix}-detail`} ref={detailRef} tabIndex={-1}>
         {selected ? <>
-          <div className="hidden flex-none border-b border-border-soft px-4 py-3 @max-[900px]/list-detail:flex"><Button aria-label="Back to selection" className="rounded-full" onClick={returnToList} size="icon" variant="outline"><ArrowLeftIcon /></Button></div>
+          <div className="hidden flex-none border-b border-border-soft px-4 py-3 @max-[900px]/list-detail:flex"><Button aria-label="Back to selection" shape="round" onClick={returnToList} size="icon" variant="outline"><ArrowLeftIcon /></Button></div>
           {detailHeader !== undefined && <header className="flex-none border-b border-border-soft bg-(--tone-soft) px-6 py-6 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 @max-[900px]/list-detail:p-4">{detailHeader}</header>}
           <div aria-label={`${detailLabel}: content`} className={cn(paneClasses, focusRing, "flex-1 px-6 py-6 text-[0.8rem] leading-[1.7] [overflow-wrap:anywhere] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 @max-[900px]/list-detail:p-4")} role="region" tabIndex={0}>{children}</div>
           {detailFooter !== undefined && <footer className="flex flex-none flex-wrap items-center gap-3 border-t border-border-soft px-6 py-4 @max-[900px]/list-detail:px-4 @max-[900px]/list-detail:py-4">{detailFooter}</footer>}

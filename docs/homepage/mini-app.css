@@ -3462,6 +3462,9 @@
   :where([data-severity="warning"]) .in-data-\[severity\=warning\]\:text-warning {
     color: var(--warning);
   }
+  :where([data-slot="button-group"]) .in-data-\[slot\=button-group\]\:rounded-full {
+    border-radius: calc(infinity * 1px);
+  }
   :where([data-slot="button-group"]) .in-data-\[slot\=button-group\]\:rounded-lg {
     border-radius: var(--radius);
   }

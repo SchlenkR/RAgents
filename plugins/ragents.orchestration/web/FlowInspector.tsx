@@ -202,7 +202,7 @@ export function FlowInspector(props: FlowInspectorProps) {
 
 function BackButton({ canGoBack, onBack }: { canGoBack: boolean; onBack: () => void }) {
   if (!canGoBack) return null;
-  return <Button aria-label="Back" className="rounded-full" onClick={onBack} size="icon" variant="outline"><ArrowLeftIcon /></Button>;
+  return <Button aria-label="Back" shape="round" onClick={onBack} size="icon" variant="outline"><ArrowLeftIcon /></Button>;
 }
 
 function StatusPill({ status }: { status: string }) {

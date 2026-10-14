@@ -1,5 +1,14 @@
 # Decisions
 
+## 2026-10-14: Round buttons are a Button shape
+
+Chapter: `spec/plugins.md` (Web as plugin host; button roles).
+
+Round icon buttons were `Button` plus `className="rounded-full"` in six places, and a plugin's play
+button needed its own size and icon tweaks to match them. `Button` now takes `shape="round"`, which
+also holds inside a button group, and the existing round buttons use it; sizes and icons stay those of
+`size`, so a round button looks like its square siblings.
+
 ## 2026-10-14: Clickable rows show the pointer cursor
 
 Chapter: `spec/plugins.md` (Web as plugin host; DataGrid, interaction states).
