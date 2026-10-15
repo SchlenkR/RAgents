@@ -899,6 +899,15 @@ first chat message does not start them.</p>
 startup fails. The address stays fixed and a running instance is not terminated. An explicitly
 set <code>PORT</code> must be between 1 and 65535; 0 is invalid. The final server message displays the URL.
 A warning about JavaScript bundle size does not prevent startup.</p>
+<p>By default, the server listens on all interfaces of the machine. To restrict it, for example to
+loopback behind a reverse proxy on the same machine, set <code>host.BIND_ADDRESS</code> in the profile file
+or <code>BIND_ADDRESS</code> in the environment; <code>ragents start &lt;profile&gt; --bind-address &lt;address&gt;</code> overrides
+both. The value is an IPv4 or IPv6 address without brackets, such as <code>127.0.0.1</code> or <code>::1</code>, or
+<code>localhost</code>; <code>0.0.0.0</code> and <code>::</code> mean all interfaces. Any other value, or an address that does not
+belong to the machine, stops the start with a message that names it. The setting is not called
+<code>HOST</code> because many shells define that variable as the machine name. The final server message and
+the address of the remembered host, which <code>ragents run</code> and <code>ragents stop --host</code> use, name the
+bound address. A host bound to an address other than loopback does not answer on <code>localhost</code>.</p>
 <h2 id="restart-the-server">Restart the server</h2>
 <p>Stop the server normally, then start the same profile. By default, actors that were working
 continue automatically in new turns. The journal preserves completed steps, and agents receive

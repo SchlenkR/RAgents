@@ -2,6 +2,7 @@ import { createServer, STATUS_CODES, type IncomingMessage, type Server, type Ser
 import { monitorEventLoopDelay } from "node:perf_hooks";
 import { timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import type { AddressInfo } from "node:net";
 import path from "node:path";
 import type { Duplex } from "node:stream";
 import { ACCESS_TOKEN_QUERY, createAccessContext, DomainError, type AccessContext } from "@ragents/engine";
@@ -12,6 +13,7 @@ import { assertRunAccess } from "./api/rights.js";
 import { RpcDispatcher } from "./rpc/dispatcher.js";
 import { RpcHttpTransport } from "./rpc/http-transport.js";
 import { startStdioTransport } from "./rpc/stdio-transport.js";
+import { localHttpUrl } from "./bind-address.js";
 import { config, HOST_SECRET_ENV_NAMES, hostConfigKeys } from "./config.js";
 import { configuredAnonymousUser, configuredDefaultStartEntry, configuredUsers, validateConfigFileSections } from "./config-file.js";
 import { createAccessSessionManager, isSameOriginRequest } from "./access-session.js";
@@ -182,14 +184,14 @@ const composition: ProfileComposition = {
   ...(defaultStartEntry !== undefined ? { defaultStartEntry } : {}),
 };
 
-/** Binds the port and returns the one actually bound; a port in use aborts the start. */
-const listenOn = (target: Server, port: number, host: string | undefined): Promise<number> => new Promise((resolve, reject) => {
+/** Binds the port and returns the address actually bound; a port in use aborts the start. */
+const listenOn = (target: Server, port: number, host: string | undefined): Promise<AddressInfo> => new Promise((resolve, reject) => {
   target.once("error", reject);
   target.listen(port, host, () => {
     target.off("error", reject);
     const address = target.address();
     if (!address || typeof address === "string") reject(new Error(`The server is not listening on a TCP port: ${String(address)}`));
-    else resolve(address.port);
+    else resolve(address);
   });
 });
 
@@ -197,8 +199,9 @@ const listenOn = (target: Server, port: number, host: string | undefined): Promi
 const opened = Promise.withResolvers<void>();
 const server = createServer((req, res) => { void opened.promise.then(() => handleRequest(req, res)); });
 server.on("upgrade", (req: IncomingMessage, socket: Duplex, head: Buffer) => { void opened.promise.then(() => handleUpgrade(req, socket, head)); });
-const port = withoutHttp ? undefined : await listenOn(server, config.port, announce ? "127.0.0.1" : undefined);
-const provider = new RunSessionProvider((bridges) => composeProfile(composition, bridges), port === undefined ? undefined : `http://127.0.0.1:${port}`);
+const bound = withoutHttp ? undefined : await listenOn(server, config.port, config.bindAddress ?? (announce ? "127.0.0.1" : undefined));
+const apiAddress = bound === undefined ? undefined : localHttpUrl(bound.address, bound.port, "127.0.0.1");
+const provider = new RunSessionProvider((bridges) => composeProfile(composition, bridges), apiAddress);
 validateConfigFileSections({
   hostKeys: hostConfigKeys,
   knownPluginIds: loaded.known,
@@ -404,10 +407,10 @@ async function handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer)
 }
 
 opened.resolve();
-if (port !== undefined) {
-  console.log(`${productTitle} server: http://localhost:${port} (workspace mode: ${workspaceMode}, data: ${config.dataDir})`);
+if (bound !== undefined) {
+  console.log(`${productTitle} server: ${localHttpUrl(bound.address, bound.port)} (workspace mode: ${workspaceMode}, data: ${config.dataDir})`);
   if (announce) {
-    process.stdout.write(`${JSON.stringify({ ragents: { url: `http://127.0.0.1:${port}`, token: process.env.ACCESS_TOKEN ?? null, pid: process.pid } })}\n`);
+    process.stdout.write(`${JSON.stringify({ ragents: { url: apiAddress, token: process.env.ACCESS_TOKEN ?? null, pid: process.pid } })}\n`);
   }
 }
 if (stdioMode) {

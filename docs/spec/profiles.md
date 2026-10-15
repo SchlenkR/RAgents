@@ -22,6 +22,19 @@ before the start. The server checks it again after loading the configuration, be
 initializes plugins. A port in use is a clear start error; neither is another address chosen nor
 is a running instance terminated. The start message names the fixed URL and storage location.
 
+`host.BIND_ADDRESS` names the interface the server listens on; without it, the server listens on
+all interfaces. An explicitly set environment variable `BIND_ADDRESS` overrides the profile, and
+`--bind-address` of the server, of `ragents start`, and of `ragents connect` overrides both. The value
+is an IPv4 or IPv6 address without brackets, port, or zone, or `localhost`, which the system
+resolves to one loopback address; `0.0.0.0` and `::` stay all interfaces. Any other value, an
+empty one included, is a hard start error that names the value (`apps/server/src/bind-address.ts`).
+The key is not called `HOST` because shells such as zsh and tcsh define `HOST` as the machine
+name. With an address, the port check of the server and of `scripts/start.sh` tries that address
+only, and an address the machine does not have is a start error. The start message, the address
+that `ragents run`, the remembered `host.json`, and the dev mode's `API_TARGET` use, and
+`RAGENTS_API_BASE_URL` for the host's own tools name the interface actually bound; only all
+interfaces are reached as `localhost`, for the host's own tools as `127.0.0.1`.
+
 `host.RESUME_AFTER_RESTART` is a boolean, default `true`. Only `true` and `false` are valid
 environment values. Setting it to `false` prevents automatic continuation of turns interrupted
 by a server stop for every run in the profile. The existing run start option
@@ -378,14 +391,15 @@ takes the web of its host (section Server-delivered profiles).
 
 The server knows three start modes (`pnpm start -- <arguments>`, `apps/server/src/main.ts`):
 `--port N` listens as before on the port of the profile or the environment and aborts if the port
-is in use; `--port 0` listens on a free port only on `127.0.0.1`, generates an access token per
-process without configured users and without `ACCESS_TOKEN`, and writes the announcement
+is in use; `--port 0` listens on a free port only on `127.0.0.1` (unless `BIND_ADDRESS` or
+`--bind-address <address>` names an interface), generates an access token per process without
+configured users and without `ACCESS_TOKEN`, and writes the announcement
 `{"ragents":{"url","token","pid"}}` for the caller as the only line on stdout; `--stdio` speaks
 JSON-RPC over stdin and stdout, without `--port` without HTTP, and ends the server when the input
 ends. With `--stdio` and `--port 0`, the console goes to stderr so that stdout belongs to the
-protocol. The server binds its port before it builds its plugins and runs, and answers requests
-only afterwards; so every address it assigns during setup, such as `RAGENTS_API_BASE_URL` of the
-global coordinator, names the port actually bound, even with `--port 0`. Without HTTP (only
+protocol. The server binds its port before it builds its plugins and runs, and answers requests only
+afterwards; so every address it assigns during setup, such as `RAGENTS_API_BASE_URL` of the global
+coordinator, names the port and interface actually bound, even with `--port 0`. Without HTTP (only
 `--stdio`), it does not set this variable. If the caller names itself in `RAGENTS_PARENT_PID`, the
 host watches this process every five seconds (`apps/server/src/parent-watch.ts`) and shuts down in
 an orderly way as soon as it no longer exists; the writer lock of the journal is released regularly
@@ -455,14 +469,14 @@ declarations. The client profile file names bundled bundles relative to itself; 
 an absolute or `~/` path already when packing.
 
 A new version lands in a new folder; old versions stay until `connect --clean` removes them;
-`--no-start` ends after fetching, `--port <n>` passes the port through to the server. Between
-fetching and starting, `connect` runs the provisioning for the fetched profile; a gap that cannot
-be closed aborts the start with its instruction. Both steps run as `node --import tsx <script>` in
-the host's `apps/server` folder, that is, without pnpm. `connect` records the most recently fetched
-version as `current.json` next to the cache (server, profile, version, profile file, data folder);
-`ragents start <profile>` starts exactly that again without asking the server. No entry and
-several servers with the same profile name are errors with the respective list. Such a profile
-usually gets its models through the server's relay (`AGENT_PROVIDER: "relay"`, above in the
+`--no-start` ends after fetching, `--port <n>` and `--bind-address <address>` pass through to the
+server. Between fetching and starting, `connect` runs the provisioning for the fetched profile; a
+gap that cannot be closed aborts the start with its instruction. Both steps run as `node --import
+tsx <script>` in the host's `apps/server` folder, that is, without pnpm. `connect` records the most
+recently fetched version as `current.json` next to the cache (server, profile, version, profile
+file, data folder); `ragents start <profile>` starts exactly that again without asking the server.
+No entry and several servers with the same profile name are errors with the respective list. Such a
+profile usually gets its models through the server's relay (`AGENT_PROVIDER: "relay"`, above in the
 section Profiles). The client profile names personal values such as the relay token as `env(...)`;
 they come from the developer's environment.
 
@@ -479,7 +493,7 @@ example are in [usage.md](../usage.md#connect-an-editor-over-acp).
 The shared host helper under `scripts/agent/host.ts` also serves `ragents run`: profile name or
 path through `--profile`, otherwise `RAGENTS_PROFILE` or `developer`; data through `--data-dir`,
 `DATA_DIR`, or the profile default; address through the profile's `host.json`, `RAGENTS_URL`, or
-`host.PORT`. A local host is found or started with the existing startup path. An explicit server
+`host.PORT` with `host.BIND_ADDRESS`. A local host is found or started with the existing startup path. An explicit server
 on another machine is used as it is; missing hosts and rejected authentication are errors.
 `RAGENTS_TOKEN` travels only as a bearer header. The adapter advertises no interactive sign-in
 method; a host requiring a missing token reports how to provide it.
@@ -897,7 +911,7 @@ message from an administrator changes a restricted owner's policy
 ([plugins.md](plugins.md), Server process sandbox). The global coordinator has its own
 read and write permissions; changes to its model selection additionally require the permission to
 write settings. Its workspace receives a local token for its user's access, exclusively for the
-message layer and help over loopback; the server resolves it on every call to the current state of
+message layer and help from this machine; the server resolves it on every call to the current state of
 that user. It thus has exactly that user's permissions, no more, also for settings and its own
 conversation reset; sign-in is not reachable through it, and the token does not go to the browser.
 Without users but with `anonymousUser`, the token stands for the anonymous access.

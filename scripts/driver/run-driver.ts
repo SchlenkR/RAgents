@@ -26,8 +26,8 @@ const usage = (): string => `Usage: PRODUCT_PROFILE=<profile> [PRODUCT_PROFILE_F
   journal <runId> [--since N] [--chat|--tools|--all]   reads the journal
   usage <runId>                   token balance per actor
 The commands go as JSON-RPC to POST <address>/rpc. The profile file is in the root or
-where PRODUCT_PROFILE_FILE points. The address comes from host.PORT of the profile file
-(RAGENTS_DRIVER_URL overrides it), the data folder from DATA_DIR or the profile's
+where PRODUCT_PROFILE_FILE points. The address comes from host.PORT and host.BIND_ADDRESS of the
+profile file (RAGENTS_DRIVER_URL overrides it), the data folder from DATA_DIR or the profile's
 default. If the profile defines users, RAGENTS_DRIVER_USER is required; the driver reads the
 password from the profile file. It sends a set ACCESS_TOKEN as a
 bearer token.`;

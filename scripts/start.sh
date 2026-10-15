@@ -81,20 +81,23 @@ export PRODUCT_PROFILE="$profile"
 export PRODUCT_PROFILE_FILE="$config_file"
 echo "== Profile $profile ($config_file)"
 
-PORT="$(cd "$root/apps/server" && node --import tsx --input-type=module -e '
+endpoint="$(cd "$root/apps/server" && node --import tsx --input-type=module -e '
 import "./src/host-resolution.ts";
 import { pathToFileURL } from "node:url";
-import { assertServerPortAvailable } from "./src/startup.ts";
+import { assertServerPortAvailable, configuredBindAddress, localHttpUrl } from "./src/startup.ts";
 try {
     const { config } = await import(pathToFileURL(process.env.PRODUCT_PROFILE_FILE).href);
     const port = Number(process.env.PORT || config.host.PORT);
-    await assertServerPortAvailable(port);
-    console.log(port);
+    const bindAddress = configuredBindAddress(config.host.BIND_ADDRESS);
+    await assertServerPortAvailable(port, bindAddress);
+    console.log(port, localHttpUrl(bindAddress, port));
 } catch (error) {
     console.error(`RAgents does not start: ${error.message}`);
     process.exit(1);
 }
 ')"
+PORT="${endpoint%% *}"
+server_url="${endpoint#* }"
 export PORT
 DATA_DIR="$(cd "$root/apps/server" && node --import tsx --input-type=module -e '
 import "./src/host-resolution.ts";
@@ -132,9 +135,9 @@ catch (error) {
 ' "$web_port")
     # The server loads only bundles; before every start, whatever no longer matches its sources is rebuilt.
     pnpm build:plugins
-    export API_TARGET="http://localhost:$PORT"
+    export API_TARGET="$server_url"
     export RAGENTS_DEV=1
-    echo "== Dev mode (server http://localhost:$PORT, UI http://localhost:$web_port, data: $DATA_DIR)"
+    echo "== Dev mode (server $server_url, UI http://localhost:$web_port, data: $DATA_DIR)"
     trap 'kill 0' EXIT
     pnpm build:plugins --watch &
     pnpm dev:server &
@@ -154,6 +157,6 @@ console.log(hostWebProblem(hostWebDirectory(hostRoot()), hostRoot(), isCheckout(
     fi
     # scripts/vscode/install-local.sh recognizes the manually started servers by this.
     export RAGENTS_LAUNCH="start.sh"
-    echo "== Starting server: http://localhost:$PORT (data: $DATA_DIR)"
+    echo "== Starting server: $server_url (data: $DATA_DIR)"
     exec pnpm start
 fi

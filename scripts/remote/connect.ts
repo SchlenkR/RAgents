@@ -6,6 +6,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { extract as extractTar } from "tar";
+import { localHttpUrl, parseBindAddress } from "../../apps/server/src/bind-address.ts";
 import { ragentsDataRoot } from "../../apps/server/src/data-directory.ts";
 import { filesBelow } from "../../apps/server/src/folder-install.ts";
 import { removeHostRecord, writeHostRecord } from "../../apps/server/src/host-record.ts";
@@ -15,7 +16,7 @@ import { readProfileTarget } from "../../apps/server/src/profile-target.ts";
 import { RpcClient } from "../../apps/web/src/rpc/client.ts";
 import { profileDistributionContracts, type ClientProfileDescription } from "../../plugins/ragents.profile-distribution/contract.ts";
 
-const usage = (): string => `Usage: RAGENTS_TOKEN=<token> ragents connect <server-url> [--port <n>] [--clean] [--no-start]
+const usage = (): string => `Usage: RAGENTS_TOKEN=<token> ragents connect <server-url> [--port <n>] [--bind-address <address>] [--clean] [--no-start]
 Fetches the server's client profile together with its bundles into the local cache, checks the host
 API against this host and starts the local server with the profile and this host's web app. --clean
 removes older versions, --no-start ends after fetching and names the profile file and data folder.
@@ -48,9 +49,10 @@ export interface CachedProfile {
   readonly dataDirectory: string;
 }
 
-export const parseArguments = (argv: readonly string[]): { serverUrl: string; port: number | undefined; clean: boolean; start: boolean } => {
+export const parseArguments = (argv: readonly string[]): { serverUrl: string; port: number | undefined; bindAddress: string | undefined; clean: boolean; start: boolean } => {
   let serverUrl: string | undefined;
   let port: number | undefined;
+  let bindAddress: string | undefined;
   let clean = false;
   let start = true;
   for (let index = 0; index < argv.length; index += 1) {
@@ -64,11 +66,16 @@ export const parseArguments = (argv: readonly string[]): { serverUrl: string; po
       index += 1;
       continue;
     }
+    if (argument === "--bind-address") {
+      bindAddress = parseBindAddress(argv[index + 1], "--bind-address");
+      index += 1;
+      continue;
+    }
     if (argument.startsWith("-") || serverUrl) throw new Error(`Unknown argument: ${argument}\n${usage()}`);
     serverUrl = argument;
   }
   if (!serverUrl) throw new Error(`The server address is missing.\n${usage()}`);
-  return { serverUrl, port, clean, start };
+  return { serverUrl, port, bindAddress, clean, start };
 };
 
 /** One folder name per server: hostname and port, so two servers never share the same cache. */
@@ -259,7 +266,7 @@ const main = async (): Promise<void> => {
     version: description.version,
     profileFile: prepared.profileFile,
     dataDirectory: prepared.dataDirectory,
-  }, arguments_.port);
+  }, arguments_.port, arguments_.bindAddress);
 };
 
 export interface StartedProfile {
@@ -268,13 +275,14 @@ export interface StartedProfile {
   /** Set only for a fetched version; a host profile takes the defaults of its own configuration. */
   readonly dataDirectory?: string;
   readonly port: number | undefined;
+  readonly bindAddress: string | undefined;
 }
 
 /** ragents run and ragents start record the same host in the profile's data folder; a port 0 picks its own port and cannot be recorded. */
-export const noteHost = (profile: string, dataDirectory: string, port: number): ((pid: number) => void) | undefined =>
+export const noteHost = (profile: string, dataDirectory: string, port: number, bindAddress?: string): ((pid: number) => void) | undefined =>
   port > 0 ? (pid: number): void => writeHostRecord(dataDirectory, {
     profile,
-    url: `http://localhost:${port}`,
+    url: localHttpUrl(bindAddress, port),
     pid,
     log: path.join(dataDirectory, "logs", "server.log"),
     startedAt: new Date().toISOString(),
@@ -285,6 +293,7 @@ export const startProfile = async (started: StartedProfile): Promise<number> => 
   const target = await readProfileTarget(started.profile, started.profileFile);
   const dataDirectory = started.dataDirectory ?? target.dataDirectory;
   const port = started.port ?? target.port;
+  const bindAddress = started.bindAddress ?? target.bindAddress;
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     PRODUCT_PROFILE: started.profile,
@@ -295,20 +304,25 @@ export const startProfile = async (started: StartedProfile): Promise<number> => 
   const provisioned = await run(hostScript("scripts/provision/run-provision.ts"), env);
   if (provisioned !== 0) throw new Error(`Provisioning ended with code ${provisioned}`);
   console.log(`== Starting server (data ${dataDirectory})`);
-  const note = noteHost(started.profile, dataDirectory, port);
+  const note = noteHost(started.profile, dataDirectory, port, bindAddress);
+  const serverArguments = [
+    ...(started.port !== undefined ? ["--port", String(started.port)] : []),
+    ...(started.bindAddress !== undefined ? ["--bind-address", started.bindAddress] : []),
+  ];
   try {
-    return await run(hostScript("apps/server/src/main.ts", started.port !== undefined ? ["--port", String(started.port)] : []), env, note);
+    return await run(hostScript("apps/server/src/main.ts", serverArguments), env, note);
   } finally {
     if (note) removeHostRecord(dataDirectory);
   }
 };
 
 /** Starts a version that connect has fetched; the web app comes from the host as with every profile. */
-export const startCached = (cached: CachedProfile, port: number | undefined): Promise<number> => startProfile({
+export const startCached = (cached: CachedProfile, port: number | undefined, bindAddress: string | undefined): Promise<number> => startProfile({
   profile: cached.profile,
   profileFile: cached.profileFile,
   dataDirectory: cached.dataDirectory,
   port,
+  bindAddress,
 });
 
 // In the extension's bundle import.meta is empty; then there is no command line entry.

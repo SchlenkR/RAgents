@@ -9,10 +9,11 @@ const startupFailure = (error: unknown): never => {
   process.exit(1);
 };
 
-/** Start modes: --stdio (JSON-RPC over stdin and stdout, no HTTP without --port), --port 0 (private port announced on stdout), --port N. */
-const parseArguments = (argv: readonly string[]): { stdio: boolean; port: number | undefined } => {
+/** Start modes: --stdio (JSON-RPC over stdin and stdout, no HTTP without --port), --port 0 (private port announced on stdout), --port N; --bind-address names the interface. */
+const parseArguments = (argv: readonly string[]): { stdio: boolean; port: number | undefined; bindAddress: string | undefined } => {
   let stdio = false;
   let port: number | undefined;
+  let bindAddress: string | undefined;
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--stdio") { stdio = true; continue; }
@@ -23,9 +24,15 @@ const parseArguments = (argv: readonly string[]): { stdio: boolean; port: number
       index += 1;
       continue;
     }
-    throw new Error(`Unknown argument: ${argument} (allowed: --stdio, --port <n>)`);
+    if (argument === "--bind-address") {
+      bindAddress = argv[index + 1];
+      if (bindAddress === undefined) throw new Error("--bind-address needs an address");
+      index += 1;
+      continue;
+    }
+    throw new Error(`Unknown argument: ${argument} (allowed: --stdio, --port <n>, --bind-address <address>)`);
   }
-  return { stdio, port };
+  return { stdio, port, bindAddress };
 };
 
 try {
@@ -37,6 +44,7 @@ try {
   }
   const arguments_ = parseArguments(process.argv.slice(2));
   if (arguments_.port !== undefined) process.env.PORT = String(arguments_.port);
+  if (arguments_.bindAddress !== undefined) process.env.BIND_ADDRESS = arguments_.bindAddress;
   if (arguments_.stdio) process.env.RAGENTS_STDIO = "1";
   if (arguments_.stdio && arguments_.port === undefined) process.env.RAGENTS_NO_HTTP = "1";
   await loadConfigFile();
@@ -46,7 +54,7 @@ try {
     process.env.RAGENTS_ANNOUNCE = "1";
     if (!process.env.ACCESS_TOKEN && !configuredUsers() && !configuredAnonymousUser()) process.env.ACCESS_TOKEN = globalThis.crypto.randomUUID().replaceAll("-", "");
   } else if (process.env.RAGENTS_NO_HTTP !== "1") {
-    await assertServerPortAvailable(config.port);
+    await assertServerPortAvailable(config.port, config.bindAddress);
   }
   await assertDataDirectoryIsolated(config.dataDir);
   await import("./server.js");

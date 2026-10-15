@@ -253,6 +253,16 @@ startup fails. The address stays fixed and a running instance is not terminated.
 set `PORT` must be between 1 and 65535; 0 is invalid. The final server message displays the URL.
 A warning about JavaScript bundle size does not prevent startup.
 
+By default, the server listens on all interfaces of the machine. To restrict it, for example to
+loopback behind a reverse proxy on the same machine, set `host.BIND_ADDRESS` in the profile file
+or `BIND_ADDRESS` in the environment; `ragents start <profile> --bind-address <address>` overrides
+both. The value is an IPv4 or IPv6 address without brackets, such as `127.0.0.1` or `::1`, or
+`localhost`; `0.0.0.0` and `::` mean all interfaces. Any other value, or an address that does not
+belong to the machine, stops the start with a message that names it. The setting is not called
+`HOST` because many shells define that variable as the machine name. The final server message and
+the address of the remembered host, which `ragents run` and `ragents stop --host` use, name the
+bound address. A host bound to an address other than loopback does not answer on `localhost`.
+
 ## Restart the server
 
 Stop the server normally, then start the same profile. By default, actors that were working
@@ -484,8 +494,8 @@ Node.js 22.19 or newer is required, without Git, pnpm, or a source build. The su
 - `ragents acp` serves stable Agent Client Protocol v1 over stdio for editors; see
   [Connect an editor over ACP](homepage/guide-clients.html#connect-an-editor-over-acp).
 - `ragents connect <server-url>` fetches a client profile with its plugin bundles, provisions
-  tools, and starts a server. It supports `--port <n>`, `--clean`, and `--no-start`, like
-  `pnpm connect`.
+  tools, and starts a server. It supports `--port <n>`, `--bind-address <address>`, `--clean`, and
+  `--no-start`, like `pnpm connect`.
 - `ragents start <profile|path>` starts an included profile (`core`, `developer`, or `showcase`),
   a custom `ragents.config.<profile>.ts` anywhere on disk, or a previously fetched version.
 - `ragents provision [<profile>|--workspace]` installs only the required tools.
@@ -625,7 +635,8 @@ verifies its SHA-256, stores the version under
 that profile. Data goes to `~/.local/share/ragents/remote/<host>/<profile>/data/`, and the web
 interface is the local host's own; nothing is built or installed on the developer machine.
 Existing versions are not downloaded again. `--clean` removes older ones, `--no-start` stops after
-fetching and reports the profile and data paths, and `--port <n>` overrides the profile port.
+fetching and reports the profile and data paths, `--port <n>` overrides the profile port, and
+`--bind-address <address>` its bind address.
 `ragents start <profile>` can restart an included profile or the latest fetched version without
 contacting the server. Personal `env(...)` values from the client profile, such as the relay
 token, must exist in the shell. Between download and startup, `connect` provisions language

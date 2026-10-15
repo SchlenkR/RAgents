@@ -453,7 +453,8 @@ for plugin authors in the section "Build and ship a plugin" in `docs/spec/plugin
 The address is fixed: `http://localhost:4710` for `core`. The port is in `host.PORT` of the
 profile file. An explicitly set `PORT` overrides it; an occupied or invalid
 port aborts startup. Running instances are not terminated and startup does not switch
-to another address.
+to another address. `host.BIND_ADDRESS` (`BIND_ADDRESS`, `--bind-address`) limits the interface;
+the address then names it, see `docs/spec/profiles.md`.
 
 With `--dev` the backend port stays the same; Vite always uses the backend port plus 1000, for
 `core` that is 5710, so an explicitly set `PORT` moves both. Both ports are checked before

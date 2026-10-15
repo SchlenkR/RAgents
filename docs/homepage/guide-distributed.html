@@ -723,8 +723,8 @@ RAGENTS_TOKEN=&lt;token&gt; ragents connect https://ragents.example.com
 <li><code>ragents acp</code> serves stable Agent Client Protocol v1 over stdio for editors; see
 <a href="guide-clients.html#connect-an-editor-over-acp">Connect an editor over ACP</a>.</li>
 <li><code>ragents connect &lt;server-url&gt;</code> fetches a client profile with its plugin bundles, provisions
-tools, and starts a server. It supports <code>--port &lt;n&gt;</code>, <code>--clean</code>, and <code>--no-start</code>, like
-<code>pnpm connect</code>.</li>
+tools, and starts a server. It supports <code>--port &lt;n&gt;</code>, <code>--bind-address &lt;address&gt;</code>, <code>--clean</code>, and
+<code>--no-start</code>, like <code>pnpm connect</code>.</li>
 <li><code>ragents start &lt;profile|path&gt;</code> starts an included profile (<code>core</code>, <code>developer</code>, or <code>showcase</code>),
 a custom <code>ragents.config.&lt;profile&gt;.ts</code> anywhere on disk, or a previously fetched version.</li>
 <li><code>ragents provision [&lt;profile&gt;|--workspace]</code> installs only the required tools.</li>
@@ -833,7 +833,8 @@ verifies its SHA-256, stores the version under
 that profile. Data goes to <code>~/.local/share/ragents/remote/&lt;host&gt;/&lt;profile&gt;/data/</code>, and the web
 interface is the local host&#39;s own; nothing is built or installed on the developer machine.
 Existing versions are not downloaded again. <code>--clean</code> removes older ones, <code>--no-start</code> stops after
-fetching and reports the profile and data paths, and <code>--port &lt;n&gt;</code> overrides the profile port.
+fetching and reports the profile and data paths, <code>--port &lt;n&gt;</code> overrides the profile port, and
+<code>--bind-address &lt;address&gt;</code> its bind address.
 <code>ragents start &lt;profile&gt;</code> can restart an included profile or the latest fetched version without
 contacting the server. Personal <code>env(...)</code> values from the client profile, such as the relay
 token, must exist in the shell. Between download and startup, <code>connect</code> provisions language

@@ -31,7 +31,7 @@ export const note = (line: string): void => { process.stderr.write(`${line}\n`);
 const tail = (file: string, lines: number): string =>
   (statSync(file, { throwIfNoEntry: false })?.isFile() ? readFileSync(file, "utf8") : "").split("\n").slice(-lines).join("\n");
 
-/** The remembered host, otherwise RAGENTS_URL, otherwise the address from host.PORT of the profile. */
+/** The remembered host, otherwise RAGENTS_URL, otherwise the address from host.PORT and host.BIND_ADDRESS of the profile. */
 export const addressOf = async (target: ProfileTarget): Promise<string> => {
   const noted = readHostRecord(target.dataDirectory);
   if (noted && await healthy(noted.url)) return noted.url;

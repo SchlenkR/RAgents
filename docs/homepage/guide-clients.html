@@ -1487,9 +1487,9 @@ the others carrying the objects of the run view). Exit code 0 means the turn
 completed; 2 means it was interrupted; 1 means a failed turn or connection problem. If the event
 stream or a request breaks while the command waits, it fails with the cause instead of hanging;
 the turn may continue on the server.</p>
-<p>The address comes from the profile&#39;s <code>host.json</code>, then <code>RAGENTS_URL</code>, then <code>host.PORT</code> in the
-profile file. When authentication is required, <code>RAGENTS_TOKEN</code> is sent as a bearer token. The
-data directory is the server&#39;s <code>DATA_DIR</code>, then <code>host.DATA_DIR</code>, then
+<p>The address comes from the profile&#39;s <code>host.json</code>, then <code>RAGENTS_URL</code>, then <code>host.PORT</code> and
+<code>host.BIND_ADDRESS</code> in the profile file. When authentication is required, <code>RAGENTS_TOKEN</code> is sent as
+a bearer token. The data directory is the server&#39;s <code>DATA_DIR</code>, then <code>host.DATA_DIR</code>, then
 <code>~/.local/share/ragents/&lt;profile&gt;</code>; only <code>journal</code> without <code>RAGENTS_URL</code> reads from it directly
 (<code>&lt;data-directory&gt;/runs/&lt;runId&gt;/journal.jsonl</code>). A host started this way also serves the web interface, which comes finished with the host;
 <code>ragents start developer</code> (or <code>scripts/start.sh developer</code> in a checkout) starts it in the
@@ -1510,8 +1510,9 @@ PRODUCT_PROFILE=showcase pnpm driver stop &lt;id&gt; --turn        # interrupts 
 </code></pre>
 <p><code>new-run</code> starts a run script; without an argument it uses <code>ragents.reference.shared-actor-list</code>,
 which only <code>showcase</code> contains, and <code>new-run &lt;template&gt;</code> selects another one.</p>
-<p>The address comes from <code>host.PORT</code> in the profile file, with <code>RAGENTS_DRIVER_URL</code> as an override;
-the data directory comes from <code>DATA_DIR</code> or the profile default. If the profile defines users,
+<p>The address comes from <code>host.PORT</code> and <code>host.BIND_ADDRESS</code> in the profile file, with
+<code>RAGENTS_DRIVER_URL</code> as an override; the data directory comes from <code>DATA_DIR</code> or the profile
+default. If the profile defines users,
 <code>RAGENTS_DRIVER_USER</code> is required. The driver reads that user&#39;s password from the same profile
 file and signs in through <code>POST /api/access/login</code>. If <code>ACCESS_TOKEN</code> is set, it sends that as a
 bearer token instead. The driver uses <code>ragents.chat.start</code>, <code>ragents.chat.sendToActor</code>,
@@ -1553,5 +1554,8 @@ stdin and stdout and opens no port. The startup modes are:</p>
 <li><code>--port 0</code>: a private port; the server reports it on stdout as
 <code>{&quot;ragents&quot;:{&quot;url&quot;:&quot;...&quot;,&quot;token&quot;:&quot;...&quot;,&quot;pid&quot;:1234}}</code>.</li>
 <li><code>--port N</code>: fixed port N instead of <code>host.PORT</code> from the profile file.</li>
+<li><code>--bind-address A</code>: the interface to listen on instead of <code>host.BIND_ADDRESS</code> from the profile
+file, an IPv4 or IPv6 address or <code>localhost</code>; without any, the server listens on all interfaces,
+and a private port from <code>--port 0</code> on <code>127.0.0.1</code>.</li>
 </ul>
 <p class="guide-source">Source: <a href="../../docs/usage.md">docs/usage.md</a>. <a href="guide-clients.md">This chapter as Markdown</a>.</p><p><a href="guide-global-apps.html">Create global mini-apps</a></p><nav class="guide-next" aria-label="Continue reading"><a href="guide-getting-started.html">Previous: Get started</a><a href="guide-global-apps.html">Next: Global mini-apps</a></nav></article></div></main><footer class="shell"><p>Generated from public documentation. Rebuild with <code>pnpm generate:homepage</code>. Verify with <code>pnpm check:homepage</code>.</p><nav aria-label="More pages"><a href="index.html">Homepage</a><a href="guide.html">Guide</a></nav></footer></body></html>

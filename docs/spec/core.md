@@ -1441,15 +1441,16 @@ when needed. The public help describes showcase; the prompt marks the difference
 profile's set. Shell and snippets receive
 the host origin, without sign-in the journal folder, and with access protection enabled the bearer
 token as environment variables; the token value appears neither in the prompt nor in the
-reference. `RAGENTS_API_BASE_URL` names the local host with the port it actually listens on, also
-after a start with `--port 0`; a server only over stdio has no HTTP API and does not set the
-variable. Without sign-in, `RAGENTS_JOURNAL_DIR` points to the real journals of the profile, which
-the shell can search, for example with `rg`; large payload fields are in the neighboring
-`payloads/` folder, `payloadRefs` names hash and byte count, and `ragents.overseer.readEvents`
-resolves these references completely. `RAGENTS_API_TOKEN` stands for the access of the user the
-coordinator belongs to: with users, a token per user that applies only over loopback and only for
-`/rpc`, `/rpc/stream`, and `/help/` and delivers that user's current state on every call (a removed
-user is not signed in); with `anonymousUser`, likewise a token for the anonymous access; with
+reference. `RAGENTS_API_BASE_URL` names the local host with the port and interface it actually
+listens on (`127.0.0.1` for all interfaces), also after a start with `--port 0`; a server only over
+stdio has no HTTP API and does not set the variable. Without sign-in, `RAGENTS_JOURNAL_DIR` points
+to the real journals of the profile, which the shell can search, for example with `rg`; large
+payload fields are in the neighboring `payloads/` folder, `payloadRefs` names hash and byte count,
+and `ragents.overseer.readEvents` resolves these references completely. `RAGENTS_API_TOKEN` stands
+for the access of the user the coordinator belongs to: with users, a token per user that applies
+only from this machine, over loopback or through one of its own addresses, and only for `/rpc`,
+`/rpc/stream`, and `/help/` and delivers that user's current state on every call (a removed user is
+not signed in); with `anonymousUser`, likewise a token for the anonymous access; with
 `ACCESS_TOKEN`, that token; when open, none. The coordinator's tools thus see and operate exactly
 what its user may, and runs they create belong to that user. There is no separate service identity
 with further permissions. The generated reference is stored as `rpc-reference.md` and

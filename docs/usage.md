@@ -1702,9 +1702,9 @@ completed; 2 means it was interrupted; 1 means a failed turn or connection probl
 stream or a request breaks while the command waits, it fails with the cause instead of hanging;
 the turn may continue on the server.
 
-The address comes from the profile's `host.json`, then `RAGENTS_URL`, then `host.PORT` in the
-profile file. When authentication is required, `RAGENTS_TOKEN` is sent as a bearer token. The
-data directory is the server's `DATA_DIR`, then `host.DATA_DIR`, then
+The address comes from the profile's `host.json`, then `RAGENTS_URL`, then `host.PORT` and
+`host.BIND_ADDRESS` in the profile file. When authentication is required, `RAGENTS_TOKEN` is sent as
+a bearer token. The data directory is the server's `DATA_DIR`, then `host.DATA_DIR`, then
 `~/.local/share/ragents/<profile>`; only `journal` without `RAGENTS_URL` reads from it directly
 (`<data-directory>/runs/<runId>/journal.jsonl`). A host started this way also serves the web interface, which comes finished with the host;
 `ragents start developer` (or `scripts/start.sh developer` in a checkout) starts it in the
@@ -1731,8 +1731,9 @@ PRODUCT_PROFILE=showcase pnpm driver stop <id> --turn        # interrupts the pr
 `new-run` starts a run script; without an argument it uses `ragents.reference.shared-actor-list`,
 which only `showcase` contains, and `new-run <template>` selects another one.
 
-The address comes from `host.PORT` in the profile file, with `RAGENTS_DRIVER_URL` as an override;
-the data directory comes from `DATA_DIR` or the profile default. If the profile defines users,
+The address comes from `host.PORT` and `host.BIND_ADDRESS` in the profile file, with
+`RAGENTS_DRIVER_URL` as an override; the data directory comes from `DATA_DIR` or the profile
+default. If the profile defines users,
 `RAGENTS_DRIVER_USER` is required. The driver reads that user's password from the same profile
 file and signs in through `POST /api/access/login`. If `ACCESS_TOKEN` is set, it sends that as a
 bearer token instead. The driver uses `ragents.chat.start`, `ragents.chat.sendToActor`,
@@ -1784,4 +1785,7 @@ stdin and stdout and opens no port. The startup modes are:
 - `--port 0`: a private port; the server reports it on stdout as
   `{"ragents":{"url":"...","token":"...","pid":1234}}`.
 - `--port N`: fixed port N instead of `host.PORT` from the profile file.
+- `--bind-address A`: the interface to listen on instead of `host.BIND_ADDRESS` from the profile
+  file, an IPv4 or IPv6 address or `localhost`; without any, the server listens on all interfaces,
+  and a private port from `--port 0` on `127.0.0.1`.
 <!-- /guide:clients -->

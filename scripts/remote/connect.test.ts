@@ -83,10 +83,12 @@ const fakeServer = async (t: TestContext, options: { bundleRevision?: string; sy
 };
 
 test("arguments, server folder and storage follow fixed rules", () => {
-  assert.deepEqual(parseArguments(["https://workshop.example.com", "--clean", "--port", "0", "--no-start"]), { serverUrl: "https://workshop.example.com", port: 0, clean: true, start: false });
+  assert.deepEqual(parseArguments(["https://workshop.example.com", "--clean", "--port", "0", "--no-start"]), { serverUrl: "https://workshop.example.com", port: 0, bindAddress: undefined, clean: true, start: false });
+  assert.deepEqual(parseArguments(["https://workshop.example.com", "--bind-address", "127.0.0.1"]), { serverUrl: "https://workshop.example.com", port: undefined, bindAddress: "127.0.0.1", clean: false, start: true });
   assert.throws(() => parseArguments([]), /server address is missing/);
   assert.throws(() => parseArguments(["http://a", "http://b"]), /Unknown argument/);
   assert.throws(() => parseArguments(["http://a", "--port", "x"]), /--port/);
+  assert.throws(() => parseArguments(["http://a", "--bind-address", "[::1]"]), /--bind-address needs an IPv4 or IPv6 address/);
   assert.equal(serverFolderName("https://workshop.example.com/"), "workshop.example.com");
   assert.equal(serverFolderName("http://localhost:4710"), "localhost-4710");
   assert.throws(() => serverFolderName("ftp://x"), /http or https/);

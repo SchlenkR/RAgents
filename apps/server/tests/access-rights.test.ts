@@ -105,6 +105,17 @@ test("a coordinator token names its user and is accepted only locally for the me
   assert.equal(coordinatorRequestUser(request("127.0.0.1", "legacy-token"), url("/rpc")), undefined);
 });
 
+test("a coordinator token is also accepted when the host reaches itself through its own address, not from another machine", () => {
+  const request = (remote: string, local: string) => ({
+    socket: { remoteAddress: remote, localAddress: local },
+    headers: { authorization: `Bearer ${coordinatorAccessToken("alice")}` },
+  }) as IncomingMessage;
+  const rpc = new URL("/rpc", "http://localhost");
+  assert.deepEqual(coordinatorRequestUser(request("192.0.2.10", "192.0.2.10"), rpc), { userId: "alice" });
+  assert.deepEqual(coordinatorRequestUser(request("2001:db8::10", "2001:db8::10"), rpc), { userId: "alice" });
+  assert.equal(coordinatorRequestUser(request("203.0.113.7", "192.0.2.10"), rpc), undefined);
+});
+
 test("a coordinator acts with the current access of its user and never with more", () => {
   const users = createAccessSessionManager({
     users: [

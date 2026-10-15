@@ -26,7 +26,9 @@ interface StartCall {
 interface StartOptions {
   profile?: "core" | "other" | "external" | "misnamed";
   configuredPort: number;
+  configuredBindAddress?: string;
   port?: number;
+  bindAddress?: string;
   dev?: boolean;
   selection?: string;
   dataMode?: "default" | "configured" | "override" | "unsafe" | "reference" | "missing-reference";
@@ -67,7 +69,7 @@ export const hostWebProblem = () => {
   const configuredData = options.dataMode === "reference" || options.dataMode === "missing-reference"
     ? { kind: "environment", name: "RAGENTS_TEST_REFERENCED_DATA" }
     : options.dataMode === "configured" || options.dataMode === "override" ? configuredDataDirectory : undefined;
-  const profileSource = `export const config = { host: { PORT: ${options.configuredPort}, DATA_DIR: ${JSON.stringify(configuredData)} } };`;
+  const profileSource = `export const config = { host: { PORT: ${options.configuredPort}, BIND_ADDRESS: ${JSON.stringify(options.configuredBindAddress)}, DATA_DIR: ${JSON.stringify(configuredData)} } };`;
   for (const profile of ["core", "other"]) {
     await writeFile(path.join(project, `ragents.config.${profile}.ts`), profileSource);
   }
@@ -100,6 +102,8 @@ appendFileSync(process.env.RAGENTS_START_PROBE, JSON.stringify({args:process.arg
   else delete environment.RAGENTS_TEST_REFERENCED_DATA;
   if (options.port === undefined) delete environment.PORT;
   else environment.PORT = String(options.port);
+  if (options.bindAddress === undefined) delete environment.BIND_ADDRESS;
+  else environment.BIND_ADDRESS = options.bindAddress;
   const child = spawn("bash", [path.join(scripts, "start.sh"),
     ...(options.selection ? [] : [selection]), ...(options.dev ? ["--dev"] : []),
   ], { cwd: project, detached: true, env: environment, stdio: ["pipe", "pipe", "pipe"] });
@@ -319,4 +323,42 @@ test("a missing profile DATA_DIR environment reference aborts before any build",
   assert.equal(result.code, 1, result.output);
   assert.deepEqual(result.calls, []);
   assert.match(result.output, /host\.DATA_DIR.*unset environment variable RAGENTS_TEST_REFERENCED_DATA/);
+});
+
+test("startup names the address the server is bound to, with the profile's bind address below the environment's", { timeout: 15_000 }, async (t) => {
+  const configuredPort = await freePort();
+  const fromProfile = await probe(t, { configuredPort, configuredBindAddress: "127.0.0.1" });
+  assert.equal(fromProfile.code, 0, fromProfile.output);
+  assert.match(fromProfile.output, new RegExp(`== Starting server: http://127\\.0\\.0\\.1:${configuredPort} `));
+  const fromEnvironment = await probe(t, { configuredPort, configuredBindAddress: "127.0.0.1", bindAddress: "0.0.0.0" });
+  assert.equal(fromEnvironment.code, 0, fromEnvironment.output);
+  assert.match(fromEnvironment.output, new RegExp(`== Starting server: http://localhost:${configuredPort} `));
+  const unbound = await probe(t, { configuredPort });
+  assert.match(unbound.output, new RegExp(`== Starting server: http://localhost:${configuredPort} `));
+});
+
+test("dev startup routes the UI to the address the backend is bound to", { timeout: 15_000 }, async (t) => {
+  const configuredPort = await freePort();
+  const result = await probe(t, { configuredPort, bindAddress: "127.0.0.1", dev: true });
+  assert.ok(result.code === 0 || result.signal === "SIGTERM", result.output);
+  assert.equal(result.calls.find((call) => call.args[0] === "dev:web")!.target, `http://127.0.0.1:${configuredPort}`);
+  assert.match(result.output, new RegExp(`== Dev mode \\(server http://127\\.0\\.0\\.1:${configuredPort}, UI http://localhost:${configuredPort + 1000},`));
+});
+
+test("an invalid or unusable bind address aborts normal and dev startup before any build", { timeout: 15_000 }, async (t) => {
+  const configuredPort = await freePort();
+  for (const dev of [false, true]) {
+    const fromEnvironment = await probe(t, { configuredPort, bindAddress: "example.com", dev });
+    assert.equal(fromEnvironment.code, 1, fromEnvironment.output);
+    assert.deepEqual(fromEnvironment.calls, []);
+    assert.match(fromEnvironment.output, /RAgents does not start: BIND_ADDRESS needs an IPv4 or IPv6 address.*not "example\.com"/);
+    const fromProfile = await probe(t, { configuredPort, configuredBindAddress: "[::1]", dev });
+    assert.equal(fromProfile.code, 1, fromProfile.output);
+    assert.deepEqual(fromProfile.calls, []);
+    assert.match(fromProfile.output, /RAgents does not start: host\.BIND_ADDRESS needs an IPv4 or IPv6 address.*not "\[::1\]"/);
+    const foreign = await probe(t, { configuredPort, bindAddress: "192.0.2.1", dev });
+    assert.equal(foreign.code, 1, foreign.output);
+    assert.deepEqual(foreign.calls, []);
+    assert.match(foreign.output, new RegExp(`BIND_ADDRESS 192\\.0\\.2\\.1 cannot be opened on port ${configuredPort}`));
+  }
 });

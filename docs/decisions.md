@@ -1,5 +1,31 @@
 # Decisions
 
+## 2026-10-15: `BIND_ADDRESS` names the interface the host listens on
+
+Chapters: `spec/profiles.md` (Profiles; Server-delivered profiles); `spec/core.md` (global coordinator);
+`operations.md` (Configure model access and start).
+
+Without an address the host listened on all interfaces, and the only way to keep it on loopback was
+`RAGENTS_ANNOUNCE`, the internal switch of `--port 0`, which also moves the console to stderr and prints the
+announcement line; a host behind a reverse proxy on the same machine had no proper setting. `host.BIND_ADDRESS`
+(environment `BIND_ADDRESS`, flag `--bind-address` on the server, `ragents start`, and `ragents connect`; the
+flag beats the environment, the environment the profile) takes an IPv4 or IPv6 literal without brackets, port,
+or zone, or `localhost`. Any other value, an empty one included, and an address the machine does not have stop
+the start with a message that names the value; there is no fallback to all interfaces. The default is
+unchanged, and `--port 0` keeps `127.0.0.1` unless an address is named. The key is not `HOST` because zsh and
+tcsh define that variable as the machine name, so the server would have bound to a name by accident.
+
+The host now reports the interface it is actually bound to where it said `localhost` or `127.0.0.1`: the start
+message, the announcement, `RAGENTS_API_BASE_URL`, the address in `host.json` and for `ragents run`, and
+`API_TARGET` of the dev mode (`localHttpUrl` in `bind-address.ts`); all interfaces still read as `localhost`
+and, for the host's own tools, `127.0.0.1`. The port check of the server and of `scripts/start.sh` tries only
+the named address. The coordinator's local token was accepted from loopback peers only; a host bound to one
+non-loopback address is reached by its own tools through that address, where the peer address is the address
+it connected to, so the check accepts both (`isSameMachineRequest`). A remote peer cannot complete a TCP
+handshake with the host's own address as its source. Rejected: binding `localhost` to both loopback families
+(a server binds one address), bracketed IPv6 (brackets are URL syntax, not part of the address), and the flag
+on `ragents start` alone (`connect` and the server share the same plumbing).
+
 ## 2026-10-15: quassel is published as `@schlenkr/quassel`; the web host API keeps `quassel` as an alias for one release
 
 Chapters: `spec/plugins.md` (Bundle, build tool, and host API: deprecated alias; Web as plugin host: styles, chat);

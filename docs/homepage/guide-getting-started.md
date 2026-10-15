@@ -249,6 +249,16 @@ startup fails. The address stays fixed and a running instance is not terminated.
 set `PORT` must be between 1 and 65535; 0 is invalid. The final server message displays the URL.
 A warning about JavaScript bundle size does not prevent startup.
 
+By default, the server listens on all interfaces of the machine. To restrict it, for example to
+loopback behind a reverse proxy on the same machine, set `host.BIND_ADDRESS` in the profile file
+or `BIND_ADDRESS` in the environment; `ragents start <profile> --bind-address <address>` overrides
+both. The value is an IPv4 or IPv6 address without brackets, such as `127.0.0.1` or `::1`, or
+`localhost`; `0.0.0.0` and `::` mean all interfaces. Any other value, or an address that does not
+belong to the machine, stops the start with a message that names it. The setting is not called
+`HOST` because many shells define that variable as the machine name. The final server message and
+the address of the remembered host, which `ragents run` and `ragents stop --host` use, name the
+bound address. A host bound to an address other than loopback does not answer on `localhost`.
+
 ## Restart the server
 
 Stop the server normally, then start the same profile. By default, actors that were working

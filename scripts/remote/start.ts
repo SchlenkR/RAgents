@@ -3,18 +3,20 @@ import "../../apps/server/src/host-resolution.ts";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseBindAddress } from "../../apps/server/src/bind-address.ts";
 import { ragentsDataRoot } from "../../apps/server/src/data-directory.ts";
 import { localProfile } from "../../apps/server/src/profile-target.ts";
 import { startCached, startProfile, type CachedProfile } from "./connect.ts";
 
-const usage = (): string => `Usage: ragents start <profile|path> [--port <n>]
+const usage = (): string => `Usage: ragents start <profile|path> [--port <n>] [--bind-address <address>]
 Starts a profile of this host (core, developer, showcase), your own ragents.config.<profile>.ts at
 any location or a version that ragents connect has already fetched, without asking the server.
 The web app comes ready-made with the host, the same for every profile.`;
 
-export const parseArguments = (argv: readonly string[]): { selection: string; port: number | undefined } => {
+export const parseArguments = (argv: readonly string[]): { selection: string; port: number | undefined; bindAddress: string | undefined } => {
   let profile: string | undefined;
   let port: number | undefined;
+  let bindAddress: string | undefined;
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index]!;
     if (argument === "--port") {
@@ -24,11 +26,16 @@ export const parseArguments = (argv: readonly string[]): { selection: string; po
       index += 1;
       continue;
     }
+    if (argument === "--bind-address") {
+      bindAddress = parseBindAddress(argv[index + 1], "--bind-address");
+      index += 1;
+      continue;
+    }
     if (argument.startsWith("-") || profile) throw new Error(`Unknown argument: ${argument}\n${usage()}`);
     profile = argument;
   }
   if (!profile) throw new Error(`The profile name is missing.\n${usage()}`);
-  return { selection: profile, port };
+  return { selection: profile, port, bindAddress };
 };
 
 const directories = async (folder: string): Promise<readonly string[]> =>
@@ -66,14 +73,14 @@ const main = async (): Promise<void> => {
   if (own) {
     console.log(`== Profile ${own.profile}`);
     console.log(`== Profile file ${own.profileFile}`);
-    process.exitCode = await startProfile({ profile: own.profile, profileFile: own.profileFile, port: arguments_.port });
+    process.exitCode = await startProfile({ profile: own.profile, profileFile: own.profileFile, port: arguments_.port, bindAddress: arguments_.bindAddress });
     return;
   }
   const cached = selectCachedProfile(await cachedProfiles(ragentsDataRoot()), arguments_.selection);
   console.log(`== Profile ${cached.profile} from server ${cached.serverUrl}, version ${cached.version.slice(0, 12)} (from cache)`);
   console.log(`== Profile file ${cached.profileFile}`);
   console.log(`== Data ${cached.dataDirectory}`);
-  process.exitCode = await startCached(cached, arguments_.port);
+  process.exitCode = await startCached(cached, arguments_.port, arguments_.bindAddress);
 };
 
 const moduleUrl: string | undefined = import.meta.url;

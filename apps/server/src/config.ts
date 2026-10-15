@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseBindAddress } from "./bind-address.js";
 import { modelAliasEnvDescriptors } from "./plugin-support/model-aliases.js";
 import { modelProviderEnvDescriptors } from "./plugin-support/model-providers.js";
 import { declaredEnvironment } from "./plugin-support/plugin-config.js";
@@ -10,6 +11,7 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.
 
 export const hostConfigDescriptors = [
   { key: "PORT", source: "environment" },
+  { key: "BIND_ADDRESS", source: "environment" },
   { key: "DATA_DIR", source: "environment" },
   { key: "RAGENTS_HOST_TARBALL", source: "environment" },
   { key: "AGENT_THINKING", source: "environment" },
@@ -38,8 +40,11 @@ const resumeAfterRestart = env.value("RESUME_AFTER_RESTART", "true");
 if (resumeAfterRestart !== "true" && resumeAfterRestart !== "false")
   throw new Error("RESUME_AFTER_RESTART must be true or false");
 
+const bindAddress = env.optional("BIND_ADDRESS");
+
 export const config = Object.freeze({
   port: Number(env.value("PORT", "4710")),
+  bindAddress: bindAddress === undefined ? undefined : parseBindAddress(bindAddress, "BIND_ADDRESS"),
   dataDir: path.resolve(env.value("DATA_DIR", defaultDataDirectory(env.required("PRODUCT_PROFILE")))),
   hostTarball: env.value("RAGENTS_HOST_TARBALL", ""),
   webDistDir: hostWebDirectory(rootDir),

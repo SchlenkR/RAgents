@@ -61,3 +61,25 @@ test("invalid port values fail with an understandable configuration message", as
     });
   }
 });
+
+test("a bind address limits the port check to that address and names itself when it cannot be opened", async () => {
+  const reservation = createServer();
+  const port = await listen(reservation);
+  await close(reservation);
+
+  await assertServerPortAvailable(port, "127.0.0.1");
+
+  const occupied = createServer();
+  assert.equal(await listen(occupied, port), port);
+  try {
+    await assert.rejects(assertServerPortAvailable(port, "127.0.0.1"), /Port \d+ is already in use.*\bPORT\b/);
+  } finally {
+    await close(occupied);
+  }
+
+  await assert.rejects(assertServerPortAvailable(port, "192.0.2.1"), (error: unknown) => {
+    assert.ok(error instanceof Error);
+    assert.match(error.message, new RegExp(`^BIND_ADDRESS 192\\.0\\.2\\.1 cannot be opened on port ${port}: `));
+    return true;
+  });
+});

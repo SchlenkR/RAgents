@@ -1,5 +1,6 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage } from "node:http";
+import { isSameMachineRequest } from "./local-request.js";
 
 /** One token per coordinator for its tools; it acts as that coordinator's user, null is the one access without sign-in. */
 const coordinatorTokens = new Map<string | null, string>();
@@ -19,8 +20,7 @@ export const profileAccessCookieName = (productId: string | undefined, profile: 
 
 /** The user for whom a coordinator calls the message layer locally; otherwise undefined. */
 export const coordinatorRequestUser = (request: IncomingMessage, url: URL): { userId: string | null } | undefined => {
-  const address = request.socket.remoteAddress;
-  if (address !== "127.0.0.1" && address !== "::1" && address !== "::ffff:127.0.0.1") return undefined;
+  if (!isSameMachineRequest(request)) return undefined;
   if (url.pathname !== "/rpc" && url.pathname !== "/rpc/stream" && !url.pathname.startsWith("/help/")) return undefined;
   const offered = request.headers.authorization;
   if (!offered?.startsWith("Bearer ")) return undefined;

@@ -19,12 +19,16 @@ const temporary = async (t: TestContext): Promise<string> => {
   return directory;
 };
 
-test("start takes a profile name or a path plus a port", () => {
-  assert.deepEqual(parseArguments(["developer"]), { selection: "developer", port: undefined });
-  assert.deepEqual(parseArguments(["./ragents.config.workshop.ts", "--port", "4733"]), { selection: "./ragents.config.workshop.ts", port: 4733 });
+test("start takes a profile name or a path plus a port and a bind address", () => {
+  assert.deepEqual(parseArguments(["developer"]), { selection: "developer", port: undefined, bindAddress: undefined });
+  assert.deepEqual(parseArguments(["./ragents.config.workshop.ts", "--port", "4733"]), { selection: "./ragents.config.workshop.ts", port: 4733, bindAddress: undefined });
+  assert.deepEqual(parseArguments(["--bind-address", "127.0.0.1", "developer"]), { selection: "developer", port: undefined, bindAddress: "127.0.0.1" });
+  assert.deepEqual(parseArguments(["developer", "--port", "4733", "--bind-address", "::1"]), { selection: "developer", port: 4733, bindAddress: "::1" });
   assert.throws(() => parseArguments([]), /The profile name is missing/);
   assert.throws(() => parseArguments(["a", "b"]), /Unknown argument: b/);
   assert.throws(() => parseArguments(["a", "--port", "no"]), /needs an integer/);
+  assert.throws(() => parseArguments(["a", "--bind-address"]), /--bind-address needs an IPv4 or IPv6 address/);
+  assert.throws(() => parseArguments(["a", "--bind-address", "example.com"]), /--bind-address needs an IPv4 or IPv6 address.*not "example\.com"/);
 });
 
 test("a name finds the profile next to the host, a path finds your own profile anywhere on disk", async (t) => {
@@ -74,4 +78,14 @@ test("start records the host in the profile's data folder; a port 0 cannot be re
   assert.equal(noted.url, "http://localhost:4711");
   assert.equal(noted.pid, 4242);
   assert.equal(noted.log, path.join(directory, "logs", "server.log"));
+});
+
+test("the remembered address of a host names the interface it is bound to", async (t) => {
+  const directory = await temporary(t);
+  noteHost("workshop", directory, 4711, "127.0.0.1")!(4242);
+  assert.equal(readHostRecord(directory)!.url, "http://127.0.0.1:4711");
+  noteHost("workshop", directory, 4711, "::1")!(4242);
+  assert.equal(readHostRecord(directory)!.url, "http://[::1]:4711");
+  noteHost("workshop", directory, 4711, "0.0.0.0")!(4242);
+  assert.equal(readHostRecord(directory)!.url, "http://localhost:4711");
 });

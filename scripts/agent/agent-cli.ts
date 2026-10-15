@@ -73,7 +73,7 @@ ragents.runs.view), also on another machine; the server shows tool lines only wi
 runs.inspect, --json returns the same steps as JSON. Every question of the agent is a line
 "? [<header>] <question> Options: ..."; the turn ends with them, and one send answers them. If the connection breaks, the
 command ends with 1 and the cause. The address comes from <data folder>/host.json, otherwise from RAGENTS_URL, otherwise from
-host.PORT of the profile; RAGENTS_TOKEN is sent as a bearer token if the profile requires
+host.PORT and host.BIND_ADDRESS of the profile; RAGENTS_TOKEN is sent as a bearer token if the profile requires
 sign-in. A host started this way does not build the UI - an agent does not need it; ragents
 start <profile> starts it with the UI.`;
 
