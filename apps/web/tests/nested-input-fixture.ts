@@ -24,7 +24,7 @@ export async function nestedInputFixture(serverUrl: string, chat = false): Promi
   const client = await bundle(`
     import { createRoot } from "react-dom/client";
     import { useState } from "react";
-    import { ChatInputToolbar } from "quassel";
+    import { ChatInputToolbar } from "@schlenkr/quassel";
     import { hostInputEnabled, relayFrameInput } from "./apps/web/src/run-panel/input-bridge";
     window.inputEvents=[];
     document.addEventListener("input",event=>window.inputEvents.push({value:event.target.value,inputType:event.inputType}));

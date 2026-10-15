@@ -1,6 +1,6 @@
 import { useCallback, useSyncExternalStore, type ComponentProps } from "react";
 import { cn } from "../../ui";
-import { ChatPanel, ChatMessages as QuasselChatMessages, ChatInputToolbar, Markdown as QuasselMarkdown } from "quassel";
+import { ChatPanel, ChatMessages as QuasselChatMessages, ChatInputToolbar, Markdown as QuasselMarkdown } from "@schlenkr/quassel";
 import { QuasselHost, chatCodeBlocks } from "../../chat/QuasselHost";
 import type { ActorChatProps, ChatAttachmentInput, ChatConnection, ChatInputProps, ChatProps, ControlledChatProps } from "./contracts";
 

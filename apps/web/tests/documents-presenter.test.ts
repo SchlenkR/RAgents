@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { ToolInfo } from "quassel/events";
+import type { ToolInfo } from "@schlenkr/quassel/events";
 
 import type { SessionContext, SessionNavigation, ToolPresenterContext } from "../src/PluginRegistry";
 import { webPlugin } from "../../../plugins/ragents.documents/web/index";

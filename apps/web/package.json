@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
+    "@schlenkr/quassel": "0.5.0",
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.14.13",
     "class-variance-authority": "^0.7.1",
@@ -23,7 +24,6 @@
     "dompurify": "^3.4.13",
     "highlight.js": "^11.12.0",
     "lucide-react": "^1.46.0",
-    "quassel": "^0.4.9",
     "react": "^19.2.0",
     "react-diff-view": "^3.3.3",
     "react-dom": "^19.2.0",

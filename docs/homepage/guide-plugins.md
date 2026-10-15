@@ -295,6 +295,9 @@ additional assets that go into the bundle:
 `apps/server/src/host-api.ts`: `@ragents/engine`, `@ragents/host/...`, `@ragents/web/...`,
 `react`, `typebox`, and the other entries there. From a host module a plugin imports only the
 values the list names; types are free. A library such as `react` or `typebox` counts whole. The
+chat building blocks of the web half come from the host as `@schlenkr/quassel`; the earlier name
+`quassel` still works for one more release as a deprecated alias for the same module, so existing
+bundles keep loading, and a plugin should import `@schlenkr/quassel` and rebuild. The
 agent runtime behind the host (`@ragents/agent`, `@ragents/ai`) is not part of it: hooks into an
 agent's model calls come through `host.agentRuntime`, a single question to a model through
 `openRouterCompletionModel` from `@ragents/host/plugin-support/model-completion` or, for a profile

@@ -1,4 +1,4 @@
-import type { ChatStartupStatus } from "quassel/events";
+import type { ChatStartupStatus } from "@schlenkr/quassel/events";
 import type { StartupNoticeState } from "@ragents/web/ui";
 import { isPendingRunActorInput, type RunView } from "@ragents/web/run-view";
 

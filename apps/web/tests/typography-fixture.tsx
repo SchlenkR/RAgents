@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { useEffect, useState } from "react";
-import { ChatInputToolbar, ChatMessages, ChatPanel, type Message } from "quassel";
+import { ChatInputToolbar, ChatMessages, ChatPanel, type Message } from "@schlenkr/quassel";
 import { QuasselHost } from "../src/chat/QuasselHost";
 import { RunPanelHostProvider, type RunPanelHost } from "../src/run-panel/host";
 import { Button } from "../src/ui";

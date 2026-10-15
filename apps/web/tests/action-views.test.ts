@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ChatMessages, applyEvent, type Message, type PendingAction } from "quassel";
+import { ChatMessages, applyEvent, type Message, type PendingAction } from "@schlenkr/quassel";
 import { PluginRegistry, type SessionContext, type WebPlugin } from "../src/PluginRegistry.tsx";
 
 const waiting = (owner: string | null): Message[] => applyEvent([], {

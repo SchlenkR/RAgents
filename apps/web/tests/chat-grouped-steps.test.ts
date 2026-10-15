@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ChatMessages, type Message } from "quassel";
+import { ChatMessages, type Message } from "@schlenkr/quassel";
 
 const render = (messages: Message[], running = false) => renderToStaticMarkup(createElement(ChatMessages, { messages, running, detailMode: "grouped" }));
 

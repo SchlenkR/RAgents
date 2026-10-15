@@ -927,6 +927,9 @@ additional assets that go into the bundle:
 `apps/server/src/host-api.ts`: `@ragents/engine`, `@ragents/host/...`, `@ragents/web/...`,
 `react`, `typebox`, and the other entries there. From a host module a plugin imports only the
 values the list names; types are free. A library such as `react` or `typebox` counts whole. The
+chat building blocks of the web half come from the host as `@schlenkr/quassel`; the earlier name
+`quassel` still works for one more release as a deprecated alias for the same module, so existing
+bundles keep loading, and a plugin should import `@schlenkr/quassel` and rebuild. The
 agent runtime behind the host (`@ragents/agent`, `@ragents/ai`) is not part of it: hooks into an
 agent's model calls come through `host.agentRuntime`, a single question to a model through
 `openRouterCompletionModel` from `@ragents/host/plugin-support/model-completion` or, for a profile
@@ -1124,9 +1127,10 @@ contract modules, `@ragents/workspace-executor`, `@ragents/workflow`, the buildi
 `@ragents/host/...`) and the libraries `typebox`, `typebox/value`, `handlebars`,
 `playwright-core`, `tar` (`node:*` is always external); web 37 modules with 114 names from host
 code (the modules under `@ragents/web/...` and the browser-capable contracts of engine and host)
-and the libraries `react`, `react-dom`, `react/jsx-runtime`, `typebox`, and `quassel` (the
+and the libraries `react`, `react-dom`, `react/jsx-runtime`, `typebox`, and `@schlenkr/quassel` (the
 chat building blocks, because slots, link policy, and announcement region share context and module state with the host;
-`quassel/events` has no state and is bundled). A library is in it
+`@schlenkr/quassel/events` has no state and is bundled), which the web list also names as `quassel`, a
+deprecated alias (below). A library is in it
 whole with `LIBRARY`, as its installed version ships it; a host module
 is in it with a list of names, a module from which plugins obtain only types with an
 empty one. Types are in no list because they disappear in the bundle. What belongs in it is whatever
@@ -1148,6 +1152,19 @@ esbuild warning `import-is-undefined`, which the tool turns into an error; in th
 access `ns.name` and rejects a namespace that is passed on as a whole. `import()`
 of a host module is an error, in the server except for a fully allowed library, because the
 build does not see its names.
+
+**Deprecated alias `quassel`.** The chat library is published on npm as `@schlenkr/quassel` from 0.5.0
+(up to 0.4.9 as `quassel`, same API). Web bundles built until then name `quassel` in their shims and
+manifests, so the web list and `host-api.json` keep `quassel` next to `@schlenkr/quassel`, without a new
+`HOST_API_VERSION`: no name disappears. The registry holds ONE namespace under both specifiers, so a
+plugin on the old name and the host share the same context and module state. `hostApiAliases` in
+`host-api.ts` maps the alias to its target; the type probe, the runtime names, the register source
+of the build, and `apps/server/tests/host-api.test.ts` resolve the target instead of the alias, and
+`apps/web/tsconfig.plugin.json` maps the types of `quassel` to the installed `@schlenkr/quassel`, so
+that a plugin on the old name still builds and type-checks. The alias is removed with the next
+`HOST_API_VERSION` jump (rule 5 below). A plugin author imports `@schlenkr/quassel` instead and rebuilds;
+a bundle that names the new specifier needs a host that offers it, and an older host reports the missing
+module at startup through `hostNames`.
 
 **What belongs in the host API.** The list follows five rules, and every removal is a new
 `HOST_API_VERSION`, which is why removals are collected:
@@ -2402,10 +2419,13 @@ and `Badge` remains compact and inline. Authoring guidance uses the existing wra
 `Stack direction="row"` for a title and badge, one muted metadata line for related facts, and no
 heading that repeats the widget or tab title. No additional layout component is needed.
 Both include `quassel.css` after the host's utilities: the precompiled stylesheet
-of the chat building blocks `quassel/chat.css` (classes with prefix `qsl:`, variables `--qsl-*`) and the
+of the chat building blocks `@schlenkr/quassel/chat.css` (classes with prefix `qsl:`, variables `--qsl-*`) and the
 mapping of every quassel variable to the tokens from `theme.css` (colors, fonts, radius,
 shadows, `--qsl-color-scheme` per mode, spacing and font scale through `--theme()`), so that
-every change to the theme also affects the chat. Because quassel's classes come after the host's,
+every change to the theme also affects the chat. quassel itself takes its text size from the place it
+is mounted in (`--qsl-base`, overridable with `--qsl-font-size`); `quassel.css` still maps the steps
+`--qsl-text-xs` to `--qsl-text-xl`, `--qsl-text-meta`, `--qsl-text-trace`, and the chat text to the host's
+scale, so these sizes stay those of the rest of the interface wherever the chat is mounted. Because quassel's classes come after the host's,
 they win at equal specificity, also against the base classes of the slots; a class
 that the host passes through `className` to a quassel building block and that collides there with a class of its own
 therefore needs `!` (such as `min-h-16!` in the global coordinator).
@@ -2532,15 +2552,16 @@ exactly one `RunStore` and one channel subscription. React distributes the same
 `RunView` to surface and popouts through a versioned same-origin bridge contract. The
 surface opens no second stream when embedded.
 
-The chat building blocks come from the standalone library quassel (npm `quassel`,
+The chat building blocks come from the standalone library quassel (npm `@schlenkr/quassel`,
 github.com/SchlenkR/quassel, MIT): `ChatPanel`, `ChatMessages`, `ChatInputToolbar`,
-`DetailModeSwitch`, `TimestampSwitch`, `Markdown`, and their helpers from `quassel`, the wire contract
-of the ChatEvents including `applyEvent` and the attachment check from `quassel/events`, which server and
+`DetailModeSwitch`, `TimestampSwitch`, `Markdown`, and their helpers from `@schlenkr/quassel`, the wire contract
+of the ChatEvents including `applyEvent` and the attachment check from `@schlenkr/quassel/events`, which server and
 web import alike. They know no product. What knows the run stays in RAgents:
 `useChat`, `requests`, `useAttachmentCapabilities`, `StoppedActorNotice`, `StoppedRunNotice`, `chat-target`, and
 `user-location` under `apps/web/src/chat/`, on the server `chat-handler.ts`. `QuasselHost`
 (`apps/web/src/chat/QuasselHost.tsx`) gives quassel the host's basic building blocks as slots
-(`Button`, `Toggle`, `Card`, `StopButton`, `Popover`, `PopoverContent` from `apps/web/src/ui`) and
+(`Button`, `Toggle`, `Card`, `StopButton`, `Popover`, `PopoverContent` from `apps/web/src/ui`; the `PopoverContent` slot passes
+the `style` prop through, which carries the text size of the chat that opened a step popover) and
 lets links into a run (`flow:actor/...`, `input`, `turn`, `subscription`,
 `action`, `artifact`) through in Markdown; without it quassel discards every scheme other than http, https, mailto,
 tel, ftp, irc, and xmpp. `main.tsx` wraps it around the whole interface, that is, also

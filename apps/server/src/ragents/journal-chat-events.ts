@@ -1,5 +1,5 @@
 import type { JournalEvent } from "@ragents/engine";
-import type { ChatEvent, ChatTextCursor } from "quassel/events";
+import type { ChatEvent, ChatTextCursor } from "@schlenkr/quassel/events";
 
 type ActionPayload = Extract<JournalEvent, { type: "action.proposed" }>["payload"];
 

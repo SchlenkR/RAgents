@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { createPortal } from "react-dom";
 import { LayoutGridIcon, PlusIcon } from "lucide-react";
 import { useAccess } from "@ragents/web/AccessContext";
-import { ChatPanel } from "quassel";
+import { ChatPanel } from "@schlenkr/quassel";
 import { useRunPanelHost } from "@ragents/web/run-panel/host";
 import { useSurfaceController, type SurfaceCenterContext, type CardSectionContribution, type SessionContext, type SessionNavigation } from "@ragents/web/PluginRegistry";
 import { INSPECTION_TAB_ID } from "../InspectionPanel";

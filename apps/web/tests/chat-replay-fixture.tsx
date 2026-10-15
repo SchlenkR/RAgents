@@ -1,6 +1,6 @@
 import { useLayoutEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { ChatMessages, type ChatEvent } from "quassel";
+import { ChatMessages, type ChatEvent } from "@schlenkr/quassel";
 import { QuasselHost } from "../src/chat/QuasselHost";
 import { useChat } from "../src/chat/useChat";
 import "../src/ui/tailwind.css";

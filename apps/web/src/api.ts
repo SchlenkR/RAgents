@@ -4,7 +4,7 @@ import { coreContracts, type RunShareTarget, type RunSharingResult } from "@rage
 import { hasExactKeys, isRecord } from "./lib/guards";
 import { rpc } from "./rpc";
 import type { RpcClient } from "./rpc/client";
-import type { ChatAttachmentInput, Message } from "quassel/events";
+import type { ChatAttachmentInput, Message } from "@schlenkr/quassel/events";
 import { startOptionStateFrom, type StartOptionState } from "../../server/src/plugin-support/start-options-contract";
 import type { ListedSession } from "@ragents/host/chat-handler";
 

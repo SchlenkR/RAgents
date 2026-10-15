@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { Markdown } from "quassel";
+import { Markdown } from "@schlenkr/quassel";
 import { contentPathOf } from "../../../plugins/ragents.documents/contract";
 import { DocumentPanel, type RunDocument } from "../../../plugins/ragents.documents/web/DocumentViewer";
 import { useRunGrantsSettled } from "../../../plugins/ragents.documents/web/grants";

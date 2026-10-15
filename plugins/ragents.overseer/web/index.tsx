@@ -3,7 +3,7 @@ import { RotateCcwIcon } from "lucide-react";
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, HeaderDropdown, Spinner } from "@ragents/web/ui";
 import { RunModalContext } from "@ragents/web/ui/dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChatMessages, ChatInputToolbar, ChatPanel, type ChatInputHandle, type ChatEvent } from "quassel";
+import { ChatMessages, ChatInputToolbar, ChatPanel, type ChatInputHandle, type ChatEvent } from "@schlenkr/quassel";
 import { useChat } from "@ragents/web/chat/useChat";
 import { ChatContextUsage } from "@ragents/web/chat/ChatContextUsage";
 import { useAttachmentCapabilities } from "@ragents/web/chat/useAttachmentCapabilities";

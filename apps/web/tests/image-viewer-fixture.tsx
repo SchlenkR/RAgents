@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { ChatMessages, Markdown } from "quassel";
+import { ChatMessages, Markdown } from "@schlenkr/quassel";
 import { DocumentPanel } from "../../../plugins/ragents.documents/web/DocumentViewer";
 import { QuasselHost } from "../src/chat/QuasselHost";
 import { ImagePreview } from "../src/ui";

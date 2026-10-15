@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Message } from "quassel/events";
+import type { Message } from "@schlenkr/quassel/events";
 import type { SurfaceStartupState } from "../surface-startup";
 
 /** How long the loading state bridges finished work until the run view has caught up with the start status. */

@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { useState } from "react";
-import { ChatInputToolbar, ChatMessages, ChatPanel, type Message } from "quassel";
+import { ChatInputToolbar, ChatMessages, ChatPanel, type Message } from "@schlenkr/quassel";
 import { createAccessContext } from "../../../packages/ragents/src/access";
 import { askTitleOf, type AskPayload, type QuestionAnswer } from "../../../plugins/ragents.ask/ask-payload";
 import { webPlugin as askWebPlugin } from "../../../plugins/ragents.ask/web/index";

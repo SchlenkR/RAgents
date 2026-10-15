@@ -25,7 +25,7 @@ import { writeAppFiles } from "./actor-runtime-fixture.ts";
 import { globalChatToken, runManagementToken, type RunManagement } from "../src/ragents/global-chat.ts";
 import { productRuntimeToken } from "../src/ragents/product-runtime.ts";
 import { workspaceRuntimeToken } from "../src/ragents/workspace-runtime.ts";
-import type { ChatEvent } from "quassel/events";
+import type { ChatEvent } from "@schlenkr/quassel/events";
 import type { Engine } from "../src/ragents/engine.ts";
 import type { SessionInfo } from "../src/chat-handler.ts";
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { Markdown } from "quassel";
+import { Markdown } from "@schlenkr/quassel";
 import { QuasselHost } from "../../chat/QuasselHost";
 import { DiffCode } from "../../DiffCode";
 import { codeScrollbarClass } from "../../highlighting";

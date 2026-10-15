@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { coreContracts } from "@ragents/host/api/contracts";
-import type { ChatAttachmentCapabilities } from "quassel/events";
+import type { ChatAttachmentCapabilities } from "@schlenkr/quassel/events";
 import { rpc } from "../rpc";
 import type { RpcClient } from "../rpc/client";
 

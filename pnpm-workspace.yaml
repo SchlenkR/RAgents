@@ -9,4 +9,4 @@ allowBuilds:
   esbuild: true
   protobufjs: false
 minimumReleaseAgeExclude:
-  - quassel
+  - '@schlenkr/quassel'

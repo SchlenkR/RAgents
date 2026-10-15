@@ -3,7 +3,7 @@ import type { JsonValue } from "@ragents/engine/src/domain/json";
 import type { PublicPluginProfile } from "@ragents/engine/src/plugin-types";
 import { defineChannel, defineOperation } from "@ragents/engine/src/rpc/contract";
 import { openJson, runContracts } from "@ragents/engine/src/http/contracts";
-import type { ChatAttachmentCapabilities, ChatEvent } from "quassel/events";
+import type { ChatAttachmentCapabilities, ChatEvent } from "@schlenkr/quassel/events";
 import type { ChatUserLocation } from "../chat-context.js";
 import type { ListedSession } from "../chat-handler.js";
 import type { ActorConversations } from "../ragents/actor-chat-history.js";

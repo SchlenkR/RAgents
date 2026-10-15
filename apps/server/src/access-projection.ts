@@ -1,5 +1,5 @@
 import { emptyUsage, type AccessContext, type AccessProjectionRegistry, type RunView } from "@ragents/engine";
-import type { ChatEvent, Message } from "quassel/events";
+import type { ChatEvent, Message } from "@schlenkr/quassel/events";
 import type { ActorConversations } from "./ragents/actor-chat-history.js";
 
 /** Each plugin shows its own plugin states and plugin events through its access projection (docs/spec/plugins.md, registrations of the PluginHost). */

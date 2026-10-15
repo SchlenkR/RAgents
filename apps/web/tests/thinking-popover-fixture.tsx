@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { ChatMessages, QuasselProvider, type DetailMode, type Message } from "quassel";
+import { ChatMessages, QuasselProvider, type DetailMode, type Message } from "@schlenkr/quassel";
 import { QuasselHost } from "../src/chat/QuasselHost";
 import "../src/ui/tailwind.css";
 

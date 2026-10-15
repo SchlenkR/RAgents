@@ -1,4 +1,4 @@
-import type { ChatAttachmentInput } from "quassel/events";
+import type { ChatAttachmentInput } from "@schlenkr/quassel/events";
 import type { RunPreparationMessage } from "./run-preparation-contract.js";
 
 export function preparedRunInput(history: readonly RunPreparationMessage[], text: string, attachments?: ChatAttachmentInput[], skillName?: string) {

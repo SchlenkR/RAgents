@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import ts from "typescript";
-import { hostApiModules, hostOnly, providedByHost, type HostApiHalf } from "../src/host-api.ts";
+import { aliasTarget, hostApiModules, hostOnly, providedByHost, type HostApiHalf } from "../src/host-api.ts";
 import { readHostApiRecord } from "../src/plugin-build/host-api-names.ts";
 import { pluginsRoot } from "../src/plugin-support/plugins-root.ts";
 
@@ -134,7 +134,7 @@ test("built-in plugins import only the host API, their own folder and declared e
   assert.deepEqual(problems, []);
 });
 
-test("the web registry stores exactly the modules of the web list that have values, under their specifier", () => {
+test("the web registry stores exactly the modules of the web list that have values, under their specifier; an alias shares the namespace of its target", () => {
   const file = path.join(repositoryRoot, "apps/web/src/host-modules.ts");
   const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
   const namespaces = new Map(source.statements.filter(ts.isImportDeclaration).flatMap((declaration) => {
@@ -149,7 +149,7 @@ test("the web registry stores exactly the modules of the web list that have valu
   visit(source);
   const withValues = Object.entries(readHostApiRecord().web).filter(([, names]) => names.length > 0).map(([specifier]) => specifier);
   assert.deepEqual(entries.map(([specifier]) => specifier).sort(), withValues.sort());
-  for (const [specifier, name] of entries) assert.equal(namespaces.get(name), specifier, `${specifier} points to ${name}, which imports ${namespaces.get(name)}`);
+  for (const [specifier, name] of entries) assert.equal(namespaces.get(name), aliasTarget("web", specifier), `${specifier} points to ${name}, which imports ${namespaces.get(name)}`);
 });
 
 test("the host API names only modules that exist", () => {
@@ -160,7 +160,7 @@ test("the host API names only modules that exist", () => {
       throw new Error(ts.flattenDiagnosticMessageText(diagnostic.messageText, " "));
     } })!.options;
     for (const specifier of hostApiModules(half)) {
-      assert.ok(ts.resolveModuleName(specifier, importer, options, ts.sys).resolvedModule, `${specifier} cannot be resolved for the ${half} half`);
+      assert.ok(ts.resolveModuleName(aliasTarget(half, specifier), importer, options, ts.sys).resolvedModule, `${specifier} cannot be resolved for the ${half} half`);
     }
   }
 });

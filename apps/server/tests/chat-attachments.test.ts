@@ -12,7 +12,7 @@ import { attachmentContentPath, coreContracts } from "../src/api/contracts.ts";
 import { coreMethods } from "../src/api/core-methods.ts";
 import { attachmentContentRoute } from "../src/api/delivery.ts";
 import { coreSources, openRunAccess, startRpcServer } from "./rpc-fixture.ts";
-import { MAX_CHAT_ATTACHMENT_BYTES, MAX_CHAT_REQUEST_BYTES, parseChatAttachments, type ChatAttachmentInput, type ChatEvent } from "quassel/events";
+import { MAX_CHAT_ATTACHMENT_BYTES, MAX_CHAT_REQUEST_BYTES, parseChatAttachments, type ChatAttachmentInput, type ChatEvent } from "@schlenkr/quassel/events";
 import type { Engine } from "../src/ragents/engine.ts";
 import { RunChatSession } from "../src/ragents/session.ts";
 import { modelStartOption } from "../src/plugin-support/product-start-options.ts";

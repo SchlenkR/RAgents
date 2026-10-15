@@ -1,5 +1,5 @@
 import { useChatSteps, type ChatStepScope } from "./PluginRegistry";
-import { DetailModeSwitch, TimestampSwitch, TranscriptModeSwitch, type DetailMode, type TranscriptMode } from "quassel";
+import { DetailModeSwitch, TimestampSwitch, TranscriptModeSwitch, type DetailMode, type TranscriptMode } from "@schlenkr/quassel";
 import { createLocalStorageSetting } from "./lib/local-storage-setting";
 
 const timestampSetting = createLocalStorageSetting({

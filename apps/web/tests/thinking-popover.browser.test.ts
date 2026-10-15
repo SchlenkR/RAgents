@@ -85,6 +85,7 @@ test("long thinking and tool popovers stay visible and scroll in both chat hosts
         await trigger.click();
         const popup = page.getByRole("dialog", { name: step.title, exact: true });
         await settled(popup);
+        assert.notEqual(await popup.evaluate((element) => element.style.getPropertyValue("--qsl-base")), "", "The popup carries the text size of the chat that opened it");
         await assertBounded(popup, step.title);
         await page.screenshot({ path: join(shots, `thinking-popover-${host}-${mode}-${viewport.width}-${step.title === "Tool call" ? "tool" : "thinking"}.png`) });
         await assertScrollable(popup, step.sentinel);

@@ -5,7 +5,7 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "rea
 import { ActorChat } from "./ActorChat";
 import { ChatViewSwitches, useChatViewSettings } from "@ragents/web/chat-view-settings";
 import { ActorChatControls } from "./ActorChatControls";
-import type { Message } from "quassel/events";
+import type { Message } from "@schlenkr/quassel/events";
 import {
   actorAddress,
   isPendingRunActorInput,

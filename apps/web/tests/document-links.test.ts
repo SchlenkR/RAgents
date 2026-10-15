@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Markdown } from "quassel";
+import { Markdown } from "@schlenkr/quassel";
 
 import { RunUrls } from "../src/chat/QuasselHost";
 import { DocumentPanel, type DocumentSection } from "../../../plugins/ragents.documents/web/DocumentViewer";

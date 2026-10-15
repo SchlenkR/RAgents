@@ -10,7 +10,7 @@ import {
   type ChatStepsControl,
 } from "../src/PluginRegistry.tsx";
 import { overseerChatDisplayPolicy, overseerChatStorageKeyPrefix } from "../../../plugins/ragents.overseer/web/chat-display.ts";
-import { ChatMessages, type Message } from "quassel";
+import { ChatMessages, type Message } from "@schlenkr/quassel";
 
 const readControl = (policy: ChatDisplayPolicy, storageKeyPrefix?: string): ChatStepsControl => {
   let result: ChatStepsControl | undefined;

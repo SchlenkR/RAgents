@@ -3,7 +3,7 @@ import test from "node:test";
 import { chatUserLocation, runUserLocation } from "../src/chat/user-location.ts";
 import { sendChatMessage } from "../src/chat/requests.ts";
 import { RpcClient } from "../src/rpc/client.ts";
-import type { ChatAttachmentInput } from "quassel/events";
+import type { ChatAttachmentInput } from "@schlenkr/quassel/events";
 
 const tabs = [{ id: "orchestration", label: "Actors" }, { id: "files", label: "Files" }];
 const selected = { type: "actor", id: "actor-a" };

@@ -4,7 +4,7 @@ import test from "node:test";
 
 import { Journal, LiveBus, Orchestration } from "@ragents/engine";
 import { allGrants, manualExecution, postTo, testServices, textStep } from "../../../packages/ragents/tests/support.ts";
-import { applyEvent, type ChatEvent, type Message } from "quassel/events";
+import { applyEvent, type ChatEvent, type Message } from "@schlenkr/quassel/events";
 import type { Engine } from "../src/ragents/engine.ts";
 import { RunChatSession } from "../src/ragents/session.ts";
 

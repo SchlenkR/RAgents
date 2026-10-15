@@ -39,7 +39,7 @@ import * as webTheme from "@ragents/web/theme";
 import * as webToolLine from "@ragents/web/toolLine";
 import * as webUi from "@ragents/web/ui";
 import * as webUiDialog from "@ragents/web/ui/dialog";
-import * as quassel from "quassel";
+import * as quassel from "@schlenkr/quassel";
 import * as react from "react";
 import * as reactDom from "react-dom";
 import * as reactJsxRuntime from "react/jsx-runtime";
@@ -89,6 +89,7 @@ export const hostModules: Readonly<Record<string, object>> = {
   "@ragents/web/toolLine": webToolLine,
   "@ragents/web/ui": webUi,
   "@ragents/web/ui/dialog": webUiDialog,
+  "@schlenkr/quassel": quassel,
   "quassel": quassel,
   "react": react,
   "react-dom": reactDom,

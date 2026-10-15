@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Journal, LiveBus, Orchestration, StartOptionContributionRegistry } from "@ragents/engine";
 import { catalog, manualExecution, testServices, textStep } from "../../../packages/ragents/tests/support.ts";
-import { applyEvent, type ChatEvent, type Message } from "quassel/events";
+import { applyEvent, type ChatEvent, type Message } from "@schlenkr/quassel/events";
 import type { Engine } from "../src/ragents/engine.ts";
 import { RunChatSession } from "../src/ragents/session.ts";
 

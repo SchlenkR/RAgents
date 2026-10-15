@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createChatScroll } from "quassel";
+import { createChatScroll } from "@schlenkr/quassel";
 
 test("content and composer growth keep following the actual scroll boundary", () => {
   const changes: boolean[] = [];

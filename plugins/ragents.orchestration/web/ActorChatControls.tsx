@@ -2,7 +2,7 @@ import { useAccess } from "@ragents/web/AccessContext";
 import { useState, type ReactNode } from "react";
 import { interruptActorTurn, sendActorMessage } from "@ragents/web/api";
 import { ChatViewSwitches, useChatViewSettings } from "@ragents/web/chat-view-settings";
-import { ChatInputToolbar } from "quassel";
+import { ChatInputToolbar } from "@schlenkr/quassel";
 import { ChatContextUsage } from "@ragents/web/chat/ChatContextUsage";
 import { StoppedRunNotice } from "@ragents/web/chat/StoppedRunNotice";
 import { StoppedActorNotice } from "@ragents/web/chat/StoppedActorNotice";

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { ContentBlock, McpServer } from "@agentclientprotocol/sdk";
 import { RequestError } from "@agentclientprotocol/sdk";
-import { parseChatAttachments, type ChatAttachmentInput } from "quassel/events";
+import { parseChatAttachments, type ChatAttachmentInput } from "@schlenkr/quassel/events";
 import { parseMcpServers, type McpServers } from "../../plugins/ragents.mcp/config.ts";
 
 export const DISPLAY_TEXT_LIMIT = 16_384;

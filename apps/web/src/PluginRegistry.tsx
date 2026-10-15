@@ -11,7 +11,7 @@ import {
 import { useAccess } from "./AccessContext";
 import { RenderBoundary } from "./RenderBoundary";
 import { unrestrictedAccess, type AccessContext } from "../../../packages/ragents/src/access";
-import { DETAIL_MODES, type ChatAttachmentInput, type DetailMode, type Message, type PendingAction, type ToolInfo, type ChatStartupStatus } from "quassel";
+import { DETAIL_MODES, type ChatAttachmentInput, type DetailMode, type Message, type PendingAction, type ToolInfo, type ChatStartupStatus } from "@schlenkr/quassel";
 import type { SessionInfo } from "./api";
 import type { ConnectionRun } from "./panel/contract";
 import { HOST_START_WIDGETS } from "./panel/host-start-widgets";

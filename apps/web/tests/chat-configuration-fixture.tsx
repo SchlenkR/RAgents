@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { StrictMode } from "react";
 import { flushSync } from "react-dom";
-import { ChatInputToolbar, ChatMessages, ChatPanel, type Message } from "quassel";
+import { ChatInputToolbar, ChatMessages, ChatPanel, type Message } from "@schlenkr/quassel";
 import "../src/ui/tailwind.css";
 import { QuasselHost } from "../src/chat/QuasselHost";
 

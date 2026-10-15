@@ -6,7 +6,7 @@ import { PluginRegistry } from "../src/PluginRegistry";
 import { RunPanelApp } from "../src/run-panel/RunPanelApp";
 import { RunPanelHostProvider, type RunPanelHost } from "../src/run-panel/host";
 import type { HostRunPanelMessage, RunPanelHostMessage } from "../src/run-panel/host-contract";
-import { ChatInputToolbar } from "quassel";
+import { ChatInputToolbar } from "@schlenkr/quassel";
 import "../src/ui/tailwind.css";
 import { QuasselHost } from "../src/chat/QuasselHost";
 import { OrchestrationRunPanel } from "../../../plugins/ragents.orchestration/web/run-panel/RunPanel";

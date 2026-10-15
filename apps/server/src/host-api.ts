@@ -179,6 +179,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
       "TabsList", "TabsTrigger", "Textarea", "Toggle", "ToggleGroup", "ToggleGroupItem", "buttonVariants", "cn",
     ],
     "@ragents/web/ui/dialog": ["RunModalContext"],
+    "@schlenkr/quassel": LIBRARY,
     "quassel": LIBRARY,
     "react": LIBRARY,
     "react-dom": LIBRARY,
@@ -193,6 +194,14 @@ export const HOST_MODULES_GLOBAL = "__ragentsHostModules";
 export type HostApiHalf = keyof typeof hostApi;
 
 export const hostApiModules = (half: HostApiHalf): readonly string[] => Object.keys(hostApi[half]);
+
+/** Old specifiers that stay in the lists for one more release; the host serves the module of the new specifier under both, and the next version jump drops them. */
+export const hostApiAliases: Readonly<Record<HostApiHalf, Readonly<Record<string, string>>>> = {
+  server: {},
+  web: { quassel: "@schlenkr/quassel" },
+};
+
+export const aliasTarget = (half: HostApiHalf, specifier: string): string => hostApiAliases[half][specifier] ?? specifier;
 
 /** Host code and libraries whose module state, context or class identity the host shares; a plugin never carries its own copy. */
 export const hostOnly = (specifier: string): boolean => /^(react|react-dom)(\/|$)|^@ragents\/(?!plugins\/)/.test(specifier);

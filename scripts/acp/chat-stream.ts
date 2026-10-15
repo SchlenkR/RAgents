@@ -1,5 +1,5 @@
 import { RequestError, type AgentSideConnection, type StopReason } from "@agentclientprotocol/sdk";
-import type { ChatEvent } from "quassel/events";
+import type { ChatEvent } from "@schlenkr/quassel/events";
 import { coreContracts } from "../../apps/server/src/api/contracts.ts";
 import type { RpcClient } from "../../apps/web/src/rpc/client.ts";
 import { runContracts } from "../../packages/ragents/src/http/contracts.ts";

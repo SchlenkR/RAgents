@@ -1,6 +1,6 @@
 import path from "node:path";
 import type { SessionUpdate, ToolCallContent, ToolKind } from "@agentclientprotocol/sdk";
-import type { ChatEvent } from "quassel/events";
+import type { ChatEvent } from "@schlenkr/quassel/events";
 import { ASK_PLUGIN_ID, askPayloadOf } from "../../plugins/ragents.ask/ask-payload.ts";
 import { TODO_PLUGIN_ID, todoStateOf } from "../../plugins/ragents.todo/contract.ts";
 import { boundedText, DISPLAY_TEXT_LIMIT } from "./content.ts";

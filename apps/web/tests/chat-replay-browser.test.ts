@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
 import { build } from "esbuild";
 import { chromium, type Page } from "playwright-core";
-import type { ChatEvent } from "quassel/events";
+import type { ChatEvent } from "@schlenkr/quassel/events";
 import { tailwindPlugin } from "./tailwind-plugin";
 import type {} from "./chat-replay-fixture";
 

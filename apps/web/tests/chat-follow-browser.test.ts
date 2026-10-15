@@ -14,7 +14,7 @@ test("chat following survives browser clamping, streaming and working scenes whi
   const directory = await mkdtemp(`${scratch}/run-`);
   const root = fileURLToPath(new URL("../../../", import.meta.url));
   await build({stdin:{contents:`import React from 'react';import{createRoot}from'react-dom/client';import{flushSync}from'react-dom';
-import{ChatMessages,ChatPanel}from'quassel';
+import{ChatMessages,ChatPanel}from'@schlenkr/quassel';
 import '${root}apps/web/src/ui/tailwind.css';
 const root=createRoot(document.getElementById('app'));
 window.fixture={mode:'all',composer:40,messages:Array.from({length:20},(_,i)=>({key:String(i),role:'assistant',text:('This is a longer message with several lines and concrete content. ').repeat(8)}))};

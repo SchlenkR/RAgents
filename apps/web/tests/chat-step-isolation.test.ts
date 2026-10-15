@@ -19,7 +19,7 @@ test("chat detail levels start grouped and stay separate per run, actor, and dis
 import React from 'react';
 import {createRoot} from 'react-dom/client';
 import {ChatStepsProvider,defaultChatDisplayPolicy,useChatSteps,primaryChatActor} from './apps/web/src/PluginRegistry';
-import {ChatInputToolbar, ChatMessages, DetailModeSwitch} from 'quassel';
+import {ChatInputToolbar, ChatMessages, DetailModeSwitch} from '@schlenkr/quassel';
 import {QuasselHost} from './apps/web/src/chat/QuasselHost';
 import {ActorChat} from './plugins/ragents.orchestration/web/ActorChat';
 import {ActorChatControls} from './plugins/ragents.orchestration/web/ActorChatControls';

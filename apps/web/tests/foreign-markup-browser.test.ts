@@ -17,7 +17,7 @@ test("foreign chat and Markdown markup keeps accessible descriptions without nat
   await build({
     stdin: { contents: `import { useState } from "react";
 import { createRoot } from "react-dom/client";
-import { ChatInputToolbar, ChatMessages, Markdown } from "quassel";
+import { ChatInputToolbar, ChatMessages, Markdown } from "@schlenkr/quassel";
 import { QuasselHost } from "./src/chat/QuasselHost";
 import "./src/ui/tailwind.css";
 const tool = { key: "tool", role: "tool", text: "Inspect files", tool: { id: "inspect", name: "inspect_files", arguments: "{}" } };

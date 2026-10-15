@@ -17,7 +17,7 @@ import {
   Spinner,
 } from "@ragents/web/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Markdown, QuasselProvider, type Message } from "quassel";
+import { Markdown, QuasselProvider, type Message } from "@schlenkr/quassel";
 import { formatBytes } from "@ragents/web/lib/format";
 import { SourceCode } from "@ragents/web/SourceCode";
 import { useDocumentGrants, type GrantSnapshot } from "./grants";

@@ -1,6 +1,6 @@
 import { isActorAddress } from "@ragents/engine/src/http/contracts";
 import { isRecord } from "@ragents/web/lib/guards";
-import { parseChatAttachments, type ChatAttachmentInput } from "quassel/events";
+import { parseChatAttachments, type ChatAttachmentInput } from "@schlenkr/quassel/events";
 
 export const RUN_APP_BRIDGE_VERSION = 1;
 

@@ -12,7 +12,7 @@ import { AccessContext } from "../src/AccessContext";
 import { createAccessContext } from "../../../packages/ragents/src/access";
 import { Chat as AppChat } from "../../../apps/web/src/actor-programs/client-ui/index";
 import type { ChatConnection } from "../../../apps/web/src/actor-programs/client-ui/contracts";
-import { ChatMessages, type Message, type PendingAction } from "quassel";
+import { ChatMessages, type Message, type PendingAction } from "@schlenkr/quassel";
 import { chatSnapshotOf, resolveChatActor } from "../../../plugins/ragents.actor-programs/web/chat-state";
 import { RUN_APP_CHAT_SEND, RUN_APP_CHAT_WATCH, validateRunAppBridgeRequest } from "../../../plugins/ragents.actor-programs/web/bridge";
 import { actorChatMessages, actorConversation } from "../src/actor-conversation";

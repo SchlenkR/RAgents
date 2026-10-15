@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { Type } from "typebox";
-import type { ChatEvent } from "quassel/events";
+import type { ChatEvent } from "@schlenkr/quassel/events";
 import {
   AccessProjectionRegistry,
   actorByReference,

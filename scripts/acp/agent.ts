@@ -4,7 +4,7 @@ import { PROTOCOL_VERSION, RequestError, type Agent, type AgentSideConnection, t
   type InitializeResponse, type ListSessionsRequest, type ListSessionsResponse, type LoadSessionRequest, type LoadSessionResponse,
   type NewSessionRequest, type NewSessionResponse, type PromptRequest, type PromptResponse, type SessionConfigOption,
   type SetSessionConfigOptionRequest, type SetSessionConfigOptionResponse } from "@agentclientprotocol/sdk";
-import { MAX_CHAT_ATTACHMENT_BYTES, type ChatEvent } from "quassel/events";
+import { MAX_CHAT_ATTACHMENT_BYTES, type ChatEvent } from "@schlenkr/quassel/events";
 import { coreContracts, type HostBootstrap } from "../../apps/server/src/api/contracts.ts";
 import { readPackageVersion } from "../../apps/server/src/host-version.ts";
 import { modelStartOptionId, type StartOptionState } from "../../apps/server/src/plugin-support/start-options-contract.ts";

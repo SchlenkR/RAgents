@@ -1,5 +1,29 @@
 # Decisions
 
+## 2026-10-15: quassel is published as `@schlenkr/quassel`; the web host API keeps `quassel` as an alias for one release
+
+Chapters: `spec/plugins.md` (Bundle, build tool, and host API: deprecated alias; Web as plugin host: styles, chat);
+`development.md` (Developing quassel and RAgents together).
+
+The chat library moved on npm from `quassel` to `@schlenkr/quassel` with 0.5.0, same API; the unscoped package
+is deprecated. RAgents depends on the new name, pinned to 0.5.0 in the root, `apps/web`, and `apps/server`, and every
+import follows (`@schlenkr/quassel`, `/events`, `/chat.css`), the web halves of the built-in plugins included. Web bundles
+built until now name `quassel` in their shims and in `hostNames`, and the host refuses a bundle whose module is
+missing from `host-api.json`, so the web list and the record name both specifiers and the registry holds ONE
+namespace under each: an old bundle and the host share the same context and module state. No name disappears,
+so `HOST_API_VERSION` stays 19. `hostApiAliases` in `host-api.ts` maps the alias to its target; the type probe, the
+runtime names, the register source, and the host API tests resolve the target, and `apps/web/tsconfig.plugin.json`
+maps the types of `quassel`, so a plugin on the old name still builds and type-checks. The alias goes with the
+next version jump. Rejected: an npm alias dependency named `quassel` (the deprecated name would stay in the
+manifests and in the lockfile), and a version jump now (it would break every bundle built so far).
+
+0.5.0 derives all quassel text sizes from the place it is mounted in (`--qsl-base`, `--qsl-font-size`), uses the UI
+font in step rows, stops scroll chaining out of its inner scrollers, and hands the step popover the text size of its
+chat through a `style` prop. The `PopoverContent` slot of `QuasselHost` already forwards all props, so the prop reaches
+the popup. `quassel.css` keeps mapping the steps `--qsl-text-xs` to `--qsl-text-xl` and the meta, trace, and chat sizes
+to the host tokens: the host scale differs slightly from the derived one (for example `--text-xs` is 0.68rem, derived
+0.7rem), and the chat keeps reading like the rest of the interface wherever it is mounted.
+
 ## 2026-10-15: A build reads capability contracts with the registered actor runtimes
 
 Chapter: `spec/typescript-platform.md` (Build and process lifecycle).

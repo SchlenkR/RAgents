@@ -1,4 +1,4 @@
-import type { ChatAttachmentInput } from "quassel/events";
+import type { ChatAttachmentInput } from "@schlenkr/quassel/events";
 
 export interface RunPreparationMessage {
   role: "user" | "assistant";

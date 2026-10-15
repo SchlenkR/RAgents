@@ -8,7 +8,7 @@ import { EXTENSION_API_VERSION } from "../src/extension-api.ts";
 import { accessibleActorConversations, accessibleChatEvent as projectedChatEvent, accessibleRunView as projectedRunView } from "../src/access-projection.ts";
 import { productStartOptions } from "../src/plugin-support/product-start-options.ts";
 import { actorProgramAccessProjections } from "../../../plugins/ragents.actor-programs/server/access-projections.ts";
-import { applyEvent, type ChatEvent, type Message } from "quassel/events";
+import { applyEvent, type ChatEvent, type Message } from "@schlenkr/quassel/events";
 import { coreSources, startRpcServer } from "./rpc-fixture.ts";
 
 const operator = createAccessContext({ enabled: false, user: {

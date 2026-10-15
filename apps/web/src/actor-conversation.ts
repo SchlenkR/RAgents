@@ -1,4 +1,4 @@
-import type { Message } from "quassel/events";
+import type { Message } from "@schlenkr/quassel/events";
 import { withToolSummaries } from "./toolLine";
 import { actorAddress, runTurnOutputs, type RunActor, type RunActorInput, type RunView } from "./run-view";
 

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ChatInputToolbar } from "quassel";
+import { ChatInputToolbar } from "@schlenkr/quassel";
 
 test("the default composer keeps its attachment actions and three-line input", () => {
   const html = renderToStaticMarkup(createElement(ChatInputToolbar, {

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement, type ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ChatMessages, type Message } from "quassel";
+import { ChatMessages, type Message } from "@schlenkr/quassel";
 
 const messages: Message[] = [
   { key: "question", role: "user", text: "My question", sender: "owner", at: "2026-09-22T14:05:00Z" },

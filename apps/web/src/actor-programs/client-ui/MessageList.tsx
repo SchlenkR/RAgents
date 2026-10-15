@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { cn } from "../../ui";
-import { ChatMessages, type Message } from "quassel";
+import { ChatMessages, type Message } from "@schlenkr/quassel";
 import { QuasselHost, chatCodeBlocks } from "../../chat/QuasselHost";
 import type { MessageListProps } from "./message-list-contracts";
 

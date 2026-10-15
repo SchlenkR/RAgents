@@ -10,7 +10,7 @@ The React frontend with plugin slots.
   a registry; the bundles read React, contexts and building blocks from there. The stylesheet comes
   as `/ragents.css` from the server, compiled from `src/ui/tailwind.css` for the classes of the
   host and the bundles.
-- The chat building blocks come from the quassel library; `src/chat/` only holds the connection to
+- The chat building blocks come from the quassel library (npm `@schlenkr/quassel`); `src/chat/` only holds the connection to
   the run and `QuasselHost` with the basic building blocks from `src/ui/` as slots. The design
   tokens are in `src/ui/theme.css`, `src/ui/quassel.css` passes them on to quassel.
 - `index.html` and `src/main.tsx` are the shared entry point for browser and VS Code runs.

@@ -16,7 +16,7 @@ import {
   TurnScheduler,
   type CatalogModel,
 } from "@ragents/engine";
-import { applyEvent, type Message } from "quassel/events";
+import { applyEvent, type Message } from "@schlenkr/quassel/events";
 import { SUPERSEDED_ANSWER } from "../../../plugins/ragents.ask/ask-payload.ts";
 import { RuntimeAskService } from "../../../plugins/ragents.ask/server/ask-service.ts";
 import { QUESTION_POSED } from "../../../plugins/ragents.ask/server/ask-tool.ts";

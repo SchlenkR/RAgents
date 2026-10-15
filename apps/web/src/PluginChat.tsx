@@ -15,7 +15,7 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
-import { ChatInputToolbar, ChatMessages, ChatPanel, type ChatAttachmentInput, type ChatEvent, type ToolInfo } from "quassel";
+import { ChatInputToolbar, ChatMessages, ChatPanel, type ChatAttachmentInput, type ChatEvent, type ToolInfo } from "@schlenkr/quassel";
 import { primaryChatState, primaryIsProgram, programChatNotice } from "./chat/chat-target";
 import { StoppedRunNotice } from "./chat/StoppedRunNotice";
 import { RunUrls, chatCodeBlocks } from "./chat/QuasselHost";

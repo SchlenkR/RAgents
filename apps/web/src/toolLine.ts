@@ -1,4 +1,4 @@
-import type { Message, ToolInfo } from "quassel/events";
+import type { Message, ToolInfo } from "@schlenkr/quassel/events";
 
 const SUMMARY_LIMIT = 140;
 

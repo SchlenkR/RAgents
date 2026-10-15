@@ -513,18 +513,18 @@ machine, with Docker), and `scripts/maintenance/` (model catalog, concept audit)
 
 ### Developing quassel and RAgents together
 
-The chat building blocks are the quassel library (github.com/SchlenkR/quassel, npm `quassel`); RAgents
-uses it as an ordinary dependency (`^0.4.9` in the root, `apps/web`, and `apps/server`,
-`minimumReleaseAgeExclude` in `pnpm-workspace.yaml` for freshly published versions). Anyone
-changing both at the same time temporarily links quassel to its sources:
+The chat building blocks are the quassel library (github.com/SchlenkR/quassel, npm `@schlenkr/quassel`; up to
+0.4.9 the unscoped `quassel`); RAgents uses it as an ordinary dependency (pinned to `0.5.0` in the root,
+`apps/web`, and `apps/server`, `minimumReleaseAgeExclude` in `pnpm-workspace.yaml` for freshly published
+versions). Anyone changing both at the same time temporarily links quassel to its sources:
 
 ```yaml
 # pnpm-workspace.yaml, local only
 overrides:
-  quassel: link:/path/to/quassel/packages/quassel
+  '@schlenkr/quassel': link:/path/to/quassel/packages/quassel
 ```
 
-Then run `pnpm install`; in the quassel repo, `pnpm --filter quassel dev` keeps the stylesheet
+Then run `pnpm install`; in the quassel repo, `pnpm --filter @schlenkr/quassel dev` keeps the stylesheet
 `build/chat.css` up to date. Work with `scripts/start.sh <profile> --dev`: Vite and `tsx`
 compile quassel's TypeScript sources along with it, the server compiles the stylesheet per request,
 and a change shows after reloading. `pnpm build:web` and type checking do not work this way:
@@ -532,7 +532,7 @@ the homepage's mini-app demo accepts only sources from the repo, and quassel's s
 a second copy of the React types. Before every commit, `overrides` and the `pnpm-lock.yaml`
 changed by it are removed again (`pnpm install` afterwards); checks and commits are always made against
 a published version. RAgents takes over a new quassel version with
-`pnpm up -r quassel`; if it changes names that plugins use, `pnpm update:host-api` and
+`pnpm up -r @schlenkr/quassel@<version>`; if it changes names that plugins use, `pnpm update:host-api` and
 a new `HOST_API_VERSION` are needed (`docs/spec/plugins.md`, section Bundle, build tool, and host API).
 
 ## Tools, checks, and publishing

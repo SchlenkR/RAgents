@@ -31,6 +31,10 @@
       "typebox/*": [
         "../../node_modules/typebox/build/*/index.d.mts"
       ],
+      "quassel": [
+        "./node_modules/@schlenkr/quassel",
+        "../../node_modules/@schlenkr/quassel"
+      ],
       "*": [
         "./node_modules/@types/*",
         "../../node_modules/@types/*",

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
-import { parseChatAttachments, type ChatAttachment, type ChatAttachmentInput, type ChatEvent, type ChatStartupStatus } from "quassel/events";
+import { parseChatAttachments, type ChatAttachment, type ChatAttachmentInput, type ChatEvent, type ChatStartupStatus } from "@schlenkr/quassel/events";
 import { estimateContextUsage } from "@ragents/agent";
 import { modelContextOf } from "@ragents/engine/src/agents/model-context";
 import { attachmentContentPath, type ChatContextUsage } from "../api/contracts.js";

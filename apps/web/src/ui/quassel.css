@@ -1,5 +1,5 @@
 /* The chat building blocks come from quassel; its variables read the host's tokens, so theme.css stays the one source. */
-@import "quassel/chat.css";
+@import "@schlenkr/quassel/chat.css";
 
 :root {
     --qsl-chat-content-max-width: var(--chat-max-width);

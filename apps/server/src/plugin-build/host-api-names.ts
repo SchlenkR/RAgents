@@ -3,7 +3,7 @@ import path from "node:path";
 import vm from "node:vm";
 import { build } from "esbuild";
 import ts from "typescript";
-import { HOST_API_VERSION, LIBRARY, hostApi, hostApiModules, type HostApiHalf } from "../host-api.js";
+import { HOST_API_VERSION, LIBRARY, aliasTarget, hostApi, hostApiModules, type HostApiHalf } from "../host-api.js";
 import { HOST_API_RECORD_FILE, hostRoot, type HostApiRecord } from "../host-version.js";
 
 export { readHostApiRecord, type HostApiRecord } from "../host-version.js";
@@ -39,12 +39,13 @@ export const typeViews = (half: HostApiHalf, root = hostRoot()): ReadonlyMap<str
   const options = parsedConfig(path.join(root, place.config)).options;
   const importer = path.join(root, place.importer);
   const resolved = hostApiModules(half).map((specifier) => {
-    const module = ts.resolveModuleName(specifier, importer, options, ts.sys).resolvedModule;
-    if (!module) throw new Error(`${specifier} cannot be resolved for the ${half} half`);
-    return { specifier, module };
+    const target = aliasTarget(half, specifier);
+    const module = ts.resolveModuleName(target, importer, options, ts.sys).resolvedModule;
+    if (!module) throw new Error(`${target} cannot be resolved for the ${half} half`);
+    return { specifier, target, module };
   });
   const probe = path.join(path.dirname(importer), "__host-api-probe__.ts");
-  const probeText = resolved.map(({ specifier }, index) => `import * as module${index} from ${JSON.stringify(specifier)};`).join("\n");
+  const probeText = resolved.map(({ target }, index) => `import * as module${index} from ${JSON.stringify(target)};`).join("\n");
   const compilerOptions = { ...options, noEmit: true };
   const host = ts.createCompilerHost(compilerOptions);
   const readSource = host.getSourceFile.bind(host);
@@ -86,9 +87,9 @@ const javaScriptModules = (half: HostApiHalf, specifiers: readonly string[], mod
     stdio: ["ignore", "pipe", "inherit"],
   })) as Record<string, readonly string[]>;
 
-/** The register of the web half: every listed module as a namespace, keyed by its specifier. */
+/** The register of the web half: every listed module as a namespace, keyed by its specifier; an alias shares the namespace of its target. */
 export const webRegisterSource = (specifiers: readonly string[] = hostApiModules("web")): string => [
-  ...specifiers.map((specifier, index) => `import * as module${index} from ${JSON.stringify(specifier)};`),
+  ...specifiers.map((specifier, index) => `import * as module${index} from ${JSON.stringify(aliasTarget("web", specifier))};`),
   `export const hostModules = {`,
   ...specifiers.map((specifier, index) => `  ${JSON.stringify(specifier)}: module${index},`),
   `};`,
@@ -142,14 +143,14 @@ const listedNames = (half: HostApiHalf, specifier: string, view: TypeView): read
 export const hostApiNames = async (root = hostRoot()): Promise<HostApiRecord> => {
   const half = async (which: HostApiHalf): Promise<Record<string, readonly string[]>> => {
     const views = typeViews(which, root);
-    const candidates = [...views].filter(([, view]) => view.library).map(([specifier]) => specifier);
+    const candidates = [...new Set([...views].filter(([, view]) => view.library).map(([specifier]) => aliasTarget(which, specifier)))];
     const runtime = which === "server"
       ? javaScriptModules("server", candidates, "import", root)
       : await webRuntimeNames(Object.keys(javaScriptModules("web", candidates, "resolve", root)), root);
     return Object.fromEntries([...views].map(([specifier, view]) => {
       const listed = listedNames(which, specifier, view);
       if (listed !== LIBRARY) return [specifier, listed];
-      const present = runtime[specifier];
+      const present = runtime[aliasTarget(which, specifier)];
       return [specifier, present ? view.names.filter((name) => present.includes(name)) : view.names];
     }));
   };

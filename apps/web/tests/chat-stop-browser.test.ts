@@ -18,7 +18,7 @@ test("a chat's stop interrupts only its partner's running turn, the stopped line
     stdin: { resolveDir: root, loader: "tsx", contents: `
 import React from 'react';
 import {createRoot} from 'react-dom/client';
-import {ChatInputToolbar} from 'quassel';
+import {ChatInputToolbar} from '@schlenkr/quassel';
 import {QuasselHost} from './apps/web/src/chat/QuasselHost';
 import {StoppedRunNotice} from './apps/web/src/chat/StoppedRunNotice';
 import {interruptActorTurn} from './apps/web/src/api';

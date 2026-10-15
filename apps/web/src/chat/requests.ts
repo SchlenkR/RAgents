@@ -1,5 +1,5 @@
 import { coreContracts } from "@ragents/host/api/contracts";
-import type { ChatAttachmentInput } from "quassel/events";
+import type { ChatAttachmentInput } from "@schlenkr/quassel/events";
 import type { ChatUserLocation } from "../../../server/src/chat-context";
 import type { ScriptParameters } from "../../../server/src/plugin-support/actor-programs/script-parameters";
 import type { StartEntry } from "../../../server/src/plugin-support/start-entries-contract";

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Markdown, ChatMessages, applyEvent } from "quassel";
+import { Markdown, ChatMessages, applyEvent } from "@schlenkr/quassel";
 import { QuasselHost } from "../src/chat/QuasselHost";
 
 const renderMarkdown = (text: string, streaming = false) =>

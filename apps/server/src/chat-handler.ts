@@ -1,5 +1,5 @@
 /** The contracts of the runs that core methods and delivery work against. */
-import type { ChatAttachment, ChatAttachmentInput, ChatEvent } from "quassel/events";
+import type { ChatAttachment, ChatAttachmentInput, ChatEvent } from "@schlenkr/quassel/events";
 import type { PublicStartEntry, RunListDetail, RunShareAccess } from "@ragents/engine";
 import type { ChatContextUsage } from "./api/contracts.js";
 import type { ActorConversations } from "./ragents/actor-chat-history.js";

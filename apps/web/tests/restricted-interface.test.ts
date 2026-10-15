@@ -7,7 +7,7 @@ import { AccessContext, RunAccessScope, useAccess } from "../src/AccessContext";
 import type { SessionInfo } from "../src/api";
 import { RunPanelHeader } from "../src/run-panel/RunPanelHeader";
 import { ChatStepsProvider, PluginRegistry, useChatSteps, type SessionContext } from "../src/PluginRegistry";
-import { ChatMessages, type Message, attachmentCapabilityError } from "quassel";
+import { ChatMessages, type Message, attachmentCapabilityError } from "@schlenkr/quassel";
 import { PanelPage } from "../src/panel/PanelPage";
 import { connectionEntriesOf } from "../src/StartTiles";
 import { FlowInspector } from "../../../plugins/ragents.orchestration/web/FlowInspector";

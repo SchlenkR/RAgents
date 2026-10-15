@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { cn } from "cn";
 import type { RunPreparationMessage } from "../../server/src/run-preparation-contract";
 import { Button } from "./ui";
-import { ChatInputToolbar, type ChatInputHandle, ChatMessages, ChatPanel, type ChatAttachmentInput, type Message } from "quassel";
+import { ChatInputToolbar, type ChatInputHandle, ChatMessages, ChatPanel, type ChatAttachmentInput, type Message } from "@schlenkr/quassel";
 import { chatCodeBlocks } from "./chat/QuasselHost";
 import { useAttachmentCapabilities } from "./chat/useAttachmentCapabilities";
 import type { PluginRegistry, SessionContext, SkillStartEntry } from "./PluginRegistry";

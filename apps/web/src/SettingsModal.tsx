@@ -3,7 +3,7 @@ import { ArrowLeftIcon, CheckIcon, ChevronRightIcon, CircleAlertIcon, CopyIcon, 
 import { cn } from "cn";
 import { Badge, Button, InteractiveItem, Card, ChoiceSelect, Dialog, DialogContent, DialogTitle, OverflowTabs, OverflowTabsList, Spinner, TabsContent, ToggleGroup, ToggleGroupItem } from "./ui";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { Markdown } from "quassel";
+import { Markdown } from "@schlenkr/quassel";
 import { SourceCode } from "./SourceCode";
 import { formatBytes } from "./lib/format";
 import { settingsPageClass, settingsPageLeadClass, settingsPageTitleClass, settingsPanelClass, settingsPanelTitleClass } from "./settings-page";

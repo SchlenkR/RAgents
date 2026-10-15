@@ -9,7 +9,7 @@ import { AccessContext } from "../src/AccessContext";
 import type { PluginActivationState } from "../src/PluginActivation";
 import { ChatStepsProvider, defaultChatDisplayPolicy, PluginRegistry, type SessionContext, type SkillStartEntry } from "../src/PluginRegistry";
 import { RunPreparationChat } from "../src/RunPreparationChat";
-import type { Message } from "quassel/events";
+import type { Message } from "@schlenkr/quassel/events";
 import { RunPanelApp } from "../src/run-panel/RunPanelApp";
 import { RunPanelHostProvider, type RunPanelHost } from "../src/run-panel/host";
 import type { RunActor, RunView } from "../src/run-view";

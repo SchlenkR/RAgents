@@ -3,7 +3,7 @@ import { Type } from "typebox";
 import { clampThinkingLevel, type Message } from "@ragents/ai";
 import { DomainError, type ModelSelection } from "@ragents/engine";
 import { prepareInputAttachments } from "../../../packages/ragents/src/drivers/attachments.ts";
-import { MAX_CHAT_REQUEST_BYTES, parseChatAttachments } from "quassel/events";
+import { MAX_CHAT_REQUEST_BYTES, parseChatAttachments } from "@schlenkr/quassel/events";
 import {
   MAX_RUN_PREPARATION_MESSAGES, MAX_RUN_PREPARATION_TEXT_CHARS, MAX_RUN_PREPARATION_TOTAL_TEXT_CHARS,
   type RunPreparationMessage, type RunPreparationRequest, type RunPreparationResponse,

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ChatMessages, applyEvent, type ChatEvent, type Message, defaultTexts } from "quassel";
+import { ChatMessages, applyEvent, type ChatEvent, type Message, defaultTexts } from "@schlenkr/quassel";
 
 test("a message steered into the running turn keeps its place and carries a visible mark", () => {
   const events: ChatEvent[] = [

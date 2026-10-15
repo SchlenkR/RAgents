@@ -394,6 +394,34 @@ test("a plugin receives the shared data grid from the host without bundling its 
   }
 });
 
+test("a plugin built against the old quassel name and one built against the new name read the same module from the host's register", async () => {
+  const root = scratch();
+  try {
+    writeFiles(root, {
+      ...plainPlugin("acme.old-chat", { "web/index.ts": `import { Markdown } from "quassel";\nexport const webPlugin = { id: "acme.old-chat", Markdown };\n` }),
+      ...plainPlugin("acme.new-chat", { "web/index.ts": `import { Markdown } from "@schlenkr/quassel";\nexport const webPlugin = { id: "acme.new-chat", Markdown };\n` }),
+    });
+    const outcomes = await buildPlugins([path.join(root, "acme.old-chat"), path.join(root, "acme.new-chat")], { out: path.join(root, "dist"), typecheck: true });
+    const old = built(outcomes.find((outcome) => outcome.id === "acme.old-chat"));
+    const current = built(outcomes.find((outcome) => outcome.id === "acme.new-chat"));
+    assert.deepEqual(old.manifest.hostNames.web, { quassel: ["Markdown"] });
+    assert.deepEqual(current.manifest.hostNames.web, { "@schlenkr/quassel": ["Markdown"] });
+    const Markdown = () => null;
+    const previous = Reflect.get(globalThis, HOST_MODULES_GLOBAL);
+    try {
+      Object.assign(globalThis, { [HOST_MODULES_GLOBAL]: { quassel: { Markdown }, "@schlenkr/quassel": { Markdown } } });
+      for (const { bundle, id } of [{ bundle: old.bundle, id: "old" }, { bundle: current.bundle, id: "new" }]) {
+        const loaded = await import(`data:text/javascript,${encodeURIComponent(`${readFileSync(path.join(bundle, "web/index.js"), "utf8")}\n// ${id}`)}`) as { webPlugin: { Markdown: unknown } };
+        assert.equal(loaded.webPlugin.Markdown, Markdown, `the ${id} name reaches the host's module`);
+      }
+    } finally {
+      Object.assign(globalThis, { [HOST_MODULES_GLOBAL]: previous });
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("type errors, a wrong id and unknown fields are build errors", async () => {
   const root = scratch();
   try {

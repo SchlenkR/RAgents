@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from "react";
-import { QuasselProvider, type QuasselButtonProps, type QuasselComponents, type QuasselPopoverContentProps, type QuasselToggleProps } from "quassel";
+import { QuasselProvider, type QuasselButtonProps, type QuasselComponents, type QuasselPopoverContentProps, type QuasselToggleProps } from "@schlenkr/quassel";
 import type { RunUrlResolver } from "../PluginRegistry";
 import { useNoNativeTitles } from "../ui/native-title";
 import { Button, Card, ImagePreviewGroup, Popover, PopoverContent, StopButton, Toggle } from "../ui";
