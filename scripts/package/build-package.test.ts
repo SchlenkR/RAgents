@@ -9,7 +9,7 @@ import { x } from "tar";
 import { readPackageVersion } from "../../apps/server/src/host-version.ts";
 import { loadServedHostPackage } from "../../apps/server/src/host-package.ts";
 import { WORKSPACE_TOOL_TARGETS, workspaceToolsPackageName } from "../../packages/workspace-executor/src/bundled-tools.ts";
-import { buildPackage, installedVersions, PACKAGE_AUTHOR, PACKAGE_FOLDER, PACKAGE_KEYWORDS, PACKAGE_LICENSE, PACKAGE_NAME, PACKAGE_ROOT_FILES, PACKAGED_PROFILES } from "./build-package.ts";
+import { buildPackage, installedVersions, PACKAGE_AUTHOR, PACKAGE_FOLDER, PACKAGE_KEYWORDS, PACKAGE_LICENSE, PACKAGE_NAME, PACKAGE_ROOT_FILES, PACKAGED_PROFILES, typingsPackageOf } from "./build-package.ts";
 import { commands } from "./ragents.mjs";
 import { assertCleanCheckout, localPackageVersion, newestPublishedToolVersion } from "./local-package.ts";
 import { packageManagerInvocation } from "./package-manager.ts";
@@ -114,6 +114,13 @@ test("the package brings the built web and builds nothing: no Vite, no entry pag
   for (const name of ["@tanstack/react-table", "@tanstack/react-virtual"]) {
     assert.equal(dependencies[name], installedVersions(name).at(-1), `the shared grid ships its installed ${name} version for plugin compilation`);
   }
+  assert.equal(dependencies["@types/ws"], installedVersions("@types/ws").at(-1), "the shipped sources import ws, so its typings come along");
+});
+
+test("typings of a library are named after it, scoped ones with a double underscore", () => {
+  assert.equal(typingsPackageOf("ws"), "@types/ws");
+  assert.equal(typingsPackageOf("@scope/name"), "@types/scope__name");
+  assert.equal(typingsPackageOf("@types/node"), undefined);
 });
 
 test("the package names license, author and location and carries license and README at its root", async (t) => {

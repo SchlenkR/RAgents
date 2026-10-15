@@ -165,6 +165,11 @@ export const requiredPackages = (packageDirectory: string): ReadonlyMap<string, 
   return new Map([...sources].sort(([left], [right]) => left.localeCompare(right, "en")));
 };
 
+/** The shipped sources are TypeScript, so a library they import brings its separate typings along when the checkout has them. */
+export const typingsPackageOf = (name: string): string | undefined => name.startsWith("@types/")
+  ? undefined
+  : `@types/${name.startsWith("@") ? name.slice(1).replace("/", "__") : name}`;
+
 const compareVersions = (left: string, right: string): number => {
   const parts = (value: string) => value.split(/[.+-]/).map((part) => Number.isInteger(Number(part)) ? Number(part) : part);
   const [first, second] = [parts(left), parts(right)];
@@ -184,8 +189,7 @@ const anchors = (root: string): readonly string[] => [
     .filter((file) => statSync(file, { throwIfNoEntry: false })?.isFile() === true)),
 ];
 
-/** The versions this checkout has installed for a package; the newest goes into the package. */
-export const installedVersions = (name: string, root = repositoryRoot): readonly string[] => {
+const foundVersions = (name: string, root: string): readonly string[] => {
   const found = new Set<string>();
   for (const anchor of anchors(root)) {
     for (let directory = path.dirname(anchor); ; directory = path.dirname(directory)) {
@@ -197,7 +201,12 @@ export const installedVersions = (name: string, root = repositoryRoot): readonly
       if (path.dirname(directory) === directory) break;
     }
   }
-  const versions = [...found].sort(compareVersions);
+  return [...found].sort(compareVersions);
+};
+
+/** The versions this checkout has installed for a package; the newest goes into the package. */
+export const installedVersions = (name: string, root = repositoryRoot): readonly string[] => {
+  const versions = foundVersions(name, root);
   if (versions.length === 0) throw new Error(`The package ${name} is not installed in this checkout; without a version it cannot go into the package`);
   return versions;
 };
@@ -269,7 +278,11 @@ export const buildPackage = async (target: string, root = repositoryRoot, versio
   }
   const flattened: string[] = [];
   const dependencies: Record<string, string> = {};
-  for (const [name] of requiredPackages(target)) {
+  const required = [...requiredPackages(target).keys()];
+  const typings = required
+    .map(typingsPackageOf)
+    .filter((name): name is string => name !== undefined && !required.includes(name) && foundVersions(name, root).length > 0);
+  for (const name of [...required, ...typings].sort((left, right) => left.localeCompare(right, "en"))) {
     const versions = installedVersions(name, root);
     if (versions.length > 1) flattened.push(`${name}: ${versions.join(", ")} -> ${versions.at(-1)!}`);
     dependencies[name] = versions.at(-1)!;
