@@ -1,5 +1,22 @@
 # Decisions
 
+## 2026-10-15: A build reads capability contracts with the registered actor runtimes
+
+Chapter: `spec/typescript-platform.md` (Build and process lifecycle).
+
+A run script that declared `agent_spawn` in its setup contract failed on every call with "The
+capability contract ... still differs after the reactivation" as soon as a plugin had registered an
+external actor runtime through `host.actorRuntimes`, such as the `acp.<name>` runtimes of
+`ragents.acp`. The engine's tool registry adds those runtimes to the `agent_spawn` schema as the
+choice for `runtime`, but the activation resolved its tools through a registry that knew none, so
+the contract hash bound at activation could never match the one of the running actor, and the
+reactivation that drift triggers rebuilt the same wrong contract. The activation now builds its
+registry with the same lazy runtime list as the engine; the list is read on every activation, so
+the order of plugin registration does not matter. Builds from before the fix reactivate themselves on
+their next call, and the generated SDK types now name the registered runtimes as the `runtime`
+values of `agent_spawn`. Rejected: comparing the two registries or masking the `runtime` property
+in the hash, because the build is meant to see exactly the schemas its calls get.
+
 ## 2026-10-14: Round buttons are a Button shape
 
 Chapter: `spec/plugins.md` (Web as plugin host; button roles).

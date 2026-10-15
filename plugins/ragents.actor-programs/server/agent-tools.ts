@@ -9,7 +9,7 @@ export const agentToolsFrom = (host: PluginHost) =>
     if (!actor || actor.kind === "human" || actor.lifecycle.kind === "stopped") {
       throw new Error(`${actorId} does not denote an active agent in this run.`);
     }
-    const registry = new ToolRegistry();
+    const registry = new ToolRegistry(() => host.actorRuntimes.describe());
     host.tools.entries().forEach((contributor) => registry.register(contributor));
     const workspace = await host.service(runWorkspaceProviderToken)(runId);
     const tools = await registry.resolve({

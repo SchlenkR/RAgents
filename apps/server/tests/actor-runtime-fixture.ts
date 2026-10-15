@@ -14,18 +14,19 @@ export const runtimeFor = (setup: ReturnType<typeof setupRun>, directory: string
   sharedPackage: ActorProgramRuntimeOptions["sharedPackage"] = () => undefined,
   directoryFor: (runId: string) => string = () => directory,
   triggers: ActorProgramRuntimeOptions["triggers"] = { prepareRun: async () => undefined, interrupt: async () => { throw new Error("Unexpected trigger interrupt"); } },
-  ownerAccess: ActorProgramRuntimeOptions["ownerAccess"] = () => createAccessContext({enabled: false, user: null})) => {
+  ownerAccess: ActorProgramRuntimeOptions["ownerAccess"] = () => createAccessContext({enabled: false, user: null}),
+  agentToolsFor: ActorProgramRuntimeOptions["agentToolsFor"] = async (runId, actorId, provisionalActor) => {
+    const view = setup.runtime.view(runId);
+    const actor = provisionalActor ?? view.actors.find((candidate) => candidate.id === actorId);
+    if (!actor) throw new Error(`Unknown test actor ${actorId}`);
+    return [...agentTools, ...hostTools()].filter((tool) => tool.available(actor, view));
+  }) => {
   const serverProcessContextFor = async (runId: string) => ({runId, cwd: directoryFor(runId), root: directoryFor(runId), home: directoryFor(runId),
     logDirectory: directoryFor(runId), hostRoot: undefined, env: {PATH: process.env.PATH, HOME: directoryFor(runId), RAGENTS_RUN_ID: runId, NO_COLOR: "1"}});
   setup.services.nativeTypeScriptExecutor = new NodeTypeScriptExecutor({directoryFor: (runId) => path.join(directoryFor(runId), "native-programs"), serverProcessContextFor, isolatedProcessContextFor: serverProcessContextFor});
   const runtime = new ActorProgramRuntime({
     runtime: () => setup.runtime,
-    agentToolsFor: async (runId, actorId, provisionalActor) => {
-      const view = setup.runtime.view(runId);
-      const actor = provisionalActor ?? view.actors.find((candidate) => candidate.id === actorId);
-      if (!actor) throw new Error(`Unknown test actor ${actorId}`);
-      return [...agentTools, ...hostTools()].filter((tool) => tool.available(actor, view));
-    },
+    agentToolsFor,
     askService: () => askService, reservedToolNames: () => [], serverProcessContextFor, isolatedProcessContextFor: serverProcessContextFor, isolatedSandbox: async () => undefined,
     operations: {operation: (id) => operations.operation(id), invoke: (id, context, input) => operations.invoke(id, context, input), list: () => operations.describe()},
     directoryFor,

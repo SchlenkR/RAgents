@@ -71,6 +71,11 @@ schema comparison. If the type check, build, domain tests, or state check fail, 
 with that cause and the old package stays active. If the sources change in the process, a new
 revision is created and open views reload; identical sources keep their revision.
 
+The activation reads the capability contracts from the tool registry that the running actors use,
+with the same external actor runtimes (`host.actorRuntimes`, which `agent_spawn` offers as its
+`runtime` choice), so a build and its calls see the same schemas. Runtimes that a changed profile
+adds or removes count as drift and reactivate the package on its next call.
+
 `actor_program_activate` runs the type check, the build, and the existing `node:test` files. This
 applies to pure functions, programs with an input handler, and programs with views. There are no
 separate actor or script tool contracts for check, test, installation, and mock JSON. The normal
