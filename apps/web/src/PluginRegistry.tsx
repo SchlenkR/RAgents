@@ -352,7 +352,7 @@ export interface SessionStatusContribution {
   Status: ComponentType<SessionHeaderContext>;
 }
 
-/** A persistent application contribution in the overview, in the toolbar, or in the main area while no run is open (idle). */
+/** A persistent application contribution in the overview or in the toolbar. */
 export interface OverviewPanelContext {
   registry: PluginRegistry;
   userLocation?: ChatUserLocation;
@@ -371,6 +371,25 @@ export interface OverviewPanelContribution {
   /** Right a user needs to see the panel; without it the panel is shown to everyone. */
   readRight?: string;
   Panel: ComponentType<OverviewPanelContext>;
+}
+
+/** What a page gets from the host. */
+export interface PageContext {
+  /** Opens a run; the page is left and the run takes the main area. */
+  onOpenRun: (runId: string) => void;
+}
+
+/** A page in the main area instead of Start or the open run, opened by a button with its icon and title in the top bar; the address names it as page=<id>. */
+export interface PageContribution {
+  /** In the address, so it stays the same across releases. */
+  id: string;
+  order: number;
+  /** The button's text and name. */
+  title: string;
+  Icon: ComponentType;
+  /** Right a user needs to see the page and its button; without it the page is shown to everyone. */
+  readRight?: string;
+  Page: ComponentType<PageContext>;
 }
 
 export interface SettingsContribution {
@@ -460,6 +479,7 @@ export interface WebPlugin extends WebPluginDescriptor {
   sessionHeaders?: SessionHeaderContribution[];
   sessionStatus?: SessionStatusContribution[];
   overviewPanels?: OverviewPanelContribution[];
+  pages?: PageContribution[];
   settings?: SettingsContribution[];
   workspaceTabs?: WorkspaceTabContribution[];
   workspaceTabsFor?: (session: SessionContext) => readonly WorkspaceTabContribution[];
@@ -518,6 +538,7 @@ export class PluginRegistry {
   readonly sessionHeaders: readonly SessionHeaderContribution[];
   readonly sessionStatus: readonly SessionStatusContribution[];
   readonly overviewPanels: readonly OverviewPanelContribution[];
+  readonly pages: readonly PageContribution[];
   readonly settings: readonly (SettingsContribution & { owner: string })[];
   readonly sessionMetadata: readonly SessionMetadataContribution[];
   readonly actionViews: ReadonlyMap<string, ActionViewContribution>;
@@ -610,6 +631,14 @@ export class PluginRegistry {
       .flatMap((plugin) => plugin.overviewPanels ?? [])
       .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
     assertUnique(this.overviewPanels, (panel) => panel.id, "Overview contribution");
+    this.pages = this.activePlugins
+      .flatMap((plugin) => plugin.pages ?? [])
+      .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
+    assertUnique(this.pages, (page) => page.id, "Page");
+    for (const page of this.pages) {
+      if (page.id !== page.id.trim()) throw new Error(`Page ${page.id} has whitespace around its ID`);
+      if (!page.title.trim()) throw new Error(`Page ${page.id} has no title`);
+    }
     this.settings = this.activePlugins
       .flatMap((plugin) => (plugin.settings ?? []).map((contribution) => ({ ...contribution, owner: plugin.id })))
       .sort((left, right) => (left.order ?? 0) - (right.order ?? 0) || left.id.localeCompare(right.id));
@@ -636,6 +665,10 @@ export class PluginRegistry {
   availableTabs(session: SessionContext, access: AccessContext = unrestrictedAccess): readonly WorkspaceTabContribution[] {
     return this.registeredTabs(session, access)
       .filter((tab) => (!tab.requiresWorkspace || workspaceAccessible(session.session)) && (tab.available?.(session) ?? true));
+  }
+
+  pagesFor(access: AccessContext = unrestrictedAccess): readonly PageContribution[] {
+    return this.pages.filter((page) => !page.readRight || access.can(page.readRight));
   }
 
   headersFor(session: SessionContext, access: AccessContext): readonly SessionHeaderContribution[] {

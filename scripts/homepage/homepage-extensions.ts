@@ -40,6 +40,8 @@ export interface HomepageExtensionsResult {
 type Contract = { id: string; file: string; name: string; kind?: "schema" | "embedded" };
 const contracts: Contract[] = [
   { id: "settings", file: "apps/web/src/PluginRegistry.tsx", name: "SettingsContribution" },
+  { id: "page", file: "apps/web/src/PluginRegistry.tsx", name: "PageContribution" },
+  { id: "pageContext", file: "apps/web/src/PluginRegistry.tsx", name: "PageContext" },
   { id: "profileUser", file: "apps/server/src/config-definition.ts", name: "ProfileUser" },
   { id: "profileAnonymousUser", file: "apps/server/src/config-definition.ts", name: "ProfileAnonymousUser" },
   { id: "environmentReference", file: "apps/server/src/config-definition.ts", name: "EnvironmentReference" },
@@ -895,6 +897,26 @@ const headers = {
   sessionStatus: [{ id: "ragents.example.run-status", order: 100,
     Status: ({ session }) => <span>{session.connected ? "Connected" : "Disconnected"}</span> }],
 } satisfies WebPlugin;`, ["web.overviewPanels", "web.sessionHeaders", "web.sessionStatus"], ["The context provides registry, open, onOpen, onClose, and onBusy. Without placement, the contribution appears in the overview and is mounted when first opened. Toolbar contributions are mounted from application startup; they activate their own connections only when used. The host coordinates open toolbar contributions. sessionHeaders appear in the run details sheet: label and explanation wrap the value in a shared DetailRow. Their order is shared with metadata so useful facts can come first. The actions placement puts controls in its footer; bar puts them in the title bar next to Share. A contribution without content returns null. Run header and lower status groups receive SessionContext and navigation and follow the active run."], "tsx"),
+  entry("web-pages", "Web contributions", "Pages in the main area", "A plugin can add a whole page to the application. Its button with icon and title appears in the top bar, and the page replaces Start or the open run in the main area. In the browser the address names the open page, so reloading, bookmarks, and the back and forward buttons keep it.", "Properties of a WebPlugin; the icon is any React component.", `
+const reports = {
+  id: "ragents.example",
+  pages: [{
+    id: "ragents.example.reports",
+    order: 100,
+    title: "Reports",
+    readRight: "ragents.example.read",
+    Icon: () => <svg aria-hidden viewBox="0 0 16 16" width="16" height="16"><path d="M2 14V6h3v8zm4.5 0V2h3v12zM11 14V9h3v5z" fill="currentColor" /></svg>,
+    Page: ({ onOpenRun }) => <section>
+      <h1>Reports</h1>
+      <button onClick={() => onOpenRun("run-1")} type="button">Open the latest run</button>
+    </section>,
+  }],
+} satisfies WebPlugin;`, ["web.pages", "page.id", "page.order", "page.title", "page.Icon", "page.readRight", "page.Page", "pageContext.onOpenRun"], [
+    "The top bar shows one button per page the user may read, after the overview and toolbar contributions and sorted by order and then id. It shows the icon and the title, which shorten when the header is narrow. The open page's button is highlighted. readRight hides button and page without the named permission. A blank title, an id with whitespace around it, and a duplicate id are registry errors.",
+    "The page replaces Start or the open run in the main area as plain content on the application background, without dialog or frame. The main area scrolls as a whole, so Page needs no scroll container. A Page that throws shows its cause in its place while the top bar stays usable.",
+    "The logo returns to Start, and onOpenRun, a template that starts, and the extension's navigation in VS Code leave the page. The run that was open stays selected, with its unsent input, and returns when the page is left. A page is mounted only while it is open, so state that must survive leaving it belongs on the server or in a service of the plugin.",
+    "In the browser the address names the open page as page=<id> and gets one history entry per change, so a reload, a bookmark, and the back and forward buttons keep it. The id stays the same across releases for that reason. An id that no plugin registers or the user may not read shows Start with a notice. In VS Code the page lives in the panel only and the extension does not know it.",
+  ], "tsx"),
   entry("web-settings", "Web contributions", "Editable plugin settings", "A plugin can offer its own interface for editing its settings. With category, it appears under Models or Appearance, and additionally on the plugin's settings page. The application assigns it to the active plugin.", "Properties of a WebPlugin; ExampleSettings is the plugin's own React component.", `
 import { useState } from "react";
 function ExampleSettings() {

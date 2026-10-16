@@ -917,7 +917,7 @@ Check again after resizing because the previous evidence applies to the previous
 
 The run panel is also available in the browser. `http://localhost:4710/run-panel.html?run=<id>`
 shows chat with an addressee selector, mini-app tabs, and the inspection bar on the right.
-Without `run`, it shows the shared Start page.
+Without `run`, it shows the shared Start page. `run-panel.html?page=<id>` opens a page that a plugin adds.
 `run-panel.html?layout=app&run=<id>&element=<app-id>` shows one mini-app without the tab bar.
 The browser docking layout and addressee are stored per run in the browser. Starting or opening
 a run focuses its visible chat input once it is ready, including a remembered chat partner.
@@ -1225,6 +1225,14 @@ settings share one header row whenever they fit, in both the browser and VS Code
 buttons use the remaining width between the fixed controls, then continue over the full width
 in further rows. VS Code opens them in editor tabs; the browser opens them in its
 workspace. Narrow panels can also wrap fixed controls.
+
+A plugin can add pages to the application. Each page has a button with its icon and title next to the
+global coordinator button; the titles shorten when the header is narrow. A page replaces Start or
+the open run in the main area as plain content on the normal background, and the main area scrolls as a whole.
+The open page's button is highlighted. The logo returns to Start, and opening a run leaves the page. In the
+browser the address names the open page (`?page=<id>`), so a reload, a bookmark, and the browser's back and
+forward buttons keep it; back leads from a page to what it replaced, such as the run that was open. An
+address that names a page that does not exist or that you may not see shows Start with a notice.
 
 **Start** is a dashboard of widgets over the full width of the window: **New**, **Continue**, and those that plugins add,
 all of them widgets of the same kind. What fits

@@ -1329,6 +1329,39 @@ The context provides registry, open, onOpen, onClose, and onBusy. Without placem
 
 Contract fields: web.overviewPanels, web.sessionHeaders, web.sessionStatus.
 
+### Pages in the main area
+
+A plugin can add a whole page to the application. Its button with icon and title appears in the top bar, and the page replaces Start or the open run in the main area. In the browser the address names the open page, so reloading, bookmarks, and the back and forward buttons keep it.
+
+Place of use: Properties of a WebPlugin; the icon is any React component.
+
+```tsx
+const reports = {
+  id: "ragents.example",
+  pages: [{
+    id: "ragents.example.reports",
+    order: 100,
+    title: "Reports",
+    readRight: "ragents.example.read",
+    Icon: () => <svg aria-hidden viewBox="0 0 16 16" width="16" height="16"><path d="M2 14V6h3v8zm4.5 0V2h3v12zM11 14V9h3v5z" fill="currentColor" /></svg>,
+    Page: ({ onOpenRun }) => <section>
+      <h1>Reports</h1>
+      <button onClick={() => onOpenRun("run-1")} type="button">Open the latest run</button>
+    </section>,
+  }],
+} satisfies WebPlugin;
+```
+
+The top bar shows one button per page the user may read, after the overview and toolbar contributions and sorted by order and then id. It shows the icon and the title, which shorten when the header is narrow. The open page's button is highlighted. readRight hides button and page without the named permission. A blank title, an id with whitespace around it, and a duplicate id are registry errors.
+
+The page replaces Start or the open run in the main area as plain content on the application background, without dialog or frame. The main area scrolls as a whole, so Page needs no scroll container. A Page that throws shows its cause in its place while the top bar stays usable.
+
+The logo returns to Start, and onOpenRun, a template that starts, and the extension's navigation in VS Code leave the page. The run that was open stays selected, with its unsent input, and returns when the page is left. A page is mounted only while it is open, so state that must survive leaving it belongs on the server or in a service of the plugin.
+
+In the browser the address names the open page as page=<id> and gets one history entry per change, so a reload, a bookmark, and the back and forward buttons keep it. The id stays the same across releases for that reason. An id that no plugin registers or the user may not read shows Start with a notice. In VS Code the page lives in the panel only and the extension does not know it.
+
+Contract fields: web.pages, page.id, page.order, page.title, page.Icon, page.readRight, page.Page, pageContext.onOpenRun.
+
 ### Editable plugin settings
 
 A plugin can offer its own interface for editing its settings. With category, it appears under Models or Appearance, and additionally on the plugin's settings page. The application assigns it to the active plugin.
@@ -2326,6 +2359,35 @@ export interface SettingsContribution {
 }
 ```
 
+### PageContribution
+
+Source in the repository: apps/web/src/PluginRegistry.tsx
+
+```typescript
+export interface PageContribution {
+  /** In the address, so it stays the same across releases. */
+  id: string;
+  order: number;
+  /** The button's text and name. */
+  title: string;
+  Icon: ComponentType;
+  /** Right a user needs to see the page and its button; without it the page is shown to everyone. */
+  readRight?: string;
+  Page: ComponentType<PageContext>;
+}
+```
+
+### PageContext
+
+Source in the repository: apps/web/src/PluginRegistry.tsx
+
+```typescript
+export interface PageContext {
+  /** Opens a run; the page is left and the run takes the main area. */
+  onOpenRun: (runId: string) => void;
+}
+```
+
 ### ProfileUser
 
 Source in the repository: apps/server/src/config-definition.ts
@@ -2717,6 +2779,7 @@ export interface WebPlugin extends WebPluginDescriptor {
   sessionHeaders?: SessionHeaderContribution[];
   sessionStatus?: SessionStatusContribution[];
   overviewPanels?: OverviewPanelContribution[];
+  pages?: PageContribution[];
   settings?: SettingsContribution[];
   workspaceTabs?: WorkspaceTabContribution[];
   workspaceTabsFor?: (session: SessionContext) => readonly WorkspaceTabContribution[];

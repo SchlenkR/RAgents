@@ -1,4 +1,5 @@
 import { createRoot } from "react-dom/client";
+import { FileTextIcon, ScrollTextIcon, TriangleAlertIcon } from "lucide-react";
 import { createAccessContext } from "../../../packages/ragents/src/access";
 import { OrchestrationRunPanel } from "../../../plugins/ragents.orchestration/web/run-panel/RunPanel";
 import { AccessContext } from "../src/AccessContext";
@@ -78,6 +79,18 @@ const growingHeaderPlugin: WebPlugin = {
   sessionHeaders: [{ id: "start.growing-header.actors", order: 0, placement: "bar",
     Header: () => <Button aria-label="Actors" className="flex-none" variant="ghost">Actors</Button> }],
 };
+const pagesPlugin: WebPlugin = {
+  id: "start.pages",
+  pages: [
+    { id: "start.reports", order: 10, title: "Reports", Icon: FileTextIcon, Page: ({ onOpenRun }) => <section aria-label="Reports content">
+      <h1>Reports</h1>
+      <button onClick={() => onOpenRun("existing")} type="button">Open existing run</button>
+      <div data-tall style={{ height: 2400 }} />
+    </section> },
+    { id: "start.audit", order: 20, title: "Audit", readRight: "start.audit", Icon: ScrollTextIcon, Page: () => <h1>Audit trail</h1> },
+    { id: "start.broken", order: 30, title: "Broken", Icon: TriangleAlertIcon, Page: () => { throw new Error("The report data is damaged."); } },
+  ],
+};
 const registry = new PluginRegistry({
   brand: { title: "Start check" }, product: { id: "start", title: "Start check" },
   plugins: [{
@@ -85,7 +98,7 @@ const registry = new PluginRegistry({
     surface: { RunPanel: OrchestrationRunPanel },
     surfaceElements: [{ id: "start.app", order: 0, select: () => fixture.elements, Element: () => <p>Mini-app ready</p> }],
     guides: [{ id: "start.topic", Guide: TopicGuide }],
-  }, documentPlugin, ...(query.has("dropdowns") ? [dropdownPlugin] : []), ...(query.has("growing-header") ? [growingHeaderPlugin] : [])],
+  }, documentPlugin, ...(query.has("dropdowns") ? [dropdownPlugin] : []), ...(query.has("growing-header") ? [growingHeaderPlugin] : []), ...(query.has("pages") ? [pagesPlugin] : [])],
   startEntries: [
     { id: "start.script", owner: "start", title: "Setup template", description: "Builds a mini-app", action: "script", coordinator: false },
     { id: "start.other", owner: "start", title: "Second template", description: "Builds something else", action: "script", coordinator: false },
@@ -208,6 +221,6 @@ const access = createAccessContext({ enabled: true, user: { id: "tester", label:
 const initialRun = query.get("run") ?? undefined;
 createRoot(document.getElementById("root")!).render(<QuasselHost><AccessContext.Provider value={{ ...access, logout: async () => {} }}>
   <RunPanelHostProvider value={host}>
-    <RunPanelApp location={{ layout: "panel", runId: initialRun, host: host.kind, connection: "local", theme: undefined, access: undefined }} />
+    <RunPanelApp location={{ layout: "panel", runId: initialRun, pageId: query.get("page") ?? undefined, host: host.kind, connection: "local", theme: undefined, access: undefined }} />
   </RunPanelHostProvider>
 </AccessContext.Provider></QuasselHost>);

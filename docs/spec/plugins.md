@@ -1362,7 +1362,7 @@ same rights and membership as reading that run through the dispatcher, and a usa
 run fails as `run-not-found` like a missing one. It checks on every load and every change it sends.
 
 In the browser, `useAccess` provides the same access context and `logout`.
-`accessMode` distinguishes hidden, read-only, and editable. Workspace tabs, run header, and status contributions can require their own
+`accessMode` distinguishes hidden, read-only, and editable. Workspace tabs, pages, run header, and status contributions can require their own
 read right through `readRight`. Technical contributions use `runs.inspect`. Workspace tabs and header contributions
 that need the run's workspace declare that with `requiresWorkspace: true`; they are missing
 when the run list reports `workspaceAccessible: false` for the run (`workspaceAccessible` from
@@ -1633,6 +1633,37 @@ Instead, plugins fill typed slots for:
   but activate their own connections only on use and keep them afterwards across run switches.
   In both browser and VS Code, only the selected server supplies these contributions, including
   on Start before a run is opened. Contributions from different environments are never merged.
+- pages (`pages`): a whole page in the main area instead of a dialog. A `PageContribution` declares `id`,
+  `order`, `title`, `Icon`, optional `readRight`, and `Page`, which renders the content and receives
+  `PageContext` with `onOpenRun(runId)`. The registry sorts pages by `order` and then `id`, rejects a
+  duplicate or empty `id`, an `id` with whitespace around it, and a blank `title`, and
+  `PluginRegistry.pagesFor(access)` filters by `readRight`.
+  The top bar shows one button per readable page (`PageButtons` in `run-panel/PluginPages.tsx`) after the
+  overview and toolbar contributions, with the page's icon and title, which truncate when the bar is
+  short. While pages exist, the global bar may grow from 18 to 36 rem and the buttons take at most three
+  quarters of the width beside the logo, so the coordinator keeps the rest. The open page's button carries
+  `aria-current="page"` and stands out like a selected control; a click on it changes nothing.
+  A page replaces Start or the open run in the main area (`PluginPage`) as plain content on the
+  application background, without dialog and frame. The main area scrolls as a whole, so a page needs no
+  scroll container of its own, and `RenderBoundary` shows a page that throws with its cause in its place
+  while the top bar stays usable. A page is mounted only while it is open: what must survive leaving it
+  stays on the server or in a service of the plugin.
+  Opening a page closes a start dialog and cancels a pending start. The run that was open stays selected
+  and mounted but hidden in an `Activity` boundary, so its unsent input, scroll position, layout, and
+  frames remain, and it returns when the page is left; its effects pause meanwhile, and its title bar and
+  controls leave with the page. Toolbar contributions receive the location "home" while a page is open.
+  The page is left by the logo (Start), `onOpenRun`, a template that starts, and, in VS Code, the
+  extension's `selectRun` and `showPage`.
+  The browser names the open page in its address as `page=<id>` next to the other query parameters
+  (`withPage`, `pageIn`, and `parseRunPanelLocation` in `run-panel/run-panel-location.ts`).
+  `usePageHistory` (`run-panel/page-history.ts`) adds one history entry per change and sets the page again
+  on `popstate`, so reload, bookmark, back, and forward follow it. The run selection is not part of the
+  address, as before, so back and forward toggle the page over whatever is selected at that time. An ID
+  the registry does not know or the viewer may not read shows Start with the notice "The page <id> is
+  not available."; the address keeps the ID until the next navigation. In VS Code the page lives in the
+  panel only: the iframe's address belongs to the extension and stays unchanged, and the extension is
+  not told about the page, so a reload of the webview shows Start. The contribution is additive;
+  `HOST_API_VERSION` stays unchanged.
 - Start widgets (`startWidgets`): a plugin contributes `StartWidget` values either as a readonly list
   or as a factory that publishes them per viewer. Both are the same widgets; Start, its layout, edit
   mode, gallery, and settings make no difference between them. A widget declares `id`, `order`, optional
@@ -3149,8 +3180,8 @@ narrow windows the navigation items are on one row that can be scrolled sideways
 `index.html` is the only server HTML source and loads `main.tsx`, which composes `RunPanelApp`.
 Vite emits an identical `run-panel.html` alias for the iframe host contract; both routes load the
 same assets and initialize host modules, access, theme, and host navigation once. The server
-rejects a build whose entry pages differ. `?run=<id>` chooses a run;
-without a run both hosts show this server's Start page. The logo returns there.
+rejects a build whose entry pages differ. `?run=<id>` chooses a run and `?page=<id>` opens a plugin page
+(web contributions, `pages`); without a run both hosts show this server's Start page. The logo returns there.
 VS Code selects the environment and embeds its server interface for Start, Runs, and the run;
 connection management and unavailable-server states remain in the extension's local shell.
 `?layout=app&run=<id>&element=<id>` renders one app through the same catalog and renderer.
@@ -5952,6 +5983,10 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   stand above an earlier, wider one, and the focus order stays the widget order there. Room that no
   remaining widget fits stays free. Moving a widget in the order reorders
   the cells in the DOM, so a frame inside a moved cell, such as a global app's view, can load again.
+- A plugin page is not kept mounted while Start or a run is shown. Only the page, not the selected run,
+  is part of the browser's history and address, so back and forward toggle the page over whatever is
+  selected at that time. In VS Code the extension does not know the open page, so a reload of its webview
+  shows Start.
 - Hidden `Activity` boundaries pause React effects and retain parent-fed panel props. They do not
   suspend scripts inside an iframe; independent context or state updates can still render a
   hidden React subtree at lower priority.

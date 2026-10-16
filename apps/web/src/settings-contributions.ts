@@ -240,6 +240,7 @@ const webContributionsOf = (plugin: WebPlugin): readonly WebContribution[] => [
   counted("Entity presenters", (plugin.entityPresenters ?? []).length),
   counted("Session header contributions", (plugin.sessionHeaders ?? []).length),
   listed("Overview contributions", (plugin.overviewPanels ?? []).map((panel) => panel.id)),
+  listed("Pages", (plugin.pages ?? []).map((page) => `${page.id} (${page.title})`)),
   listed("Settings", (plugin.settings ?? []).map((setting) => `${setting.id} (${setting.label})`)),
   counted("Session metadata", (plugin.sessionMetadata ?? []).length),
   counted("Attention contributions", (plugin.attention ?? []).length),

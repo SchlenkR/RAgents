@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseRunPanelLocation } from "../src/run-panel/run-panel-location.ts";
+import { pageIn, parseRunPanelLocation, withPage } from "../src/run-panel/run-panel-location.ts";
 
 const noLooks = { palette: undefined, codeStyle: undefined, corners: undefined, density: undefined };
 
 test("the run panel reads run, host, connection, theme and token from its address and defaults to the browser run panel", () => {
-  assert.deepEqual(parseRunPanelLocation(""), { layout: "panel", runId: undefined, host: "browser", connection: undefined, theme: undefined, scheme: undefined, looks: noLooks, access: undefined });
+  assert.deepEqual(parseRunPanelLocation(""), { layout: "panel", runId: undefined, pageId: undefined, host: "browser", connection: undefined, theme: undefined, scheme: undefined, looks: noLooks, access: undefined });
   assert.deepEqual(parseRunPanelLocation("?run=run-a&host=vscode&connection=workshop&theme=dark&access=tok"),
-    { layout: "panel", runId: "run-a", host: "vscode", connection: "workshop", theme: "dark", scheme: undefined, looks: noLooks, access: "tok" });
+    { layout: "panel", runId: "run-a", pageId: undefined, host: "vscode", connection: "workshop", theme: "dark", scheme: undefined, looks: noLooks, access: "tok" });
   assert.deepEqual(parseRunPanelLocation("?layout=app&run=run-a&element=board--main"),
     { layout: "app", runId: "run-a", elementId: "board--main", host: "browser", connection: undefined, theme: undefined, scheme: undefined, looks: noLooks, access: undefined });
 });
@@ -35,4 +35,21 @@ test("run panel and app frames carry each table spacing, and an old address leav
       assert.deepEqual(parseRunPanelLocation(`?${layout}host=vscode&density=${density}`), { ...base, looks: { ...base.looks, density } });
     }
   }
+});
+
+test("the address names a plugin page next to the run and keeps every other part when the page changes", () => {
+  const location = parseRunPanelLocation("?page=reports");
+  assert.ok(location.layout === "panel");
+  assert.equal(location.pageId, "reports");
+  assert.equal(pageIn("?run=run-a&page=%20reports%20"), "reports");
+  assert.equal(pageIn("?run=run-a&page="), undefined);
+  assert.equal(pageIn(""), undefined);
+  const address = "http://localhost:4710/?host=browser&run=run-a";
+  const opened = withPage(address, "acme.reports");
+  assert.equal(opened, "http://localhost:4710/?host=browser&run=run-a&page=acme.reports");
+  assert.equal(pageIn(new URL(opened).search), "acme.reports");
+  assert.equal(withPage(opened, "other page"), "http://localhost:4710/?host=browser&run=run-a&page=other+page");
+  assert.equal(pageIn(new URL(withPage(opened, "other page")).search), "other page");
+  assert.equal(withPage(opened, undefined), address);
+  assert.equal(withPage(address, undefined), address);
 });

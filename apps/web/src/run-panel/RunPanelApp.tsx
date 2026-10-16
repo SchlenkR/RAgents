@@ -20,6 +20,8 @@ import { useSharingStore } from "../panel/SharePanel";
 import { HelpDialog } from "../HelpDialog";
 import { chatUserLocation, type ChatRunLocation } from "../chat/user-location";
 import { PanelContributions } from "./PanelContributions";
+import { usePageHistory } from "./page-history";
+import { PageButtons, PluginPage } from "./PluginPages";
 import { WorkspaceModalContext } from "../ui/dialog";
 import { SettingsModal } from "../SettingsModal";
 import { Alert, Button, RunStateIcon, StartupNotice, StopButton, type StartupNoticeState } from "../ui";
@@ -33,7 +35,9 @@ import { BrandLogo } from "../ui/brand-logo";
 import { RunHeader } from "./RunHeader";
 
 const headerClass = "relative z-[80] flex min-h-header flex-none flex-wrap items-center border-b border-border bg-shell shadow-bar";
-const globalBarClass = "flex max-w-[18rem] min-w-0 flex-[0_1_auto] items-center gap-1";
+const globalBarClass = "flex min-w-0 flex-[0_1_auto] items-center gap-1";
+// Plugin pages add buttons to the bar, so its limit is wider than what fits the logo and the coordinator.
+const globalBarWidth = (pages: number) => pages > 0 ? "max-w-[36rem]" : "max-w-[18rem]";
 // From 768px the run title shrinks first down to its chevron; only then the global bar shrinks instead of overlapping the actions.
 const runBarClass = "flex min-w-0 max-w-[22rem] flex-[0_1_auto] items-stretch @min-[768px]/run-header:min-w-8 @min-[768px]/run-header:shrink-[1000]";
 const actionsBarClass = "ml-auto flex max-w-full min-w-0 flex-wrap items-center justify-end gap-1";
@@ -59,7 +63,7 @@ export function RunPanelApp({ location }: { location: RunPanelLocation }) {
   );
   const page = location.layout === "app"
     ? <ElementPage elementId={location.elementId} registry={activation.registry} runId={location.runId} />
-    : <RunPanelPage connection={location.connection} initialRunId={location.runId} registry={activation.registry} />;
+    : <RunPanelPage connection={location.connection} initialPageId={location.pageId} initialRunId={location.runId} registry={activation.registry} />;
   if (activation.failures.length === 0) return page;
   return (
     <div className="flex h-full flex-col">
@@ -69,7 +73,7 @@ export function RunPanelApp({ location }: { location: RunPanelLocation }) {
   );
 }
 
-function RunPanelPage({ connection, initialRunId, registry }: { connection: string | undefined; initialRunId: string | undefined; registry: PluginRegistry }) {
+function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { connection: string | undefined; initialPageId: string | undefined; initialRunId: string | undefined; registry: PluginRegistry }) {
   const host = useRunPanelHost();
   const access = useAccess();
   const readRuns = access.can("runs.read");
@@ -77,6 +81,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
   const canCreateFree = writeRuns && access.can("runs.create");
   const canCreate = canCreateFree || (writeRuns && registry.scriptEntries.some((entry) => canStartEntry(access, entry.id)));
   const [runId, setRunId] = useState(initialRunId);
+  const [pageId, setPageId] = usePageHistory(host.kind === "browser", initialPageId);
   const [page, setPage] = useState<"start" | "runs">("start");
   const [runLocation, setRunLocation] = useState<ChatRunLocation>();
   const [helpOpen, setHelpOpen] = useState(false);
@@ -112,10 +117,11 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
   const openRun = useCallback((id: string, startOptions?: Readonly<Record<string, unknown>>) => {
     setDraft(undefined);
     replaceLaunch(undefined);
+    setPageId(undefined);
     setRunStartOptions(startOptions);
     setRunId(id);
     setFocusRunId(id);
-  }, [replaceLaunch]);
+  }, [replaceLaunch, setPageId]);
   const openFreshRun = useCallback((startOptions?: Readonly<Record<string, unknown>>) => {
     const id = crypto.randomUUID();
     openRun(id, startOptions);
@@ -124,6 +130,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
   /** A template without a guide starts right away unless its script declares parameters; its result counts only as long as it is the current start. */
   const startLaunch = useCallback((next: Launch) => {
     setDraft(undefined);
+    setPageId(undefined);
     replaceLaunch(next);
     void launchRun(next, registry, access).then(
       (asked) => {
@@ -136,7 +143,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
       },
       (cause: unknown) => { if (launching.current === next.runId) setLaunch({ ...next, error: cause instanceof Error ? cause.message : String(cause) }); },
     );
-  }, [access, openRun, registry, replaceLaunch]);
+  }, [access, openRun, registry, replaceLaunch, setPageId]);
   /** New chat opens a fresh run, a template with a guide only its guide over the current page, every other template starts right away or asks for its script's parameters. */
   const startNew = useCallback((entryId: string | undefined, startOptions?: Readonly<Record<string, unknown>>) => {
     const entry = registry.startEntries.find((candidate) => candidate.id === entryId);
@@ -157,10 +164,23 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
     setDraft(undefined);
     replaceLaunch(undefined);
     setRunId(undefined);
+    setPageId(undefined);
     setPage("start");
     setNavigationNotice(notice);
     if (host.kind === "vscode") host.notify({ type: "showStart", ...(notice === undefined ? {} : { notice }) });
-  }, [host, replaceLaunch]);
+  }, [host, replaceLaunch, setPageId]);
+  /** A plugin page takes the main area from Start or the open run, which stays selected and returns when the page is left. */
+  const openPage = useCallback((id: string) => {
+    setDraft(undefined);
+    replaceLaunch(undefined);
+    setNavigationError(undefined);
+    setNavigationNotice(undefined);
+    setPageId(id);
+  }, [replaceLaunch, setPageId]);
+  const openPageRun = useCallback((id: string) => {
+    setRunTitle(undefined);
+    openRun(id);
+  }, [openRun]);
   /** The logo always leads to the Start page; in the browser it lists this server's templates and recent runs. */
   const showStart = useCallback(() => leaveToStart(undefined), [leaveToStart]);
 
@@ -189,6 +209,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
       setRunStartOptions(undefined);
       setRunTitle(undefined);
       setRunId(selectedRun);
+      setPageId(undefined);
       setPage(message.type === "showPage" ? message.page : "start");
       setNavigationNotice(message.type === "showPage" ? message.notice : undefined);
       setNavigationError(undefined);
@@ -199,7 +220,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
     const refused = newRunRefusal(message.entryId);
     setNavigationError(refused);
     if (refused === undefined) startNew(message.entryId, message.startOptions);
-  }), [host, newRunRefusal, replaceLaunch, startNew]);
+  }), [host, newRunRefusal, replaceLaunch, setPageId, startNew]);
   useEffect(() => { host.notify({ type: "ready" }); }, [host]);
   useEffect(() => { host.notify({ type: "runChanged", runId: runId ?? null }); }, [host, runId]);
 
@@ -222,7 +243,11 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
     session={draft.session}
     startDialog={{ entry: draft.entry, prompt: draft.prompt, onClose: () => setDraft(undefined) }}
   />;
-  const hasRunTitle = readRuns && Boolean(runId || launch);
+  const pages = registry.pagesFor(access);
+  const requestedPage = pages.find((entry) => entry.id === pageId);
+  const activePage = launch === undefined ? requestedPage : undefined;
+  const unavailablePage = pageId !== undefined && requestedPage === undefined ? pageId : undefined;
+  const hasRunTitle = readRuns && !activePage && Boolean(runId || launch);
   const listed = sessions.find((entry) => entry.id === runId);
   const session = useRetainedSession(sessions, runId);
   const shareableBeforeStart = access.enabled && access.user !== null && writeRuns && runId !== undefined && runId === freshRunId;
@@ -254,7 +279,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
       page,
       profileSuggestions: [],
       problem: navigationError,
-      notice: navigationNotice,
+      notice: navigationNotice ?? (unavailablePage === undefined ? undefined : `The page ${unavailablePage} is not available.`),
       sharing,
       revoking,
       connections: [{
@@ -316,7 +341,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
     return (
       <div className="flex h-full flex-col bg-[image:var(--surface-backdrop)]">
         {readRuns && runId && (
-          <>
+          <Activity mode={activePage ? "hidden" : "visible"}>
             {stopError && <Alert variant="destructive">{stopError}</Alert>}
             <main className="relative z-1 flex min-h-0 min-w-0 flex-1 @container/chat-content">
               <PluginChat
@@ -330,14 +355,15 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
                 onViewed={reportViewed}
                 registry={registry}
                 session={session ?? pendingSession!}
-                viewing={!draft && !settingsOpen && !helpOpen}
+                viewing={!draft && !settingsOpen && !helpOpen && !activePage}
               />
             </main>
             <footer aria-label="Run status bar" className={statusBarClass} ref={setStatusContainer} />
-          </>
+          </Activity>
         )}
-        {/* Start and Runs stay mounted behind an open run, so returning keeps their state and scroll position. */}
-        <Activity mode={readRuns && runId ? "hidden" : "visible"}>
+        {activePage && <div className="min-h-0 min-w-0 flex-1 overflow-auto"><PluginPage onOpenRun={openPageRun} page={activePage} /></div>}
+        {/* Start and Runs stay mounted behind an open run or page, so returning keeps their state and scroll position. */}
+        <Activity mode={activePage || (readRuns && runId) ? "hidden" : "visible"}>
           <div className="min-h-0 min-w-0 flex-1 overflow-auto">
             {unreachable && <Alert className="mb-3" variant="destructive">The server is unreachable.</Alert>}
             <PanelPage preferences={SERVER_PREFERENCES} registry={registry} send={navigate} state={navigationState} />
@@ -350,12 +376,13 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
   };
   return <WorkspaceModalContext.Provider value={workspaceContainer}><div className="flex h-full flex-col">
     <RunHeader leading={<>
-      <div className={globalBarClass}>
+      <div className={`${globalBarClass} ${globalBarWidth(pages.length)}`}>
         <Button aria-label="Back to Start" className="self-center" onClick={showStart} size="icon" aria-description="Back to Start" variant="ghost">
           <BrandLogo className="size-6 text-foreground" title={registry.brand.title} />
         </Button>
         <div className="flex min-w-0 flex-1 items-center empty:hidden">
-          <PanelContributions registry={registry} userLocation={chatUserLocation(runId, false, runLocation)} />
+          <PanelContributions registry={registry} userLocation={chatUserLocation(activePage ? undefined : runId, false, runLocation)} />
+          <PageButtons active={activePage?.id} onOpen={openPage} pages={pages} />
         </div>
       </div>
       {hasRunTitle && <div className={runBarClass}>
@@ -364,7 +391,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
       </div>}
     </>} trailing={<div className={actionsBarClass}>
         {connection && <span className={connectionClass} aria-label={`Environment ${connection}`}>{connection}</span>}
-        {readRuns && runId && <>
+        {readRuns && runId && !activePage && <>
           <RunStateIcon className="self-center px-1.5" state={session?.state === "stopped" ? "stopped" : session?.running ? "running" : "idle"} />
           {session?.sharedAccess !== "read" && <StopButton className="self-center" disabled={!writeRuns} label="Stop run" onClick={stop} size="icon-lg" aria-description="Stop the run with all agents and flows" />}
         </>}

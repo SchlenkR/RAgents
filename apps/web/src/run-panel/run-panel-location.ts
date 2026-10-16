@@ -11,10 +11,12 @@ interface RunPanelLocationCommon {
 }
 
 export type RunPanelLocation =
-  | ({ layout: "panel"; runId: string | undefined } & RunPanelLocationCommon)
+  | ({ layout: "panel"; runId: string | undefined; pageId: string | undefined } & RunPanelLocationCommon)
   | ({ layout: "app"; runId: string; elementId: string } & RunPanelLocationCommon);
 
 export type RunPanelHostKind = "browser" | "vscode";
+
+const PAGE_QUERY = "page";
 
 const text = (value: string | null): string | undefined => value?.trim() ? value.trim() : undefined;
 
@@ -46,8 +48,19 @@ export function parseRunPanelLocation(search: string): RunPanelLocation {
     access: text(query.get(ACCESS_TOKEN_QUERY)),
   };
   const runId = text(query.get("run"));
-  if (layout === "panel") return { layout, runId, ...common };
+  if (layout === "panel") return { layout, runId, pageId: text(query.get(PAGE_QUERY)), ...common };
   const elementId = text(query.get("element"));
   if (!runId || !elementId) throw new Error("The app layout needs run and element.");
   return { layout, runId, elementId, ...common };
+}
+
+/** The plugin page the address names; the registry decides whether it exists. */
+export const pageIn = (search: string): string | undefined => text(new URLSearchParams(search).get(PAGE_QUERY));
+
+/** The address with the plugin page named, or with none; every other part of it stays. */
+export function withPage(address: string, pageId: string | undefined): string {
+  const url = new URL(address);
+  if (pageId === undefined) url.searchParams.delete(PAGE_QUERY);
+  else url.searchParams.set(PAGE_QUERY, pageId);
+  return url.toString();
 }

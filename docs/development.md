@@ -288,10 +288,11 @@ to the plugin (`packages/ragents/src/plugin-types.ts`):
 
 A web plugin fills slots in the frontend (`WebPlugin` in `apps/web/src/PluginRegistry.tsx`):
 `brand`, `surface` (one `RunPanel`), `surfaceElements`, `cardSections`, `chatDisplayPolicy`, `resolveRunUrl`, `startOptions`, `startWidgets`,
-`needsRunView`, `SessionProvider`, `sessionHeaders`, `sessionStatus`, `overviewPanels`,
+`needsRunView`, `SessionProvider`, `sessionHeaders`, `sessionStatus`, `overviewPanels`, `pages`,
 `settings`, `workspaceTabs`, `workspaceTabsFor`, `toolPresenters`, `entityPresenters`, `guides`,
 `sessionMetadata`, `actionViews`, `attention`; plus `activate` and `enabled`. `actionViews`
-render pending actions whose payload only the owning plugin knows. `workspaceTabs` are fixed tabs, `workspaceTabsFor` is a factory that derives
+render pending actions whose payload only the owning plugin knows. `pages` are whole pages in the main area, opened
+from a button with icon and title in the top bar and named in the browser's address as `page=<id>`. `workspaceTabs` are fixed tabs, `workspaceTabsFor` is a factory that derives
 tabs per run from the running state. Visible mini-apps enter `apps/web/src/run-apps.ts` automatically;
 a surface contribution's `add` offers an addition such as "Show app..." beside them.
 Browser runs arrange Chat, apps, and inspection tools through `run-panel/DockWorkspace.tsx`;

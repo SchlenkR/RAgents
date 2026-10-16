@@ -238,6 +238,7 @@ test("web settings and overview contributions can be found with their owner", ()
   const registry = registryWith([{
     id: "test.settings",
     overviewPanels: [{ id: "test.panel", order: 1, Panel: Empty }],
+    pages: [{ id: "test.reports", order: 1, title: "Reports", Icon: Empty, Page: Empty }],
     settings: [{ id: "test.model", label: "Model selection", Settings: Empty }],
   }]);
   const group = groupOf(groupContributions(settingsWith({}), registry), "test.settings");
@@ -245,10 +246,12 @@ test("web settings and overview contributions can be found with their owner", ()
   assert.equal(group.serverRegistered, false);
   assert.deepEqual(group.web, { state: "contributions", contributions: [
     { kind: "Overview contributions", details: ["test.panel"], count: 1 },
+    { kind: "Pages", details: ["test.reports (Reports)"], count: 1 },
     { kind: "Settings", details: ["test.model (Model selection)"], count: 1 },
   ] });
   assert.equal(countContributions(filterGroup(group, "web", "model selection")), 1);
   assert.equal(countContributions(filterGroup(group, "web", "test.panel")), 1);
+  assert.equal(countContributions(filterGroup(group, "web", "reports")), 1);
   assert.deepEqual(groupContributions(settingsWith({}), registryWith([])), []);
 });
 

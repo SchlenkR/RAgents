@@ -1,5 +1,39 @@
 # Decisions
 
+## 2026-10-16: Plugins add whole pages to the main area through `pages`
+
+Chapters: `spec/plugins.md` (Web as plugin host: pages; Rights; Open limits); `development.md` (Extension points in
+the web); `usage.md` (Run panel and VS Code extension).
+
+A plugin could only add a toolbar entry that opens its own dialog, or an overview panel inside the overview dialog;
+a report or a dashboard of its own had no place in the main area. `WebPlugin.pages` takes `PageContribution` values
+(`id`, `order`, `title`, `Icon`, optional `readRight`, `Page`). The top bar shows one button per readable page after
+the toolbar entries, highlighted while its page is open, and the page replaces Start or the open run as plain content
+that scrolls with the main area; the global bar's width limit rises from 18 to 36 rem while pages exist, so the buttons
+do not push the coordinator out of its bar. It is a contribution of its own and not `placement: "page"` on `overviewPanels`: an
+overview panel's context (`open`, `onOpen`, `onClose`, `onBusy`) describes a surface that decides itself what open
+means, a page has no such state and needs a title and an icon, and a third placement would have made `title` and
+`Icon` optional for the other two. `pages` follows `workspaceTabs` (`id`, `order`, `readRight`, icon, component), and
+`PageContext` carries only `onOpenRun`, which a page needs to hand the main area back to a run.
+
+The run that was open stays selected under the page, so the browser's back button returns to it, and stays mounted but
+hidden in an `Activity` boundary like Start behind a run, so unsent input, scroll position, layout, and frames remain;
+its title bar, which the run renders through a portal into the global header, leaves with the page and is drawn again
+on return. Rejected: unmounting the run, which loses unsent input, and clearing the selection, which would make back
+lead to Start. The logo, `onOpenRun`, a starting template, and the extension's `selectRun` and `showPage` leave the
+page.
+
+The app kept no navigation in the address or history: `?run=<id>` is read once at load and never written. `page=<id>`
+joins it in `parseRunPanelLocation`, and in the browser `usePageHistory` adds one history entry per change and sets
+the page again on `popstate`, so reload, bookmark, back, and forward work. Only the page is in the history, not the
+run selection: a fresh run has an ID before the server knows it, and rewriting the run into the address would change
+every existing navigation. VS Code keeps the page in the panel only, because the iframe's address belongs to the
+extension and its `pageChanged` message knows only Start and Runs. An ID that is unknown or that the viewer may not
+read shows Start with a notice instead of failing, and the address keeps the ID until the next navigation.
+
+The contribution adds a type and no value name, so `HOST_API_VERSION` stays 19 and `host-api.json` is unchanged; an
+older host ignores `pages` of a newer bundle.
+
 ## 2026-10-15: `BIND_ADDRESS` names the interface the host listens on
 
 Chapters: `spec/profiles.md` (Profiles; Server-delivered profiles); `spec/core.md` (global coordinator);
