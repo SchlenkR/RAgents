@@ -161,6 +161,23 @@ test("data grids scroll with the page, retain adjustable columns, virtualize mea
     }
   }
   await page.setViewportSize({ width: 1100, height: 900 });
+  checkpoint = "row detail";
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  const detailRow = grid.locator('[data-row-id="item-1"]');
+  const nextRow = grid.locator('[data-row-id="item-2"]');
+  const nextTop = (await nextRow.boundingBox())!.y;
+  await detailRow.locator('[data-grid-column="status"]').click();
+  const detail = detailRow.locator('[data-slot="data-grid-detail"]');
+  await detail.waitFor();
+  assert.equal(await detailRow.getAttribute("aria-expanded"), "true");
+  assert.equal(await nextRow.getAttribute("aria-expanded"), "false");
+  const detailHeight = (await detail.boundingBox())!.height;
+  await page.waitForFunction(([top, height]) => document.querySelector('[data-row-id="item-2"]')!.getBoundingClientRect().top >= top + height - 1, [nextTop, detailHeight]);
+  await detail.click();
+  assert.equal(await page.evaluate(() => window.dataGridFixture.clicked), "item-1", "clicks inside the detail stay out of the row");
+  await detailRow.locator('[data-grid-column="status"]').click();
+  await detail.waitFor({ state: "detached" });
+  assert.equal(await detailRow.getAttribute("aria-expanded"), "false");
   checkpoint = "bounded mode";
   await page.goto(`${address}?mode=bounded`);
   const bounded = page.getByRole("grid", { name: "Panel work items" });

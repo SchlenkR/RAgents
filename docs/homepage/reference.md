@@ -8443,6 +8443,7 @@ export interface DataGridProps<T> {
     onSelectionChange?: (keys: string[]) => void;
     onRowClick?: (row: T) => void;
     onOpen?: (row: T) => void;
+    renderDetail?: (row: T) => React.ReactNode;
     onEndReached?: () => void;
     endReachedThreshold?: number;
     loading?: boolean;

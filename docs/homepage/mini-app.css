@@ -1336,6 +1336,9 @@
   .animate-spin {
     animation: var(--animate-spin);
   }
+  .cursor-auto {
+    cursor: auto;
+  }
   .cursor-col-resize {
     cursor: col-resize;
   }
@@ -2612,6 +2615,10 @@
   .opacity-70 {
     opacity: 70%;
   }
+  .shadow-\[0_-6px_14px_-6px_rgba\(0\,0\,0\,0\.35\)\,0_8px_16px_-6px_rgba\(0\,0\,0\,0\.35\)\] {
+    --tw-shadow: 0 -6px 14px -6px var(--tw-shadow-color, rgba(0,0,0,0.35)), 0 8px 16px -6px var(--tw-shadow-color, rgba(0,0,0,0.35));
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
   .shadow-\[0_3px_9px_\#49384e20\] {
     --tw-shadow: 0 3px 9px var(--tw-shadow-color, #49384e20);
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
@@ -3538,6 +3545,9 @@
   }
   .has-\[\[aria-expanded\=true\]\:not\(\[aria-haspopup\]\)\]\:border-b-transparent:has(:is([aria-expanded=true]:not([aria-haspopup]))) {
     border-bottom-color: transparent;
+  }
+  .has-\[\[data-slot\=data-grid-detail\]\:hover\]\:bg-transparent:has(:is([data-slot=data-grid-detail]:hover)) {
+    background-color: transparent;
   }
   .has-\[\>\[data-slot\=checkbox-group\]\]\:gap-3:has( > [data-slot=checkbox-group]) {
     gap: calc(var(--spacing) * 3);

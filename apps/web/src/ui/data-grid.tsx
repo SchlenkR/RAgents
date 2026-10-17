@@ -48,6 +48,7 @@ export interface DataGridProps<T> {
   onSelectionChange?: (keys: string[]) => void;
   onRowClick?: (row: T) => void;
   onOpen?: (row: T) => void;
+  renderDetail?: (row: T) => React.ReactNode;
   onEndReached?: () => void;
   endReachedThreshold?: number;
   loading?: boolean;
@@ -270,7 +271,7 @@ function GridLayout<T>({ stored, onRetry, columns, rows, rowKey, grouping, ...pr
         </div>
         <div ref={body} role="rowgroup" className="relative" style={{ height: scrollElement === null ? visible.length * virtualOptions.estimateSize() : virtualizer.getTotalSize() }}>
           {items.map((item) => <GridRow key={item.key} row={visible[item.index]} index={item.index} columns={columns} template={template} virtualizer={virtualizer} start={item.start - geometry.margin}
-            selectable={selectable} loading={props.loading} onOpen={props.onOpen} onRowClick={props.onRowClick}
+            selectable={selectable} loading={props.loading} onOpen={props.onOpen} onRowClick={props.onRowClick} renderDetail={props.renderDetail}
             tabIndex={items.some((entry) => visible[entry.index].id === focusedId) ? visible[item.index].id === focusedId ? 0 : -1 : item.index === items[0]?.index ? 0 : -1}
             onFocus={() => setFocusedId(visible[item.index].id)} onNavigate={focusRow} />)}
         </div>
@@ -317,16 +318,18 @@ function GridResize<T>({ column, preview, label, width, disabled, save, fit }: {
     onLostPointerCapture={() => { if (drag.current) { drag.current = null; preview(column.id); } }} />;
 }
 
-function GridRow<T>({ row, index, columns, template, virtualizer, start, selectable, loading, onOpen, onRowClick, tabIndex, onFocus, onNavigate }: {
+function GridRow<T>({ row, index, columns, template, virtualizer, start, selectable, loading, onOpen, onRowClick, renderDetail, tabIndex, onFocus, onNavigate }: {
   row: Row<T>; index: number; columns: readonly DataGridColumn<T>[]; template: string; virtualizer: GridVirtualizer; start: number;
-  selectable: boolean; loading?: boolean; onOpen?: (row: T) => void; onRowClick?: (row: T) => void;
+  selectable: boolean; loading?: boolean; onOpen?: (row: T) => void; onRowClick?: (row: T) => void; renderDetail?: (row: T) => React.ReactNode;
   tabIndex: number; onFocus: () => void; onNavigate: (index: number) => void;
 }) {
   const grouped = row.getIsGrouped();
   const interactive = (target: EventTarget | null) => target instanceof Element && Boolean(target.closest("button,a,input,textarea,select,[role=checkbox]"));
-  return <div role="row" data-slot="data-grid-row" data-index={index} data-row-id={row.id} aria-rowindex={index + 2} aria-selected={!grouped && selectable ? row.getIsSelected() : undefined} aria-expanded={grouped ? row.getIsExpanded() : undefined}
+  const detail = grouped || !renderDetail ? null : renderDetail(row.original);
+  const expandable = !grouped && renderDetail !== undefined;
+  return <div role="row" data-slot="data-grid-row" data-index={index} data-row-id={row.id} aria-rowindex={index + 2} aria-selected={!grouped && selectable ? row.getIsSelected() : undefined} aria-expanded={grouped ? row.getIsExpanded() : expandable ? detail != null : undefined}
     ref={virtualizer.measureElement} tabIndex={tabIndex} onFocus={onFocus}
-    className={cn(tableRowMin, "absolute top-0 left-0 grid min-h-(--grid-row-min) w-full text-sm", grouped ? groupRowStyle : tableRowStyle, (grouped || onRowClick) && "cursor-pointer")}
+    className={cn(tableRowMin, "absolute top-0 left-0 grid min-h-(--grid-row-min) w-full text-sm", grouped ? groupRowStyle : tableRowStyle, (grouped || onRowClick) && "cursor-pointer", detail != null && "z-10 has-[[data-slot=data-grid-detail]:hover]:bg-transparent")}
     style={{ gridTemplateColumns: template, transform: `translateY(${start}px)` }}
     onClick={(event) => { if (!interactive(event.target)) { if (grouped) row.toggleExpanded(); else onRowClick?.(row.original); } }}
     onDoubleClick={(event) => { if (!grouped && !interactive(event.target)) onOpen?.(row.original); }}
@@ -346,6 +349,9 @@ function GridRow<T>({ row, index, columns, template, virtualizer, start, selecta
     </div> : <>
       {selectable && <div role="gridcell" className="flex items-center justify-center"><Checkbox aria-label={`Select row ${row.id}`} checked={row.getIsSelected()} disabled={loading} onCheckedChange={() => row.toggleSelected()} /></div>}
       {row.getVisibleCells().map((cell, columnIndex) => <GridCell key={cell.id} column={columns[columnIndex]}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</GridCell>)}
+      {detail != null && <div data-slot="data-grid-detail" className="col-span-full cursor-auto px-(--grid-cell-x) pt-1 pb-4" onClick={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+        <div className="rounded-lg border border-border bg-card p-3 text-foreground shadow-[0_-6px_14px_-6px_rgba(0,0,0,0.35),0_8px_16px_-6px_rgba(0,0,0,0.35)]">{detail}</div>
+      </div>}
     </>}
   </div>;
 }

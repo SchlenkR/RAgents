@@ -57,7 +57,8 @@ function Fixture() {
   const grid = <DataGrid id={`browser-${mode}-items`} aria-label={labels[mode]} rows={rows} columns={columns} rowKey={(row) => row.id}
     stickyOffset={mode === "bounded" ? 0 : 52} height={mode === "bounded" ? 360 : undefined}
     grouping={mode === "grouped" ? ["status"] : undefined} selection={selected} onSelectionChange={setSelected}
-    onRowClick={(row) => setClicked(row.id)} onOpen={(row) => setOpened(row.id)}
+    onRowClick={(row) => setClicked((current) => current === row.id ? null : row.id)} onOpen={(row) => setOpened(row.id)}
+    renderDetail={mode === "page" ? (row) => row.id === clicked ? <p className="type-body">Details of {row.name}</p> : null : undefined}
     onEndReached={() => setEndCalls((count) => count + 1)} endReachedThreshold={180} loading={loading}
     footer={<div role="status" aria-label="Loading status" className="type-meta py-4">{rowCount.toLocaleString("en-US")} items; end reached {endCalls} times</div>} />;
   const content = <>

@@ -953,9 +953,11 @@ defaultSorting starts local sorting; sorting and onSortingChange make it control
 
 Arrows, Home, and End navigate rows. Enter or a double-click calls onOpen; Space selects a row or toggles a group. onRowClick receives clicked rows, while custom cell controls keep their own interactions.
 
+renderDetail opens rows in place: content it returns appears below the row across the full width as a raised panel and pushes later rows down; null keeps a row closed, so the caller decides which rows are open, usually from onRowClick.
+
 onEndReached requests more rows within endReachedThreshold pixels of the end (200 by default). Set loading while fetching, and use footer for status or a Load more action. emptyText changes the empty-state message; className adjusts the outer layout.
 
-Contract fields: dataGrid.id, dataGrid."aria-label", dataGrid.rows, dataGrid.columns, dataGrid.rowKey, dataGrid.stickyOffset, dataGrid.height, dataGrid.sorting, dataGrid.defaultSorting, dataGrid.onSortingChange, dataGrid.grouping, dataGrid.selection, dataGrid.onSelectionChange, dataGrid.onRowClick, dataGrid.onOpen, dataGrid.onEndReached, dataGrid.endReachedThreshold, dataGrid.loading, dataGrid.footer, dataGrid.emptyText, dataGrid.className, dataGridColumn.id, dataGridColumn.label, dataGridColumn.value, dataGridColumn.render, dataGridColumn.width, dataGridColumn.minWidth, dataGridColumn.resizable, dataGridColumn.sortable, dataGridColumn.wrap, dataGridColumn.flex, dataGridSort.id, dataGridSort.desc.
+Contract fields: dataGrid.id, dataGrid."aria-label", dataGrid.rows, dataGrid.columns, dataGrid.rowKey, dataGrid.stickyOffset, dataGrid.height, dataGrid.sorting, dataGrid.defaultSorting, dataGrid.onSortingChange, dataGrid.grouping, dataGrid.selection, dataGrid.onSelectionChange, dataGrid.onRowClick, dataGrid.onOpen, dataGrid.renderDetail, dataGrid.onEndReached, dataGrid.endReachedThreshold, dataGrid.loading, dataGrid.footer, dataGrid.emptyText, dataGrid.className, dataGridColumn.id, dataGridColumn.label, dataGridColumn.value, dataGridColumn.render, dataGridColumn.width, dataGridColumn.minWidth, dataGridColumn.resizable, dataGridColumn.sortable, dataGridColumn.wrap, dataGridColumn.flex, dataGridSort.id, dataGridSort.desc.
 
 ### Static table primitives
 
@@ -3081,6 +3083,7 @@ export interface DataGridProps<T> {
   onSelectionChange?: (keys: string[]) => void;
   onRowClick?: (row: T) => void;
   onOpen?: (row: T) => void;
+  renderDetail?: (row: T) => React.ReactNode;
   onEndReached?: () => void;
   endReachedThreshold?: number;
   loading?: boolean;

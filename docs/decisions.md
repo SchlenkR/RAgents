@@ -1,5 +1,17 @@
 # Decisions
 
+## 2026-10-17: Data grid rows open a detail panel in place through `renderDetail`
+
+Chapters: `spec/plugins.md` (UI library: `DataGrid`).
+
+A list in a data grid could only show the full content of a row in a dialog or on another page, which takes the reader
+out of the list. `renderDetail` returns content for the rows the caller wants open; the grid places it below the cells
+in the same virtualized row, so the measured height moves the following rows without extra bookkeeping, and paints it as
+a raised panel with a shadow above and below. The open state stays with the caller and is not a second selection model in
+the grid: one callback returning `null` for closed rows covers a single open row and several open rows alike. Events inside
+the panel stop at its edge, so working with the content does not close or open the row. Rejected: a separate detail row
+in the row model, which would break row keys, sorting, and keyboard navigation over data rows.
+
 ## 2026-10-16: Plugins add whole pages to the main area through `pages`
 
 Chapters: `spec/plugins.md` (Web as plugin host: pages; Rights; Open limits); `development.md` (Extension points in

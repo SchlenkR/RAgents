@@ -2315,6 +2315,11 @@ selected keys, or the grid keeps them locally when omitted. Arrow keys, Home, an
 between rows. Enter or a double-click calls `onOpen`; Space selects a row when selection is
 enabled or toggles a group. `onRowClick` receives a clicked data row; cell controls retain
 their own interactions. Rows that react to a click (with `onRowClick`, or group rows) show the pointer cursor.
+`renderDetail` opens a row in place: when it returns content for a row, that content appears below the
+row's cells across the full width, as a raised panel with a shadow above and below, and the measured row
+height pushes the following rows down; `null` keeps the row closed. The caller decides which rows are open,
+usually by toggling a key in `onRowClick`. Data rows of such a grid carry `aria-expanded`, and clicks,
+double-clicks, and keys inside the panel stay with its content instead of reaching the row.
 
 `onEndReached` requests more data when the remaining distance to the last row reaches
 `endReachedThreshold` pixels (200 by default). The caller supplies the additional rows and
