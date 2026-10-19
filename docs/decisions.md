@@ -1,5 +1,14 @@
 # Decisions
 
+## 2026-10-19: Start and plugin pages keep equal side and top insets
+
+Chapter: `spec/plugins.md` (Shared page width).
+
+At desktop widths Start and plugin pages added wider side padding on top of the page column's own,
+so their content started further from the left and right edges than from the top. Wide dashboards
+and canvases lost width for no reason and the gap looked uneven. Both now use the same small inset
+on all sides; Runs and Server keep their centered column.
+
 ## 2026-10-19: Start's Edit action uses the shared top bar
 
 Chapters: `spec/plugins.md` (Arranging Start); usage: `usage.md` (Start).

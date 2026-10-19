@@ -26,7 +26,7 @@ export function PageButtons({ active, onOpen, pages }: {
 export function PluginPage({ onOpenRun, page }: { onOpenRun: (runId: string) => void; page: PageContribution }) {
   return (
     <main aria-label={page.title} className="relative h-full min-w-0 overflow-y-auto px-3 pb-12 [scrollbar-gutter:stable]" data-plugin-page={page.id} tabIndex={-1}>
-      <div className="@container/panel mx-auto w-full min-w-0 pt-3 lg:px-8">
+      <div className="@container/panel mx-auto w-full min-w-0 pt-3">
         <RenderBoundary resetKeys={[page]} title={`The page ${page.title} could not be displayed`}>
           <page.Page onOpenRun={onOpenRun} />
         </RenderBoundary>

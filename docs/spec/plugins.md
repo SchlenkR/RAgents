@@ -3622,9 +3622,10 @@ the whole run is called "Stop run" everywhere, interrupting the running turn in 
 work".
 
 **Shared page width.** `PanelPage` owns the content column with side padding. The Start dashboard
-uses the full available width in both hosts, with wider side padding at desktop widths. Runs
+uses the full available width in both hosts; its side padding equals its top padding at every width,
+and plugin pages use the same insets. Runs
 in both hosts and Server in VS Code use a centered column of at most 1280 pixels. All panel
-pages have more top padding at desktop widths. The page scroller ends with 12 spacing units (`pb-12`,
+pages except Start have more top padding at desktop widths. The page scroller ends with 12 spacing units (`pb-12`,
 the page step, 45.12 px at a 16 px root)
 below the content in both hosts and at every width, including Start's
 tabs mode. This clearance follows the host's spacing unit and zoom.

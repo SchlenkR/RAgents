@@ -28,7 +28,7 @@ export function PanelPage(props: PanelPageProps) {
   };
   return <main data-page={page} className="relative h-full min-w-0 overflow-y-auto px-3 pb-12 [scrollbar-gutter:stable]" ref={main} tabIndex={-1}
     onScroll={(event) => { if (event.currentTarget.clientHeight > 0) scrolled.current = event.currentTarget.scrollTop; }}>
-    <div className={`@container/panel mx-auto w-full min-w-0 ${page === "start" ? "pt-3 lg:px-8" : "max-w-[1280px] pt-6 lg:pt-8"}`}>
+    <div className={`@container/panel mx-auto w-full min-w-0 ${page === "start" ? "pt-3" : "max-w-[1280px] pt-6 lg:pt-8"}`}>
       {page === "connections" ? <ConnectionsPage {...props} /> : page === "runs" ? <RunsPage key={props.state.connections[0]!.name} {...props} /> : <StartPage {...props} />}
     </div>
     {sharing && <SharePanel anchor={shareAnchor} id="run-sharing-dropdown" key={`${sharing.connection}\u0000${sharing.runId}`} onOpenChange={(open) => { if (!open) props.send({ action: "closeSharing" }); }}
