@@ -8,7 +8,8 @@ import { usePointerDrag, type PointerPoint } from "../lib/pointer-drag";
 import type { StartWidgetSettings, StartWidgetSettingValues } from "../PluginRegistry";
 import type { PreferenceStore } from "../preferences";
 import { RenderBoundary } from "../RenderBoundary";
-import { Button, Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui";
+import { HeaderControls } from "../run-panel/RunHeader";
+import { Button, Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui";
 import { OverflowTabs, OverflowTabsList } from "../ui/overflow-tabs";
 import { SectionHeading } from "../ui/SectionLabel";
 import {
@@ -333,6 +334,7 @@ function WidgetGallery({ widgets, onAdd, onClose }: { widgets: readonly FramedIt
 
 /** Start's widgets in a six-column grid by their widths and the viewer's layout, three columns at medium widths and tabs below the narrow limit of its own width; Edit arranges them in place and saves the layout on the server. */
 export function StartDashboard({ widgets, preferences }: { widgets: readonly DashboardWidget[]; preferences: PreferenceStore | undefined }) {
+  const editButton = useRef<HTMLButtonElement>(null);
   const { state, retry, settle } = useStoredLayout(preferences);
   const [root, setRoot] = useState<HTMLDivElement | null>(null);
   const [element, setElement] = useState<HTMLDivElement | null>(null);
@@ -411,7 +413,7 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Das
   useLayoutEffect(() => {
     if (focusTarget === undefined || root === null) return;
     const control = (key: string, name: Control) => root.querySelector<HTMLButtonElement>(`[data-start-widget="${CSS.escape(key)}"] [data-control="${name}"]`);
-    const target = focusTarget.kind === "edit" ? root.querySelector<HTMLElement>("[data-edit-start]")
+    const target = focusTarget.kind === "edit" ? editButton.current
       : focusTarget.kind === "add" ? root.querySelector<HTMLElement>("[data-add-widget]")
         : [control(focusTarget.key, focusTarget.control), control(focusTarget.key, "handle")].find((button) => button !== null && !button.disabled);
     target?.focus();
@@ -566,22 +568,22 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Das
     setGesture({ kind: "resize", key, columns: shownWidth, point: { x: event.clientX, y: event.clientY } });
   };
 
-  const editButton = (compact: boolean) => <Button aria-label={compact ? "Edit" : undefined} className="flex-none text-muted-foreground" data-edit-start disabled={state.kind !== "ready"}
-    onClick={startEditing} size={compact ? "icon-sm" : "xs"} aria-description="Edit Start" variant="ghost">
-    <PencilIcon data-icon={compact ? undefined : "inline-start"} />{!compact && "Edit"}
-  </Button>;
   const toolbar = editing
     ? <EditBar canReset={!isDefaultLayout(effective)} list={mode === "list"} onCancel={cancel} onDone={done} onReset={reset} saving={saving} />
     : mode === "tabs"
-      ? <div className="flex min-w-0 items-center gap-1">
-        <OverflowTabsList aria-label="Start widgets" className="min-w-0 flex-1" items={framed.map((widget) => ({
+      ? <OverflowTabsList aria-label="Start widgets" className="min-w-0" items={framed.map((widget) => ({
           value: widget.key, label: widget.title, id: tabId(widget.key), controls: panelId(widget.key),
         }))} />
-        {preferences !== undefined && editButton(true)}
-      </div>
-      : preferences === undefined ? undefined : <div className="flex min-w-0 items-center justify-end">{editButton(false)}</div>;
+      : undefined;
 
   return <OverflowTabs className="grid min-w-0 grid-cols-1 gap-3" onValueChange={(key) => chosenWidget.save(storageKey, key)} ref={setRoot} value={active}>
+    {preferences !== undefined && state.kind === "ready" && !editing && <HeaderControls>
+      <TooltipProvider><Tooltip>
+        <TooltipTrigger aria-label="Edit Start" className="self-center" data-edit-start onClick={startEditing} ref={editButton}
+          render={<Button size="icon-lg" variant="ghost" />}><PencilIcon /></TooltipTrigger>
+        <TooltipContent side="bottom">Edit Start</TooltipContent>
+      </Tooltip></TooltipProvider>
+    </HeaderControls>}
     {state.kind === "failed" && <div className="flex flex-wrap items-center gap-2" role="alert">
       <p className="type-body text-destructive [overflow-wrap:anywhere]">The Start layout could not be loaded: {state.message}</p>
       <Button onClick={retry} size="xs" variant="outline">Retry</Button>

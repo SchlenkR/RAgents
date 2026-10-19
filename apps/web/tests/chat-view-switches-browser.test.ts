@@ -39,7 +39,14 @@ const latestLabel = "Show latest reply between inputs";
 const expectSwitch = async (chat: Locator, messages: Locator = chat) => {
   await chat.getByRole("button", { name: /^Show (intermediate replies|latest reply between inputs)$/ }).first().waitFor();
   await chat.getByRole("button", { name: hideLabel, exact: true }).waitFor();
-  await messages.locator("time").first().waitFor();
+  const timestamp = messages.locator("time").first();
+  await timestamp.waitFor();
+  const timestampStyle = await timestamp.evaluate((element) => ({
+    fontSize: parseFloat(getComputedStyle(element).fontSize),
+    position: element.parentElement?.getAttribute("data-timestamp-position"),
+  }));
+  assert.ok(Math.abs(timestampStyle.fontSize - 13 * 0.88) < 0.04, "Every chat uses the library timestamp scale.");
+  assert.equal(timestampStyle.position, "aside");
   await chat.getByRole("button", { name: hideLabel, exact: true }).click();
   await chat.getByRole("button", { name: showLabel, exact: true }).waitFor();
   assert.equal(await messages.locator("time").count(), 0);
@@ -141,7 +148,7 @@ test("preparation attachments check the selected model before sending", {
   assert.deepEqual(errors, []);
 });
 
-test("chat columns stay centered and bounded while their scrollers fill narrow and ultrawide panels", {
+test("chat text stays bounded while user backgrounds fill their rows in narrow and ultrawide panels", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 120_000,
 }, async (context) => {
   const directory = await mkdtemp(join(tmpdir(), "ragents-chat-width-"));
@@ -183,7 +190,7 @@ test("chat columns stay centered and bounded while their scrollers fill narrow a
         const geometry = await transcript.evaluate((scroller) => {
           const rect = (element: Element) => {
             const box = element.getBoundingClientRect();
-            return { x: box.x, width: box.width };
+            return { x: box.x, y: box.y, width: box.width, height: box.height };
           };
           const column = scroller.firstElementChild!;
           const panel = scroller.closest('[data-chat="panel"]');
@@ -194,18 +201,38 @@ test("chat columns stay centered and bounded while their scrollers fill narrow a
             range.selectNodeContents(paragraph);
             return [...range.getClientRects()].map((box) => ({ x: box.x, width: box.width }));
           });
+          const scrollerBox = scroller.getBoundingClientRect();
+          const users = [...scroller.querySelectorAll('[data-message="user"]')].map((row) => ({
+            row: rect(row), background: rect(row.querySelector('[data-chat="bubble-background"]')!),
+            content: rect(row.querySelector('[data-chat="bubble-content"]')!),
+            full: row.getAttribute("data-background-width") === "full",
+          }));
           return { scroller: rect(scroller), column: rect(column), composer: rect(composer),
+            viewport: { x: scrollerBox.x + scroller.clientLeft, width: scroller.clientWidth },
+            composerContainer: rect(panel ?? scroller), users,
             dock: panel ? rect(panel.querySelector('[data-chat="actions"]')!.parentElement!) : null,
             padding: parseFloat(getComputedStyle(scroller).getPropertyValue("--qsl-chat-horizontal-padding")) || 24, lines };
         });
         const near = (actual: number, expected: number, label: string) => assert.ok(Math.abs(actual - expected) < 2, `${mode} at ${width}: ${label}: ${actual} vs ${expected}`);
         near(geometry.scroller.width, width, "full-width scroller");
-        near(geometry.column.width, Math.min(900, width - 2 * geometry.padding), "column width");
-        const center = geometry.scroller.x + geometry.scroller.width / 2;
-        for (const [name, box] of Object.entries({ column: geometry.column, composer: geometry.composer, dock: geometry.dock })) {
+        near(geometry.column.width, Math.min(900, geometry.viewport.width - 2 * geometry.padding), "column width");
+        near(geometry.column.x + geometry.column.width / 2, geometry.viewport.x + geometry.viewport.width / 2, "column center");
+        const center = geometry.composerContainer.x + geometry.composerContainer.width / 2;
+        for (const [name, box] of Object.entries({ composer: geometry.composer, dock: geometry.dock })) {
           if (!box) continue;
-          near(box.width, geometry.column.width, `${name} width`);
+          near(box.width, Math.min(900, geometry.composerContainer.width - 2 * geometry.padding), `${name} width`);
           near(box.x + box.width / 2, center, `${name} center`);
+        }
+        assert.ok(geometry.users.length > 0, `${mode}: a user message exercises the background geometry`);
+        for (const user of geometry.users) {
+          assert.equal(user.full, true, `${mode}: user backgrounds default to the full row`);
+          near(user.background.x, user.row.x, "user background start");
+          near(user.background.y, user.row.y, "user background top");
+          near(user.background.width, user.row.width, "user background width");
+          near(user.background.height, user.row.height, "user background height");
+          near(user.content.x + user.content.width, user.row.x + user.row.width, "user content end alignment");
+          const maxWidth = geometry.viewport.width > 620 ? user.row.width * 0.86 : user.row.width;
+          assert.ok(user.content.width <= maxWidth + 1, `${mode}: user content keeps its width limit`);
         }
         assert.ok(geometry.lines.length > 0);
         for (const line of geometry.lines) {

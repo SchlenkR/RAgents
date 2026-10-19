@@ -25,6 +25,7 @@ const changedHeadings = [
   { size: 0.9, lineHeight: 1.8 },
   { size: 0.9, lineHeight: 1.8 },
 ];
+const chatHeadingSizes = [1.2, 1.1, 1.1, 1, 1, 1];
 
 const buildFixture = async (directory: string) => {
   const source = fileURLToPath(new URL("../src/", import.meta.url));
@@ -52,21 +53,27 @@ const settle = (page: Page) => page.evaluate(async () => {
     .map((animation) => animation.finished.catch(() => undefined)));
 });
 
-const assertReadingRole = async (page: Page, fontSize: number, lineHeight: number, label: string) => {
+const assertReadingRoles = async (page: Page, documentFontSize: number, documentLineHeight: number, label: string) => {
   const chat = page.getByRole("region", { name: "Chat", exact: true });
   const document = page.getByRole("article", { name: "Document", exact: true });
-  const readers = [
-    chat.getByText("Chat reading paragraph.", { exact: true }), chat.getByText("Chat list item.", { exact: true }),
-    chat.getByText("Chat quotation.", { exact: true }), chat.getByText("User reading paragraph.", { exact: true }),
-    chat.getByText("Bubble reading paragraph.", { exact: true }), chat.getByRole("textbox", { name: "Write a message ...", exact: true }),
-    document.getByText("Document reading paragraph.", { exact: true }), document.getByText("Document list item.", { exact: true }),
-    document.getByText("Document quotation.", { exact: true }),
+  const roles = [
+    { fontSize: 13, lineHeight: 1.5, readers: [
+      chat.getByText("Chat reading paragraph.", { exact: true }), chat.getByText("Chat list item.", { exact: true }),
+      chat.getByText("Chat quotation.", { exact: true }), chat.getByText("User reading paragraph.", { exact: true }),
+      chat.getByText("Bubble reading paragraph.", { exact: true }), chat.getByRole("textbox", { name: "Write a message ...", exact: true }),
+    ] },
+    { fontSize: documentFontSize, lineHeight: documentLineHeight, readers: [
+      document.getByText("Document reading paragraph.", { exact: true }), document.getByText("Document list item.", { exact: true }),
+      document.getByText("Document quotation.", { exact: true }),
+    ] },
   ];
-  const styles = await Promise.all(readers.map(typography));
-  for (const [index, style] of styles.entries()) {
-    near(style.fontSize, fontSize, `${label}, reading consumer ${index + 1} font`);
-    near(style.lineHeight, fontSize * lineHeight, `${label}, reading consumer ${index + 1} line height`);
-    assert.equal(style.fontFamily, styles[0].fontFamily, `${label} uses the shared reading font.`);
+  for (const { readers, fontSize, lineHeight } of roles) {
+    const styles = await Promise.all(readers.map(typography));
+    for (const [index, style] of styles.entries()) {
+      near(style.fontSize, fontSize, `${label}, reading consumer ${index + 1} font`);
+      near(style.lineHeight, fontSize * lineHeight, `${label}, reading consumer ${index + 1} line height`);
+      assert.equal(style.fontFamily, styles[0].fontFamily, `${label} uses the shared reading font.`);
+    }
   }
 };
 
@@ -75,20 +82,20 @@ const assertHeadingRoles = async (page: Page, fontSize: number, headings: readon
   const document = page.getByRole("article", { name: "Document", exact: true });
   for (const [index, role] of headings.entries()) {
     const level = index + 1;
-    const styles = await Promise.all([
+    const [chatStyle, documentStyle] = await Promise.all([
       typography(chat.getByRole("heading", { level, name: `Chat heading ${level}`, exact: true })),
       typography(document.getByRole("heading", { level, name: `Document heading ${level}`, exact: true })),
     ]);
-    for (const style of styles) {
-      near(style.fontSize, fontSize * role.size, `${label}, H${level} font`);
-      near(style.lineHeight, fontSize * role.size * role.lineHeight, `${label}, H${level} line height`);
-    }
-    assert.deepEqual(styles[0], styles[1], `${label}, H${level} shares its typography across chat and document.`);
+    near(chatStyle.fontSize, 13 * chatHeadingSizes[index], `${label}, chat H${level} font`);
+    near(chatStyle.lineHeight, 13 * chatHeadingSizes[index] * 1.5, `${label}, chat H${level} line height`);
+    near(documentStyle.fontSize, fontSize * role.size, `${label}, document H${level} font`);
+    near(documentStyle.lineHeight, fontSize * role.size * role.lineHeight, `${label}, document H${level} line height`);
+    assert.equal(chatStyle.fontFamily, documentStyle.fontFamily, `${label}, H${level} uses the host font.`);
   }
   for (const name of ["User heading 1", "Bubble heading 1"]) {
     const style = await typography(chat.getByRole("heading", { level: 1, name, exact: true }));
-    near(style.fontSize, fontSize * headings[0].size, `${label}, ${name} font`);
-    near(style.lineHeight, fontSize * headings[0].size * headings[0].lineHeight, `${label}, ${name} line height`);
+    near(style.fontSize, 13 * chatHeadingSizes[0], `${label}, ${name} font`);
+    near(style.lineHeight, 13 * chatHeadingSizes[0] * 1.5, `${label}, ${name} line height`);
   }
 };
 
@@ -103,7 +110,7 @@ const controlRoles = async (page: Page) => {
   ]);
 };
 
-test("reading text and headings share tokens across chat and documents without changing control or metadata roles", {
+test("chat keeps library typography while document reading tokens leave controls and metadata unchanged", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 120_000,
 }, async (context) => {
   const directory = await mkdtemp(join(tmpdir(), "ragents-typography-"));
@@ -128,7 +135,7 @@ test("reading text and headings share tokens across chat and documents without c
       await settle(page);
       assert.equal(await page.evaluate(() => document.documentElement.dataset.host), host);
       const label = `${host}, ${theme}, root ${rootSize}px`;
-      await assertReadingRole(page, rootSize * 0.8, 1.6, label);
+      await assertReadingRoles(page, rootSize * 0.8, 1.6, label);
       await assertHeadingRoles(page, rootSize * 0.8, defaultHeadings, label);
       const times = await page.locator("[data-quassel-transcript] time").evaluateAll((elements) => elements.map((element) => ({
         text: element.textContent, nowrap: getComputedStyle(element).whiteSpace === "nowrap", fits: element.scrollWidth <= element.clientWidth })));
@@ -137,6 +144,7 @@ test("reading text and headings share tokens across chat and documents without c
       near(unchanged[0].fontSize, rootSize * 0.78, `${label}, button font`);
       near(unchanged[1].fontSize, rootSize * 0.8, `${label}, body control font`);
       near(unchanged[2].fontSize, rootSize * 0.72, `${label}, metadata font`);
+      near(unchanged[4].fontSize, 13 * 0.88, `${label}, timestamp font`);
       near(unchanged[1].lineHeight, rootSize * 0.8 * 1.55, `${label}, body control line height`);
       near(unchanged[2].lineHeight, rootSize * 0.72 * 1.5, `${label}, metadata line height`);
       await page.locator("[data-quassel-transcript]").hover();
@@ -148,7 +156,7 @@ test("reading text and headings share tokens across chat and documents without c
         document.documentElement.style.setProperty("--text-prose", "1rem");
         document.documentElement.style.setProperty("--text-prose--line-height", "1.8");
       });
-      await assertReadingRole(page, rootSize, 1.8, `${label}, changed reading token`);
+      await assertReadingRoles(page, rootSize, 1.8, `${label}, changed reading token`);
       await assertHeadingRoles(page, rootSize, defaultHeadings, `${label}, changed reading token`);
       assert.deepEqual(await controlRoles(page), unchanged, `${label}: a reading token change leaves controls and metadata unchanged.`);
 
@@ -159,7 +167,7 @@ test("reading text and headings share tokens across chat and documents without c
         }
       }, changedHeadings);
       await assertHeadingRoles(page, rootSize, changedHeadings, `${label}, changed heading tokens`);
-      await assertReadingRole(page, rootSize, 1.8, `${label}, changed heading tokens`);
+      await assertReadingRoles(page, rootSize, 1.8, `${label}, changed heading tokens`);
       assert.deepEqual(await controlRoles(page), unchanged, `${label}: heading token changes leave controls and metadata unchanged.`);
     } finally { await page.close(); }
   }

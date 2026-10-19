@@ -442,8 +442,8 @@ move down with it. Tabs and one-column layouts keep their behavior. Below 700 pi
 the chosen tab is remembered for this server address. A plugin widget without a title follows
 below the tabs, and a widget with nothing to show has neither a place nor a tab.
 
-Arrange Start in its edit mode. "Edit" at the top right of Start, or the pencil at the end of the
-tabs in a narrow panel, switches to it; "Editing Start" above the widgets shows the mode until
+Arrange Start in its edit mode. The pencil "Edit Start" in the top bar beside Appearance, Settings,
+and Help switches to it, also in a narrow panel; "Editing Start" above the widgets shows the mode until
 "Done" saves the layout. "Cancel" or Escape discards every change. While you edit, every widget
 gets a dashed frame and its content rests: drag a widget by the handle before its title onto another
 widget, before it on its left half and after it on its right half (on the upper or lower half of a widget

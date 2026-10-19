@@ -16,8 +16,6 @@
     --text-base--line-height: 1.5;
     --text-lg: 1rem;
     --text-lg--line-height: 1.45;
-    --text-xl: 1.15rem;
-    --text-xl--line-height: 1.35;
     --font-weight-normal: 400;
     --font-weight-medium: 500;
     --font-weight-semibold: 600;
@@ -5518,6 +5516,9 @@
   .qsl\:relative {
     position: relative;
   }
+  .qsl\:inset-0 {
+    inset: 0px;
+  }
   .qsl\:inset-x-0 {
     inset-inline: 0px;
   }
@@ -5584,11 +5585,11 @@
   .qsl\:mt-4 {
     margin-top: calc(var(--qsl-spacing) * 4);
   }
-  .qsl\:mt-\[var\(--qsl-chat-dense-message-gap\,8px\)\] {
-    margin-top: var(--qsl-chat-dense-message-gap,8px);
+  .qsl\:mt-\[var\(--qsl-chat-dense-message-gap\,3px\)\] {
+    margin-top: var(--qsl-chat-dense-message-gap,3px);
   }
-  .qsl\:mt-\[var\(--qsl-chat-message-gap\,16px\)\] {
-    margin-top: var(--qsl-chat-message-gap,16px);
+  .qsl\:mt-\[var\(--qsl-chat-message-gap\,10px\)\] {
+    margin-top: var(--qsl-chat-message-gap,10px);
   }
   .qsl\:mb-0\.5 {
     margin-bottom: calc(var(--qsl-spacing) * 0.5);
@@ -5808,6 +5809,9 @@
   .qsl\:items-end {
     align-items: flex-end;
   }
+  .qsl\:items-stretch {
+    align-items: stretch;
+  }
   .qsl\:justify-between {
     justify-content: space-between;
   }
@@ -5825,9 +5829,6 @@
   }
   .qsl\:gap-0 {
     gap: 0px;
-  }
-  .qsl\:gap-0\.5 {
-    gap: calc(var(--qsl-spacing) * 0.5);
   }
   .qsl\:gap-1 {
     gap: var(--qsl-spacing);
@@ -5847,8 +5848,11 @@
   .qsl\:gap-\[5px\] {
     gap: 5px;
   }
-  .qsl\:gap-\[var\(--qsl-chat-dense-message-gap\,8px\)\] {
-    gap: var(--qsl-chat-dense-message-gap,8px);
+  .qsl\:gap-\[var\(--qsl-chat-dense-message-gap\,3px\)\] {
+    gap: var(--qsl-chat-dense-message-gap,3px);
+  }
+  .qsl\:gap-\[var\(--qsl-tool-group-gap\,1px\)\] {
+    gap: var(--qsl-tool-group-gap,1px);
   }
   :where(.qsl\:space-y-0 > :not(:last-child)) {
     --tw-space-y-reverse: 0;
@@ -5866,6 +5870,9 @@
   }
   .qsl\:self-baseline {
     align-self: baseline;
+  }
+  .qsl\:self-start {
+    align-self: flex-start;
   }
   .qsl\:overflow-auto {
     overflow: auto;
@@ -6002,8 +6009,8 @@
   .qsl\:bg-\[linear-gradient\(to_right\,var\(--qsl-scroll-cover\,var\(--qsl-background\)\)_50\%\,transparent\)_left\/20px_100\%_no-repeat_local\,linear-gradient\(to_left\,var\(--qsl-scroll-cover\,var\(--qsl-background\)\)_50\%\,transparent\)_right\/20px_100\%_no-repeat_local\,linear-gradient\(to_right\,\#00000047\,transparent\)_left\/14px_100\%_no-repeat_scroll\,linear-gradient\(to_left\,\#00000047\,transparent\)_right\/14px_100\%_no-repeat_scroll\] {
     background-image: linear-gradient(to right,var(--qsl-scroll-cover,var(--qsl-background)) 50%,transparent) left/20px 100% no-repeat local,linear-gradient(to left,var(--qsl-scroll-cover,var(--qsl-background)) 50%,transparent) right/20px 100% no-repeat local,linear-gradient(to right,#00000047,transparent) left/14px 100% no-repeat scroll,linear-gradient(to left,#00000047,transparent) right/14px 100% no-repeat scroll;
   }
-  .qsl\:\[mask-image\:linear-gradient\(to_bottom\,\#000_calc\(100\%_-_var\(--qsl-chat-message-gap\,16px\)\)\,transparent\)\] {
-    mask-image: linear-gradient(to bottom,#000 calc(100% - var(--qsl-chat-message-gap,16px)),transparent);
+  .qsl\:\[mask-image\:linear-gradient\(to_bottom\,\#000_calc\(100\%_-_var\(--qsl-chat-message-gap\,10px\)\)\,transparent\)\] {
+    mask-image: linear-gradient(to bottom,#000 calc(100% - var(--qsl-chat-message-gap,10px)),transparent);
   }
   .qsl\:\[mask-image\:linear-gradient\(to_bottom\,\#000_calc\(var\(--qsl-fade-edge\)_-_40px\)\,transparent_calc\(var\(--qsl-fade-edge\)_\+_16px\)\)\] {
     mask-image: linear-gradient(to bottom,#000 calc(var(--qsl-fade-edge) - 40px),transparent calc(var(--qsl-fade-edge) + 16px));
@@ -6080,6 +6087,9 @@
   .qsl\:py-\[3px\] {
     padding-block: 3px;
   }
+  .qsl\:py-\[var\(--qsl-tool-row-padding\,1px\)\] {
+    padding-block: var(--qsl-tool-row-padding,1px);
+  }
   .qsl\:py-px {
     padding-block: 1px;
   }
@@ -6107,8 +6117,8 @@
   .qsl\:pb-\[calc\(var\(--qsl-composer-height\,0px\)_\+_max\(3\.25em\,40px\)\)\] {
     padding-bottom: calc(var(--qsl-composer-height,0px) + max(3.25em, 40px));
   }
-  .qsl\:pb-\[var\(--qsl-chat-message-gap\,16px\)\] {
-    padding-bottom: var(--qsl-chat-message-gap,16px);
+  .qsl\:pb-\[var\(--qsl-chat-message-gap\,10px\)\] {
+    padding-bottom: var(--qsl-chat-message-gap,10px);
   }
   .qsl\:pl-1 {
     padding-left: var(--qsl-spacing);
@@ -6164,8 +6174,11 @@
   .qsl\:text-meta {
     font-size: var(--qsl-text-meta, calc(var(--qsl-base) * 0.8));
   }
+  .qsl\:text-timestamp {
+    font-size: var(--qsl-timestamp-font-size, var(--qsl-text-trace, calc(var(--qsl-base) * var(--qsl-tool-font-scale, 0.88))));
+  }
   .qsl\:text-trace {
-    font-size: var(--qsl-text-trace, calc(var(--qsl-base) * 0.85));
+    font-size: var(--qsl-text-trace, calc(var(--qsl-base) * var(--qsl-tool-font-scale, 0.88)));
   }
   .qsl\:leading-\[1\.3\] {
     --tw-leading: 1.3;
@@ -6190,10 +6203,6 @@
   .qsl\:leading-\[var\(--qsl-chat-line-height\,1\.5\)\] {
     --tw-leading: var(--qsl-chat-line-height,1.5);
     line-height: var(--qsl-chat-line-height,1.5);
-  }
-  .qsl\:leading-\[var\(--qsl-chat-line-height\,1\.625\)\] {
-    --tw-leading: var(--qsl-chat-line-height,1.625);
-    line-height: var(--qsl-chat-line-height,1.625);
   }
   .qsl\:leading-normal {
     --tw-leading: var(--qsl-leading-normal);
@@ -6397,8 +6406,8 @@
   .qsl\:\[--qsl-scroll-cover\:var\(--qsl-secondary\)\] {
     --qsl-scroll-cover: var(--qsl-secondary);
   }
-  .qsl\:\[-webkit-mask-image\:linear-gradient\(to_bottom\,\#000_calc\(100\%_-_var\(--qsl-chat-message-gap\,16px\)\)\,transparent\)\] {
-    -webkit-mask-image: linear-gradient(to bottom,#000 calc(100% - var(--qsl-chat-message-gap,16px)),transparent);
+  .qsl\:\[-webkit-mask-image\:linear-gradient\(to_bottom\,\#000_calc\(100\%_-_var\(--qsl-chat-message-gap\,10px\)\)\,transparent\)\] {
+    -webkit-mask-image: linear-gradient(to bottom,#000 calc(100% - var(--qsl-chat-message-gap,10px)),transparent);
   }
   .qsl\:\[-webkit-mask-image\:linear-gradient\(to_bottom\,\#000_calc\(var\(--qsl-fade-edge\)_-_40px\)\,transparent_calc\(var\(--qsl-fade-edge\)_\+_16px\)\)\] {
     -webkit-mask-image: linear-gradient(to bottom,#000 calc(var(--qsl-fade-edge) - 40px),transparent calc(var(--qsl-fade-edge) + 16px));
@@ -6590,9 +6599,6 @@
   }
   :where([data-tone="material"]) .qsl\:in-data-\[tone\=material\]\:p-0 {
     padding: 0px;
-  }
-  :where([data-tone="material"]) .qsl\:in-data-\[tone\=material\]\:text-foreground {
-    color: var(--qsl-foreground);
   }
   :where([data-tone="on-color"]) .qsl\:in-data-\[tone\=on-color\]\:border-white\/35 {
     border-color: var(--qsl-color-white);
@@ -7040,7 +7046,7 @@
 @property --qsl-base {
   syntax: "<length>";
   inherits: true;
-  initial-value: 14px;
+  initial-value: 13px;
 }
 @layer theme {
   :where(:root, :host, [data-theme="light"], [data-theme="system"]) {
@@ -7123,7 +7129,7 @@
     font-family: var(--qsl-font);
     font-feature-settings: normal;
     font-variation-settings: normal;
-    font-size: var(--qsl-font-size, 1em);
+    font-size: var(--qsl-font-size, 13px);
     --qsl-base: 1em;
     color: var(--qsl-foreground);
     -webkit-tap-highlight-color: transparent;
@@ -7280,7 +7286,7 @@
 @layer properties {
   @supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color:rgb(from red r g b)))) {
     :root, :host {
-      --qsl-base: 14px;
+      --qsl-base: 13px;
     }
     *, ::before, ::after, ::backdrop {
       --tw-space-y-reverse: 0;
@@ -7334,11 +7340,6 @@
 }
 :root {
   --qsl-chat-content-max-width: var(--chat-max-width);
-  --qsl-chat-font-size: var(--text-prose);
-  --qsl-chat-line-height: var(--text-prose--line-height);
-  --qsl-chat-message-gap: 18px;
-  --qsl-text-meta: 0.7rem;
-  --qsl-text-trace: 0.72rem;
   --qsl-color-scheme: light;
   --qsl-font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --qsl-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
@@ -7359,17 +7360,6 @@
   --qsl-bar-shadow: var(--bar-shadow);
   --qsl-pop-shadow: var(--pop-shadow);
   --qsl-card-shadow: var(--card-shadow);
-  --qsl-spacing: var(--spacing);
-  --qsl-text-xs: var(--text-xs);
-  --qsl-text-xs--line-height: var(--text-xs--line-height);
-  --qsl-text-sm: var(--text-sm);
-  --qsl-text-sm--line-height: var(--text-sm--line-height);
-  --qsl-text-base: var(--text-base);
-  --qsl-text-base--line-height: var(--text-base--line-height);
-  --qsl-text-lg: var(--text-lg);
-  --qsl-text-lg--line-height: var(--text-lg--line-height);
-  --qsl-text-xl: var(--text-xl);
-  --qsl-text-xl--line-height: var(--text-xl--line-height);
   --qsl-radius-panel: var(--radius-panel);
 }
 :root[data-theme="dark"] {
@@ -7393,28 +7383,6 @@
   &::-webkit-scrollbar-thumb:hover {
     background: var(--muted-foreground);
   }
-}
-[data-quassel] :is([data-message="answer"], [data-message="user"], [data-message="bubble"]) :is(h1, h2, h3, h4, h5, h6) {
-  font-weight: 700;
-}
-[data-quassel] :is([data-message="answer"], [data-message="user"], [data-message="bubble"]) h1 {
-  font-size: var(--text-prose-h1);
-  line-height: var(--text-prose-h1--line-height);
-  letter-spacing: -0.01em;
-}
-[data-quassel] :is([data-message="answer"], [data-message="user"], [data-message="bubble"]) h2 {
-  font-size: var(--text-prose-h2);
-  line-height: var(--text-prose-h2--line-height);
-}
-[data-quassel] :is([data-message="answer"], [data-message="user"], [data-message="bubble"]) h3 {
-  font-size: var(--text-prose-h3);
-  line-height: var(--text-prose-h3--line-height);
-}
-[data-quassel] :is([data-message="answer"], [data-message="user"], [data-message="bubble"]) :is(h4, h5, h6) {
-  font-size: var(--text-prose-h4);
-  line-height: var(--text-prose-h4--line-height);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
 }
 [data-quassel] [data-message="answer"] > div:first-of-type :is(strong, b) {
   font-weight: 700;
@@ -7851,7 +7819,7 @@
 @layer properties {
   @supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color:rgb(from red r g b)))) {
     :root, :host {
-      --qsl-base: 14px;
+      --qsl-base: 13px;
     }
     *, ::before, ::after, ::backdrop {
       --tw-translate-x: 0;

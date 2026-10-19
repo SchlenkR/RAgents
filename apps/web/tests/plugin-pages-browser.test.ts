@@ -59,6 +59,46 @@ const topBar = (page: Page) => page.locator("header").first();
 const button = (page: Page, name: string) => topBar(page).getByRole("button", { name, exact: true });
 const activeRun = (page: Page) => page.evaluate(() => window.runStartFixture.activeRun());
 
+for (const host of ["browser", "vscode"]) {
+  test(`Edit Start follows Start visibility through pages, runs, and edit mode in ${host}`, browserOnly, () => withPages(`host=${host}&rights=runs.read,runs.write,runs.create,runs.inspect,settings.read`, async (page, errors) => {
+    const edit = button(page, "Edit Start");
+    await edit.waitFor();
+    const [editBox, appearanceBox] = [await edit.boundingBox(), await button(page, "Appearance").boundingBox()];
+    assert.ok(editBox && appearanceBox && editBox.x + editBox.width <= appearanceBox.x && Math.abs(editBox.height - appearanceBox.height) < 1,
+      "the Start action uses the same icon size beside Appearance");
+    await edit.click();
+    const bar = page.getByRole("group", { name: "Edit Start", exact: true });
+    await bar.waitFor();
+    assert.equal(await edit.count(), 0, "only the existing edit bar is available during editing");
+    assert.equal(await startPage(page).getByRole("group", { name: "Edit Start", exact: true }).isVisible(), true);
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await edit.waitFor();
+    assert.equal(await edit.evaluate((element) => element === document.activeElement), true, "Cancel returns focus to the top bar action");
+    await button(page, "Reports").click();
+    await reportsPage(page).waitFor();
+    assert.equal(await edit.count(), 0, "a plugin page hides Start's action");
+    await page.getByRole("button", { name: "Open existing run", exact: true }).click();
+    await page.waitForFunction(() => window.runStartFixture.activeRun() === "existing");
+    assert.equal(await edit.count(), 0, "an open run hides Start's action");
+    await button(page, "Run script").waitFor();
+    await button(page, "Reports").click();
+    await reportsPage(page).waitFor();
+    assert.equal(await button(page, "Run script").count(), 0, "a page also hides the run's controls in the shared slot");
+    await page.getByRole("button", { name: "Open existing run", exact: true }).click();
+    await button(page, "Run script").waitFor();
+    assert.equal(await button(page, "Run script").count(), 1, "the run restores its controls without duplicates");
+    await button(page, "Back to Start").click();
+    await edit.waitFor();
+    await page.getByRole("button", { name: "All 1 runs", exact: true }).click();
+    await page.locator('main[data-page="runs"]').waitFor();
+    assert.equal(await edit.count(), 0, "the Runs page has no Start action");
+    await button(page, "Back to Start").click();
+    await edit.waitFor();
+    assert.equal(await edit.count(), 1, "returning to Start restores exactly one action");
+    assert.deepEqual(errors, []);
+  }));
+}
+
 test("the top bar shows a button per readable page and a page opens in the main area instead of Start", browserOnly, () => withPages("host=browser", async (page, errors) => {
   await startPage(page).waitFor();
   assert.deepEqual(await topBar(page).getByRole("button").evaluateAll((buttons) => buttons.map((entry) => entry.getAttribute("aria-label"))).then((names) => names.filter((name) => ["Reports", "Audit", "Broken"].includes(name ?? ""))), ["Reports", "Broken"],

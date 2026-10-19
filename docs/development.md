@@ -516,7 +516,7 @@ machine, with Docker), and `scripts/maintenance/` (model catalog, concept audit)
 ### Developing quassel and RAgents together
 
 The chat building blocks are the quassel library (github.com/SchlenkR/quassel, npm `@schlenkr/quassel`; up to
-0.4.9 the unscoped `quassel`); RAgents uses it as an ordinary dependency (pinned to `0.5.0` in the root,
+0.4.9 the unscoped `quassel`); RAgents uses it as an ordinary dependency (pinned to `0.5.1` in the root,
 `apps/web`, and `apps/server`, `minimumReleaseAgeExclude` in `pnpm-workspace.yaml` for freshly published
 versions). Anyone changing both at the same time temporarily links quassel to its sources:
 

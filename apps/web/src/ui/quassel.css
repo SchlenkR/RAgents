@@ -3,11 +3,6 @@
 
 :root {
     --qsl-chat-content-max-width: var(--chat-max-width);
-    --qsl-chat-font-size: var(--text-prose);
-    --qsl-chat-line-height: var(--text-prose--line-height);
-    --qsl-chat-message-gap: 18px;
-    --qsl-text-meta: 0.7rem;
-    --qsl-text-trace: 0.72rem;
     --qsl-color-scheme: light;
     --qsl-font: --theme(--font-sans);
     --qsl-mono: --theme(--font-mono);
@@ -28,17 +23,6 @@
     --qsl-bar-shadow: var(--bar-shadow);
     --qsl-pop-shadow: var(--pop-shadow);
     --qsl-card-shadow: var(--card-shadow);
-    --qsl-spacing: --theme(--spacing);
-    --qsl-text-xs: --theme(--text-xs);
-    --qsl-text-xs--line-height: --theme(--text-xs--line-height);
-    --qsl-text-sm: --theme(--text-sm);
-    --qsl-text-sm--line-height: --theme(--text-sm--line-height);
-    --qsl-text-base: --theme(--text-base);
-    --qsl-text-base--line-height: --theme(--text-base--line-height);
-    --qsl-text-lg: --theme(--text-lg);
-    --qsl-text-lg--line-height: --theme(--text-lg--line-height);
-    --qsl-text-xl: --theme(--text-xl);
-    --qsl-text-xl--line-height: --theme(--text-xl--line-height);
     --qsl-radius-panel: --theme(--radius-panel);
 }
 
@@ -55,14 +39,6 @@
     &::-webkit-scrollbar-track { background: transparent; }
     &::-webkit-scrollbar-thumb { border-radius: var(--spacing-scrollbar); background: var(--border-strong); }
     &::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
-}
-
-[data-quassel] :is([data-message="answer"], [data-message="user"], [data-message="bubble"]) {
-    & :is(h1, h2, h3, h4, h5, h6) { font-weight: 700; }
-    & h1 { font-size: var(--text-prose-h1); line-height: var(--text-prose-h1--line-height); letter-spacing: -0.01em; }
-    & h2 { font-size: var(--text-prose-h2); line-height: var(--text-prose-h2--line-height); }
-    & h3 { font-size: var(--text-prose-h3); line-height: var(--text-prose-h3--line-height); }
-    & :is(h4, h5, h6) { font-size: var(--text-prose-h4); line-height: var(--text-prose-h4--line-height); letter-spacing: 0.05em; text-transform: uppercase; }
 }
 
 /* Rendered Markdown of an answer (the first div; attachments and actions follow it): quassel's own classes keep bold at weight 500. */

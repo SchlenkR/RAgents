@@ -1,5 +1,36 @@
 # Decisions
 
+## 2026-10-19: Start's Edit action uses the shared top bar
+
+Chapters: `spec/plugins.md` (Arranging Start); usage: `usage.md` (Start).
+
+The Edit action took a separate row above Start's widgets, or space beside its tabs. Moving the
+pencil to the top bar beside Appearance, Settings, and Help gives that space back to the content
+and keeps the action in the same place at every width. The existing `RunHeader` controls portal
+already carries context-dependent controls; the shared `HeaderControls` wrapper attaches them
+while their page is active and detaches them when `Activity` hides it. Start and run controls
+use this wrapper, without a plugin-facing contract or host API version change. Its accessible name and shared tooltip
+are "Edit Start". The edit bar stays above the widgets, and leaving edit mode returns focus to
+the top bar action.
+
+## 2026-10-19: Chat presentation follows quassel 0.5.1 defaults
+
+Chapters: `spec/plugins.md` (UI library: text roles and chat presentation); usage: `usage.md` (Run chat and inspection);
+`development.md` (Developing quassel and RAgents together).
+
+The host's prose, type scale, and spacing aliases overrode the chat library, so updating quassel alone could not
+change the chat's size and rhythm consistently. The exact dependency pins now use `@schlenkr/quassel` 0.5.1, and
+chat typography and spacing stay with the library: 13-pixel text at line height 1.5, 10-pixel message gaps, 3-pixel
+dense gaps, and tool text and timestamps at 88 percent. Inspector timestamps no longer force a separate width
+or text size. Document prose keeps its existing reading tokens; colors, fonts, radii, and Markdown surfaces
+still follow the host theme.
+
+User message backgrounds fill their rows while their text retains the existing alignment and width limit.
+Timestamp position and scale and the tool presentation options remain optional component props, with timestamps
+beside the first text line by default. No stored preference or host API version changes: exported value names
+and event contracts stay the same. Browser checks measure chat and document typography separately and verify
+the user background independently of the constrained text column.
+
 ## 2026-10-17: Data grid rows open a detail panel in place through `renderDetail`
 
 Chapters: `spec/plugins.md` (UI library: `DataGrid`).

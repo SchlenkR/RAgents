@@ -340,7 +340,7 @@ const regions = (page: Page) => page.locator("[data-start-widget]:not([hidden]) 
 const writes = (page: Page) => page.evaluate(() => window.dashboardFixture.writes);
 
 const edit = async (page: Page) => {
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("button", { name: "Edit Start", exact: true }).click();
   await page.getByRole("group", { name: "Edit Start" }).waitFor();
 };
 
@@ -408,20 +408,40 @@ test("grown widths fill Start in view and edit modes and resizing begins at the 
 const controlNames = (page: Page) => page.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label") ?? button.textContent ?? "")
   .filter((name) => /^(Move|Remove|Arrange|Add) |^(Add widget|Customize|Done|Cancel)$/.test(name)));
 
-test("outside edit mode Start shows no arrangement controls, only Edit above the widgets or at the end of the tabs", browserOnly, async () => {
+test("Edit Start stays in the top bar in grid and tabs mode and leaves no arrangement row above the widgets", browserOnly, async () => {
   await withPage(1280, "", async (page) => {
     assert.deepEqual(await controlNames(page), []);
     assert.equal(await page.locator("[data-resize-handle], [data-drop-indicator], [data-widget-columns], [data-column-guides]").count(), 0);
-    const button = await page.getByRole("button", { name: "Edit", exact: true }).boundingBox();
-    const [start, more] = [await box(page, "New"), await box(page, "Continue")];
-    assert.ok(button && button.y + button.height <= start.y && Math.abs(button.x + button.width - (more.x + more.width)) < 1, "Edit stands at the top right, right above the first widget row");
+    const button = page.locator("header").getByRole("button", { name: "Edit Start", exact: true });
+    await button.waitFor();
+    assert.equal(await button.innerText(), "", "the top bar uses an icon button");
+    assert.equal(await button.getAttribute("title"), null);
+    await button.hover();
+    const tooltip = page.locator('[data-slot="tooltip-content"]').filter({ hasText: /^Edit Start$/ });
+    await tooltip.waitFor();
+    await page.mouse.move(0, 0);
+    await tooltip.waitFor({ state: "detached" });
+    await button.focus();
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Shift+Tab");
+    await tooltip.waitFor();
+    const main = page.locator('main[data-page="start"]');
+    assert.equal(await main.getByRole("button", { name: "Edit Start", exact: true }).count(), 0);
+    const [start, dashboard] = [await box(page, "New"), await page.locator("[data-dashboard]").boundingBox()];
+    assert.ok(dashboard && Math.abs(start.y - dashboard.y) < 1);
+    assert.ok(dashboard && Math.abs(dashboard.y - await main.evaluate((element) => element.getBoundingClientRect().top + parseFloat(getComputedStyle(element.firstElementChild!).paddingTop))) < 1,
+      "the first widget row starts at the page's top padding");
     await page.setViewportSize({ width: 560, height: 900 });
     const tabs = page.getByRole("tablist", { name: "Start widgets" });
     await tabs.waitFor();
     assert.deepEqual(await controlNames(page), []);
-    const [strip, icon] = [await tabs.boundingBox(), await page.getByRole("button", { name: "Edit", exact: true }).boundingBox()];
-    assert.ok(strip && icon && icon.x >= strip.x + strip.width && Math.abs(icon.y + icon.height / 2 - (strip.y + strip.height / 2)) < 2, "Edit ends the tab strip");
+    const [strip, icon] = [await tabs.boundingBox(), await button.boundingBox()];
+    assert.ok(strip && icon && icon.y + icon.height <= strip.y, "Edit stays in the top bar above the tabs");
     assert.deepEqual(await noHorizontalScroll(page), { page: 0, main: 0 });
+  });
+  await withPage(560, "preferences=none", async (page) => {
+    assert.equal(await page.getByRole("button", { name: "Edit Start", exact: true }).count(), 0, "without a preference store Start cannot be edited");
+    assert.equal(await page.getByRole("tablist", { name: "Start widgets" }).isVisible(), true);
   });
 });
 
@@ -489,7 +509,7 @@ test("edit mode moves a widget by dragging, resizes Continue by its edge, remove
 
     await page.getByRole("button", { name: "Done", exact: true }).click();
     await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
-    assert.equal(await focused(page), "Edit");
+    assert.equal(await focused(page), "Edit Start");
     assert.deepEqual(await controlNames(page), []);
     assert.deepEqual(await writes(page), [{
       version: 3, order: ["demo.board", "start.new", "start.continue", "demo.auto", "demo.shared", "demo.empty", "demo.usage"], columns: { "start.continue": 2 }, removed: [], settings: {},
@@ -640,7 +660,7 @@ test("Cancel and Escape discard the draft, and Escape during a drag cancels only
     await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
     assert.deepEqual(await regions(page), before, "Cancel restores the stored layout");
     assert.equal(await announced(page), "Changes discarded.");
-    assert.equal(await focused(page), "Edit");
+    assert.equal(await focused(page), "Edit Start");
 
     await edit(page);
     const handle = await center(page, page.getByRole("button", { name: "Move Model usage", exact: true }));
@@ -716,7 +736,7 @@ test("the keyboard moves a widget with the arrow keys, sizes it with Shift and t
 
 test("a narrow Start edits a vertical list with handles, up and down, remove, and Add widget, without sizes", browserOnly, async () => {
   await withPage(560, "", async (page) => {
-    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await page.getByRole("button", { name: "Edit Start", exact: true }).click();
     await page.getByRole("group", { name: "Edit Start" }).waitFor();
     assert.equal(await page.locator("[data-dashboard]").getAttribute("data-dashboard"), "list");
     assert.equal(await page.getByRole("tablist").count(), 0, "the list replaces the tabs");
@@ -818,7 +838,7 @@ test("a layout that cannot be loaded keeps the default layout and offers Retry; 
   await withPage(1280, "preferences=fail", async (page) => {
     const alert = page.getByRole("alert");
     assert.equal(await alert.textContent(), "The Start layout could not be loaded: The server is unreachable.Retry");
-    assert.equal(await page.getByRole("button", { name: "Edit", exact: true }).isDisabled(), true, "nothing can overwrite a layout that was not read");
+    assert.equal(await page.getByRole("button", { name: "Edit Start", exact: true }).count(), 0, "nothing can overwrite a layout that was not read");
     assert.equal((await order(page))[0], "start.new");
   });
   await withPage(1280, "", async (page) => {
@@ -1334,7 +1354,7 @@ test("a plugin's listed and published widgets are configured exactly like Contin
     assert.deepEqual([await rows(page, "Recent"), await rows(page, "Model usage entries"), await rows(page, "Planner entries")], [4, 2, 3], "a reload keeps every widget's setting");
   }, 1500);
   await withPage(560, "", async (page) => {
-    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await page.getByRole("button", { name: "Edit Start", exact: true }).click();
     await page.getByRole("group", { name: "Edit Start" }).waitFor();
     assert.deepEqual(await configureNames(page), ["Configure New", "Configure Continue", "Configure Model usage"], "the narrow list offers Configure as well");
     await configureNumber(page, "Model usage", "Entries", "1");

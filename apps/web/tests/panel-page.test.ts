@@ -127,11 +127,10 @@ test("a Start widget with a title gets a frame and its columns; without one it t
   assert.ok(html.indexOf(">Work board<") < html.indexOf(">Auto items<") && html.indexOf(">Auto items<") < html.indexOf(">Plain section<"));
 });
 
-test("Start shows no arrangement controls outside edit mode, only Edit before the widgets, which waits for the stored layout", () => {
+test("Start has no arrangement row while waiting for the stored layout", () => {
   const registry = registryWith([{ id: "test.widgets", startWidgets: [{ id: "board", order: 10, title: "Work board", render: () => createElement("p", null, "Board content") }] }]);
   const html = renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state: page(), send: () => {} }));
-  assert.match(html, /<button(?=[^>]*data-edit-start="true")(?=[^>]*disabled="")[^>]*>.*?Edit<\/button>/, "Edit is there and waits until the layout is read");
-  assert.ok(html.indexOf("data-edit-start") < html.indexOf("data-dashboard"), "Edit stands above the first widget row");
+  assert.doesNotMatch(html, /data-edit-start/, "Edit belongs in the host header once the layout is read");
   assert.match(html, /data-dashboard="grid"[^>]*aria-busy="true"|aria-busy="true"[^>]*data-dashboard="grid"/);
   assert.doesNotMatch(html, /Arrange|Customize|Move |Remove |Add widget|data-resize-handle|data-control/);
   const without = renderToStaticMarkup(createElement(PanelPage, { registry, state: page(), send: () => {} }));

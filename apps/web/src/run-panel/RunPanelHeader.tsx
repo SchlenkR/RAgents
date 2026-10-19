@@ -7,7 +7,7 @@ import { StartOptionBadges } from "../StartOptions";
 import { Badge, DetailRow, HeaderDropdown, InteractiveItem } from "../ui";
 import { RunScriptMenu } from "./RunScriptMenu";
 import { RunShareButton } from "./RunShareButton";
-import { useRunHeader } from "./RunHeader";
+import { HeaderControls, useRunHeader } from "./RunHeader";
 
 const titleClass = "flex h-[30px] min-w-0 max-w-full flex-1 cursor-pointer items-center gap-2 self-center rounded-md px-2 text-left";
 
@@ -64,7 +64,7 @@ export function RunPanelHeader({ actionsRef, attention, contributions, navigatio
     </HeaderDropdown>
     {header ? <>
       {header.windows && createPortal(windows, header.windows)}
-      {header.controls && createPortal(controls, header.controls)}
+      <HeaderControls>{controls}</HeaderControls>
     </> : <>{windows}{controls}</>}
   </div>;
 }

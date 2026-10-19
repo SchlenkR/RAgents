@@ -4,6 +4,7 @@ import { AccessContext } from "../src/AccessContext";
 import { PluginRegistry, type StartWidget, type StartWidgetProps, type StartWidgetSettings, type WebPlugin } from "../src/PluginRegistry";
 import { PanelPage } from "../src/panel/PanelPage";
 import { StartPage } from "../src/panel/StartPage";
+import { RunHeader } from "../src/run-panel/RunHeader";
 import type { ConnectionView, PanelState } from "../src/panel/contract";
 import type { PreferenceStore } from "../src/preferences";
 import { initializeAppearance } from "../src/appearance";
@@ -241,8 +242,9 @@ function DashboardFixture() {
   const Page = virtual ? StartPage : PanelPage;
   return <AccessContext.Provider value={{ ...access, can: (right) => (right !== "runs.inspect" || sharedAccess) && access.can(right) }}>
     <div className="flex h-full min-h-0 flex-col bg-app">
-      <header className="flex h-12 flex-none items-center border-b border-border p-3">Start dashboard check</header>
-      <div className="min-h-0 min-w-0 flex-1"><Page preferences={preferences} registry={registry} send={send} state={state} /></div>
+      <RunHeader leading="Start dashboard check">
+        <div className="min-h-0 min-w-0 flex-1"><Page preferences={query.get("preferences") === "none" ? undefined : preferences} registry={registry} send={send} state={state} /></div>
+      </RunHeader>
     </div>
   </AccessContext.Provider>;
 }

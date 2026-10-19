@@ -539,7 +539,7 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
           view={view}
           presentation="inspector"
           display="inspector"
-          className="min-h-0 flex-1 [--qsl-chat-message-gap:10px]"
+          className="min-h-0 flex-1"
           primaryMessages={props.primaryMessages}
           conversation={props.actorConversations?.[actor.id]}
           historyError={props.conversationError}

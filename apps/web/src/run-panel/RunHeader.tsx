@@ -1,4 +1,5 @@
 import { createContext, useContext, useLayoutEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { headerWindowLayout, type HeaderWindowBounds } from "./header-window-layout";
 
 const RunHeaderContext = createContext<{
@@ -9,6 +10,23 @@ const RunHeaderContext = createContext<{
 } | null>(null);
 
 export const useRunHeader = () => useContext(RunHeaderContext);
+
+export function HeaderControls({ children }: { children: ReactNode }) {
+  const header = useRunHeader();
+  const [container] = useState(() => {
+    if (typeof document === "undefined") return null;
+    const element = document.createElement("div");
+    element.className = "contents";
+    return element;
+  });
+  const target = header?.controls;
+  useLayoutEffect(() => {
+    if (!container || !target) return;
+    target.append(container);
+    return () => container.remove();
+  }, [container, target]);
+  return container && createPortal(children, container);
+}
 
 export function RunHeader({ leading, trailing, children }: { leading: ReactNode; trailing?: ReactNode; children: ReactNode }) {
   const [fixed, setFixed] = useState<HTMLDivElement | null>(null);
