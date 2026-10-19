@@ -1,6 +1,7 @@
 import { Type } from "typebox";
 import { defineRunFunction, type AgentContribution, type RunFunction } from "@ragents/engine";
 import { alwaysAvailable } from "@ragents/host/plugin-support/tool-availability.js";
+import { BROWSER_MAX_CLICK_COUNT } from "../executor/contract.js";
 import { RunBrowser } from "./browser.js";
 
 const targetSchema = Type.Object({
@@ -30,7 +31,6 @@ const measurementSchema = Type.Object({
   scrollWidth: Type.Number(),
   overflowX: Type.Number(),
 }, { additionalProperties: false, description: "Target dimensions in CSS pixels; box coordinates are relative to the main viewport, including iframe targets. overflowX is max(0, scrollWidth - clientWidth)." });
-const targetInputSchema = Type.Object({ target: targetSchema }, { additionalProperties: false });
 const screenshotDescription = "Capture the real browser page as a PNG file where filename names it, by default a new file under @documents/browser/. "
   + "Name filename next to the report that shows it and embed it with a path relative to the report. Call browser_view_screenshot to see the latest capture as an image.";
 
@@ -58,12 +58,15 @@ export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
   defineRunFunction({
     name: "browser_click",
     label: "Click in browser",
-    description: "Click a visible element with Playwright auto-waiting for operability. Zero matches fail immediately; multiple matches name candidates for target.nth (0-based), first: true, or a more specific target. Returns a short page snapshot; browser_snapshot reads the full structure.",
-    schema: targetInputSchema,
+    description: "Click a visible element with Playwright auto-waiting for operability; set clickCount: 2 to double-click. Zero matches fail immediately; multiple matches name candidates for target.nth (0-based), first: true, or a more specific target. Returns a short page snapshot; browser_snapshot reads the full structure.",
+    schema: Type.Object({
+      target: targetSchema,
+      clickCount: Type.Optional(Type.Integer({ minimum: 1, maximum: BROWSER_MAX_CLICK_COUNT, description: "Number of clicks in quick succession; defaults to 1. 2 is a double-click, 3 a triple-click." })),
+    }, { additionalProperties: false }),
     resultSchema: snapshotSchema,
     available: alwaysAvailable,
     executionMode: "sequential",
-    run: async ({ caller, signal }, toolCallId, input) => ({ ...await browser.click(caller.runId, input.target, { signal, toolCallId }) }),
+    run: async ({ caller, signal }, toolCallId, input) => ({ ...await browser.click(caller.runId, input.target, { clickCount: input.clickCount }, { signal, toolCallId }) }),
   }),
   defineRunFunction({
     name: "browser_type",

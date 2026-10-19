@@ -110,8 +110,8 @@ export class BrowserPages {
     return this.#pageAction(runId, signal, (page) => page.setViewportSize(viewport));
   }
 
-  click(runId: string, target: BrowserTarget, signal?: AbortSignal): Promise<BrowserStep<BrowserSnapshot>> {
-    return this.#action(runId, target, signal, (locator) => locator.click());
+  click(runId: string, target: BrowserTarget, clickCount: number, signal?: AbortSignal): Promise<BrowserStep<BrowserSnapshot>> {
+    return this.#action(runId, target, signal, (locator) => locator.click({ clickCount }));
   }
 
   type(runId: string, target: BrowserTarget, typing: BrowserTyping, signal?: AbortSignal): Promise<BrowserStep<BrowserSnapshot>> {

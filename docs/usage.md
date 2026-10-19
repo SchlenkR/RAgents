@@ -910,7 +910,8 @@ box, client and scroll widths, and horizontal overflow in CSS pixels, for exampl
 `{ css: "html" }` or a clipped container. Page errors are reported as information. Add
 `noErrors: true` when the check must also prove there have been no browser or network errors
 since navigation. An ambiguous click lists candidates; select one with `target.nth` (0-based),
-`first: true`, or a more specific text or role/name target.
+`first: true`, or a more specific text or role/name target. `browser_click` with
+`clickCount: 2` double-clicks and with 3 triple-clicks, the most it accepts.
 Missing targets fail immediately with `0 matches for <target>`. Actions and resizing return
 short snapshots (at most 2000 characters); use `browser_snapshot` for the full structure.
 Check again after resizing because the previous evidence applies to the previous size.

@@ -42,6 +42,12 @@ export interface BrowserTyping {
   slowly?: boolean;
 }
 
+export const BROWSER_MAX_CLICK_COUNT = 3;
+
+export interface BrowserClicking {
+  clickCount?: number;
+}
+
 export interface BrowserSnapshot {
   url: string;
   title: string;

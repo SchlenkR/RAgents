@@ -124,6 +124,23 @@ test("ambiguous, missing and invalid inputs are errors with a cause", async (t) 
   assert.deepEqual((await executor.execute("run-1", BROWSER_OPERATIONS.state, null) as BrowserPageState).errors, ["HTTP 404: http://localhost/missing"]);
 });
 
+test("a click performs the requested number of clicks and rejects a count outside 1 to 3", async (t) => {
+  let received = 0;
+  const stub = stubBrowser({ "/": { title: "Chart", elements: [{ role: "img", name: "Chart", onClick: () => { received += 1; } }] } });
+  const executor = executorWith({ launch: stub.launch });
+  t.after(() => executor.shutdown());
+  await executor.execute("one", BROWSER_OPERATIONS.navigate, { url: "http://localhost/", viewport });
+  const click = (extra: object) => executor.execute("one", BROWSER_OPERATIONS.click, { target: { role: "img" }, ...extra });
+  await click({});
+  for (const clickCount of [1, 2, 3]) await click({ clickCount });
+  assert.deepEqual(stub.log.actions, ["click Chart", "click Chart", "click Chart x2", "click Chart x3"]);
+  assert.equal(received, 7);
+  for (const clickCount of [0, 4, 1.5, "2", null, true]) {
+    await assert.rejects(click({ clickCount }), coded("browser-input-invalid"), `clickCount ${clickCount} is refused`);
+  }
+  assert.equal(stub.log.actions.length, 4, "a refused count clicks nothing");
+});
+
 test("close, run stop and shutdown end the browser; after the shutdown none starts anymore", async () => {
   const stub = stubBrowser(site);
   const executor = executorWith({ launch: stub.launch });

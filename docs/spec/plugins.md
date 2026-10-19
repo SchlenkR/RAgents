@@ -5559,6 +5559,13 @@ with an element target, only `target.frame` is used.
 and with `submit` presses Enter afterwards. `browser_select_option` matches each value against an
 option's value or visible label. `browser_press_key` presses on the focused element, or on
 `target` after focusing it.
+`browser_click` clicks once; `clickCount` (an integer from 1 to 3, default 1) clicks the resolved
+target that many times in quick succession, 2 as a double-click and 3 as a triple-click, for
+interactions an application offers only that way, such as placing a marker on a chart. Waiting for
+operability, match handling, and the result are those of a single click. The operation input of
+`browser.click` is `{ target, clickCount? }`; the executor module checks the count again and refuses
+anything else as `browser-input-invalid`. Playwright's other click options (`button`, `modifiers`,
+`position`) are not offered.
 
 `actor_view_snapshot` checks a mini-app without the model driving a browser: given `package-name/view-key`
 (or `@handle/view-key` or a unique title), it resolves the view from the caller's room through the

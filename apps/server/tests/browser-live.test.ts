@@ -19,12 +19,15 @@ const fixture = `<!doctype html><html lang="en"><head><title>Browser-Test</title
 <p role="status">Not saved yet</p>
 <button id="cookie">Set sign-in</button><button id="error">Raise error</button>
 <button id="blocked" hidden>Never operable</button>
+<div id="chart" style="width:120px;height:30px">Chart</div>
 <div id="overflow" style="width:120px;overflow:hidden"><div style="width:260px">Clipped content</div></div>
 <iframe title="Preview" srcdoc="<button onclick='this.textContent=&quot;Clicked in frame&quot;'>Save in frame</button>"></iframe>
 <script>
 document.querySelector('form').onsubmit = (event) => { event.preventDefault(); document.querySelector('[role=status]').textContent = document.querySelector('[name=title]').value + ': ' + document.querySelector('[name=kind]').value; };
 document.querySelector('#cookie').onclick = () => { document.cookie = 'session=one'; };
 document.querySelector('#error').onclick = () => { console.error('Intentional browser error'); };
+document.querySelector('#chart').onclick = (event) => { event.currentTarget.textContent = 'Clicks: ' + event.detail; };
+document.querySelector('#chart').ondblclick = (event) => { event.currentTarget.textContent = 'Marker placed'; };
 </script></body></html>`;
 
 /** The same path as in the server: the server part calls the browser module of its executor, which starts Chrome from this machine's host; the store is its root @documents. */
@@ -236,6 +239,12 @@ test("a real browser operates form and iframe, isolates cookies and checks scree
   const missingSince = Date.now();
   await assert.rejects(browser.check("one", { target: { role: "button", name: "Never shown" } }), /0 matches for/);
   assert.ok(Date.now() - missingSince < 1000, "missing targets fail before the check timeout");
+  await browser.click("one", { css: "#chart" });
+  await browser.check("one", { target: { css: "#chart" }, text: "Clicks: 1" });
+  await browser.click("one", { css: "#chart" }, { clickCount: 2 });
+  await browser.check("one", { target: { css: "#chart" }, text: "Marker placed" });
+  await browser.click("one", { css: "#chart" }, { clickCount: 3 });
+  await browser.check("one", { target: { css: "#chart" }, text: "Clicks: 3" });
 
   await browser.navigate("one", `${url}/noisy`);
   await new Promise((resolve) => setTimeout(resolve, 50));
@@ -285,7 +294,7 @@ test("a real browser operates form and iframe, isolates cookies and checks scree
 
   await browser.navigate("one", url);
   const abort = new AbortController();
-  const pending = browser.click("one", { css: "#blocked" }, { signal: abort.signal });
+  const pending = browser.click("one", { css: "#blocked" }, {}, { signal: abort.signal });
   const rejected = assert.rejects(pending, /closed|ended|abort/i);
   setTimeout(() => abort.abort(), 50);
   await rejected;

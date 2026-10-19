@@ -2572,7 +2572,7 @@ Available in every model turn.
 
 Click in browser
 
-Click a visible element with Playwright auto-waiting for operability. Zero matches fail immediately; multiple matches name candidates for target.nth (0-based), first: true, or a more specific target. Returns a short page snapshot; browser_snapshot reads the full structure.
+Click a visible element with Playwright auto-waiting for operability; set clickCount: 2 to double-click. Zero matches fail immediately; multiple matches name candidates for target.nth (0-based), first: true, or a more specific target. Returns a short page snapshot; browser_snapshot reads the full structure.
 
 Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -2636,6 +2636,12 @@ Available in every model turn.
       },
       "additionalProperties": false,
       "description": "Use exactly one of role (with optional name), label, text, testId, css. Resolve semantic targets server-side; never copy snapshot element IDs. Zero matches fail immediately; ambiguous targets name candidates unless nth or first selects one."
+    },
+    "clickCount": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3,
+      "description": "Number of clicks in quick succession; defaults to 1. 2 is a double-click, 3 a triple-click."
     }
   },
   "additionalProperties": false

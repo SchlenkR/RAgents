@@ -59,10 +59,10 @@ const stubLocator = (description: string, match: () => StubElement[], parts: Stu
   };
   const derived = (suffix: string, subset: () => StubElement[]) => stubLocator(`${description} ${suffix}`, subset, parts);
   return {
-    click: async () => {
+    click: async ({ clickCount = 1 }: { clickCount?: number } = {}) => {
       const element = single();
-      log.actions.push(`click ${element.name}`);
-      await Promise.race([Promise.resolve(element.onClick?.(control)), closed]);
+      log.actions.push(clickCount === 1 ? `click ${element.name}` : `click ${element.name} x${clickCount}`);
+      for (let click = 0; click < clickCount; click++) await Promise.race([Promise.resolve(element.onClick?.(control)), closed]);
     },
     fill: async (value: string) => { log.actions.push(`fill ${single().name}=${value}`); },
     pressSequentially: async (text: string) => { log.actions.push(`type ${single().name}=${text}`); },

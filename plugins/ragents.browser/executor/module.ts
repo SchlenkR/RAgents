@@ -1,6 +1,6 @@
 import type { Browser } from "playwright-core";
 import type { WorkspaceExecutorMachine, WorkspaceModuleFactory } from "@ragents/workspace-executor";
-import { BROWSER_OPERATIONS, type BrowserCheck, type BrowserTarget, type BrowserTyping, type BrowserViewport } from "./contract.js";
+import { BROWSER_MAX_CLICK_COUNT, BROWSER_OPERATIONS, type BrowserCheck, type BrowserTarget, type BrowserTyping, type BrowserViewport } from "./contract.js";
 import { BrowserPages } from "./pages.js";
 import { launchChromium } from "./playwright.js";
 
@@ -36,6 +36,14 @@ export const browserModule = (machine: WorkspaceExecutorMachine, options: Browse
     return value as BrowserTarget;
   };
   const optionalTargetOf = (input: unknown): BrowserTarget | undefined => fieldsOf(input).target === undefined ? undefined : targetOf(input);
+  const clickCountOf = (input: unknown): number => {
+    const value = fieldsOf(input).clickCount;
+    if (value === undefined) return 1;
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > BROWSER_MAX_CLICK_COUNT) {
+      throw invalid(`The browser operation needs clickCount as an integer from 1 to ${BROWSER_MAX_CLICK_COUNT}`);
+    }
+    return value;
+  };
   const typingOf = (input: unknown): BrowserTyping => ({ text: textOf(input, "text"), submit: flagOf(input, "submit"), slowly: flagOf(input, "slowly") });
   const valuesOf = (input: unknown): string[] => {
     const value = fieldsOf(input).values;
@@ -69,7 +77,7 @@ export const browserModule = (machine: WorkspaceExecutorMachine, options: Browse
         pages.navigate(runId, textOf(input, "url"), viewportOf(fieldsOf(input).viewport), signal),
       [BROWSER_OPERATIONS.snapshot]: ({ runId, signal }) => pages.snapshot(runId, signal),
       [BROWSER_OPERATIONS.resize]: ({ runId, input, signal }) => pages.resize(runId, viewportOf(input), signal),
-      [BROWSER_OPERATIONS.click]: ({ runId, input, signal }) => pages.click(runId, targetOf(input), signal),
+      [BROWSER_OPERATIONS.click]: ({ runId, input, signal }) => pages.click(runId, targetOf(input), clickCountOf(input), signal),
       [BROWSER_OPERATIONS.type]: ({ runId, input, signal }) => pages.type(runId, targetOf(input), typingOf(input), signal),
       [BROWSER_OPERATIONS.selectOption]: ({ runId, input, signal }) => pages.selectOption(runId, targetOf(input), valuesOf(input), signal),
       [BROWSER_OPERATIONS.pressKey]: ({ runId, input, signal }) => pages.pressKey(runId, optionalTargetOf(input), textOf(input, "key"), signal),

@@ -5,6 +5,7 @@ import path from "node:path";
 import test, { type TestContext } from "node:test";
 import type { Browser } from "playwright-core";
 import { isNativeTool, type ToolScope } from "@ragents/engine";
+import { Value } from "typebox/value";
 import { WorkspaceOperationExecutor, executorMachine, sandboxToolsModule, workspaceProcessContext } from "@ragents/workspace-executor";
 import { browserModule, type BrowserModuleOptions } from "../../../plugins/ragents.browser/executor/module.ts";
 import { RunBrowser } from "../../../plugins/ragents.browser/server/browser.ts";
@@ -61,8 +62,13 @@ test("browser tools carry the Playwright MCP names, declare typed results and th
   assert.deepEqual(fields("browser_resize"), ["width", "height"]);
   assert.deepEqual(fields("browser_take_screenshot"), ["label", "filename", "fullPage"]);
   assert.deepEqual(fields("browser_check"), ["target", "text", "frame", "url", "count", "measure", "noErrors"]);
+  assert.deepEqual(fields("browser_click"), ["target", "clickCount"]);
   const click = functions.find((entry) => entry.name === "browser_click");
   assert.deepEqual(Object.keys((click!.schema.properties as { target: { properties: object } }).target.properties), ["role", "name", "label", "text", "testId", "css", "frame", "nth", "first"]);
+  const clickInput = (clickCount?: unknown) => ({ target: { role: "button" }, ...(clickCount === undefined ? {} : { clickCount }) });
+  for (const clickCount of [undefined, 1, 2, 3]) assert.equal(Value.Check(click!.schema, clickInput(clickCount)), true, `clickCount ${clickCount} is valid`);
+  for (const clickCount of [0, 4, 1.5, "2", null]) assert.equal(Value.Check(click!.schema, clickInput(clickCount)), false, `clickCount ${clickCount} is invalid`);
+  assert.match(click!.description, /clickCount: 2 to double-click/);
   for (const fn of functions) {
     assert.ok(fn.schema);
     assert.ok(fn.resultSchema);
@@ -117,6 +123,25 @@ test("browser_check carries selector warnings and layout measurements through th
   assert.match((warned as { warnings: string[] }).warnings[0]!, /wrong selector/);
   await invoke({ text: "Frame ready", frame: "iframe" });
   assert.ok(browser.evidence("one").checkedAt);
+});
+
+test("browser_click carries its click count through the server to the page", async (t) => {
+  let received = 0;
+  const stub = stubBrowser({ "/": { title: "Chart", elements: [{ role: "img", name: "Chart", onClick: () => { received += 1; } }] } });
+  const { browser, executor } = localBrowser({ launch: stub.launch });
+  t.after(async () => { await browser.shutdown(); await executor.shutdown(); });
+  await browser.navigate("one", "http://localhost/");
+  const fn = createBrowserFunctions(browser).find((entry) => entry.name === "browser_click")!;
+  const scope = { caller: { runId: "one", actorId: "actor-1", turnId: "turn-1" }, signal: undefined } as unknown as ToolScope;
+  const target = { role: "img", name: "Chart" };
+  await fn.run(scope, "click-1", { target } as never);
+  await fn.run(scope, "click-2", { target, clickCount: 2 } as never);
+  await fn.run(scope, "click-3", { target, clickCount: 3 } as never);
+  assert.deepEqual(stub.log.actions, ["click Chart", "click Chart x2", "click Chart x3"]);
+  assert.equal(received, 6);
+  await browser.click("one", target, { clickCount: 2 });
+  await browser.click("one", target);
+  assert.deepEqual(stub.log.actions.slice(3), ["click Chart x2", "click Chart"]);
 });
 
 test("a missing browser and missing screenshots are clear errors without artificial success", async () => {

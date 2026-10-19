@@ -8,6 +8,7 @@ import {
   BROWSER_OPERATIONS,
   type BrowserCheck,
   type BrowserCheckResult,
+  type BrowserClicking,
   type BrowserPageState,
   type BrowserSnapshot,
   type BrowserStep,
@@ -97,8 +98,8 @@ export class RunBrowser implements BrowserRuntime {
     return snapshot;
   }
 
-  click(runId: string, target: BrowserTarget, options: BrowserCallOptions = {}): Promise<BrowserSnapshot> {
-    return this.#run(runId, BROWSER_OPERATIONS.click, { target }, options);
+  click(runId: string, target: BrowserTarget, clicking: BrowserClicking = {}, options: BrowserCallOptions = {}): Promise<BrowserSnapshot> {
+    return this.#run(runId, BROWSER_OPERATIONS.click, { target, ...clicking }, options);
   }
 
   type(runId: string, target: BrowserTarget, typing: BrowserTyping, options: BrowserCallOptions = {}): Promise<BrowserSnapshot> {

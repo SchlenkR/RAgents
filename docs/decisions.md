@@ -1,5 +1,33 @@
 # Decisions
 
+## 2026-10-19: `browser_click` takes a click count
+
+Chapters: `spec/plugins.md` (Browser checks); usage: `usage.md` (agents and the browser).
+
+**Why.** Some applications offer an essential interaction only as a double-click, such as placing a marker on a
+chart, and `browser_click` always sent one click, so an agent testing such an application was stuck with no tool to
+reach the state it had to check. The decision of 2026-10-02 left upstream's click options out because no caller needed
+them; this is the first caller.
+
+**Decision.** `browser_click` gets an optional integer `clickCount` from 1 to 3, default 1. The tool schema
+bounds it with `BROWSER_MAX_CLICK_COUNT` from the plugin's executor contract; `RunBrowser.click` passes it in the
+`browser.click` input as `{ target, clickCount? }`, the executor module validates it again and refuses anything else as
+`browser-input-invalid`, and `BrowserPages` calls Playwright's `locator.click({ clickCount })` on the resolved target,
+so waiting for operability, match handling, errors, and the result stay those of a single click. The tool description
+names `clickCount: 2` for a double-click. `RunBrowser.click` takes the count as its own parameter object between
+target and call options, like `type`; the class is internal to the plugin and the `BrowserRuntime` contract that other
+plugins see is unchanged.
+
+No version changes. The host API names are untouched, and so is `EXTENSION_API_VERSION`. `WORKSPACE_EXECUTOR_VERSION`
+stays 17: the browser module is a contribution whose state is the SHA-256 of its built file, and a workstation must
+carry exactly the server's contributions at sign-in, so an older workstation that would ignore `clickCount` and
+single-click instead is refused with the contribution error rather than silently misbehaving.
+
+**Rejected.** Upstream's `doubleClick: true`: a count also covers the triple-click, which selects a paragraph in text
+widgets, and it is Playwright's own option name. Upstream's `button`, `modifiers`, and `position`: still no caller.
+A higher maximum: double and triple click are the gestures that browsers and widgets give a meaning, and a larger count
+would only hammer a page.
+
 ## 2026-10-19: Start and plugin pages keep equal side and top insets
 
 Chapter: `spec/plugins.md` (Shared page width).
