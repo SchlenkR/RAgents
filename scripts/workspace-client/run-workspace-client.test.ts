@@ -30,7 +30,7 @@ import { RpcClient } from "../../apps/web/src/rpc/client.ts";
 import { hostRoot } from "../../apps/server/src/host-version.ts";
 import { startRpcServer } from "../../apps/server/tests/rpc-fixture.ts";
 import { allGrants, catalog, postTo, setupRun } from "../../packages/ragents/tests/support.ts";
-import { parseArguments, resolvedFolders, workspaceClientId } from "./run-workspace-client.ts";
+import { parseArguments, resolvedFolders, watchWorkspaceLifetime, workspaceClientId } from "./run-workspace-client.ts";
 
 const CLIENT = "cli-00000001";
 
@@ -65,6 +65,40 @@ test("the command line names server, folders, id and label", () => {
   assert.equal(workspaceClientId("laptop", ["/work"]), workspaceClientId("laptop", ["/work"]));
   assert.notEqual(workspaceClientId("laptop", ["/work"]), workspaceClientId("laptop", ["/elsewhere"]));
   assert.match(workspaceClientId("laptop", ["/work"]), /^[A-Za-z0-9_-]{8,64}$/);
+});
+
+test("a client ends when one of its folders disappears, also when detached", (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  const present = new Set(["/work/a", "/work/b"]);
+  const stops: [number, string][] = [];
+  watchWorkspaceLifetime({ folders: [...present], onStatus: () => () => undefined, onStop: (code, reason) => stops.push([code, reason]), isDirectory: (folder) => present.has(folder) });
+  t.mock.timers.tick(10_000);
+  assert.deepEqual(stops, []);
+  present.delete("/work/b");
+  t.mock.timers.tick(10_000);
+  t.mock.timers.tick(10_000);
+  assert.deepEqual(stops, [[0, "workspace folder removed: /work/b"]]);
+});
+
+test("a client ends after 30 minutes without a server connection in one stretch", (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  let clock = 0;
+  let listener: (status: { readonly kind: string }) => void = () => undefined;
+  const stops: [number, string][] = [];
+  const minutes = (count: number) => { for (let index = 0; index < count * 6; index++) { clock += 10_000; t.mock.timers.tick(10_000); } };
+  watchWorkspaceLifetime({ folders: ["/work"], onStatus: (next) => { listener = next; return () => undefined; }, onStop: (code, reason) => stops.push([code, reason]), now: () => clock, isDirectory: () => true });
+  listener({ kind: "connected" });
+  minutes(40);
+  listener({ kind: "retrying" });
+  minutes(29);
+  listener({ kind: "connected" });
+  listener({ kind: "retrying" });
+  minutes(29);
+  assert.deepEqual(stops, []);
+  minutes(1);
+  assert.deepEqual(stops, [[1, "server unreachable for 30 minutes"]]);
+  minutes(30);
+  assert.equal(stops.length, 1);
 });
 
 test("without folders the current directory applies, a missing folder is an error", async () => {

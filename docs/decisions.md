@@ -1,5 +1,17 @@
 # Decisions
 
+## 2026-10-21: A workspace client ends with its folders and after a long server outage
+
+Chapters: `operations.md` (Workspace client); command help of `ragents workspace-client`.
+
+**Why.** A detached client had no end of life: once its folder was deleted or its server was
+gone for good, it kept reconnecting forever and left processes behind that nobody owned.
+
+**Decision.** In every mode, also with `--detached`, the client unregisters and ends when one
+of its registered folders is no longer a directory, and when its server connection stays down
+for 30 minutes in one stretch. A deleted worktree therefore takes its client with it. A service
+manager that should keep a client alive restarts it; a short outage still reconnects as before.
+
 ## 2026-10-21: Runs is the fixed standard home; plugins contribute further views
 
 Chapters: `spec/plugins.md` (Web as plugin host, Shared page width, Global mini-apps, host API),

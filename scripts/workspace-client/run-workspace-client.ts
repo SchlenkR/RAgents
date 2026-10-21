@@ -23,7 +23,9 @@ Set RAGENTS_TOKEN for an existing session or RAGENTS_USER and RAGENTS_PASSWORD f
 sign-in and renewal. Credentials belong only in the environment.
 By default closing stdin, the terminal, or the owning process ends the client and its children.
 --detached explicitly opts out of terminal and parent ownership for nohup or a service manager;
-SIGINT and SIGTERM still stop it. It does not daemonize the process.`;
+SIGINT and SIGTERM still stop it. It does not daemonize the process.
+In every mode the client ends when a registered folder disappears or the server stays
+unreachable for 30 minutes.`;
 
 export interface WorkspaceClientArguments {
   readonly detached: boolean;
@@ -57,6 +59,51 @@ export const parseArguments = (argv: readonly string[]): WorkspaceClientArgument
   if (!serverUrl) throw new Error(`The server address is missing.\n${usage()}`);
   if (id !== undefined && !/^[A-Za-z0-9_-]{8,64}$/.test(id)) throw new Error("--id needs 8 to 64 characters from A-Z, a-z, 0-9, _ and -.");
   return { serverUrl, folders, id, label, detached };
+};
+
+export const UNREACHABLE_LIMIT_MS = 30 * 60_000;
+
+export interface WorkspaceLifetimeOptions {
+  readonly folders: readonly string[];
+  readonly onStatus: (listener: (status: { readonly kind: string }) => void) => () => void;
+  readonly onStop: (code: number, reason: string) => void;
+  readonly unreachableLimitMs?: number;
+  readonly intervalMs?: number;
+  readonly now?: () => number;
+  readonly isDirectory?: (folder: string) => boolean;
+}
+
+/** Ends a client whose folders are gone or whose server stayed unreachable too long, with or without --detached. */
+export const watchWorkspaceLifetime = ({
+  folders, onStatus, onStop, unreachableLimitMs = UNREACHABLE_LIMIT_MS, intervalMs = 10_000, now = Date.now,
+  isDirectory = (folder) => statSync(folder, { throwIfNoEntry: false })?.isDirectory() === true,
+}: WorkspaceLifetimeOptions): (() => void) => {
+  let reachedAt = now();
+  let connected = false;
+  let stopped = false;
+  const unsubscribe = onStatus((status) => {
+    connected = status.kind === "connected";
+    if (connected) reachedAt = now();
+  });
+  const timer = setInterval(() => check(), intervalMs);
+  timer.unref();
+  const release = (): void => {
+    clearInterval(timer);
+    unsubscribe();
+  };
+  const stop = (code: number, reason: string): void => {
+    if (stopped) return;
+    stopped = true;
+    release();
+    onStop(code, reason);
+  };
+  const check = (): void => {
+    const missing = folders.find((folder) => !isDirectory(folder));
+    if (missing) return stop(0, `workspace folder removed: ${missing}`);
+    if (connected) reachedAt = now();
+    else if (now() - reachedAt >= unreachableLimitMs) stop(1, `server unreachable for ${Math.round(unreachableLimitMs / 60_000)} minutes`);
+  };
+  return release;
 };
 
 /** A stable id per machine and folder set, so the server recognizes the same workspace again. */
@@ -125,6 +172,12 @@ const main = async (): Promise<void> => {
     runsDirectory: workstationRunsDirectory(),
   };
   const transport = workspaceClientTransport(parsed.serverUrl, process.env.RAGENTS_TOKEN);
+  const releaseWorkspace = watchWorkspaceLifetime({
+    folders,
+    onStatus: (listener) => transport.rpc.onStatus(listener),
+    onStop: (code, reason) => { void stop(code, reason); },
+  });
+  process.once("exit", releaseWorkspace);
   const root = hostRoot();
   const tools = resolveBundledTools({ root: isCheckout(root) ? path.join(root, "apps/vscode") : root, distribution: isCheckout(root) ? "extension" : "package" });
   const client = new WorkspaceClient(transport, identity, {
