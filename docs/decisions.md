@@ -1,5 +1,69 @@
 # Decisions
 
+## 2026-10-21: Identical package checks run once on worker threads, and reactivations are bounded
+
+Chapters: `spec/typescript-platform.md` (Build and process lifecycle, Open limits),
+`spec/actor-programs.md` (Diagnostics, type check, and domain tests); operations: `operations.md`
+(Data storage and logs).
+
+**Why.** After a plugin update changes a run script package or a capability schema, every run that
+uses the package reactivates it by itself on the first call or trigger input of its actor (contract
+drift). Each reactivation ran a full type check and backend build of the same sources on the main
+thread, one after another, so the server stood still for as long as all runs together needed. On a
+synthetic data directory with 40 runs of one script package (interval trigger, one capability whose
+schema changed) the server listened after 1.9 s, but then a request waited 29 s, the server logged
+an event loop blocked for 28.5 s, and all 40 trigger inputs ran into their 30-second limit and were
+interrupted. Identical sources, identical capability declarations, and the same host produce the
+same result, so only the first run needs to do the work.
+
+**Decision.**
+
+- `ProgramBuildCache` keeps successful results of the backend type check, the backend contract
+  build, and the client build of each view in `plugins/ragents.actor-programs/build-cache/` of the
+  data directory, one file per kind and key, so every run and every restart reuses them. The key is
+  a hash over the package files, everything the host installed into the package's
+  `node_modules/@ragents` (server SDK with the capability declarations, workflow SDK, client SDK),
+  the host build (TypeScript version, lock file or `package.json`, and the sources of the check
+  implementation), and the call's own parameters. A changed file, capability schema, or host build
+  is a different key.
+- A result is stored only if the check found no error, read nothing outside the package except
+  libraries below `node_modules` and host files, and saw no change of the package meanwhile. Host
+  files a view bundle takes in (the UI sources) are stored with their digest, and an entry whose
+  file changed is dropped. Failed checks are repeated every time, so no stale error is served and no
+  missing file outside the package can hide behind a stored result.
+- The store holds at most 256 files and 128 MiB and drops the least recently used first. Runs that
+  ask for a key while it is built wait for that build; a build that fails, is cancelled, or may not
+  be reused leaves them to build for themselves. A wait ends with the run's cancellation.
+- The type check and the client build run as jobs on worker threads: `runTypeScriptWorkerJob` in
+  `packages/ragents/src/typescript/async-compiler.ts` uses the worker module of the snippet compiler
+  with a second pool (up to four workers, 1 GiB heap, because a view's check needs about 340 MB and
+  the snippet limit is 256 MB). The synchronous `typecheckServerProject` and `compileClientProject`
+  stay for tools and tests; the runtime uses `typecheckServerProjectAsync` and
+  `compileClientProjectAsync`. The new host API names are added without a new `HOST_API_VERSION`.
+- A reactivation after drift still happens lazily at the first call of its actor, which waits in the
+  queue until the package is current, so a run never executes an outdated package against a changed
+  contract, and startup never waited for it. At most `refreshSlots` reactivations run at the same
+  time (default: processors minus one, at least one, at most four); the other calls wait in their
+  actors' queues.
+- `prepareAppWorkspace` writes the manifests of a run's actor workspace only when their content
+  changed. It rewrote identical files on every call, and with checks and builds overlapping, a
+  build of one package could read the `package.json` of the workspace at the instant another
+  operation truncated it ("Unexpected end of file in JSON").
+- Measured on the same 40-run data directory after the change: listening after 1.7 s, longest wait
+  of a request 1.9 s (what remains is the synchronous journal writes of 40 inputs at once), all 40
+  trigger inputs finished within 11.2 s and none was interrupted; the store holds one type check and
+  one build. A restart with the store from the previous run finished all 40 within 8.5 s. Starting
+  the 40 runs in the first place took 8 s instead of 46 s.
+
+**Rejected.** Storing the domain tests' result: they run in the context of each run (process
+environment, sandbox) and belong to its activation. Caching the Tailwind stylesheet: it reads the
+host's whole web source tree, so a key would have to hash it for every call. Refreshing all drifted
+packages in the background right after startup: the lazy path already exists and decides when a
+package is needed; a second path would run the same work earlier without changing what a run sees.
+Storing failed checks: their cause can lie in files the check could not see. A parallel worker
+implementation for project checks: the pool, deadline, cancellation, and failure handling of the
+snippet compiler are the same.
+
 ## 2026-10-21: A workspace client ends with its folders and after a long server outage
 
 Chapters: `operations.md` (Workspace client); command help of `ragents workspace-client`.

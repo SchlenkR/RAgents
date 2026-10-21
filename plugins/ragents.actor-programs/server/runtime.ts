@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { lstat, mkdir, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { lstatSync, readFileSync, renameSync } from "node:fs";
+import { availableParallelism } from "node:os";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { Type, type TSchema } from "typebox";
@@ -12,8 +13,9 @@ import { jsonValue, jsonBytes, MAX_INVOCATIONS_STATE_BYTES } from "./limits.js";
 import { agentResultText, finishesOf, MAX_OPEN_STARTS, scriptResultContent, scriptStateOf, type ScriptFinish } from "./script-state.js";
 import { agentCapabilityBinding, operatorCapabilityBinding } from "./capability-resolver.js";
 import type { ActorOperationPort } from "./operations.js";
-import { compileClientProject, installClientSdk } from "@ragents/host/plugin-support/actor-programs/client-compiler.js";
-import { compileAppBackend, describeRunScript, installServerSdk, packageIdentity, prepareAppProject, prepareAppWorkspace, projectSourceFiles, readAppPackage, typecheckServerProject, type AppContract } from "@ragents/host/plugin-support/actor-programs/app-project.js";
+import { compileClientProjectAsync, installClientSdk } from "@ragents/host/plugin-support/actor-programs/client-compiler.js";
+import { compileAppBackend, describeRunScript, installServerSdk, packageIdentity, prepareAppProject, prepareAppWorkspace, projectSourceFiles, readAppPackage, typecheckServerProjectAsync, type AppContract } from "@ragents/host/plugin-support/actor-programs/app-project.js";
+import type { ProgramBuildCache } from "@ragents/host/plugin-support/actor-programs/build-cache.js";
 import { scriptParametersOf, type ScriptParameters } from "@ragents/host/plugin-support/actor-programs/script-parameters.js";
 import { syncWorkspaceOwnership } from "@ragents/host/plugin-support/workspace-ownership.js";
 import { runManagedProcess, sandboxedLaunch, type ProcessSandbox, type WorkspaceProcessContext } from "@ragents/workspace-executor";
@@ -195,6 +197,8 @@ export interface ActorProgramRuntimeOptions {
     /** The server folders of the run's workspace that file permissions may name without full rights. */
     workspaceRoots: (runId: string) => Promise<{ read: readonly string[]; write: readonly string[] }>;
     triggers: Pick<ProgramTriggerOptions, "prepareRun" | "interrupt" | "watch" | "now" | "wake">;
+    buildCache?: ProgramBuildCache;
+    refreshSlots?: number;
 }
 type Recognized = { start: JsonValue } | { result: JsonValue } | { message: { name: string; value: JsonValue } };
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -206,8 +210,36 @@ const outcomeOf = (value: unknown): ProgramOutcome => {
         throw new Error("The program returned an invalid evaluation result.");
     return value as unknown as ProgramOutcome;
 };
+class Slots {
+    readonly #waiting: (() => void)[] = [];
+    #free: number;
+    constructor(count: number) { this.#free = count; }
+    async run<T>(work: () => Promise<T>, signal: AbortSignal): Promise<T> {
+        signal.throwIfAborted();
+        if (this.#free > 0)
+            this.#free -= 1;
+        else
+            await new Promise<void>((resolve, reject) => {
+                const turn = () => { signal.removeEventListener("abort", leave); resolve(); };
+                const leave = () => { this.#waiting.splice(this.#waiting.indexOf(turn), 1); reject(signal.reason); };
+                signal.addEventListener("abort", leave, { once: true });
+                this.#waiting.push(turn);
+            });
+        try {
+            return await work();
+        }
+        finally {
+            const next = this.#waiting.shift();
+            if (next)
+                next();
+            else
+                this.#free += 1;
+        }
+    }
+}
 export class ActorProgramRuntime implements ActorProgramsService, ActorProgramExecutor {
     readonly #options: ActorProgramRuntimeOptions;
+    readonly #refreshSlots: Slots;
     readonly #queues = new Map<string, Promise<void>>();
     readonly #active = new Map<string, {
         runId: string;
@@ -231,6 +263,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     #shuttingDown = false;
     constructor(options: ActorProgramRuntimeOptions) {
         this.#options = options;
+        this.#refreshSlots = new Slots(options.refreshSlots ?? Math.min(4, Math.max(1, availableParallelism() - 1)));
         this.triggers = new ProgramTriggers({ ...options.triggers, runtime: options.runtime, programsOf: (view) => this.programsOf(view),
             sandboxFor: async (runId, program) => Boolean(options.isolatedProcessContextFor && (await options.isolatedProcessContextFor(runId, [program.directory], [])).sandbox) });
     }
@@ -372,7 +405,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     }
     /** A package still built from what its origin installed reloads from the origin's current sources; one changed in the run keeps its own. */
     #refresh(runId: string, program: ActorProgramDefinition, signal: AbortSignal): Promise<void> {
-        return this.#withPackages(runId, [program.name], () => this.#reload(runId, program, signal));
+        return this.#withPackages(runId, [program.name], () => this.#refreshSlots.run(() => this.#reload(runId, program, signal), signal));
     }
     async #reload(runId: string, program: ActorProgramDefinition, signal: AbortSignal): Promise<void> {
         const state = this.#script(runId);
@@ -485,7 +518,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             await this.#writeSources(directory, sources);
             await prepareAppProject(directory);
             const pkg = await readAppPackage(directory);
-            const backend = pkg.backend ? await compileAppBackend({ directory, backend: pkg.backend, runId, executor: this.runtime().nativeTypeScriptExecutor }) : undefined;
+            const backend = pkg.backend ? await compileAppBackend({ directory, backend: pkg.backend, runId, executor: this.runtime().nativeTypeScriptExecutor, cache: this.#options.buildCache }) : undefined;
             await installClientSdk(directory, { stateSchema: backend?.contract.state ?? objectSchema, actions: Object.entries(backend?.contract.functions ?? {}).map(([id, fn]) => ({ id, inputSchema: fn.input, resultSchema: fn.output })) });
             return (await projectSourceFiles(directory)).map((file) => file.path);
         });
@@ -851,7 +884,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 available.push(operation);
         await installServerSdk(directory, available);
         const isolated = policy?.isolated ?? previous?.isolated;
-        const backend = pkg.backend ? await compileAppBackend({ directory, backend: pkg.backend, runId, executor: this.runtime().nativeTypeScriptExecutor, signal, ...(isolated ? { isolated: true } : {}) }) : undefined;
+        const backend = pkg.backend ? await compileAppBackend({ directory, backend: pkg.backend, runId, executor: this.runtime().nativeTypeScriptExecutor, signal, cache: this.#options.buildCache, ...(isolated ? { isolated: true } : {}) }) : undefined;
         const contract: AppContract = backend?.contract ?? { state: objectSchema, functions: {} };
         const stateAware = contract.program === true;
         for (const [id, fn] of Object.entries(contract.functions)) {
@@ -904,13 +937,13 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         });
         await installClientSdk(directory, { stateSchema: contract.state, actions: functions.map((fn) => ({ id: fn.id, inputSchema: fn.inputSchema, resultSchema: fn.resultSchema })) });
         const hasServerFiles = pkg.backend || (await projectSourceFiles(directory)).some((file) => /^tests\/.*\.tsx?$/.test(file.path));
-        const serverErrors = hasServerFiles ? typecheckServerProject(directory, pkg.backend) : [];
+        const serverErrors = hasServerFiles ? await typecheckServerProjectAsync(directory, pkg.backend, { cache: this.#options.buildCache, signal }) : [];
         if (serverErrors.length)
             throw checkFailure(`Typecheck of ${name}`, serverErrors, `The typecheck of ${name} failed without a message.`);
         const clients: CompiledProgram["clients"] = [];
         const views: ActorProgramDefinition["views"] = [];
         for (const view of pkg.views ?? []) {
-            const client = await compileClientProject({ directory, entryPoint: view.client, stateSchema: contract.state, actions: functions.map((fn) => ({ id: fn.id, inputSchema: fn.inputSchema, resultSchema: fn.resultSchema })) });
+            const client = await compileClientProjectAsync({ directory, entryPoint: view.client, stateSchema: contract.state, actions: functions.map((fn) => ({ id: fn.id, inputSchema: fn.inputSchema, resultSchema: fn.resultSchema })) }, { cache: this.#options.buildCache, signal });
             if (!client.valid)
                 throw checkFailure(`Client build of ${view.client}`,
                     client.diagnostics.filter((item) => item.category === "error").map((item) =>

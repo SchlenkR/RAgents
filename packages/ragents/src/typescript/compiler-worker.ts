@@ -15,12 +15,22 @@ type CompilerWorkerRequest = {
     readonly kind: "compile";
     readonly requestId: number;
     readonly request: CompileVirtualTypeScriptRequest;
+} | {
+    readonly kind: "job";
+    readonly requestId: number;
+    readonly module: string;
+    readonly name: string;
+    readonly input: unknown;
 };
 
 type CompilerWorkerMessage = {
     readonly kind: "result";
     readonly requestId: number;
     readonly compilation: ReturnType<typeof compileVirtualTypeScript>;
+} | {
+    readonly kind: "value";
+    readonly requestId: number;
+    readonly value: unknown;
 } | {
     readonly kind: "error";
     readonly requestId: number;
@@ -41,7 +51,23 @@ if (parentPort === null) {
 }
 
 const port = parentPort;
+
+const runJob = async (message: Extract<CompilerWorkerRequest, { kind: "job" }>): Promise<void> => {
+    try {
+        const exports = await import(message.module) as Record<string, unknown>;
+        const job = exports[message.name];
+        if (typeof job !== "function") throw new Error(`The TypeScript worker job ${message.name} does not exist in ${message.module}.`);
+        port.postMessage({ kind: "value", requestId: message.requestId, value: await job(message.input) } satisfies CompilerWorkerMessage);
+    } catch (error) {
+        port.postMessage({ kind: "error", requestId: message.requestId, error: serializedError(error) } satisfies CompilerWorkerMessage);
+    }
+};
+
 port.on("message", (message: CompilerWorkerRequest) => {
+    if (message?.kind === "job") {
+        void runJob(message);
+        return;
+    }
     if (message?.kind !== "compile") throw new Error("The TypeScript compiler worker received an unknown request.");
     try {
         const compilation = compileVirtualTypeScript(message.request);

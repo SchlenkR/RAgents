@@ -8,6 +8,7 @@ import {
     canonicalTypeScriptBuildContract,
     compileVirtualTypeScript,
     compileVirtualTypeScriptAsync,
+    runTypeScriptWorkerJob,
     typeScriptTypeFromSchema,
 } from "../src/typescript/index.ts";
 import { closeTypeScriptCompilers, typeScriptCompilerPool } from "../src/typescript/async-compiler.ts";
@@ -234,4 +235,63 @@ test("a worker that dies mid-compilation fails only its request and is replaced 
     assert.equal(result.valid, true);
     assert.equal(typeScriptCompilerPool().threadIds.length, 1);
     assert.notEqual(typeScriptCompilerPool().threadIds[0], crashed);
+});
+
+const jobs = new URL("./typescript-worker-jobs.ts", import.meta.url).href;
+
+test("a worker job runs on a thread of its own and leaves the event loop of the caller free", async () => {
+    let ticks = 0;
+    const timer = setInterval(() => { ticks += 1; }, 10);
+    try {
+        const thread = await runTypeScriptWorkerJob<number>({ module: jobs, name: "blockFor", input: 400 });
+        assert.notEqual(thread, 0);
+        assert.ok(ticks >= 10, `${ticks} ticks of the caller while the job held its own thread for 400 ms`);
+    } finally {
+        clearInterval(timer);
+    }
+});
+
+test("a worker job returns what the exported function returns, also after awaiting", async () => {
+    assert.deepEqual(await runTypeScriptWorkerJob({ module: jobs, name: "echoLater", input: { lines: ["a", "b"] } }), { lines: ["a", "b"] });
+    assert.notEqual(await runTypeScriptWorkerJob<number>({ module: jobs, name: "threadOf", input: null }), 0);
+});
+
+test("a worker job passes an error of the function on with its own message and keeps the worker", async () => {
+    await closeTypeScriptCompilers();
+    await assert.rejects(
+        runTypeScriptWorkerJob({ module: jobs, name: "fail", input: "the project is damaged" }),
+        (error: unknown) => error instanceof Error
+            && !(error instanceof VirtualTypeScriptWorkerError)
+            && error.name === "TypeError"
+            && error.message === "the project is damaged",
+    );
+    await assert.rejects(
+        runTypeScriptWorkerJob({ module: jobs, name: "notCloneable", input: null }),
+        (error: unknown) => error instanceof Error && !(error instanceof VirtualTypeScriptWorkerError),
+    );
+    await assert.rejects(
+        runTypeScriptWorkerJob({ module: jobs, name: "missing", input: null }),
+        /worker job missing does not exist/,
+    );
+    assert.equal(await runTypeScriptWorkerJob({ module: jobs, name: "echoLater", input: 1 }), 1);
+});
+
+test("a worker job ends at its deadline and when its run is aborted, and the next job gets a fresh worker", async () => {
+    await assert.rejects(
+        runTypeScriptWorkerJob({ module: jobs, name: "blockFor", input: 5_000 }, { timeoutMs: 100 }),
+        (error: unknown) => error instanceof VirtualTypeScriptWorkerError && error.code === "TIMEOUT",
+    );
+    const controller = new AbortController();
+    const pending = runTypeScriptWorkerJob({ module: jobs, name: "blockFor", input: 5_000 }, { signal: controller.signal });
+    setTimeout(() => controller.abort(new Error("run stopped")), 100);
+    await assert.rejects(pending, (error: unknown) => error instanceof VirtualTypeScriptWorkerError && error.code === "ABORTED");
+    assert.equal(await runTypeScriptWorkerJob({ module: jobs, name: "echoLater", input: "again" }), "again");
+});
+
+test("worker jobs do not use the workers of the snippet compiler", async () => {
+    await closeTypeScriptCompilers();
+    await runTypeScriptWorkerJob({ module: jobs, name: "echoLater", input: null });
+    assert.deepEqual(typeScriptCompilerPool().threadIds, []);
+    await compileVirtualTypeScriptAsync({ sources: [{ fileName: "main.ts", text: "export const answer: number = 42;" }] });
+    assert.equal(typeScriptCompilerPool().threadIds.length, 1);
 });

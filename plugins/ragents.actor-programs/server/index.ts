@@ -14,6 +14,7 @@ import { createControlsToolContributor } from "./controls-tool.js";
 import { actorProgramSummary } from "./prompts.js";
 import { sandboxServicesToken } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
 import { actorProgramsToken } from "@ragents/host/plugin-support/actor-programs/service.js";
+import { ProgramBuildCache } from "@ragents/host/plugin-support/actor-programs/build-cache.js";
 import { createProjectDiagnostics } from "./project-diagnostics.js";
 import { actorProgramAccessProjections } from "./access-projections.js";
 import { programPermissionFunctions } from "./permissions.js";
@@ -34,6 +35,7 @@ const actorProgramsPlugin = (pluginHost: PluginHost): RAgentsPlugin => ({
             },
             sharedPackage: (name) => pluginHost.actorPackages.get(name),
             ownerAccess: (runId) => host.service(runOwnerAccessToken)(runId),
+            buildCache: new ProgramBuildCache(host.storage.root("build-cache"), { entries: 256, bytes: 128 * 1024 * 1024 }),
             workspaceRoots: async (runId) => {
                 const directory = await runtime.workspaceDirectory(runId);
                 if (host.service(workspaceRuntimeToken).placementOf(runId).machine !== "server")

@@ -14,7 +14,9 @@ export {
 export {
     VirtualTypeScriptWorkerError,
     compileVirtualTypeScriptAsync,
+    runTypeScriptWorkerJob,
     type CompileVirtualTypeScriptAsyncOptions,
+    type TypeScriptWorkerJob,
     type VirtualTypeScriptWorkerErrorCode,
 } from "./async-compiler.ts";
 export { typeScriptTypeFromSchema, typeScriptTypesFromSchema } from "./schema.ts";

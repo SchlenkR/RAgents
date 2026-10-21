@@ -71,6 +71,39 @@ schema comparison. If the type check, build, domain tests, or state check fail, 
 with that cause and the old package stays active. If the sources change in the process, a new
 revision is created and open views reload; identical sources keep their revision.
 
+The server does not wait for these reactivations when it starts; each happens at the first call of
+its actor. At most as many run at the same time as there are refresh slots (`refreshSlots` of the
+runtime, by default one less than the processors, at least one and at most four); every other call
+waits in the queue of its actor, so a restart after a plugin update does not start as many checks,
+test processes, and builds as there are runs. A call still never runs an outdated package against a
+changed contract.
+
+The type check of the backend and the tests, the build of the backend contract, and the client build
+of each view are done once for identical content and then reused by every run and every restart.
+`ProgramBuildCache` (`plugin-support/actor-programs/build-cache.ts`) keeps each successful result as
+one file per kind and key in `plugins/ragents.actor-programs/build-cache/` of the data directory.
+The key covers the files of the package, everything the host installed into its
+`node_modules/@ragents` (the server SDK with the capability declarations the activating actor sees,
+the workflow SDK, the client SDK), the host build (TypeScript version, the lock file or the
+`package.json` of the installed package, and the sources of the check implementation), and the
+parameters of the call (backend entry, isolation, view entry point). A different file, another
+capability schema, or another host build is a different key and is checked afresh. A result is
+stored only if the check found no error, read no file outside the package except libraries below
+`node_modules` and files of the host, and saw no change of the package while it was built; the host
+files a view bundle takes in are stored with their digest, and an entry is dropped when one of them
+differs. A check with errors is repeated every time, so no stale error is served. The store keeps at
+most 256 files and 128 MiB and drops the least recently used first. Runs that ask for a key while it
+is being built wait for that build and take its result; a build that fails or may not be reused
+leaves them to build for themselves.
+
+The type check and the client build run as jobs of the worker module of the snippet compiler
+(`runTypeScriptWorkerJob`): the exported function of a module is called with a cloneable input and
+answers with a cloneable value, and an error it throws arrives with its own message. Jobs have a
+pool of their own, up to four workers with a larger heap (1 GiB), so neither blocks the event loop
+of the server, a snippet never waits for the check of a project, and a project check never runs into
+the snippet limits. The default limit is 180 seconds including queue time; a timeout or the
+cancellation of the run ends the worker, as for snippets.
+
 The activation reads the capability contracts from the tool registry that the running actors use,
 with the same external actor runtimes (`host.actorRuntimes`, which `agent_spawn` offers as its
 `runtime` choice), so a build and its calls see the same schemas. Runtimes that a changed profile
@@ -594,7 +627,12 @@ runtime.
 - Intermediate states of a function that is still running are not journaled automatically; a
   state-aware program commits its steps at the end of each evaluation, not after each step.
 - A failed reactivation after contract drift is retried on every further call; the host does not
-  remember the failure.
+  remember the failure, and its failed checks are not stored.
+- The domain tests, the Tailwind stylesheet of the views, and the file work of an activation are
+  done again for every activation, also when its checks come from the store; many runs on one
+  package pay them once per run, at most as many at a time as there are refresh slots.
+- A package that imports files outside its own folder is checked on every activation, never served
+  from the store.
 - Native Node execution has no language sandbox. Ordinary programs use the run's server
   context; package-isolated programs still read their dependencies, Node binary, and the explicit
   operating-system paths above. Server file helpers retain the parent-directory replacement race.

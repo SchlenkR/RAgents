@@ -32,10 +32,11 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/host/host-version": ["readHostApiVersion", "readHostVersion", "readPackageVersion"],
     "@ragents/host/plugin-support/actor-programs/app-project": [
       "compileAppBackend", "describeRunScript", "installServerSdk", "packageIdentity", "prepareAppProject", "prepareAppWorkspace", "projectSourceFiles",
-      "readAppPackage", "typecheckServerProject",
+      "readAppPackage", "typecheckServerProject", "typecheckServerProjectAsync",
     ],
+    "@ragents/host/plugin-support/actor-programs/build-cache": ["ProgramBuildCache"],
     "@ragents/host/plugin-support/actor-programs/calendar": ["calendarTimeZone", "nextCalendarOccurrence"],
-    "@ragents/host/plugin-support/actor-programs/client-compiler": ["compileClientProject", "installClientSdk"],
+    "@ragents/host/plugin-support/actor-programs/client-compiler": ["compileClientProject", "compileClientProjectAsync", "installClientSdk"],
     "@ragents/host/plugin-support/actor-programs/client-contracts": [
       "readClientUiComponentContracts", "readClientUiComponentNames",
     ],

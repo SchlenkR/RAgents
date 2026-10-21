@@ -8,10 +8,11 @@ import { build } from "esbuild";
 import ts from "typescript";
 import { Type, type Static } from "typebox";
 import { Value } from "typebox/value";
-import { canonicalHash, schemaComplaints, typeScriptTypesFromSchema, type NativeTypeScriptExecutor, type RunCapabilityDescriptor, scriptStdDeclarations } from "@ragents/engine";
+import { canonicalHash, runTypeScriptWorkerJob, schemaComplaints, typeScriptTypesFromSchema, type NativeTypeScriptExecutor, type RunCapabilityDescriptor, scriptStdDeclarations } from "@ragents/engine";
 import { runtimeLibraries, webRuntimeLibraries } from "./runtime-libraries.js";
 import { appPermissionsSchema, appTriggersSchema } from "./contract.js";
-import { programGuardDiagnostics } from "./program-guards.js";
+import { outsideReads, projectCacheKey, type ProgramBuildCache } from "./build-cache.js";
+import { typecheckServerProject, type ServerTypecheck } from "./server-typecheck.js";
 import { runManagedProcess, safeProcessEnvironment, type ProcessSandbox } from "@ragents/workspace-executor";
 import { withoutPrivateEnvironment } from "@ragents/workspace-executor/src/safe-environment.ts";
 
@@ -54,19 +55,24 @@ export const prepareAppDependencies = async (directory: string): Promise<void> =
     await link(path.join(libraryDirectory(library!), executable!), path.join(directory, "node_modules/.bin", name!));
 };
 
+const writeWhenChanged = async (file: string, content: string): Promise<void> => {
+  if (await readFile(file, "utf8").then((current) => current === content, () => false)) return;
+  await writeFile(file, content);
+};
+
 export const prepareAppWorkspace = async (directory: string): Promise<string> => {
   await prepareAppDependencies(directory);
   const dependencies = Object.fromEntries(runtimeLibraries.map((name) => [name, `link:${libraryDirectory(name)}`]));
-  await writeFile(path.join(directory, "package.json"), json({ name: "run-actor-workspace", private: true, type: "module", dependencies }));
-  await writeFile(path.join(directory, "pnpm-workspace.yaml"), "packages:\n  - actors/*\n");
+  await writeWhenChanged(path.join(directory, "package.json"), json({ name: "run-actor-workspace", private: true, type: "module", dependencies }));
+  await writeWhenChanged(path.join(directory, "pnpm-workspace.yaml"), "packages:\n  - actors/*\n");
   await mkdir(path.join(directory, "actors"), { recursive: true });
   const apps = await readdir(path.join(directory, "actors"), { withFileTypes: true });
   const importers = {
     ".": { dependencies: Object.fromEntries(Object.entries(dependencies).map(([name, specifier]) => [name, { specifier, version: specifier }])) },
     ...Object.fromEntries(apps.filter((entry) => entry.isDirectory()).map((entry) => [`actors/${entry.name}`, {}])),
   };
-  await writeFile(path.join(directory, "pnpm-lock.yaml"), json({ lockfileVersion: "9.0", settings: { autoInstallPeers: true, excludeLinksFromLockfile: false }, importers }));
-  await writeFile(path.join(directory, "tsconfig.json"), json({ files: [], references: [] }));
+  await writeWhenChanged(path.join(directory, "pnpm-lock.yaml"), json({ lockfileVersion: "9.0", settings: { autoInstallPeers: true, excludeLinksFromLockfile: false }, importers }));
+  await writeWhenChanged(path.join(directory, "tsconfig.json"), json({ files: [], references: [] }));
   return path.join(directory, "actors");
 };
 
@@ -383,20 +389,9 @@ export const projectSourceFiles = async (directory: string): Promise<{ path: str
   return files.sort((left, right) => left.path.localeCompare(right.path));
 };
 
-export const typecheckServerProject = (directory: string, backend?: string): string[] => {
-  const configPath = path.join(directory, "tsconfig.server.json");
-  const config = ts.readConfigFile(configPath, ts.sys.readFile);
-  const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, directory, { noEmit: true }, configPath);
-  const rootNames = [...new Set([...parsed.fileNames, ...(backend ? [path.resolve(directory, backend)] : [])])];
-  const program = ts.createProgram(rootNames, parsed.options);
-  const configErrors = parsed.errors.filter((diagnostic) => !(backend && diagnostic.code === 18003));
-  return [...[...(config.error ? [config.error] : []), ...configErrors, ...ts.getPreEmitDiagnostics(program)].map((diagnostic) => {
-    const start = diagnostic.file && diagnostic.start !== undefined ? diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start) : undefined;
-    return `${diagnostic.file ? path.relative(directory, diagnostic.file.fileName) : "tsconfig.server.json"}${start ? `:${start.line + 1}:${start.character + 1}` : ""} TS${diagnostic.code}: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, " ")}`;
-  }), ...programGuardDiagnostics(program, directory)];
-};
+export { typecheckServerProject };
 
-const bundleBackend = async (directory: string, backend: string): Promise<string> => {
+const bundleBackend = async (directory: string, backend: string): Promise<{ javaScript: string; inputs: string[] }> => {
   const entry = path.resolve(directory, backend);
   if (!entry.startsWith(`${directory}${path.sep}`)) throw new Error("The backend entry lies outside the app.");
   const result = await build({
@@ -431,9 +426,11 @@ export const handle = async (request, context) => {
   else await actor.onInput(request.input, handlerContext);
   return { finishes };
 };`, resolveDir: directory, sourcefile: "actor-entry.ts", loader: "ts" },
-    absWorkingDir: directory, platform: "node", format: "esm", target: "node22", bundle: true, packages: "external", write: false, logLevel: "silent",
+    absWorkingDir: directory, platform: "node", format: "esm", target: "node22", bundle: true, packages: "external", write: false, metafile: true, logLevel: "silent",
   });
-  return result.outputFiles![0]!.text;
+  const real = await realpath(directory);
+  const virtual = new Set([path.join(directory, "actor-entry.ts"), path.join(real, "actor-entry.ts")]);
+  return { javaScript: result.outputFiles![0]!.text, inputs: Object.keys(result.metafile.inputs).map((name) => path.resolve(real, name)).filter((name) => !virtual.has(name)) };
 };
 
 const checkedContract = (described: unknown): AppContract => {
@@ -441,19 +438,56 @@ const checkedContract = (described: unknown): AppContract => {
   return described;
 };
 
-export const compileAppBackend = async (options: {
-  directory: string; backend: string; runId: string; executor: NativeTypeScriptExecutor; signal?: AbortSignal; isolated?: boolean;
-}): Promise<{ contract: AppContract; javaScript: string; hash: string }> => {
-  const signal = AbortSignal.any([...(options.signal ? [options.signal] : []), AbortSignal.timeout(15_000)]);
-  const javaScript = await bundleBackend(options.directory, options.backend);
-  options.signal?.throwIfAborted();
-  const described = await options.executor.execute({
-    program: { entry: "server.mjs", files: [{ fileName: "server.mjs", text: javaScript }], exportName: "describe" },
-    input: {}, state: {}, cwd: options.directory, ...(options.isolated ? { isolated: true } : {}),
-    context: { runId: options.runId, invocationId: "app-contract", invocationKind: "tool", principal: { id: "app-build", kind: "service" }, capabilities: [] },
-  }, { signal, call: async () => { throw new Error("Run calls are not available while loading the app contract."); }, log: () => undefined });
-  return { contract: checkedContract(described.result), javaScript, hash: canonicalHash({ javaScript }) };
+export interface ProjectCheckOptions {
+  readonly cache?: ProgramBuildCache | undefined;
+  readonly signal?: AbortSignal | undefined;
+}
+
+export const throughProjectCache = async <T>(directory: string, request: ProjectCheckOptions & {
+  readonly kind: string;
+  readonly sdk: readonly string[];
+  readonly extra: Readonly<Record<string, unknown>>;
+}, produce: () => Promise<{ value: T; reusable: boolean; inspected: readonly string[] }>): Promise<T> => {
+  const { cache, signal, kind } = request;
+  if (!cache) return (await produce()).value;
+  const files = await projectSourceFiles(directory);
+  const key = await projectCacheKey(directory, { kind, files, sdk: request.sdk, extra: request.extra });
+  return cache.through(kind, key, async () => {
+    const built = await produce();
+    const { hostFiles, foreign } = outsideReads([...new Set([directory, await realpath(directory)])], files, built.inspected);
+    return { value: built.value, dependencies: hostFiles, reusable: built.reusable && !foreign && canonicalHash(files) === canonicalHash(await projectSourceFiles(directory)) };
+  }, signal);
 };
+
+export const runProjectJob = async <Result>(module: string, name: string, input: unknown, signal?: AbortSignal): Promise<Result> => {
+  try {
+    return await runTypeScriptWorkerJob<Result>({ module, name, input }, signal ? { signal } : undefined);
+  } catch (error) {
+    signal?.throwIfAborted();
+    throw error;
+  }
+};
+
+export const typecheckServerProjectAsync = (directory: string, backend: string | undefined, options: ProjectCheckOptions = {}): Promise<string[]> =>
+  throughProjectCache(directory, { ...options, kind: "typecheck", sdk: ["server", "workflow", "client"], extra: { backend: backend ?? null } }, async () => {
+    const { lines, files } = await runProjectJob<ServerTypecheck>(new URL("./server-typecheck.ts", import.meta.url).href, "typecheckServerProgram", { directory, backend }, options.signal);
+    return { value: lines, reusable: lines.length === 0, inspected: files };
+  });
+
+export const compileAppBackend = async (options: {
+  directory: string; backend: string; runId: string; executor: NativeTypeScriptExecutor; signal?: AbortSignal; isolated?: boolean; cache?: ProgramBuildCache | undefined;
+}): Promise<{ contract: AppContract; javaScript: string; hash: string }> =>
+  throughProjectCache(options.directory, { cache: options.cache, signal: options.signal, kind: "backend", sdk: ["server", "workflow"], extra: { backend: options.backend, isolated: options.isolated === true } }, async () => {
+    const signal = AbortSignal.any([...(options.signal ? [options.signal] : []), AbortSignal.timeout(15_000)]);
+    const { javaScript, inputs } = await bundleBackend(options.directory, options.backend);
+    options.signal?.throwIfAborted();
+    const described = await options.executor.execute({
+      program: { entry: "server.mjs", files: [{ fileName: "server.mjs", text: javaScript }], exportName: "describe" },
+      input: {}, state: {}, cwd: options.directory, ...(options.isolated ? { isolated: true } : {}),
+      context: { runId: options.runId, invocationId: "app-contract", invocationKind: "tool", principal: { id: "app-build", kind: "service" }, capabilities: [] },
+    }, { signal, call: async () => { throw new Error("Run calls are not available while loading the app contract."); }, log: () => undefined });
+    return { value: { contract: checkedContract(described.result), javaScript, hash: canonicalHash({ javaScript }) }, reusable: true, inspected: inputs };
+  });
 
 /** The contract of a run script's setup package before any run exists: built in a temporary folder and read by a short-lived Node process of the server. */
 export const describeRunScript = async (files: readonly { path: string; content: string }[], options: {
@@ -472,7 +506,7 @@ export const describeRunScript = async (files: readonly { path: string; content:
     const pkg = await readAppPackage(directory);
     if (!pkg.backend) throw new Error("A run script needs a backend that defines its setup actor.");
     const entry = path.join(directory, "contract.mjs");
-    await writeFile(entry, await bundleBackend(directory, pkg.backend));
+    await writeFile(entry, (await bundleBackend(directory, pkg.backend)).javaScript);
     const sandbox = await options.sandbox([directory], [await realpath(toolkit)]);
     const temporary = path.join(directory, ".build", "tmp");
     await mkdir(temporary, { recursive: true });

@@ -3,22 +3,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { Type } from "typebox";
 import { OperationContributionRegistry } from "@ragents/engine";
 import { setupRun } from "../../../packages/ragents/tests/support.ts";
 import type { ActorProgramRuntimeOptions } from "../../../plugins/ragents.actor-programs/server/runtime.ts";
-import { runtimeFor, writeAppFiles, invocationResult } from "./actor-runtime-fixture.ts";
+import { appFiles, pingOperations, runtimeFor, sourcesOf, writeAppFiles, invocationResult } from "./actor-runtime-fixture.ts";
 
-const pingOperations = () => {
-  const calls: unknown[] = [];
-  const operation = { id: "native_ping", label: "Ping", description: "Test operation", schema: Type.Object({value: Type.String()}), resultSchema: Type.String(), operator: "direct" as const,
-    execute: (_context: unknown, input: unknown) => { calls.push(input); return "pong"; } };
-  const operations = new OperationContributionRegistry();
-  operations.register("test", [operation]);
-  const widenInput = () => { operation.schema = Type.Object({value: Type.String(), verbose: Type.Optional(Type.Boolean())}) as never; };
-  const breakResult = () => { operation.resultSchema = Type.Integer() as never; };
-  return { operations, calls, widenInput, breakResult };
-};
 const fixture = async (t: Parameters<Parameters<typeof test>[1]>[0], operations: OperationContributionRegistry, scriptSources?: ActorProgramRuntimeOptions["scriptSources"]) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-contract-drift-"));
   const setup = setupRun({ runId: path.basename(directory).toLowerCase() });
@@ -26,15 +15,6 @@ const fixture = async (t: Parameters<Parameters<typeof test>[1]>[0], operations:
   t.after(async () => { await runtime.shutdown(); await rm(directory, { recursive: true, force: true }); });
   return { directory, setup, runtime, runId: setup.view.id, context: { actorId: setup.view.ownerId, commandId: "activate" } };
 };
-const appFiles = (body: string) => ({
-  "package.json": JSON.stringify({ name: "rpc", private: true, type: "module", ragents: { title: "Rpc", views: [{id: "main", client: "src/client.tsx"}], backend: "src/server.ts" } }),
-  "src/client.tsx": 'document.body.dataset.ready = "true"; export {};',
-  "src/server.ts": `import {Type} from "typebox"; import {defineActor} from "@ragents/server";
-export default defineActor({state: Type.Object({}, {additionalProperties: false}), functions: {run: {label: "Run", input: Type.Object({}), output: Type.String(), capabilities: ["native_ping"]}}}, {functions: {
-run: async (_input, context) => {${body}}
-}});`,
-});
-const sourcesOf = (files: Record<string, string>) => Object.entries(files).map(([file, content]) => ({path: file, content}));
 const call = async (f: Awaited<ReturnType<typeof fixture>>, requestId: string, name = "rpc") => {
   const app = f.runtime.apps(f.runId).find((entry) => entry.id === `${name}--main`)!;
   const invocation = f.runtime.startInvocation(f.runId, app.id, app.revision, "run", requestId, {}, f.runtime.invocationPermit(f.runId));

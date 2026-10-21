@@ -249,6 +249,10 @@ tests, for each failed test its name, message, for assertions expected and actua
 location in the test file relative to the program; a test file that does not load names the error
 line of its output. Durations, Node-internal stack lines, and absolute paths are left out.
 
+The type check and the client build run on worker threads and are reused for identical packages
+across runs and restarts; the tests run again for every activation. How this works and where the
+results are stored is in [TypeScript platform](typescript-platform.md#build-and-process-lifecycle).
+
 ## Tool cards and mini-app tabs
 
 `card: true` generates a compact form above the selected actor's chat from its typed function

@@ -230,6 +230,9 @@ nohup ragents workspace-client https://ragents.example.com /home/user/project --
 
 The flag ignores terminal closure, parent loss, and SIGHUP; it does not daemonize. SIGINT and
 SIGTERM still unregister and shut down. Use the service manager's stop command to end a service.
+In every mode the client also unregisters and ends when one of its folders disappears, and when
+the server stays unreachable for 30 minutes in one stretch; a service manager restarts it if it
+should keep running.
 
 When someone opens a service of a run on this workstation through the VS Code extension, the
 workstation dials back to the server for every connection: it opens a WebSocket to

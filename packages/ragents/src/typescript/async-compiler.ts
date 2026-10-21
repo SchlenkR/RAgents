@@ -9,11 +9,17 @@ import type {
 const DEFAULT_TIMEOUT_MS = 60_000;
 const MAX_TIMEOUT_MS = 180_000;
 const MAX_CONCURRENT_COMPILERS = 8;
+const MAX_CONCURRENT_JOBS = 4;
 const MAX_COMPILER_FILES = 128;
 const MAX_COMPILER_INPUT_BYTES = 2 * 1024 * 1024;
 const COMPILER_RESOURCE_LIMITS = {
     maxOldGenerationSizeMb: 256,
     maxYoungGenerationSizeMb: 16,
+    stackSizeMb: 4,
+} as const satisfies ResourceLimits;
+const JOB_RESOURCE_LIMITS = {
+    maxOldGenerationSizeMb: 1024,
+    maxYoungGenerationSizeMb: 32,
     stackSizeMb: 4,
 } as const satisfies ResourceLimits;
 
@@ -38,7 +44,15 @@ export class VirtualTypeScriptWorkerError extends Error {
     }
 }
 
+interface WorkerPool {
+    readonly limits: ResourceLimits;
+    readonly size: number;
+    readonly workers: PooledWorker[];
+    readonly waiters: WorkerWaiter[];
+}
+
 interface PooledWorker {
+    readonly pool: WorkerPool;
     readonly worker: Worker;
     busy: boolean;
 }
@@ -47,8 +61,8 @@ interface WorkerWaiter {
     readonly activate: (pooled: PooledWorker) => void;
 }
 
-const pool: PooledWorker[] = [];
-const workerWaiters: WorkerWaiter[] = [];
+const compilerPool: WorkerPool = { limits: COMPILER_RESOURCE_LIMITS, size: MAX_CONCURRENT_COMPILERS, workers: [], waiters: [] };
+const jobPool: WorkerPool = { limits: JOB_RESOURCE_LIMITS, size: MAX_CONCURRENT_JOBS, workers: [], waiters: [] };
 let nextRequestId = 0;
 
 const LOADER_FLAGS = ["--import", "--loader", "--experimental-loader", "--require", "-r"] as const;
@@ -61,52 +75,53 @@ const loaderArguments = (execArgv: readonly string[]): readonly string[] =>
         return [];
     });
 
-const spawnWorker = (): PooledWorker => {
+const spawnWorker = (pool: WorkerPool): PooledWorker => {
     const worker = new Worker(new URL("./compiler-worker.ts", import.meta.url), {
         execArgv: [...loaderArguments(process.execArgv)],
         name: "ragents-typescript-compiler",
-        resourceLimits: COMPILER_RESOURCE_LIMITS,
+        resourceLimits: pool.limits,
     });
     worker.unref();
-    const pooled: PooledWorker = { worker, busy: false };
+    const pooled: PooledWorker = { pool, worker, busy: false };
     const forget = (): void => {
-        const index = pool.indexOf(pooled);
-        if (index >= 0) pool.splice(index, 1);
+        const index = pool.workers.indexOf(pooled);
+        if (index >= 0) pool.workers.splice(index, 1);
     };
     worker.on("error", forget);
     worker.on("exit", forget);
-    pool.push(pooled);
+    pool.workers.push(pooled);
     return pooled;
 };
 
 const discardWorker = (pooled: PooledWorker): Promise<number> => {
-    const index = pool.indexOf(pooled);
-    if (index >= 0) pool.splice(index, 1);
+    const index = pooled.pool.workers.indexOf(pooled);
+    if (index >= 0) pooled.pool.workers.splice(index, 1);
     return pooled.worker.terminate();
 };
 
 const releaseWorker = (pooled: PooledWorker): void => {
     pooled.busy = false;
-    const waiter = workerWaiters.shift();
+    const waiter = pooled.pool.waiters.shift();
     if (waiter) waiter.activate(pooled);
 };
 
-const idleWorker = (): PooledWorker | undefined => {
-    const idle = pool.find((pooled) => !pooled.busy);
+const idleWorker = (pool: WorkerPool): PooledWorker | undefined => {
+    const idle = pool.workers.find((pooled) => !pooled.busy);
     if (idle) return idle;
-    return pool.length < MAX_CONCURRENT_COMPILERS ? spawnWorker() : undefined;
+    return pool.workers.length < pool.size ? spawnWorker(pool) : undefined;
 };
 
 export const typeScriptCompilerPool = (): { readonly threadIds: readonly number[]; readonly busy: number } => ({
-    threadIds: pool.map((pooled) => pooled.worker.threadId),
-    busy: pool.filter((pooled) => pooled.busy).length,
+    threadIds: compilerPool.workers.map((pooled) => pooled.worker.threadId),
+    busy: compilerPool.workers.filter((pooled) => pooled.busy).length,
 });
 
 export const closeTypeScriptCompilers = async (): Promise<void> => {
-    await Promise.all([...pool].map((pooled) => discardWorker(pooled)));
+    await Promise.all([...compilerPool.workers, ...jobPool.workers].map((pooled) => discardWorker(pooled)));
 };
 
 const acquireWorker = (
+    pool: WorkerPool,
     deadline: number,
     timeoutMs: number,
     signal: AbortSignal | undefined,
@@ -115,8 +130,8 @@ const acquireWorker = (
     let waiter: WorkerWaiter | undefined;
     const removeWaiter = (): void => {
         if (!waiter) return;
-        const index = workerWaiters.indexOf(waiter);
-        if (index >= 0) workerWaiters.splice(index, 1);
+        const index = pool.waiters.indexOf(waiter);
+        if (index >= 0) pool.waiters.splice(index, 1);
     };
     const cleanup = (): void => {
         clearTimeout(timer);
@@ -136,7 +151,7 @@ const acquireWorker = (
         }
         if (!pooled) {
             waiter = { activate };
-            workerWaiters.push(waiter);
+            pool.waiters.push(waiter);
             return;
         }
         settled = true;
@@ -157,7 +172,7 @@ const acquireWorker = (
     signal?.addEventListener("abort", onAbort, { once: true });
     if (signal?.aborted) onAbort();
     else {
-        try { activate(idleWorker()); }
+        try { activate(idleWorker(pool)); }
         catch (error) {
             fail(new VirtualTypeScriptWorkerError(
                 "WORKER_FAILURE",
@@ -179,10 +194,20 @@ type CompilerWorkerMessage = {
     readonly requestId: number;
     readonly compilation: VirtualTypeScriptCompilation;
 } | {
+    readonly kind: "value";
+    readonly requestId: number;
+    readonly value: unknown;
+} | {
     readonly kind: "error";
     readonly requestId: number;
     readonly error: SerializedWorkerError;
 };
+
+export interface TypeScriptWorkerJob {
+    readonly module: string;
+    readonly name: string;
+    readonly input: unknown;
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     value !== null && typeof value === "object" && !Array.isArray(value);
@@ -196,11 +221,12 @@ const isSerializedError = (value: unknown): value is SerializedWorkerError =>
 const isWorkerMessage = (value: unknown): value is CompilerWorkerMessage => {
     if (!isRecord(value) || typeof value.requestId !== "number") return false;
     if (value.kind === "result") return isRecord(value.compilation);
+    if (value.kind === "value") return "value" in value;
     return value.kind === "error" && isSerializedError(value.error);
 };
 
-const timeoutOf = (options: CompileVirtualTypeScriptAsyncOptions | undefined): number => {
-    const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+const timeoutOf = (options: CompileVirtualTypeScriptAsyncOptions | undefined, fallbackMs = DEFAULT_TIMEOUT_MS): number => {
+    const timeoutMs = options?.timeoutMs ?? fallbackMs;
     if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > MAX_TIMEOUT_MS) {
         throw new RangeError(`TypeScript compiler timeout must be between 1 and ${MAX_TIMEOUT_MS} ms.`);
     }
@@ -225,37 +251,38 @@ const remoteError = (error: SerializedWorkerError): Error => {
     return remote;
 };
 
-export const compileVirtualTypeScriptAsync = async (
-    request: CompileVirtualTypeScriptRequest,
-    options?: CompileVirtualTypeScriptAsyncOptions,
-): Promise<VirtualTypeScriptCompilation> => {
-    validateRequestSize(request);
-    const timeoutMs = timeoutOf(options);
+const callWorker = async <Result>(
+    pool: WorkerPool,
+    post: (requestId: number) => unknown,
+    failed: (error: SerializedWorkerError) => Error,
+    timeoutMs: number,
+    signal: AbortSignal | undefined,
+): Promise<Result> => {
     const deadline = performance.now() + timeoutMs;
-    const pooled = await acquireWorker(deadline, timeoutMs, options?.signal);
+    const pooled = await acquireWorker(pool, deadline, timeoutMs, signal);
     const { worker } = pooled;
     const requestId = ++nextRequestId;
 
-    return await new Promise<VirtualTypeScriptCompilation>((resolve, reject) => {
+    return await new Promise<Result>((resolve, reject) => {
         let settled = false;
         const cleanup = (): void => {
             clearTimeout(timer);
-            options?.signal?.removeEventListener("abort", onAbort);
+            signal?.removeEventListener("abort", onAbort);
             worker.removeListener("message", onMessage);
             worker.removeListener("messageerror", onMessageError);
             worker.removeListener("error", onError);
             worker.removeListener("exit", onExit);
         };
         const finish = (
-            result: { readonly compilation: VirtualTypeScriptCompilation }
-                | { readonly error: VirtualTypeScriptWorkerError; readonly keepWorker?: boolean },
+            result: { readonly value: Result }
+                | { readonly error: Error; readonly keepWorker?: boolean },
         ): void => {
             if (settled) return;
             settled = true;
             cleanup();
-            if ("compilation" in result || result.keepWorker) {
+            if ("value" in result || result.keepWorker) {
                 releaseWorker(pooled);
-                if ("compilation" in result) resolve(result.compilation);
+                if ("value" in result) resolve(result.value);
                 else reject(result.error);
                 return;
             }
@@ -278,14 +305,14 @@ export const compileVirtualTypeScriptAsync = async (
             }
             if (message.requestId !== requestId) return;
             if (message.kind === "result") {
-                finish({ compilation: message.compilation });
+                finish({ value: message.compilation as Result });
                 return;
             }
-            finish({ error: new VirtualTypeScriptWorkerError(
-                "COMPILER_EXCEPTION",
-                `The TypeScript compiler failed: ${message.error.message}`,
-                { cause: remoteError(message.error) },
-            ), keepWorker: true });
+            if (message.kind === "value") {
+                finish({ value: message.value as Result });
+                return;
+            }
+            finish({ error: failed(message.error), keepWorker: true });
         };
         const onMessageError = (error: Error): void => finish({
             error: new VirtualTypeScriptWorkerError(
@@ -311,7 +338,7 @@ export const compileVirtualTypeScriptAsync = async (
             error: new VirtualTypeScriptWorkerError(
                 "ABORTED",
                 "The TypeScript compilation was cancelled.",
-                { cause: options?.signal?.reason },
+                { cause: signal?.reason },
             ),
         });
         const timer = setTimeout(() => finish({
@@ -325,8 +352,37 @@ export const compileVirtualTypeScriptAsync = async (
         worker.on("messageerror", onMessageError);
         worker.on("error", onError);
         worker.on("exit", onExit);
-        options?.signal?.addEventListener("abort", onAbort, { once: true });
-        if (options?.signal?.aborted) onAbort();
-        else worker.postMessage({ kind: "compile", requestId, request });
+        signal?.addEventListener("abort", onAbort, { once: true });
+        if (signal?.aborted) onAbort();
+        else worker.postMessage(post(requestId));
     });
 };
+
+export const compileVirtualTypeScriptAsync = async (
+    request: CompileVirtualTypeScriptRequest,
+    options?: CompileVirtualTypeScriptAsyncOptions,
+): Promise<VirtualTypeScriptCompilation> => {
+    validateRequestSize(request);
+    return await callWorker<VirtualTypeScriptCompilation>(
+        compilerPool,
+        (requestId) => ({ kind: "compile", requestId, request }),
+        (error) => new VirtualTypeScriptWorkerError(
+            "COMPILER_EXCEPTION",
+            `The TypeScript compiler failed: ${error.message}`,
+            { cause: remoteError(error) },
+        ),
+        timeoutOf(options),
+        options?.signal,
+    );
+};
+
+export const runTypeScriptWorkerJob = async <Result>(
+    job: TypeScriptWorkerJob,
+    options?: CompileVirtualTypeScriptAsyncOptions,
+): Promise<Result> => await callWorker<Result>(
+    jobPool,
+    (requestId) => ({ kind: "job", requestId, ...job }),
+    remoteError,
+    timeoutOf(options, MAX_TIMEOUT_MS),
+    options?.signal,
+);

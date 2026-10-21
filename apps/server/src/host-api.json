@@ -90,7 +90,11 @@
       "prepareAppWorkspace",
       "projectSourceFiles",
       "readAppPackage",
-      "typecheckServerProject"
+      "typecheckServerProject",
+      "typecheckServerProjectAsync"
+    ],
+    "@ragents/host/plugin-support/actor-programs/build-cache": [
+      "ProgramBuildCache"
     ],
     "@ragents/host/plugin-support/actor-programs/calendar": [
       "calendarTimeZone",
@@ -98,6 +102,7 @@
     ],
     "@ragents/host/plugin-support/actor-programs/client-compiler": [
       "compileClientProject",
+      "compileClientProjectAsync",
       "installClientSdk"
     ],
     "@ragents/host/plugin-support/actor-programs/client-contracts": [

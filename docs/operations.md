@@ -1136,6 +1136,10 @@ ${DATA_DIR}/
   logs/server.log                 server run, HTTP access, errors, crashes (rotation 32 MB x3)
 ```
 
+`plugins/ragents.actor-programs/build-cache/` holds the type checks and builds of actor program
+packages that runs share, at most 256 files and 128 MiB. It is a cache: deleting it while the server
+is stopped only costs the checks again.
+
 Server-provided profiles (`pnpm connect`) are stored alongside under
 `~/.local/share/ragents/remote/<host>/<profile>/`: `profiles/<version>/` per fetched version and
 `data/` as the `DATA_DIR` of the local server with the same structure as above.

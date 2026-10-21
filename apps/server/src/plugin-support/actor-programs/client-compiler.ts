@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { build, type Message } from "esbuild";
 import ts from "typescript";
 import { canonicalTypeScriptBuildContract, typeScriptTypeFromSchema, type VirtualTypeScriptDiagnostic } from "@ragents/engine";
-import { installWorkflowSdk } from "./app-project.js";
+import { installWorkflowSdk, runProjectJob, throughProjectCache, type ProjectCheckOptions } from "./app-project.js";
 import { readClientUiContractFiles } from "./client-contracts.js";
 import { viewHookDiagnostics } from "./view-hooks.js";
 
@@ -132,7 +132,7 @@ const buildDiagnostic = (message: Message): VirtualTypeScriptDiagnostic => ({
   ...(message.location ? { fileName: message.location.file, start: { line: message.location.line, column: message.location.column + 1 } } : {}),
 });
 
-export const compileClientProject = async (request: ClientProjectRequest, signal?: AbortSignal) => {
+export const compileClientProgram = async (request: ClientProjectRequest, signal?: AbortSignal) => {
   signal?.throwIfAborted();
   const directory = await realpath(request.directory);
   const declarations = clientDeclarations(request);
@@ -149,6 +149,7 @@ export const compileClientProject = async (request: ClientProjectRequest, signal
   diagnostics.push(...await viewHookDiagnostics(ownSources.map((file) => ({ fileName: path.relative(directory, file.fileName).replaceAll(path.sep, "/"), text: file.text }))));
   signal?.throwIfAborted();
   let javaScript = "";
+  let bundled: string[] = [];
   if (!diagnostics.some((diagnostic) => diagnostic.category === "error")) {
     try {
       const result = await build({
@@ -156,11 +157,12 @@ export const compileClientProject = async (request: ClientProjectRequest, signal
         platform: "browser", format: "esm", target: "es2022", jsx: "automatic", tsconfig: configPath,
         alias: { react: packageRoot("react"), "react-dom": packageRoot("react-dom") },
         define: { "process.env.NODE_ENV": '"production"' }, legalComments: "none", logLevel: "silent",
-        minify: true,
+        minify: true, metafile: true,
       });
       const output = result.outputFiles.find((file) => file.path.endsWith(".js") || file.path === "<stdout>");
       if (!output) throw new Error("The client build produced no JavaScript.");
       javaScript = output.text;
+      bundled = Object.keys(result.metafile.inputs);
     } catch (cause) {
       if (cause && typeof cause === "object" && "errors" in cause && Array.isArray(cause.errors)) {
         diagnostics.push(...(cause.errors as Message[]).map(buildDiagnostic));
@@ -173,5 +175,14 @@ export const compileClientProject = async (request: ClientProjectRequest, signal
     typescript: ts.version, config: { ...config.options, configFilePath: undefined },
     sources: program.getSourceFiles().map((file) => ({ path: path.relative(directory, file.fileName), text: file.text })),
   })).digest("hex");
-  return { valid: !diagnostics.some((diagnostic) => diagnostic.category === "error"), diagnostics, declarations, javaScript, compilationHash };
+  const compiled = { valid: !diagnostics.some((diagnostic) => diagnostic.category === "error"), diagnostics, declarations, javaScript, compilationHash };
+  return { compiled, files: [...program.getSourceFiles().map((file) => file.fileName), ...bundled.map((file) => path.resolve(directory, file))] };
 };
+
+export const compileClientProject = async (request: ClientProjectRequest, signal?: AbortSignal) => (await compileClientProgram(request, signal)).compiled;
+
+export const compileClientProjectAsync = (request: ClientProjectRequest, options: ProjectCheckOptions = {}) =>
+  throughProjectCache(request.directory, { ...options, kind: "client", sdk: ["server", "workflow", "client"], extra: { entryPoint: request.entryPoint, declarations: clientDeclarations(request) } }, async () => {
+    const { compiled, files } = await runProjectJob<Awaited<ReturnType<typeof compileClientProgram>>>(new URL("./client-compiler.ts", import.meta.url).href, "compileClientProgram", request, options.signal);
+    return { value: compiled, reusable: compiled.valid, inspected: files };
+  });
