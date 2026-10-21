@@ -901,8 +901,9 @@ export class TurnScheduler {
         this.#live?.publish(runId, actorId, { kind: "turn-started", turnId: turn.turnId });
         const turnTimeoutMs = idle.execution.turnTimeoutMs;
         let timeout: ReturnType<typeof setTimeout> | null = null;
+        let ended = false;
         const progress = () => {
-            if (!turnTimeoutMs || controller.signal.aborted || !this.#isRunning(turn))
+            if (!turnTimeoutMs || ended || controller.signal.aborted)
                 return;
             if (timeout)
                 clearTimeout(timeout);
@@ -1089,6 +1090,7 @@ export class TurnScheduler {
                     this.#fail(turn, message, usage);
             }
         } finally {
+            ended = true;
             unsubscribeProgress?.();
             if (timeout)
                 clearTimeout(timeout);
