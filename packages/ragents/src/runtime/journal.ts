@@ -49,7 +49,7 @@ type RunLog = {
     records: CommandRecord[];
     commands: Map<string, CommandRecord>;
     events: JournalEvent[];
-    state: RunDraft | null;
+    state: RunState | null;
     semantics: EventSemanticContext;
 };
 
@@ -90,6 +90,14 @@ const deepFreeze = <Value>(value: Value): Value => {
 
     return value;
 };
+
+const sealed = (state: RunDraft): RunState => deepFreeze({
+    ...state,
+    actors: new Map(state.actors),
+    inputs: new Map(state.inputs),
+    turns: new Map(state.turns),
+    actions: new Map(state.actions),
+});
 
 const objectOf = (value: unknown, location: string): Record<string, unknown> => {
     if (!value || typeof value !== "object" || Array.isArray(value))
@@ -261,7 +269,6 @@ export class Journal {
     readonly #listeners = new Set<(events: JournalEvent[]) => void>();
     readonly #pendingPublications: JournalEvent[][] = [];
     readonly #runs = new Map<RunId, RunLog>();
-    readonly #snapshots = new WeakMap<RunDraft, RunState>();
     readonly #validateRecord: ((record: CommandRecord) => void) | undefined;
     readonly #loadFailures = new Map<string, JournalLoadFailure>();
     readonly #onLoadError: (failure: JournalLoadFailure) => void;
@@ -417,20 +424,7 @@ export class Journal {
     }
 
     stateOf(runId: RunId): RunState | null {
-        const state = this.#runs.get(runId)?.state;
-
-        if (!state)
-            return null;
-
-        const known = this.#snapshots.get(state);
-
-        if (known)
-            return known;
-
-        const snapshot = deepFreeze(clone(state));
-        this.#snapshots.set(state, snapshot);
-
-        return snapshot;
+        return this.#runs.get(runId)?.state ?? null;
     }
 
     updatedAt(runId: RunId): string | null {
@@ -632,7 +626,7 @@ export class Journal {
             for (const event of events)
                 state = applyEvent(state, event, semantics);
 
-            projected.set(runId, { state, semantics });
+            projected.set(runId, { state: state && sealed(state), semantics });
         }
 
         return projected;

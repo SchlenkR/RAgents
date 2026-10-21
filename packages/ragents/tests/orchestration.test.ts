@@ -783,6 +783,10 @@ test("reads share one frozen state per revision and see each change", () => {
     assert.notEqual(second, first);
     assert.ok(second.revision > first.revision);
     assert.equal([...second.actors.values()].length, [...first.actors.values()].length + 1);
+    const worker = [...second.actors.values()].find((entry) => entry.handle === "worker");
+    spawn(runtime, runtime.view(view.id), "helper");
+
+    assert.equal(runtime.state(view.id).actors.get(worker!.id), worker);
 });
 
 test("artifact access cannot be self-granted and may be forwarded by an authorized actor", () => {

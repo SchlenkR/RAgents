@@ -37,22 +37,27 @@ class ProjectionMap<Key, Value> extends Map<Key, Value> {
     }
 }
 
-export const forkProjection = (state: RunDraft): RunDraft => ({
-    ...state,
-    actors: new ProjectionMap(state.actors, (value) => ({ ...value })),
-    inputs: new ProjectionMap(state.inputs, (value) => ({ ...value })),
-    turns: new ProjectionMap(state.turns, (value) => ({
-        ...value,
-        outputs: [...value.outputs],
-        toolCalls: value.toolCalls.map((call) => ({ ...call })),
-    })),
-    actions: new ProjectionMap(state.actions, (value) => ({ ...value })),
-    rooms: new Map(state.rooms),
-    subscriptions: new Map(state.subscriptions),
-    pluginStates: new Map(state.pluginStates),
-    artifacts: new Map(state.artifacts),
-    contextTurns: new Map(state.contextTurns),
-});
+// The shared state stays frozen: changed entries are copied on get, the rest is shared with the previous revision.
+export const forkProjection = (shared: RunState): RunDraft => {
+    const state = shared as RunDraft;
+
+    return {
+        ...state,
+        actors: new ProjectionMap(state.actors, (value) => ({ ...value })),
+        inputs: new ProjectionMap(state.inputs, (value) => ({ ...value })),
+        turns: new ProjectionMap(state.turns, (value) => ({
+            ...value,
+            outputs: [...value.outputs],
+            toolCalls: value.toolCalls.map((call) => ({ ...call })),
+        })),
+        actions: new ProjectionMap(state.actions, (value) => ({ ...value })),
+        rooms: new Map(state.rooms),
+        subscriptions: new Map(state.subscriptions),
+        pluginStates: new Map(state.pluginStates),
+        artifacts: new Map(state.artifacts),
+        contextTurns: new Map(state.contextTurns),
+    };
+};
 
 const actor = (state: RunDraft, id: string) => {
     const found = state.actors.get(id);
