@@ -21,7 +21,7 @@ const renderRestricted = (children: ReactNode) => renderToStaticMarkup(createEle
   value: { ...operator, logout: async () => {} }, children,
 }));
 
-test("restricted Start shows only the allowed setup without free chat, composer or technical metadata", () => {
+test("restricted home shows only the allowed setup without free chat, composer or technical metadata", () => {
   const registry = new PluginRegistry({
     brand: { title: "Example" }, product: { id: "example", title: "Example" }, plugins: [{ id: "example" }],
     startEntries: [
@@ -30,7 +30,7 @@ test("restricted Start shows only the allowed setup without free chat, composer 
       { id: "example.skill", owner: "example", action: "skill", skill: "skill", category: "Free", title: "Free task", description: "Start freely", prompt: "Private start task" },
     ],
   });
-  const html = renderRestricted(createElement(PanelPage, { preferences: { read: async () => null, write: async () => {} }, registry, send: () => {}, state: { theme: "dark", page: "start", profileSuggestions: [], connections: [{
+  const html = renderRestricted(createElement(PanelPage, { send: () => {}, state: { theme: "dark", page: "start", profileSuggestions: [], connections: [{
     name: "example", kind: "server", address: "http://localhost:4710", route: { kind: "server", host: "localhost:4710", localHost: false }, state: { kind: "connected" },
     runs: [], entries: connectionEntriesOf(registry, operator), canCreate: true, canCreateFree: operator.can("runs.create"),
   }] } }));

@@ -1,4 +1,5 @@
 import { Activity, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ListIcon } from "lucide-react";
 import { canStartEntry, type AccessContext } from "../../../../packages/ragents/src/access";
 import { deleteSession, getStartOptions, markRunViewed, revokeRunShare, setStartOption, stopRun } from "../api";
 import { scriptParameters, startEntryDirectly } from "../chat/requests";
@@ -14,7 +15,6 @@ import { connectionEntriesOf } from "../StartTiles";
 import { templateStarting } from "../StartEntryDialog";
 import { openSharing, REVOKED_SHARE_NOTICE, revokeSharing, saveSharing } from "../run-sharing";
 import { PanelPage } from "../panel/PanelPage";
-import { SERVER_PREFERENCES } from "../preferences";
 import type { PanelAction, PanelState } from "../panel/contract";
 import { useSharingStore } from "../panel/SharePanel";
 import { HelpDialog } from "../HelpDialog";
@@ -50,8 +50,9 @@ const noticeClass = "m-auto max-w-[420px] p-6 text-center text-muted-foreground"
 const newDraft = (): SessionInfo => ({ id: crypto.randomUUID(), title: NEW_RUN_TITLE, updatedAt: Date.now() });
 const placeholderSession = (id: string, title = "Run"): SessionInfo => ({ id, title, updatedAt: Date.now() });
 const profileLoading: StartupNoticeState = { kind: "working", title: "Loading profile", detail: "Loading the server's interface." };
+const runsPage = { id: "runs", title: "Runs", Icon: ListIcon };
 
-/** The run panel: a run with chat and mini-apps, without a run the shared Start page; layout=app shows one mini-app. */
+/** The run panel: a run with chat and mini-apps, without a run the resolved home; layout=app shows one mini-app. */
 export function RunPanelApp({ location }: { location: RunPanelLocation }) {
   const activation = usePluginActivation();
   const headless = location.layout === "app";
@@ -80,9 +81,10 @@ function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { c
   const writeRuns = readRuns && access.can("runs.write");
   const canCreateFree = writeRuns && access.can("runs.create");
   const canCreate = canCreateFree || (writeRuns && registry.scriptEntries.some((entry) => canStartEntry(access, entry.id)));
+  const pages = registry.pagesFor(access);
+  const homePageId = registry.homePageFor(access)?.id ?? "runs";
   const [runId, setRunId] = useState(initialRunId);
   const [pageId, setPageId] = usePageHistory(host.kind === "browser", initialPageId);
-  const [page, setPage] = useState<"start" | "runs">("start");
   const [runLocation, setRunLocation] = useState<ChatRunLocation>();
   const [helpOpen, setHelpOpen] = useState(false);
   const [navigationError, setNavigationError] = useState<string>();
@@ -158,31 +160,29 @@ function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { c
   const newRunRefusal = useCallback((entryId: string | undefined): string | undefined => !canCreate ? "New runs are not enabled for this user account."
     : entryId === undefined ? canCreateFree ? undefined : "Free runs are not enabled for this user account."
       : canStartEntry(access, entryId) ? undefined : "This template is not enabled for this user account.", [access, canCreate, canCreateFree]);
-  /** Return to this server's Start page and tell the host which run is open. */
-  const leaveToStart = useCallback((notice: string | undefined) => {
+  const leaveToHome = useCallback((notice: string | undefined) => {
     setFocusRunId(undefined);
     setDraft(undefined);
     replaceLaunch(undefined);
     setRunId(undefined);
     setPageId(undefined);
-    setPage("start");
     setNavigationNotice(notice);
     if (host.kind === "vscode") host.notify({ type: "showStart", ...(notice === undefined ? {} : { notice }) });
   }, [host, replaceLaunch, setPageId]);
-  /** A plugin page takes the main area from Start or the open run, which stays selected and returns when the page is left. */
+  /** A view takes the main area from the home or the open run, which stays selected and returns when the page is left. */
   const openPage = useCallback((id: string) => {
     setDraft(undefined);
     replaceLaunch(undefined);
     setNavigationError(undefined);
     setNavigationNotice(undefined);
     setPageId(id);
-  }, [replaceLaunch, setPageId]);
+    if (host.kind === "vscode" && id === "runs") host.notify({ type: "pageChanged", page: "runs" });
+  }, [host, replaceLaunch, setPageId]);
   const openPageRun = useCallback((id: string) => {
     setRunTitle(undefined);
     openRun(id);
   }, [openRun]);
-  /** The logo always leads to the Start page; in the browser it lists this server's templates and recent runs. */
-  const showStart = useCallback(() => leaveToStart(undefined), [leaveToStart]);
+  const showHome = useCallback(() => leaveToHome(undefined), [leaveToHome]);
 
   useLayoutEffect(() => {
     if (!focusRunId) return;
@@ -209,8 +209,7 @@ function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { c
       setRunStartOptions(undefined);
       setRunTitle(undefined);
       setRunId(selectedRun);
-      setPageId(undefined);
-      setPage(message.type === "showPage" ? message.page : "start");
+      setPageId(message.type === "showPage" && message.page === "runs" ? "runs" : undefined);
       setNavigationNotice(message.type === "showPage" ? message.notice : undefined);
       setNavigationError(undefined);
       setSettingsOpen(false);
@@ -234,7 +233,7 @@ function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { c
         startNew(entryId);
       }} />}
   </>;
-  const toStart = <Button onClick={showStart} size="sm" variant="outline">Back to Start</Button>;
+  const toHome = <Button onClick={showHome} size="sm" variant="outline">Back to home</Button>;
   const draftChat = draft && <PluginChat
     initialStartOptions={draft.startOptions}
     key={draft.session.id}
@@ -243,11 +242,11 @@ function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { c
     session={draft.session}
     startDialog={{ entry: draft.entry, prompt: draft.prompt, onClose: () => setDraft(undefined) }}
   />;
-  const pages = registry.pagesFor(access);
-  const requestedPage = pages.find((entry) => entry.id === pageId);
-  const activePage = launch === undefined ? requestedPage : undefined;
-  const unavailablePage = pageId !== undefined && requestedPage === undefined ? pageId : undefined;
-  const hasRunTitle = readRuns && !activePage && Boolean(runId || launch);
+  const unavailablePage = pageId !== undefined && pageId !== "runs" && !pages.some((entry) => entry.id === pageId) ? pageId : undefined;
+  const currentPageId = unavailablePage !== undefined ? homePageId : pageId ?? (runId === undefined ? homePageId : undefined);
+  const activePage = launch === undefined ? pages.find((entry) => entry.id === currentPageId) : undefined;
+  const viewingPage = launch === undefined && (activePage !== undefined || currentPageId === "runs");
+  const hasRunTitle = readRuns && !viewingPage && Boolean(runId || launch);
   const listed = sessions.find((entry) => entry.id === runId);
   const session = useRetainedSession(sessions, runId);
   const shareableBeforeStart = access.enabled && access.user !== null && writeRuns && runId !== undefined && runId === freshRunId;
@@ -258,9 +257,9 @@ function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { c
     if (listed?.sharedAccess !== undefined) setWatchedShare(runId);
     else if (listed === undefined && watchedShare === runId) {
       setWatchedShare(undefined);
-      leaveToStart(REVOKED_SHARE_NOTICE);
+      leaveToHome(REVOKED_SHARE_NOTICE);
     }
-  }, [leaveToStart, listed, runId, watchedShare]);
+  }, [leaveToHome, listed, runId, watchedShare]);
   const stop = () => {
     if (runId === undefined) return;
     setStopError(undefined);
@@ -270,13 +269,13 @@ function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { c
     if (launch) return <>
       {launch.error === undefined
         ? <PendingPanel bar headless state={templateStarting} />
-        : <PendingPanel bar headless state={{ kind: "error", title: "The run could not be started", detail: launch.error }}>{toStart}</PendingPanel>}
+        : <PendingPanel bar headless state={{ kind: "error", title: "The run could not be started", detail: launch.error }}>{toHome}</PendingPanel>}
       {settings}
     </>;
     const connectionName = connection ?? registry.brand.title;
     const navigationState: PanelState = {
       theme: "light",
-      page,
+      page: "runs",
       profileSuggestions: [],
       problem: navigationError,
       notice: navigationNotice ?? (unavailablePage === undefined ? undefined : `The page ${unavailablePage} is not available.`),
@@ -302,8 +301,8 @@ function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { c
       switch (action.action) {
         case "page":
           if (action.page === "connections") throw new Error("The browser is connected to its current server.");
-          setPage(action.page);
-          if (host.kind === "vscode") host.notify({ type: "pageChanged", page: action.page });
+          if (action.page === "start") leaveToHome(undefined);
+          else openPage("runs");
           return;
         case "openRun": setRunTitle(undefined); openRun(action.runId); return;
         case "newRun": {
@@ -341,7 +340,7 @@ function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { c
     return (
       <div className="flex h-full flex-col bg-[image:var(--surface-backdrop)]">
         {readRuns && runId && (
-          <Activity mode={activePage ? "hidden" : "visible"}>
+          <Activity mode={viewingPage ? "hidden" : "visible"}>
             {stopError && <Alert variant="destructive">{stopError}</Alert>}
             <main className="relative z-1 flex min-h-0 min-w-0 flex-1 @container/chat-content">
               <PluginChat
@@ -355,18 +354,20 @@ function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { c
                 onViewed={reportViewed}
                 registry={registry}
                 session={session ?? pendingSession!}
-                viewing={!draft && !settingsOpen && !helpOpen && !activePage}
+                viewing={!draft && !settingsOpen && !helpOpen && !viewingPage}
               />
             </main>
             <footer aria-label="Run status bar" className={statusBarClass} ref={setStatusContainer} />
           </Activity>
         )}
-        {activePage && <div className="min-h-0 min-w-0 flex-1 overflow-auto"><PluginPage onOpenRun={openPageRun} page={activePage} /></div>}
-        {/* Start and Runs stay mounted behind an open run or page, so returning keeps their state and scroll position. */}
-        <Activity mode={activePage || (readRuns && runId) ? "hidden" : "visible"}>
+        {activePage && <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {navigationState.notice && <p className="type-body px-3 pt-3 text-muted-foreground [overflow-wrap:anywhere]" role="status">{navigationState.notice}</p>}
+          <div className="min-h-0 flex-1"><PluginPage onOpenRun={openPageRun} page={activePage} /></div>
+        </div>}
+        <Activity mode={activePage || (readRuns && runId && !viewingPage) ? "hidden" : "visible"}>
           <div className="min-h-0 min-w-0 flex-1 overflow-auto">
             {unreachable && <Alert className="mb-3" variant="destructive">The server is unreachable.</Alert>}
-            <PanelPage preferences={SERVER_PREFERENCES} registry={registry} send={navigate} state={navigationState} />
+            <PanelPage send={navigate} state={navigationState} />
           </div>
         </Activity>
         {settings}
@@ -377,12 +378,12 @@ function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { c
   return <WorkspaceModalContext.Provider value={workspaceContainer}><div className="flex h-full flex-col">
     <RunHeader leading={<>
       <div className={`${globalBarClass} ${globalBarWidth(pages.length)}`}>
-        <Button aria-label="Back to Start" className="self-center" onClick={showStart} size="icon" aria-description="Back to Start" variant="ghost">
+        <Button aria-label="Home" className="self-center" onClick={showHome} size="icon" variant="ghost">
           <BrandLogo className="size-6 text-foreground" title={registry.brand.title} />
         </Button>
-        <div className="flex min-w-0 flex-1 items-center empty:hidden">
-          <PanelContributions registry={registry} userLocation={chatUserLocation(activePage ? undefined : runId, false, runLocation)} />
-          <PageButtons active={activePage?.id} onOpen={openPage} pages={pages} />
+        <div className="flex min-w-0 flex-1 flex-wrap items-center empty:hidden @min-[768px]/run-header:flex-nowrap">
+          <PageButtons active={viewingPage ? currentPageId : undefined} onOpen={openPage} pages={[runsPage, ...pages]} />
+          <PanelContributions registry={registry} userLocation={chatUserLocation(viewingPage ? undefined : runId, false, runLocation)} />
         </div>
       </div>
       {hasRunTitle && <div className={runBarClass}>
@@ -391,7 +392,7 @@ function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { c
       </div>}
     </>} trailing={<div className={actionsBarClass}>
         {connection && <span className={connectionClass} aria-label={`Environment ${connection}`}>{connection}</span>}
-        {readRuns && runId && !activePage && <>
+        {readRuns && runId && !viewingPage && <>
           <RunStateIcon className="self-center px-1.5" state={session?.state === "stopped" ? "stopped" : session?.running ? "running" : "idle"} />
           {session?.sharedAccess !== "read" && <StopButton className="self-center" disabled={!writeRuns} label="Stop run" onClick={stop} size="icon-lg" aria-description="Stop the run with all agents and flows" />}
         </>}

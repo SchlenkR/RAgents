@@ -72,8 +72,6 @@ Ids from results are reused programmatically, not copied by hand.
 | ragents.overseer.settings.save | ragents.overseer | ragents.overseer.read, ragents.overseer.write, settings.write |
 | ragents.overseer.stopRun | ragents.overseer | runs.read, runs.write |
 | ragents.plugins.bootstrap | host | no fixed rights |
-| ragents.preferences.read | host | no fixed rights |
-| ragents.preferences.write | host | no fixed rights |
 | ragents.processes.snapshot | ragents.processes | runs.read, ragents.processes.read |
 | ragents.processes.stop | ragents.processes | runs.read, runs.write, runs.inspect |
 | ragents.processes.tunnel | ragents.processes | runs.read, runs.inspect, ragents.processes.read |
@@ -3774,86 +3772,6 @@ Default client deadline: 30000 ms; callers may override it.
   "type": "object",
   "additionalProperties": true,
   "x-typescript-type": "HostBootstrap"
-}
-```
-
-## ragents.preferences.read
-
-The caller's own stored value for a preference key, null when none is stored. Every user reaches only their own preferences, the same on every device and host; without sign-in there is one user for the whole access. A damaged store fails with preferences-unreadable and stays untouched. No right needed.
-
-Owner: host. Rights: no fixed rights. Execution: the server.
-Default client deadline: 30000 ms; callers may override it.
-
-### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "key"
-  ],
-  "properties": {
-    "key": {
-      "type": "string",
-      "enum": [
-        "start.layout"
-      ],
-      "x-typescript-type": "PreferenceKey",
-      "description": "start.layout: the arrangement and widget settings of Start"
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-### Result
-
-```json
-{
-  "x-typescript-type": "JsonValue",
-  "description": "A JSON value of at most 32768 bytes; null when nothing is stored"
-}
-```
-
-## ragents.preferences.write
-
-Store a JSON value for a preference key of the caller's own user; null removes it. A value above 32768 bytes is refused (preference-too-large). No right needed.
-
-Owner: host. Rights: no fixed rights. Execution: the server.
-Default client deadline: 30000 ms; callers may override it.
-
-### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "key",
-    "value"
-  ],
-  "properties": {
-    "key": {
-      "type": "string",
-      "enum": [
-        "start.layout"
-      ],
-      "x-typescript-type": "PreferenceKey",
-      "description": "start.layout: the arrangement and widget settings of Start"
-    },
-    "value": {
-      "x-typescript-type": "JsonValue",
-      "description": "A JSON value of at most 32768 bytes; null when nothing is stored"
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-### Result
-
-```json
-{
-  "type": "null"
 }
 ```
 

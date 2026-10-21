@@ -6,11 +6,11 @@ import { Button } from "../ui";
 export function PageButtons({ active, onOpen, pages }: {
   active: string | undefined;
   onOpen: (pageId: string) => void;
-  pages: readonly PageContribution[];
+  pages: readonly Pick<PageContribution, "id" | "Icon" | "title">[];
 }) {
   if (pages.length === 0) return null;
   return (
-    <nav aria-label="Pages" className="flex max-w-3/4 min-w-0 items-center gap-1 overflow-x-clip">
+    <nav aria-label="Pages" className="flex max-w-full flex-[0_1_auto] flex-wrap items-center gap-1" style={{ minWidth: `min(100%, calc(var(--spacing) * ${pages.length * 9 + pages.length - 1}))` }}>
       {pages.map(({ id, Icon, title }) => (
         <Button aria-current={id === active ? "page" : undefined} aria-label={title} className="min-w-9" key={id}
           onClick={() => { if (id !== active) onOpen(id); }} style={{ flexShrink: 1 }} variant="ghost">

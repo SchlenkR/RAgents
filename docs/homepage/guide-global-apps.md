@@ -2,9 +2,9 @@
 
 Ask an agent to build a mini-app in your global space, with its own triggers and explicit permissions, and verify it with a manual run.
 
-## Global mini-apps on Start
+## Global mini-apps in Apps
 
-Ask the global coordinator to build a mini-app for the Start dashboard. The agent writes a
+Ask the global coordinator to build a mini-app for your Apps view. The agent writes a
 small TypeScript backend with persistent state, an optional React view, the triggers that start
 it, and the permissions it needs, and verifies it with a manual run. A global app is an ordinary
 mini-app that lives in your global space: its triggers and permissions work exactly as in a run,
@@ -14,28 +14,28 @@ agents can publish a package of their run the same way with `ragents.global-apps
 notifications can start further model work.
 
 Small views use compact layout spacing. Ask for an item title and status on one row and related
-facts on one muted metadata line; the widget already supplies its title. Plain headings and
+facts on one muted metadata line; the app card already supplies its title. Plain headings and
 paragraphs also receive readable sizes and spacing from the frame.
 
 Apps live in separate rooms beside the coordinator's `main` room in your hidden global run.
 "Reset conversation" starts a fresh coordinator conversation and keeps the apps and their
 state, logs, and triggers.
 
-Each app appears as its own Start widget, and "Show app..." in any of your runs shows it there as a
-read-only window. In Start's edit mode you move it, resize it, or remove it like any other widget; "Add widget" lists a removed app with its description and brings it back.
-Removing the widget leaves its triggers running. Apps with views start four columns wide
-and headless apps two; your layout overrides these defaults.
-A view displays the app's state and calls its functions; a headless app shows last run and next
-run. Every widget shows its last output or result, including apps with views. A view can have
-several pages selected within the same widget. "Run now" starts a manual trigger even while the
-triggers are paused. "Pause" stops new automatic inputs; "Resume" enables the triggers again.
-Accepted work can finish, and an app never overlaps itself.
+Open Apps in the header to see your global mini-apps. The page is available when your profile
+includes `ragents.global-apps` and you may read it; its address is `page=ragents.global-apps`.
+It does not change the home. An empty page shows "No global apps yet.".
+Each app has its own card, and "Show app..." in any of your runs shows it there as a read-only
+window. A view displays the app's state and calls its functions; a headless app shows last run
+and next run. Every card shows its last output or result, including apps with views. Multiple
+views stay selectable within the same app. "Run now" starts a manual trigger even while triggers
+are paused. "Pause" stops new automatic inputs; "Resume" enables the triggers again. Accepted work
+can finish, and an app never overlaps itself. Leaving Apps keeps its programs and triggers running.
 
 "Open details" shows the app's triggers, permissions, process protection, persistent state, and
 recent log and offers "Remove". Permissions name server folders for reading or writing and HTTP
 hosts; an app without them gets no external access. Apps belong to the creating user; another
-user's apps do not appear in these widgets. Read-only access omits the app-management controls.
-A damaged app or one whose program is no longer active stays visible as its own widget with
+user's apps do not appear on this page. Read-only access omits the app-management controls.
+A damaged app or one whose program is no longer active stays visible as its own card with
 "Retry" and "Remove"; other apps remain usable.
 
 An app may be manual only or combine intervals, daily times, selected weekdays, and server file
@@ -45,10 +45,10 @@ and "Resume" clears that delay. Successful inputs commit domain state, while com
 file writes or HTTP calls cannot be rolled back by a later failure.
 
 An app that waits, such as a daily draft that waits for your approval, is a
-[state-aware program](guide-programs.html#state-aware-programs). Its widget shows the next
+[state-aware program](guide-programs.html#state-aware-programs). Its card shows the next
 wake as next run, and its view offers the answer while the program waits for it, for example
 "Approve" and "Reject"; an answer while nothing waits is refused. Every completed step runs only
-once, also across restarts. If a changed app no longer fits what it recorded, its widget shows it
+once, also across restarts. If a changed app no longer fits what it recorded, its card shows it
 blocked with the position and cause; the agent restores the code or creates the app under a new
 name.
 

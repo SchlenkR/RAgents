@@ -1,5 +1,38 @@
 # Decisions
 
+## 2026-10-21: Runs is the fixed standard home; plugins contribute further views
+
+Chapters: `spec/plugins.md` (Web as plugin host, Shared page width, Global mini-apps, host API),
+`spec/profiles.md` (removed per-user store); usage: `usage.md` (Create your first run, Switch runs, Global
+mini-apps, Run panel and VS Code extension); operations: `operations.md` (data storage);
+`development.md` (web extension points); homepage and generated developer examples.
+
+**Why.** Starting work and finding existing runs need one predictable view. A configurable home
+added arranging, persistence, and plugin contracts around those ordinary actions. Plugins already
+have a page contribution for an application-specific overview.
+
+**Decision.** Runs combines the existing start tiles, guided start dialogs, and full run list,
+including search, Hide ended, selection, deletion, and Shared by me. It is always the first header
+entry and uses the reserved page ID `runs`. Plugin `pages` follow it. A page may claim the home with
+`home: true`; after permission filtering, the lowest `order` wins, then the smallest ID in
+case-sensitive lexical string order, using the existing page sort. Plugin registration order and
+browser locale never decide. With no visible claim,
+Runs is the home. The logo and VS Code Home action open that home, while Runs remains reachable.
+The existing page renderer and browser history carry both kinds of view.
+
+Global mini-apps have their own Apps page (`page=ragents.global-apps`) without a home claim. It
+keeps their view frames, triggers, controls, permissions, details, and isolated error and retry
+behavior. Their programs keep running when the page is closed.
+
+The configurable home and its plugin contributions, layout editing, settings dialogs, device tab
+storage, and unused per-user preference mechanism are removed without migration or aliases.
+`HOST_API_VERSION` rises from 19 to 20, and older plugin bundles must rebuild against the new
+contract. The extension interface stays compatible. The deprecated `quassel` alias remains for a
+separate cleanup: removing it would change tool configuration outside this home change's scope.
+
+**Rejected.** A second navigation or run-list implementation: start tiles, run rows, list behavior,
+page buttons, page rendering, and history remain shared between the browser and VS Code.
+
 ## 2026-10-19: `browser_click` takes a click count
 
 Chapters: `spec/plugins.md` (Browser checks); usage: `usage.md` (agents and the browser).
@@ -28,27 +61,14 @@ widgets, and it is Playwright's own option name. Upstream's `button`, `modifiers
 A higher maximum: double and triple click are the gestures that browsers and widgets give a meaning, and a larger count
 would only hammer a page.
 
-## 2026-10-19: Start and plugin pages keep equal side and top insets
+## 2026-10-19: Plugin pages keep equal side and top insets
 
 Chapter: `spec/plugins.md` (Shared page width).
 
-At desktop widths Start and plugin pages added wider side padding on top of the page column's own,
-so their content started further from the left and right edges than from the top. Wide dashboards
-and canvases lost width for no reason and the gap looked uneven. Both now use the same small inset
-on all sides; Runs and Server keep their centered column.
-
-## 2026-10-19: Start's Edit action uses the shared top bar
-
-Chapters: `spec/plugins.md` (Arranging Start); usage: `usage.md` (Start).
-
-The Edit action took a separate row above Start's widgets, or space beside its tabs. Moving the
-pencil to the top bar beside Appearance, Settings, and Help gives that space back to the content
-and keeps the action in the same place at every width. The existing `RunHeader` controls portal
-already carries context-dependent controls; the shared `HeaderControls` wrapper attaches them
-while their page is active and detaches them when `Activity` hides it. Start and run controls
-use this wrapper, without a plugin-facing contract or host API version change. Its accessible name and shared tooltip
-are "Edit Start". The edit bar stays above the widgets, and leaving edit mode returns focus to
-the top bar action.
+At desktop widths plugin pages added wider side padding on top of the page column's own, so their
+content started further from the side edges than from the top. Canvases lost width and the gap
+looked uneven. Plugin pages now use the same small inset on all sides; Runs and Server keep their
+centered column.
 
 ## 2026-10-19: Chat presentation follows quassel 0.5.1 defaults
 
@@ -229,12 +249,12 @@ the operator turned the sandbox off), because a local package started through th
 methods can be written by a model. `HOST_API_VERSION` becomes 19: plugins that start scripts through
 `RunManagement` or read `ActorStart` must be rebuilt against the new shapes.
 
-## 2026-10-13: Start stays behind an open run, and actor messages show with their trigger
+## 2026-10-13: The run list stays behind an open run, and actor messages show with their trigger
 
 Chapters: `spec/plugins.md` (Web as plugin host; run chat turn triggers); usage: `usage.md` (Switch runs;
 chat controls).
 
-Returning from a run rebuilt Start and Runs, which flashed their widgets and lost the scroll position.
+Returning from a run rebuilt the run list, which flashed its content and lost the scroll position.
 The panel page now stays mounted in a hidden React `Activity` while a run is open and restores its
 last scroll position when it becomes visible, because hiding drops it. A turn of the primary actor
 started by another actor's message only named the sender; the chat now quotes that message below
@@ -480,17 +500,13 @@ Recovery failures give a short notice while preserving diagnostics and an actor 
 the next input. Tests cover multi-MB results, errors, hooks, replay, external callbacks, a
 window-enforcing fake summarizer and recovery after failure.
 
-## 2026-10-12: Virtual grid measurements do not force nested Start updates
+## 2026-10-12: Virtual grid measurements let React batch updates
 
-Chapter: `spec/plugins.md` (DataGrid, Start).
+Chapter: `spec/plugins.md` (DataGrid).
 
-Hiding or resizing a virtual grid on Start could measure many rows in one ResizeObserver batch.
-Forcing a synchronous React render for each row reached the nested update limit. Both DataGrid
-virtualizers now let React batch updates (`useFlushSync: false`). Packing also writes grown width
-labels only when they change, and the empty-content observer watches only widget bodies' direct
-children, avoiding redundant updates. Growth and stored minimum widths remain unchanged.
-Browser expectations now account for New filling the sixth column, Planner already reaching its
-maximum after adding, and resizing New back from six shown columns rather than four configured ones.
+Hiding or resizing a virtual grid could measure many rows in one ResizeObserver batch. Forcing a
+synchronous React render for each row reached the nested update limit. Both DataGrid virtualizers
+now let React batch updates (`useFlushSync: false`), preserving page position during measurements.
 
 ## 2026-10-12: Optional workspace windows remain available without opening
 
@@ -540,17 +556,6 @@ Chapter: `spec/plugins.md` (Theme tokens).
 
 Table and grid headers used four fifths of the cell padding and looked flat next to their rows.
 They now use the same `--grid-cell-y` padding as body cells in every table spacing.
-
-## 2026-10-12: Start widgets fill adjacent free columns
-
-Chapter: `spec/plugins.md` (Start widgets, Start, Arranging Start); usage: `usage.md` (Shared panel pages).
-
-Configured widths that did not add up to six left an empty column down Start. After packing,
-widgets now grow right into columns free for their full height, top to bottom and left to right,
-bounded by `maxColumns`. Configured widths remain the minimum and preferences stay unchanged.
-Edit mode shows the grown widths, and pointer and keyboard resizing start from them. The Add
-widget tile sits below the packed grid so it cannot block growth. Layout tests cover the reported
-case, maximum widths, lower blockers, unchanged narrow layouts, and resizing from the shown width.
 
 ## 2026-10-12: Run listings read summaries without cloning run states
 
@@ -657,22 +662,20 @@ in another area. Actor selection, actor-bound chat drags, and live state use the
 VS Code keeps this contribution in its existing inspection rail and tool popout, consistent with
 other run tools. The small composer graph remains unchanged; the unused header contribution is removed.
 
-## 2026-10-12: Page spacing separates independent dashboard regions
+## 2026-10-12: Page spacing separates independent regions
 
-Chapter: `spec/plugins.md` (Spacing, Shared page width, Start); usage: `usage.md` (Shared panel pages).
+Chapter: `spec/plugins.md` (Spacing, Shared page width); usage: `usage.md` (Shared panel pages).
 
-Independent widgets were too close together. The spacing scale now adds page 12 above block 8:
-blocks group sections within a region, while page spacing separates independent regions. Start
-uses the page step for both grid axes and stacked narrow regions; panel pages use it below their
-last content. The scale guard accepts 12 across the host and plugins without new exceptions.
-Computed grid gaps remain the source for packing, column lengths, and resizing. Browser tests
-check the larger separation, resize guides, drop indicators, and bottom clearance.
+Independent page regions were too close together. The spacing scale adds page 12 above block 8:
+blocks group sections within a region, while page spacing separates independent regions and gives
+panel pages clearance below their last content. The scale guard accepts 12 across host and plugins
+without new exceptions. Browser tests check separation and bottom clearance.
 
 ## 2026-10-12: Panel pages leave more room at the scroll end
 
 Chapter: `spec/plugins.md` (Shared page width); usage: `usage.md` (Shared panel pages).
 
-The last widget sat too close to the scroll end. `PanelPage` now uses `pb-8`, the existing
+The last content sat too close to the scroll end. `PanelPage` now uses `pb-8`, the existing
 scale's largest block step, in both hosts and at narrow widths, following their zoom. This is
 about 2.7 times the previous `pb-3` space. The spacing scale and its guard remain unchanged.
 
@@ -711,7 +714,7 @@ version stay unchanged.
 ## 2026-10-12: Mini-app frames provide semantic defaults and compact fact rows
 
 Chapters: `spec/actor-programs.md` (Reusable UI building blocks), `spec/plugins.md` (UI library);
-usage: `usage.md` (Global mini-apps on Start).
+usage: `usage.md` (Global mini-apps).
 
 Generated views used plain headings and paragraphs whose sizes and margins preflight erased.
 The frame now restores token-based typography, block rhythm, lists and table padding with
@@ -719,20 +722,9 @@ zero-specificity selectors above preflight and below component and utility style
 their gaps without adding semantic margins: AppLayout uses group spacing and Stack defaults to
 related spacing. Cards and badges retain their existing compact sizes. The existing wrapping
 Stack row puts a title beside its badge; authoring guidance and the global-app example combine
-small facts in one muted metadata line and avoid repeating the widget title. Browser coverage
+small facts in one muted metadata line and avoid repeating the app title. Browser coverage
 builds the plain sample and a compact view in the real frame, verifies spacing, overrides and
 line counts, and keeps screenshots in system temp.
-
-## 2026-10-12: Start fills free rectangles above lower widgets
-
-Chapter: `spec/plugins.md` (Start, Arranging Start, Open limits); usage: `usage.md` (Start dashboard).
-
-The column skyline hid room above a wide widget placed below a tall one, so a later widget left a
-hole even when its width and height fit. Packing now places widgets in their order at the topmost
-free rectangle among those already occupied, then the leftmost, keeping the row gaps and skipping
-empty widgets. Rendered measurements, content growth, moving, resizing, and slides use this same
-packing; three-column widths and narrow tabs retain their existing rules. Unit and browser tests
-cover the stored order Continue, global app, empty Topics, New, with New at columns four and five.
 
 ## 2026-10-11: Sandboxed processes launch with canonical folder paths
 
@@ -890,13 +882,13 @@ checks that every timestamp stays on one line.
 
 Chapters: `spec/actor-programs.md` (Read-only displays of apps from other runs, Open limits),
 `spec/plugins.md` (Web as plugin host: dock and shared mini-app catalog; Rights in server and web
-contributions; Global mini-apps); usage: `usage.md` (Use chat and mini-apps, Global mini-apps on Start,
+contributions; Global mini-apps); usage: `usage.md` (Use chat and mini-apps, Global mini-apps,
 Run panel and VS Code extension); `development.md` (Extension points in the web); homepage section
 "Agents with Their Own UI"; reference example of `surfaceElements`.
 
 A workflow run should show a mini-app that lives elsewhere, a global app or an app of another run,
-only as a display. A run could open only its own apps, and the Start dashboard's global widgets
-embed the frame of the global run directly. A display is now run state of `ragents.actor-programs`
+only as a display. A run could open only its own apps, while the global app interface embedded
+the frame of the global run directly. A display is now run state of `ragents.actor-programs`
 in the displaying run: replacing it journals adding and removing, replay restores it, and the app's
 run is never written. It refers to the source by run, actor, and view key, which the server
 resolves; a model never handles them. Agents name a global app as `global_app_list` shows it
@@ -944,45 +936,12 @@ the size of `type-body`, at line height 1.6, the chat's message gap drops from 2
 document panel and dialog, Settings, and the mini-app `Markdown` and `DocumentViewer` wrap their
 Markdown in `type-prose`. The global coordinator's empty state used its own 0.9rem and a heading that
 called the product a workshop; it is now one `type-body` sentence about what the coordinator does.
-## 2026-10-11: Start widgets have one slot and one type
-
-Chapters: `spec/plugins.md` (Web as plugin host: slot `startWidgets`; Start, Arranging Start, Global
-mini-apps); usage: `usage.md` (Start); `development.md` (Extension points in the web); homepage
-reference examples.
-
-Start widgets came in two ways: `startSections` with `StartSectionContribution` and a `Section`
-component, and `startWidgetsFor` with `StartWidgetContribution` and `content`, a node or a function of
-the settings, with defaults of its own (`order` 200, a required title). Since edit mode the dashboard
-treated both alike; only the contract still told them apart. `startWidgets` now takes a readonly list
-or a factory, and both give the same `StartWidget` with the same fields, checked by one function
-(`checkedStartWidget`), so a listed and a published widget fail with the same cause; New and Continue are
-listed widgets (`HOST_START_WIDGETS`). `startSections`, `StartSectionContribution`, `StartSectionContext`,
-`StartSectionProps`, `startWidgetsFor`, `StartWidgetContribution`, and `StartWidgetsContext` are gone
-without aliases; plugins outside the repository rebuild against `StartWidget`, `StartWidgetProps`,
-`StartWidgetContext`, and `StartWidgetFactoryContext`.
-
-A widget renders through `render(props)`, a function of the runs, `onOpenRun`, and the settings, rather
-than a component: a factory's widgets carry the data of their snapshot, and a component made per
-snapshot would be a new type on every update and remount its state and frames, as the global apps'
-would. `render` returns components defined once with that data as props, so their types stay. `order`
-is required for every widget, because the default of 200 existed only for published ones; the title
-stays optional for both, so a published widget may also own its heading. The ID rules and the failure
-isolation stay: a factory's IDs start with its plugin ID and a colon, a listed widget may not take that
-prefix, and a failing factory or widget shows its cause in its own cell. `HOST_API_VERSION` stays 17,
-because no listed value name changed; a bundle built earlier still loads, but Start ignores its
-`startSections` or `startWidgetsFor` until it is rebuilt.
-
-## 2026-10-11: Global apps add no placeholder widget
-
-Chapter: `spec/plugins.md` (Global apps). Without any global app, `ragents.global-apps` contributed a
-"Global mini-apps" widget that only said to ask the global coordinator. A global app is just a widget;
-the plugin now contributes exactly one widget per app (or per broken app) and nothing otherwise.
 ## 2026-10-11: State-aware actor programs: defineProgram evaluates its body on every wake against slots by position
 
 Chapters: `spec/actor-programs.md` (Backend and client, Diagnostics, type check, and domain tests,
 Triggers, State-aware programs, Guards, Frame, layout, forms, and chat building blocks, State and
 lifecycle, Open limits), `spec/typescript-platform.md` (Build and process lifecycle, TypeScript
-actors, Open limits); usage: `usage.md` (Use chat and mini-apps, Global mini-apps on Start);
+actors, Open limits); usage: `usage.md` (Use chat and mini-apps, Global mini-apps);
 `development.md` (Actors with functions and views); homepage section "Programs That Wait".
 
 Work that waits for a time, an answer, or a file and then continues had to be written as an
@@ -1044,13 +1003,12 @@ budgets in the tests grew to 6100 and 1600 characters for that pointer. The glob
 the same example with a view that approves or rejects. `createProgramTest` in
 `@ragents/server/testing` evaluates a program in domain tests as the host does.
 
-## 2026-10-11: Triggers and permissions belong to every actor program; global apps keep only their rooms, list, and widgets
+## 2026-10-11: Triggers and permissions belong to every actor program; global apps keep their rooms and list
 
 Chapters: `spec/actor-programs.md` (Packages and actor binding, Templates and creation, Triggers,
 Permissions, Open limits), `spec/typescript-platform.md` (Build and process lifecycle, TypeScript
 actors), `spec/plugins.md` (Global mini-apps, Bundle, build tool, and host API, Open limits),
-`spec/core.md` (Global coordinator); usage: `usage.md` (Use chat and mini-apps, Global mini-apps on
-Start), `operations.md` (Operate global mini-apps); homepage feature texts.
+`spec/core.md` (Global coordinator); usage: `usage.md` (Use chat and mini-apps, Global mini-apps), `operations.md` (Operate global mini-apps); homepage feature texts.
 
 `ragents.global-apps` had built a second path beside actor programs: its own scheduler with
 intervals, daily and weekday times, one overdue occurrence, and no overlap, a file trigger, a
@@ -1085,8 +1043,7 @@ incompatibly. `actor_program_trigger`, `actor_program_pause`, and `actor_program
 RPC methods serve every program; `actor_program_list` shows triggers and permissions.
 
 `ragents.global-apps` keeps `global_app_create`, `global_app_list`, and `global_app_remove`, a
-record `{ app }` per app actor, the Start widgets, which call the actor-program methods, and its
-prompt. Its service shrank from 728 to 169 lines and the plugin from 1559 to 692; the scheduler, watches, helpers,
+record `{ app }` per app actor, an interface calling the actor-program methods, and its prompt. Its service shrank from 728 to 169 lines and the plugin from 1559 to 692; the scheduler, watches, helpers,
 registration failures, and the log projection went to actor programs or away. A failed creation
 leaves no record: the creating agent gets the diagnostics, as for any activation. The coordinator
 gets the three trigger tools but not `actor_program_activate`, so its own room activates nothing
@@ -1098,128 +1055,6 @@ The shortest interval stays 60 seconds. Every occurrence writes several journal 
 start replays; ten seconds would add tens of thousands of entries a day per program. The input
 path is not cheap enough for shorter periods.
 
-## 2026-10-10: New and Continue are ordinary Start widgets, and widgets can be configured
-
-Chapters: `spec/plugins.md` (Web as plugin host: slots `startSections` and `startWidgetsFor`, the
-building block `SectionHeading`; Start, Arranging Start), `spec/profiles.md` (User preferences); usage:
-`usage.md` (Create your first run, Start); `development.md` (Extension points in the web); homepage
-feature text and reference examples.
-
-`StartPage` assembled New and Continue itself, always before every plugin widget, with a count in the
-title row and tab and an action at its end that no contribution could set. The run list should be just
-a widget, and widgets should be configurable, such as the number of runs in the run list. New and
-Continue are now start sections that the registry adds before the plugins' (`HOST_START_SECTIONS`,
-`order` -20 and -10); their components read the server, its actions, and the start under way from a
-host-internal context of the Start page. `StartPage` turns every section and dynamic widget into the
-same widget, and the dashboard, its layout, packing, edit mode, gallery, and preferences name none of
-them; a test checks their sources. The count and the action were dropped instead of becoming
-contract fields, because no plugin widget had one; New shows no template count, "All N runs" stands
-below Continue's list, and the idea stays in `TODO.md`. New renders nothing for a viewer who may not
-create runs instead of being left out, so it behaves like any empty widget. `SectionHeading` lost its
-count, action, and hidden title, and `startTileCount` its last user.
-
-A widget declares `settings`, a closed list of four field types (number with range and step, boolean,
-choice, one line of text) with labels, descriptions, and defaults, rather than a TypeBox schema: the
-dialog needs labels, descriptions, option labels, and steps, which a schema would carry as loose
-annotations, and a closed list keeps the form and the checks exhaustive. A section types its props as
-`StartSectionProps<typeof settings>`; the contribution's `Section` is typed with `never` settings, as
-`RunFunction.run` takes `never` input, so a section typed by its own settings fits the list without a
-helper function, which would have been a new host API name without a user. A dynamic widget with
-settings gets their values through a content function, so the mechanism also serves global apps
-later. Configure exists only in edit mode, one place to change Start, and applies to the draft that
-Done saves and Cancel discards.
-
-Stored values follow one rule: a missing value is the default; a value its setting rejects is reported
-in the widget and in its dialog and renders as the default, without being converted, rounded, or
-clamped, and stays stored until the widget is configured or the layout reset; keys a widget does not
-declare are ignored. Apply stores only values that differ from their defaults. The settings live in the
-same preference `start.layout`, now `version` 3 with `settings` per widget ID; layouts of versions 1 and
-2 are ignored without migration, because edit mode has not been released. `HOST_API_VERSION` stays 16:
-no value name changed, and a bundle built earlier still loads, its section ignoring the new prop.
-
-## 2026-10-10: Start packs its widgets without holes and moving follows the packed layout
-
-Chapters: `spec/plugins.md` (Start, Arranging Start, Open limits); usage: `usage.md` (Start).
-
-On a wide screen with New and a tall widget three columns wide each, Continue after them started
-below the taller one, because widgets in a CSS grid row share the row's height; a large hole stayed
-below New. Widgets now keep their own content heights and are packed in order: each goes to the lowest
-top any range of its columns offers below the widgets before it, leftmost among equal tops
-(`packWidgets`), at six and at three columns; tabs below 700 pixels stay. A skyline keeps the order
-readable and moving predictable; filling every hole, also below a narrower widget that a wider one
-spans, would pull later widgets above earlier full-width ones. The cells are absolutely positioned
-in their order, so the focus order stays the widget order. Packing reads the rendered cells and writes
-their places after every render and from a `ResizeObserver` on the cells, so content that grows pushes
-the widgets below before the next paint. The observer writes the places itself instead of rendering:
-`flushSync` there also flushed the stored layout arriving at the same time, which changed cell sizes
-inside the callback and raised the observer loop error in WebKit. The dashboard's width is measured on
-a probe without height for the same reason.
-
-Moving had compared the pointer with every widget in reading order, which packed columns no longer
-have. `dropPlace` now takes the widget under the pointer and puts the dragged one before or after it by
-its middle, vertically for a widget across the grid and in the narrow list, the end below all widgets
-or over "Add widget", and keeps the place anywhere else; each new place renders at once, so the
-pointer then lies over the dragged widget's own box and the place holds. A changed arrangement slides
-the cells that move (200 milliseconds), never on the first paint, on a new width, for growing content,
-or with reduced motion.
-
-## 2026-10-10: Start has six columns, widgets choose a width of 1 to 6, and resizing follows the pointer
-
-Chapters: `spec/plugins.md` (Web as plugin host: slots `startSections` and `startWidgetsFor`; Start,
-Arranging Start, Global mini-apps); usage: `usage.md` (Start, Global mini-apps); `development.md`
-(Extension points in the web); homepage reference examples.
-
-Resizing a widget in Start's edit mode looked broken although the pointer worked: a real mouse drag in
-Chromium and WebKit captured the pointer and changed the stored size, but the grid did not show it.
-Rows with space left widened their widgets in proportion, so a widget alone in its row filled it and
-"Half" next to "Narrow" became 7 and 5 of 12 columns; at medium widths `narrow`, `half`, and `wide`
-were all half a row, so dragging changed only the label; and the drag measured from the nominal
-twelve-column width of the size while its handle sat at the rendered edge, so growing New one size
-pushed Continue into the next row and stretched New over the whole row. The four named sizes were
-also too coarse.
-
-Start now has a six-column grid. A widget is a whole number of columns wide, and the contract is
-`columns` (by default 6) with optional `minColumns` and `maxColumns` instead of `span` and `sizes`;
-`StartWidgetSpan` and `START_WIDGET_SPANS` are gone. Every widget takes exactly its columns, also alone
-in a row, so the rendered width is the chosen one; a widget that does not fit starts the next row.
-From 700 pixels the grid has three columns and a widget takes half its columns, rounded up; resizing
-there moves by the columns shown and stores the most columns that show the width, so each step is
-visible. New is 2 and Continue 4 columns wide, both at least 2; global apps are 4 with a view and 2
-without. Widgets in a row keep sharing its height, as before. The drag adds the columns the pointer
-moved to the width at its start, snaps at the middle of each column, shows the grid's columns as guides
-and the target width at the pointer, and Escape puts the width back; the handle covers the whole right
-edge, leaves the title row's "x" free, and colors on hover. Shift with Left or Right steps one column;
-Shift with Up or Down now moves like Up or Down. `usePointerDrag` ends a running drag as cancelled
-when a second pointer starts one, so moving and resizing never share a pointer and leave no stale
-gesture behind. The stored layout becomes `version` 2 with `columns`; a version 1 layout with named
-sizes is ignored without migration, because there are no released users. `HOST_API_VERSION` stays
-16, because no listed value name changed; a bundle built earlier that sets `span` still loads with the
-default width, and rebuilding it reports `span` as an unknown property.
-
-## 2026-10-10: Dynamic Start widgets take part in Start's edit mode
-
-Chapters: `spec/plugins.md` (Web as plugin host: slot list `startWidgetsFor`, Arranging Start, Global
-mini-apps); usage: `usage.md` (Global mini-apps on Start); `development.md` (Extension points in the web).
-
-Global mini-apps and Start's edit mode were built at the same time: the app widgets relied on the "..."
-menu with Hide and Customize that edit mode replaced. A widget from `startWidgetsFor` now takes part in
-edit mode like a start section with a title: its stable ID names its place, size, and removal in the
-`start.layout` preference on the server, and `StartWidgetContribution` gains the optional `description`
-for the widget gallery and `sizes`, checked by the same rules as for sections. It sorts among the
-sections by `order`, by default 200. A global app's widget takes the app's description.
-
-Dynamic widgets arrive after Start opens and can vanish and return, for example when an app is
-repaired. Edit mode therefore keeps the edited layout as preferences instead of a draft plus the list of
-widgets that were there when editing began: a widget that arrives while Start is edited takes its saved
-place and size or stays removed instead of joining at the end and undoing a removal on "Done", and one
-that disappears for a moment comes back where it was. `reconcileDraft` is gone. A plugin's widget IDs
-start with its plugin ID and a colon, and a start section may not use that prefix of a plugin that
-publishes dynamic widgets, so no two widgets share an ID and break the whole dashboard; a violation
-shows in the plugin's own error widget. A factory that runs again because the run list changed keeps
-its previous widgets until it delivers new ones, so `ragents.global-apps` returns a promise of its first
-snapshot instead of an empty list; before, every app widget vanished for a moment on each run list
-change. `HOST_API_VERSION` stays 16, because no listed name changed.
-
 ## 2026-10-10: Global apps share the coordinator run and its reset preserves their rooms
 
 Chapters: `spec/core.md` (global coordinator and conversation reset), `spec/plugins.md`
@@ -1230,8 +1065,8 @@ global mini-apps, and their guide chapters. Homepage: global mini-apps.
 A separate app run duplicated the owner's global working context and bootstrap. Apps now use
 the existing hidden global coordinator run, with one room per app beside `main`. Packages,
 verification, activation, actor state, views, and execution logs follow the ordinary mini-app
-paths. App registration, explicit permissions, trigger dispatch, and Start widgets remain the
-plugin's concern. The former separate app run and its bootstrap are removed without migration.
+paths. App registration, explicit permissions, trigger dispatch, and the global app interface
+remain the plugin's concern. The former separate app run and its bootstrap are removed without migration.
 Recent logs are a bounded projection of ordinary runtime output and turn-failure events,
 matched by occurrence command IDs; scheduler metadata stores no duplicate log or dropped count.
 Ordinary function tools, operator policies, and view actions remain available with explicitly
@@ -1269,45 +1104,9 @@ delegable `actor.input`, and
 the user's `ragents.overseer.write`; this permission may cause a coordinator response.
 Cross-run actor-event triggers remain the short idea in `TODO.md`.
 
-## 2026-10-10: Start gets an edit mode, and the host a per-user preference store
-
-Chapters: `spec/plugins.md` (Web as plugin host: slot list `startSections`, Arranging Start, core contracts),
-`spec/profiles.md` (User preferences, Open limits); usage: `usage.md` (Start); operations: `operations.md`
-(data storage); `development.md` (docking modules).
-
-The "..." menu in every widget's title row and "Customize" were hard to find and to use: sizes were
-radio items without a preview, moving went one step per menu round trip, and hidden widgets lived in a
-second menu. Following iOS widgets, Azure DevOps, Grafana, Home Assistant sections, and Backstage, Start
-now has a separate edit mode with direct manipulation and no arrangement controls outside it. "Edit"
-stands at the top right above the first widget row, or at the end of the tab strip in a narrow panel.
-Edit mode works on a draft that "Done" saves and "Cancel" or Escape discards: each widget gets a dashed
-frame, a drag handle with a live reflow and a drop indicator, a resize handle on its right edge that
-snaps to the sizes the widget offers and shows the target size, and "x"; "Add widget" opens a gallery of
-the widgets that are not on Start. The handle also takes the keyboard (arrow keys move, Shift with the
-arrow keys sizes, Delete removes) and a live region announces each change. Narrow panels edit a vertical
-list without sizes. Pointer handling reuses the dock's capture and cancel hook, which moved to
-`lib/pointer-drag.ts` now that it has two users; no drag library was added.
-
-`StartSectionContribution` gains optional `description` (for the gallery) and `sizes` (the offered sizes,
-by default all, including the span); both are additive, so external plugins load unchanged and
-`HOST_API_VERSION` stays. The layout model now keeps `removed` instead of `hidden`, turns an edited draft
-back into preferences that store nothing for the default order and sizes, works for any widget ID
-(also per-user widgets such as `ragents.global-apps:<name>`), keeps the removal and size of a widget that
-is absent for a while, and follows widgets that disappear or arrive while editing.
-
-The layout moved from browser storage to the server, so the browser and VS Code show the same Start.
-The host had no per-user store, so it gets a small generic one: `ragents.preferences.read` and
-`ragents.preferences.write` with a closed list of keys (`start.layout` so far), JSON values of at most
-32 KiB, one file per user under `${DATA_DIR}/preferences/` named by the hex of the user ID (IDs that
-differ only in case stay apart), and `anonymous.json` without sign-in. The methods name no user, so a
-caller reaches only its own preferences; a damaged file fails only its user's requests and stays as it
-is. The old `ragents.start.layout:*` browser values are dropped without migration. The chosen tab of a
-narrow Start stays in browser storage, because it belongs to the device rather than to the user.
-
 ## 2026-10-09: Global mini-apps reuse actor packages with explicit capabilities and paused verification
 
-Chapters: `spec/core.md` (Global coordinator), `spec/plugins.md` (Global mini-apps and dynamic
-Start widgets), `spec/actor-programs.md` (package copy), `spec/typescript-platform.md` (process
+Chapters: `spec/core.md` (Global coordinator), `spec/plugins.md` (Global mini-apps), `spec/actor-programs.md` (package copy), `spec/typescript-platform.md` (process
 isolation, interruption, and failure logs), `spec/profiles.md`, and `spec/overview.md`.
 Usage and operations: global mini-apps. Homepage: a core feature section and its guide chapter.
 
@@ -1349,80 +1148,24 @@ isolation, and failure log retention. Existing engine recovery interrupts open t
 `Orchestration` is rebuilt; the registrar finalizes their journal result without replaying the
 accepted occurrence, with no additional recovery seam.
 
-The additive `startWidgetsFor` web slot supplies dynamic contributions with stable IDs and
-`content: ReactNode`, live `update` snapshots, and an abort signal. It leaves `startSections`
-unchanged and uses the existing RPC/SSE connection. Stable React types preserve local state
-and frames. Each global app has its own widget, defaulting wide for views and narrow for
-headless backends. The dashboard's existing size, order, and visibility preferences apply through
-its stable `ragents.global-apps:<name>` ID. Independent failures remain visible with "Retry"
-and "Open details".
+The global app interface uses the existing RPC/SSE connection. Stable React types preserve local
+state and frames through live updates. Independent failures remain visible with "Retry" and
+"Open details".
 The plugin ships in `core`, `showcase`, and `developer`. `HOST_API_VERSION` is 15 for the
 updated host contracts, and all bundles are rebuilt.
 
-## 2026-10-09: Arrange Start in place: size, order, and hiding per widget
+## 2026-10-09: Tab rows move what does not fit into a menu
 
-Chapters: `spec/plugins.md` (Web as plugin host: slot list `startSections`, Shared page width, Arranging Start);
-usage: `usage.md` (Start).
+Chapters: `spec/plugins.md` (UI library `OverflowTabs`); usage: `usage.md` (Selection controls and
+tables); `development.md` (Extension points in the web).
 
-Start's widgets had fixed sizes and places, so a viewer for whom Continue was too wide could not change it. Every
-framed widget now has a "..." menu in its title row with Size (the four existing spans, the current one checked and
-the default marked), Move earlier, Move later, and Hide; "Customize" after the grid, or at the end of the tab strip,
-shows hidden widgets again and resets the layout. There is no settings page for it. Sizes stay the semantic spans, so
-the responsive tiers and the narrow tabs work on the arranged list without a second set of rules.
-
-The preferences (`dashboard-preferences.ts`) refer to widgets by ID and work for any ID, including widgets that only
-some users have: `start.new`, `start.continue`, and a start section's `id` (formerly `new`, `continue`, and
-`section:<id>`; a tab remembered under an old key falls back to the first widget once). IDs of absent widgets are
-ignored, and the order places only the widgets it names, so a new widget appears where its contribution puts it.
-Moving to the default order or choosing the default span stores nothing. The server has no per-user preference store:
-`ragents.settings.*` holds profile-wide settings, and the appearance lives in browser storage and VS Code settings.
-The layout is therefore kept like the remembered tab in the browser storage of the page that shows Start, per server
-origin and signed-in user; the browser and VS Code keep separate copies (`TODO.md`). A stored layout that cannot be
-read is shown with its cause and "Reset layout" instead of being dropped silently.
-
-Moving focus after hiding a widget scrolled the whole document by about a hundred pixels,
-header included: visually hidden labels of the run rows escaped the page scroller, because it was not their
-containing block. The scroller of Start, Runs, and Server is now positioned. `HOST_API_VERSION` and
-`EXTENSION_API_VERSION` stay; no contract changed.
-
-## 2026-10-09: The Start dashboard uses the full width
-
-Chapter: `spec/plugins.md` (Shared page width), `docs/usage.md`. The dashboard kept the 1280-pixel
-column of the former Start list, so wide screens showed empty margins although widgets could stand
-side by side. Start now fills the width; Runs and Server keep the centered column for readable lists.
-Start has wider side padding at desktop widths, and every panel page has more space below
-the header there.
-
-## 2026-10-09: Start becomes a responsive dashboard, and tab rows move what does not fit into a menu
-
-Chapters: `spec/plugins.md` (Web as plugin host: slot list `startSections`, UI library `OverflowTabs`, Start, Continue,
-Runs); usage: `usage.md` (Create your first run, Selection controls and tables, Start); `development.md` (Extension
-points in the web).
-
-Start stacked New, Continue, and plugin sections at full width, which wasted wide screens, while a narrow VS Code
-panel had to scroll through every section to reach the one it needed. Start is now one dashboard of widgets in a
-twelve-column grid (`StartDashboard`, `dashboardLayout`). New is `narrow` and Continue `wide`; plugin sections become
-widgets through two optional, additive fields of `StartSectionContribution`: `title`, with which the host draws the
-same frame as for New and Continue and a tab in the narrow layout, and `span` (`narrow`, `half`, `wide`, `full`).
-The contract keeps the name `startSections`, and a section without `title` keeps its earlier form (own heading,
-full row, below the tabs), so existing plugins load and look as before; a `span` without `title` is an error,
-because it would have no effect. The layout follows the width of the dashboard's own container rather than the
-window, so a narrow VS Code panel on a wide screen counts as narrow: from 1100 pixels the spans apply, from 700
-pixels they halve, below 700 pixels the widgets become tabs whose choice is remembered per server origin. Rows with
-space left widen their widgets, empty widgets take neither cell nor tab, and widgets stay mounted while hidden so
-their state survives. Every widget's body is a size container; the template tiles become compact rows below 448
-pixels and run rows drop the detail line below 360 and the time below 280 pixels, also on Runs. The page scroller
-reserves its scrollbar gutter so that a scrollbar cannot flip the layout at a limit. Failing widgets stay contained
-in a `RenderBoundary`.
-
-The owner's rule for horizontal rows of equal items with a limited width is now a building block: `OverflowTabs` and
-`OverflowTabsList` measure the strip and a hidden ruler with a `ResizeObserver`, keep the leading tabs that fit and
-always the active one (`splitOverflow`), and list exactly the hidden tabs in a trailing "..." menu. Start's widget
-tabs, the Runs tabs, the Settings areas (now standard tabs instead of a scrolling navigation), and the inspector's
-actor views use it; the actor views make it a real plugin user, so `@ragents/web/ui` exports `OverflowTabs` and
-`OverflowTabsList` additively and `HOST_API_VERSION` stays 12. The dock's area tabs (drag targets that already
-shrink and truncate) and the run header's continuation rows keep their own behavior; segmented choices and
-toolbars follow later (`TODO.md`).
+Horizontal rows of equal items need to keep every choice reachable within a limited width.
+`OverflowTabs` and `OverflowTabsList` measure the strip and a hidden ruler with a `ResizeObserver`,
+keep the leading tabs that fit and always the active one (`splitOverflow`), and list exactly the
+hidden tabs in a trailing "..." menu. Runs, the Settings areas, and the inspector's actor views
+use them. The actor views make this a real plugin user, so `@ragents/web/ui` exports both components
+additively and `HOST_API_VERSION` stays 12. Dock area tabs and the run header's continuation rows
+keep their own behavior; segmented choices and toolbars follow later (`TODO.md`).
 
 ## 2026-10-09: A guided template opens only its guide, never a dialog with start tiles
 
@@ -1527,7 +1270,7 @@ usage: `usage.md` (Switch runs, Share runs).
 The new "Shared by me" tab lists an owner's shared runs and their recipients in both hosts.
 Only that owner receives recipient summaries in the run list. Selective revocation removes
 a target from the current server state, preserving other shares rather than sending a stale
-replacement. The Start page also shows fifteen recent runs by default.
+replacement. The run list retains its ordinary row presentation.
 
 The extension contract records the new revoke operation and optional recipient summary without
 raising `EXTENSION_API_VERSION`: existing operations are unchanged, and older server pages do
@@ -2337,17 +2080,6 @@ A plugin that renders files from a run's document store in its own view needs th
 paths and a grant for token sign-in. `ragents.documents` exported its `contract` only to server
 halves, so such a view had to copy the grant operation and the route format. The same module is
 now also a web export.
-
-## 2026-10-04: Put new runs first and add plugin sections to Start
-
-Chapters: `spec/plugins.md` (Web as plugin host); development: `development.md` (Extension points
-in the web); usage: `usage.md` (Create your first run, Switch runs, Run panel and VS Code extension).
-
-Start puts "New" templates before "Continue" recent runs so creating work comes first. Plugins
-can add sections below Continue that collect their metadata across all server-listed visible
-runs and open a run through the existing navigation. Run rows keep their presentation. The
-optional slot and carried metadata preserve existing plugin contracts, so host API version 12
-stays unchanged. The generated developer reference includes a work-document example.
 
 ## 2026-10-04: Delete a run directly from its row
 

@@ -95,7 +95,7 @@ The value is a string in the form of a template identifier (`config-file.ts`,
 plugin of the profile has registered exactly this template; otherwise it aborts with the list of
 registered templates. `ragents.plugins.bootstrap` delivers it as `defaultStartEntry` only to users
 for whom the template is allowed (`publicProfile`); without that, the field is missing and the
-other templates remain. The default is the first tile on the server's Start page in both hosts
+other templates remain. The default is the first tile on the server's Runs view in both hosts
 and the first row of the selected environment's `RAgents: New run` picker in VS Code
 ([usage.md](../usage.md), section Run panel and VS Code extension). `core`, `showcase`, and
 `developer` set no default.
@@ -599,28 +599,6 @@ after a successful write.
 selection. Changes apply from the next title generation. Titles already generated or explicitly set
 are preserved; models and thinking levels of agents or the global coordinator do not change.
 
-## User preferences
-
-The host keeps small per-user preferences on the server, so that the browser and VS Code show the
-same arrangement for a user (`apps/server/src/user-preferences.ts`). `ragents.preferences.read`
-returns the caller's stored JSON value for a key or `null`, and `ragents.preferences.write` stores
-one, `null` removes it. The keys are a closed list in `preferences-contract.ts`, so far only
-`start.layout`, Start's layout and widget settings (`spec/plugins.md`, Arranging Start); a key outside it is refused by
-the contract. The methods name no user and need no right: a caller reaches only the preferences of
-its own user, administrators included; without sign-in all callers share the one user of the
-access, which is the configured anonymous user or nobody, and a request without a user in a profile
-with sign-in is refused (`login-required`). A value is any JSON of at most 32 KiB as UTF-8 text
-(`preference-too-large`); a value that is not JSON is refused as `preference-invalid`.
-
-Each user has one file under `${DATA_DIR}/preferences/`: `user-<hex of the user ID>.json`, so that
-IDs that differ only in case stay apart on every file system, and `anonymous.json` for the access
-without a user. The file holds `version` 1, `userId`, and `values` by key, is written atomically
-with mode 0600 in a 0700 folder, and writes of one user follow each other. Keys this host does not
-know stay in the file untouched. A damaged file (invalid JSON, another version, another user, or
-other fields) fails only that user's reads and writes with `preferences-unreadable`, which names the
-file relative to the data directory; it is neither repaired nor replaced, and the server starts
-anyway.
-
 <!-- guide:access -->
 ## Sign-in and permissions
 
@@ -946,9 +924,6 @@ use the set allowed for this actor.
 
 - Users are maintained in the profile file; there is neither OAuth nor user management or password
   change in the interface. Sign-in sessions do not survive a server restart.
-- User preferences are read when a page needs them: a layout saved in the browser appears in an
-  open VS Code panel when its Start opens again. The files of a user removed from the profile stay
-  until someone deletes them.
 - User permissions apply to the entire profile, not per run or agent tool. A share widens only
   which runs a user sees and operates, never their permissions.
 - A share names user identifiers. A user removed from the profile keeps their entries in the

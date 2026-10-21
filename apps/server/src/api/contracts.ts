@@ -1,5 +1,4 @@
 import { Type, type Static } from "typebox";
-import type { JsonValue } from "@ragents/engine/src/domain/json";
 import type { PublicPluginProfile } from "@ragents/engine/src/plugin-types";
 import { defineChannel, defineOperation } from "@ragents/engine/src/rpc/contract";
 import { openJson, runContracts } from "@ragents/engine/src/http/contracts";
@@ -7,7 +6,6 @@ import type { ChatAttachmentCapabilities, ChatEvent } from "@schlenkr/quassel/ev
 import type { ChatUserLocation } from "../chat-context.js";
 import type { ListedSession } from "../chat-handler.js";
 import type { ActorConversations } from "../ragents/actor-chat-history.js";
-import { PREFERENCE_KEYS, PREFERENCE_VALUE_LIMIT, type PreferenceKey } from "../preferences-contract.js";
 import type { StartOptionState } from "../plugin-support/start-options-contract.js";
 import type { ScriptParameters } from "../plugin-support/actor-programs/script-parameters.js";
 import type { RunPreparationRequest, RunPreparationResponse } from "../run-preparation-contract.js";
@@ -88,10 +86,6 @@ const chatContextUsage = Type.Object({
 }, { additionalProperties: false });
 
 export type ChatContextUsage = Static<typeof chatContextUsage>;
-
-const preferenceKey = Type.Unsafe<PreferenceKey>({ type: "string", enum: [...PREFERENCE_KEYS], "x-typescript-type": "PreferenceKey", description: "start.layout: the arrangement and widget settings of Start" });
-
-const preferenceValue = Type.Unsafe<JsonValue>({ "x-typescript-type": "JsonValue", description: `A JSON value of at most ${PREFERENCE_VALUE_LIMIT} bytes; null when nothing is stored` });
 
 export const coreContracts = {
   runs: {
@@ -278,20 +272,6 @@ export const coreContracts = {
       rights: ["settings.write"],
       input: Type.Object({ value: Type.Any() }, { additionalProperties: false }),
       result: openJson<TitleModelSettings>("TitleModelSettings"),
-    }),
-  },
-  preferences: {
-    read: defineOperation({
-      id: "ragents.preferences.read",
-      description: "The caller's own stored value for a preference key, null when none is stored. Every user reaches only their own preferences, the same on every device and host; without sign-in there is one user for the whole access. A damaged store fails with preferences-unreadable and stays untouched. No right needed.",
-      input: Type.Object({ key: preferenceKey }, { additionalProperties: false }),
-      result: preferenceValue,
-    }),
-    write: defineOperation({
-      id: "ragents.preferences.write",
-      description: `Store a JSON value for a preference key of the caller's own user; null removes it. A value above ${PREFERENCE_VALUE_LIMIT} bytes is refused (preference-too-large). No right needed.`,
-      input: Type.Object({ key: preferenceKey, value: preferenceValue }, { additionalProperties: false }),
-      result: Type.Null(),
     }),
   },
   plugins: {

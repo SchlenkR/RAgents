@@ -39,7 +39,7 @@ function GlobalView({ actorId, runId, view, revision, onFailure }: { actorId: st
   return <div className="flex h-80 min-w-0 flex-col @min-[48rem]/global-app:h-96"><ActorViewFrame api={api} app={app} invoke={invoke} runId={runId} onFailure={onFailure} /></div>;
 }
 
-export function GlobalAppWidget({ app, runId, revision }: { app: GlobalAppSummary; runId: string; revision: number }) {
+export function GlobalAppCard({ app, runId, revision }: { app: GlobalAppSummary; runId: string; revision: number }) {
   const access = useAccess();
   const writable = access.can("ragents.global-apps.write") && access.can("runs.write");
   const [details, setDetails] = useState(false);

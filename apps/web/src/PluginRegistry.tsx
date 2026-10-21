@@ -13,9 +13,6 @@ import { RenderBoundary } from "./RenderBoundary";
 import { unrestrictedAccess, type AccessContext } from "../../../packages/ragents/src/access";
 import { DETAIL_MODES, type ChatAttachmentInput, type DetailMode, type Message, type PendingAction, type ToolInfo, type ChatStartupStatus } from "@schlenkr/quassel";
 import type { SessionInfo } from "./api";
-import type { ConnectionRun } from "./panel/contract";
-import { HOST_START_WIDGETS } from "./panel/host-start-widgets";
-import { byWidgetOrder, checkedStartWidget } from "./panel/start-widgets";
 import type { ChatUserLocation } from "../../server/src/chat-context";
 import { CHAT_STEP_SCOPES, type ChatStepScope } from "../../server/src/plugin-support/chat-display-contract";
 import type { StartOptionState } from "../../server/src/plugin-support/start-options-contract";
@@ -209,96 +206,6 @@ export interface CardSectionContribution {
   Section: ComponentType<CardSectionContext>;
 }
 
-/** What Start gives every widget and widget factory: the runs the server lists for the viewer, newest first, and the way to open one. */
-export interface StartWidgetContext {
-  readonly runs: readonly ConnectionRun[];
-  readonly onOpenRun: (runId: string) => void;
-}
-
-interface StartWidgetSettingBase {
-  /** The field's label in the widget's Configure dialog. */
-  readonly label: string;
-  /** One sentence below the field. */
-  readonly description?: string;
-}
-
-/** A number from min to max in steps of step counted from min, by default 1. */
-export interface StartWidgetNumberSetting extends StartWidgetSettingBase {
-  readonly type: "number";
-  readonly default: number;
-  readonly min: number;
-  readonly max: number;
-  readonly step?: number;
-}
-
-export interface StartWidgetBooleanSetting extends StartWidgetSettingBase {
-  readonly type: "boolean";
-  readonly default: boolean;
-}
-
-export interface StartWidgetSettingOption {
-  readonly value: string;
-  readonly label: string;
-}
-
-export interface StartWidgetChoiceSetting extends StartWidgetSettingBase {
-  readonly type: "choice";
-  readonly default: string;
-  readonly options: readonly StartWidgetSettingOption[];
-}
-
-/** One line of at most 200 characters. */
-export interface StartWidgetTextSetting extends StartWidgetSettingBase {
-  readonly type: "text";
-  readonly default: string;
-}
-
-export type StartWidgetSetting = StartWidgetNumberSetting | StartWidgetBooleanSetting | StartWidgetChoiceSetting | StartWidgetTextSetting;
-
-/** What a widget lets the viewer configure in Start's edit mode, by key; the viewer's layout stores the values under these keys, so they stay the same across releases. */
-export type StartWidgetSettings = Readonly<Record<string, StartWidgetSetting>>;
-
-export type StartWidgetSettingValue<Setting extends StartWidgetSetting> = Setting extends StartWidgetNumberSetting ? number
-  : Setting extends StartWidgetBooleanSetting ? boolean
-    : Setting extends { readonly options: readonly { readonly value: infer Value }[] } ? Value : string;
-
-/** The values of a widget's settings by key, as the widget receives them. */
-export type StartWidgetSettingValues<Settings extends StartWidgetSettings = StartWidgetSettings> = { readonly [Key in keyof Settings]: StartWidgetSettingValue<Settings[Key]> };
-
-/** What a widget's render receives; a widget with settings types it as StartWidgetProps<typeof settings>. */
-export interface StartWidgetProps<Settings extends StartWidgetSettings = StartWidgetSettings> extends StartWidgetContext {
-  /** The viewer's values, checked against the declared settings; a value that is not stored or not valid is the setting's default. */
-  readonly settings: StartWidgetSettingValues<Settings>;
-}
-
-/** One widget of the Start dashboard, from a plugin's list or from its factory alike. */
-export interface StartWidget {
-  /** The widget's ID in the viewer's Start layout, so it stays the same across snapshots and releases; a factory's IDs start with its plugin ID and a colon. */
-  readonly id: string;
-  /** The host draws its title row and, on a narrow dashboard, its tab; without it the widget owns its heading, fills a row, and cannot be arranged. */
-  readonly title?: string;
-  /** One sentence about the widget for the gallery of Start's edit mode; requires a title. */
-  readonly description?: string;
-  /** The width in columns of Start's six-column grid, 1 to 6, by default 6; requires a title. */
-  readonly columns?: number;
-  /** The narrowest width the viewer may give the widget in edit mode, by default 1. */
-  readonly minColumns?: number;
-  /** The widest width the viewer may give the widget in edit mode, by default 6. */
-  readonly maxColumns?: number;
-  /** Its place on Start: widgets sort by order and then ID, and New and Continue have -20 and -10. */
-  readonly order: number;
-  readonly readRight?: string;
-  /** What the viewer may change with "Configure" in Start's edit mode; requires a title. */
-  readonly settings?: StartWidgetSettings;
-  /** Returns the content for the props, typed as StartWidgetProps<typeof settings>; components it renders keep their state across snapshots. */
-  readonly render: (props: StartWidgetProps<never>) => ReactNode;
-}
-
-export interface StartWidgetFactoryContext extends StartWidgetContext {
-  readonly signal: AbortSignal;
-  readonly update: (widgets: readonly StartWidget[]) => void;
-}
-
 export interface WorkspaceTabContext {
   active: boolean;
   navigation: SessionNavigation;
@@ -389,6 +296,7 @@ export interface PageContribution {
   Icon: ComponentType;
   /** Right a user needs to see the page and its button; without it the page is shown to everyone. */
   readRight?: string;
+  home?: boolean;
   Page: ComponentType<PageContext>;
 }
 
@@ -469,8 +377,6 @@ export interface WebPlugin extends WebPluginDescriptor {
   surface?: SurfaceContribution;
   surfaceElements?: SurfaceElementContribution[];
   cardSections?: CardSectionContribution[];
-  /** A fixed list, or a factory that publishes the widgets per viewer and with update as they change. */
-  startWidgets?: readonly StartWidget[] | ((context: StartWidgetFactoryContext) => readonly StartWidget[] | Promise<readonly StartWidget[]>);
   chatDisplayPolicy?: ChatDisplayPolicy;
   resolveRunUrl?: RunUrlResolver;
   startOptions?: StartOptionContribution[];
@@ -518,8 +424,6 @@ export class PluginRegistry {
   readonly surface: SurfaceContribution | undefined;
   readonly surfaceElements: readonly SurfaceElementContribution[];
   readonly cardSections: readonly CardSectionContribution[];
-  readonly startWidgets: readonly StartWidget[];
-  readonly startWidgetFactories: readonly { readonly id: string; readonly create: Exclude<NonNullable<WebPlugin["startWidgets"]>, readonly StartWidget[]> }[];
   readonly chatDisplayPolicy: ChatDisplayPolicy;
   readonly resolveRunUrl: RunUrlResolver | undefined;
   readonly startOptions: ReadonlyMap<string, StartOptionContribution>;
@@ -578,15 +482,6 @@ export class PluginRegistry {
       .flatMap((plugin) => plugin.cardSections ?? [])
       .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
     assertUnique(this.cardSections, (section) => section.id, "Card section");
-    this.startWidgetFactories = this.activePlugins.flatMap((plugin) => typeof plugin.startWidgets === "function" ? [{ id: plugin.id, create: plugin.startWidgets }] : []);
-    this.startWidgets = [...HOST_START_WIDGETS, ...this.activePlugins.flatMap((plugin) => typeof plugin.startWidgets === "function" ? [] : plugin.startWidgets ?? [])]
-      .sort(byWidgetOrder);
-    assertUnique(this.startWidgets, (widget) => widget.id, "Start widget");
-    for (const widget of this.startWidgets) {
-      const publisher = this.startWidgetFactories.find((factory) => widget.id.startsWith(`${factory.id}:`));
-      if (publisher !== undefined) throw new Error(`Start widget ${widget.id} uses the widget ID prefix of ${publisher.id}, whose factory publishes its widgets`);
-      checkedStartWidget(widget);
-    }
     this.needsRunView = this.activePlugins.some((plugin) => plugin.needsRunView);
     const chatPolicies = this.activePlugins.flatMap((plugin) => plugin.chatDisplayPolicy ? [plugin.chatDisplayPolicy] : []);
     if (chatPolicies.length > 1) throw new Error(`Multiple chat display policies registered: ${chatPolicies.length}`);
@@ -633,9 +528,10 @@ export class PluginRegistry {
     assertUnique(this.overviewPanels, (panel) => panel.id, "Overview contribution");
     this.pages = this.activePlugins
       .flatMap((plugin) => plugin.pages ?? [])
-      .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
+      .sort((left, right) => left.order - right.order || (left.id === right.id ? 0 : left.id < right.id ? -1 : 1));
     assertUnique(this.pages, (page) => page.id, "Page");
     for (const page of this.pages) {
+      if (page.id === "runs") throw new Error("Page ID runs is reserved for the standard Runs view");
       if (page.id !== page.id.trim()) throw new Error(`Page ${page.id} has whitespace around its ID`);
       if (!page.title.trim()) throw new Error(`Page ${page.id} has no title`);
     }
@@ -669,6 +565,10 @@ export class PluginRegistry {
 
   pagesFor(access: AccessContext = unrestrictedAccess): readonly PageContribution[] {
     return this.pages.filter((page) => !page.readRight || access.can(page.readRight));
+  }
+
+  homePageFor(access: AccessContext = unrestrictedAccess): PageContribution | undefined {
+    return this.pagesFor(access).find((page) => page.home);
   }
 
   headersFor(session: SessionContext, access: AccessContext): readonly SessionHeaderContribution[] {

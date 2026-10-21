@@ -102,7 +102,6 @@ const fixture = {
       case "ragents.overseer.settings.read": return { provider: "demo", model: "demo-model", thinking: "off", models: [{ id: "demo-model", provider: "demo", label: "Demo", thinking: ["off"] }] };
       case "ragents.runs.list": return [{ id: "existing", title: "Existing run", updatedAt: Date.now() - 180_000, running: false, state: "idle", pendingActions: 0, workspaceAccessible: true, canShare: true }];
       case "ragents.runs.markViewed": return null;
-      case "ragents.preferences.read": return null;
       case "ragents.startOptions.list": return optionsOf(runId);
       case "ragents.startOptions.select": {
         if (!inspecting && technical.has(String(params.optionId))) throw new Error(`The right runs.inspect is missing for the start option ${String(params.optionId)}.`);
@@ -158,7 +157,7 @@ function PanelFixture() {
     panelRenewals.add(renew);
     return () => { panelRenewals.delete(renew); };
   }, []);
-  return <PanelPage preferences={{ read: async () => null, write: async () => {} }} state={state} send={(action) => {
+  return <PanelPage state={state} send={(action) => {
     if (action.action === "page") setState((current) => ({ ...current, page: action.page }));
     if (action.action === "newRun") fixture.calls.push({ id: "panel.newRun", params: { ...action } });
   }} />;

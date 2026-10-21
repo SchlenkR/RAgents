@@ -412,10 +412,10 @@ the same website under `docs/homepage/dist`.
 
 ## Create your first run
 
-Start shows one server's permitted templates under "New", its most recent runs under
-"Continue" (fifteen unless you configure another number), and any plugin widgets, in both the browser
-and VS Code: side by side on a wide screen,
-one at a time behind tabs in a narrow window or panel. Templates begin with
+Runs is the standard home in both the browser and VS Code. It combines one server's permitted
+templates under "New run" with its complete run list, search, selection, deletion, and "Shared by me".
+The Runs entry stays first in the header; plugin views follow it. The logo opens the home, which
+is Runs unless a plugin supplies a visible home view. Templates begin with
 "New chat" or the server's default template, then skill templates with a prepared task and script
 templates with programmed setups. "New chat" opens an empty run whose task you write in its chat;
 a template starts with one click. Some templates collect values in a setup dialog first ("Set up"); a skill template then
@@ -425,9 +425,9 @@ anything. In the browser a new run always works on the server; only VS Code and 
 bind a run to a workstation. VS Code binds every new run to an open folder of its window unless
 the template sets its own workspace.
 
-Plugins can reserve templates for their own widgets. These unlisted templates do not appear in
-"New", template search or galleries, Settings' template catalog, or run-script pickers.
-A plugin widget or a caller that knows the template ID can still start it with the usual permissions.
+Plugins can reserve templates for their own views. These unlisted templates do not appear in
+"New run", template search or galleries, Settings' template catalog, or run-script pickers.
+A plugin view or a caller that knows the template ID can still start it with the usual permissions.
 
 Before starting, "After restart" defaults to "Continue": actors that were working when the
 server stopped receive a continuation on its next start. Choose "Stay interrupted" to turn

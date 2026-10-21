@@ -24,6 +24,24 @@ test("pages are sorted by order and id", () => {
   assert.deepEqual(registry.pages.map((entry) => entry.id), ["first", "second", "later"]);
 });
 
+test("home claims use visible pages in order then id, regardless of plugin order", () => {
+  const plugins: WebPlugin[] = [
+    { id: "demo.later", pages: [page("later", 200, { home: true })] },
+    { id: "demo.first", pages: [page("beta", 100, { home: true }), page("alpha", 100, { home: true, readRight: "demo.home" })] },
+    { id: "demo.disabled", enabled: () => false, pages: [page("disabled", 0, { home: true })] },
+  ];
+  const user = (rights: string[]) => createAccessContext({ enabled: true, user: { id: "alice", label: "Alice", rights } });
+  for (const ordered of [plugins, [...plugins].reverse()]) {
+    const registry = registryWith(ordered);
+    assert.equal(registry.homePageFor(user([]))?.id, "beta");
+    assert.equal(registry.homePageFor(user(["demo.home"]))?.id, "alpha");
+    assert.equal(registry.homePageFor()?.id, "alpha");
+  }
+  assert.equal(registryWith([]).homePageFor(), undefined);
+  assert.equal(registryWith([{ id: "demo.guarded", pages: [page("guarded", 0, { home: true, readRight: "demo.home" })] }]).homePageFor(user([])), undefined);
+  assert.equal(registryWith([{ id: "demo.case", pages: [page("demo.alpha", 0, { home: true }), page("demo.Zeta", 0, { home: true })] }]).homePageFor()?.id, "demo.Zeta");
+});
+
 test("removing or disabling a plugin removes its pages and they do not collide with active ones", () => {
   const retained = { id: "test.retained", pages: [page("reports", 200)] };
   const disabled = { id: "test.disabled", enabled: () => false, pages: [page("reports", 100)] };
@@ -40,6 +58,7 @@ test("duplicate or empty ids, blank titles, and ids with surrounding whitespace 
   assert.throws(() => registryWith([{ id: "test.empty", pages: [page("", 100)] }]), /Page without ID/);
   assert.throws(() => registryWith([{ id: "test.blank", pages: [page("reports", 100, { title: "  " })] }]), /Page reports has no title/);
   assert.throws(() => registryWith([{ id: "test.padded", pages: [page(" reports", 100)] }]), /Page  reports has whitespace around its ID/);
+  assert.throws(() => registryWith([{ id: "demo.reserved", pages: [page("runs", 100)] }]), /Page ID runs is reserved/);
 });
 
 test("a page needs its read right and a page without one is shown to everyone", () => {

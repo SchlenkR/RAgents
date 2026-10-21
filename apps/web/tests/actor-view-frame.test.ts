@@ -64,7 +64,7 @@ type ProbeWindow = Window & {
   };
 };
 
-type FrameResponse = { html: string; headers?: Record<string, string>; delayMs?: number; dashboard?: boolean };
+type FrameResponse = { html: string; headers?: Record<string, string>; delayMs?: number; overview?: boolean };
 
 const openHostFrame = async (context: TestContext, frameResponse: FrameResponse) => {
   const scratch = path.join(tmpdir(), "ragents-frame-request-window");
@@ -111,7 +111,7 @@ const openHostFrame = async (context: TestContext, frameResponse: FrameResponse)
           window.frameRevision = revision;
           window.frameFixture = { setActive, setRevision, changeInvoke: () => setInvokeVersion(value => value + 1), unmount: () => root.unmount() };
           const currentInvoke = invokeVersion === 0 ? invoke : async (...args) => ({ ...(await invoke(...args)), result: "updated callback" });
-          if (${Boolean(frameResponse.dashboard)}) return <div>
+          if (${Boolean(frameResponse.overview)}) return <div>
             <section aria-label="Broken global app" style={{ height: 180, display: "flex" }}>
               {failure ? <><p role="alert">{failure}</p><button onClick={() => { setFailure(undefined); setGeneration(value => value + 1); }}>Retry</button><button onClick={() => setDetails(true)}>Open details</button></>
                 : <ActorViewFrame key={generation} api={api} app={app} invoke={invoke} runId="frame-test" onFailure={setFailure} />}
@@ -370,7 +370,7 @@ test("a form in the host frame submits under the frame sandbox and CSP while nat
 });
 
 for (const failure of ["load", "render"] as const) {
-  test(`a global app ${failure} failure leaves the dashboard and another isolated view usable`, {
+  test(`a global app ${failure} failure leaves the app view and another isolated view usable`, {
     skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 30_000,
   }, async (context) => {
     const nonce = "global-failure";
@@ -383,7 +383,7 @@ for (const failure of ["load", "render"] as const) {
     })).outputFiles[0]!.text;
     const { page } = await openHostFrame(context, {
       html: isolatedFrameHtml({ html: '<html><head></head><body><div id="root"></div></body></html>', styles: "", clientJavaScript: client, platformVersion: 2 }, nonce),
-      headers: { "Content-Security-Policy": frameContentSecurityPolicy(nonce) }, dashboard: true,
+      headers: { "Content-Security-Policy": frameContentSecurityPolicy(nonce) }, overview: true,
     });
     const broken = page.getByRole("region", { name: "Broken global app" });
     await broken.getByRole("alert").filter({ hasText: cause }).waitFor();

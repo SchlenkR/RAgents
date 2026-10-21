@@ -920,7 +920,7 @@ ordinary actor program in its own room beside `main` in the owner's hidden globa
 its backend executes on the server in its own managed Node process. The authoring chat, browser,
 VS Code window, and workstation can disconnect without stopping interval, daily, weekday, or file
 triggers, which the actor-program plugin runs for every program, in normal runs as well. Creating
-and verifying apps is described in [usage.md](usage.md#global-mini-apps-on-start).
+and verifying apps is described in [usage.md](usage.md#global-mini-apps-in-apps).
 
 Global apps are isolated packages. The package sandbox denies direct networking and limits writes
 to package, build, and temporary folders. It permits reads from dependencies, the real Node
@@ -1130,8 +1130,6 @@ ${DATA_DIR}/
                                   export, import/ during an import; both are removed
                                   afterwards
   plugins/<pluginId>/             global storage per plugin, where needed
-  preferences/                    0700 - per-user preferences such as Start's layout, one
-    user-<hex-id>.json            0600 file per user and anonymous.json without sign-in
   logs/server.log                 server run, HTTP access, errors, crashes (rotation 32 MB x3)
 ```
 

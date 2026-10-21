@@ -15,7 +15,7 @@ test("VS Code hull zoom fills the viewport once across nested frames and changes
   const root = fileURLToPath(new URL("../../../", import.meta.url));
   const panel = await build({
     stdin: { contents: `import { createRoot } from "react-dom/client"; import { PanelPage } from "./apps/web/src/panel/PanelPage"; import "./apps/web/src/ui/tailwind.css";
-      createRoot(document.getElementById("root")).render(<PanelPage preferences={{read:async()=>null,write:async()=>{}}} state={${JSON.stringify(state)}} send={()=>{}}/>);`, resolveDir: root, loader: "tsx" },
+      createRoot(document.getElementById("root")).render(<PanelPage state={${JSON.stringify(state)}} send={()=>{}}/>);`, resolveDir: root, loader: "tsx" },
     bundle: true, platform: "browser", format: "iife", jsx: "automatic", write: false, outfile: "/tmp/zoom-panel.js",
     plugins: [tailwindPlugin([`${root}apps/web/src`])], logLevel: "silent",
   });
@@ -144,21 +144,20 @@ test("panel text and spacing follow ragents.zoom alone, not VS Code's font setti
     const measured: Record<string, { heading: number; title: number; body: string; start: number; runs: number; overflow: number }> = {};
     for (const font of ["13px", "20px"]) {
       await page.goto(`${hull}/host?font=${font}`);
-      await hosted.getByRole("tab", { name: "Continue" }).click();
       await hosted.getByText("Night bus round").waitFor();
       for (const zoom of [100, 125, 200]) {
         await post({ type: "ragents.zoom", zoom });
         await page.waitForFunction((expected) => getComputedStyle((document.getElementById("host") as HTMLIFrameElement).contentDocument!.body).zoom === String(expected / 100), zoom);
         const start = await firstBlock();
-        const heading = (await hosted.getByRole("tab", { name: "Continue" }).boundingBox())!.height;
+        const heading = (await hosted.getByRole("heading", { name: "New run", exact: true }).boundingBox())!.height;
         const title = (await hosted.getByText("Night bus round").boundingBox())!.height;
         const body = await hosted.locator("body").evaluate((element) => getComputedStyle(element).fontSize);
         const overflow = await hosted.locator("main").evaluate((element) => element.scrollWidth - element.clientWidth);
         const bottom = await hosted.locator("main").evaluate((element) => ({ padding:parseFloat(getComputedStyle(element).paddingBottom),
-          expected:8 * parseFloat(getComputedStyle(element).getPropertyValue("--spacing")) * parseFloat(getComputedStyle(document.documentElement).fontSize) }));
+          expected:12 * parseFloat(getComputedStyle(element).getPropertyValue("--spacing")) * parseFloat(getComputedStyle(document.documentElement).fontSize) }));
         assert.ok(Math.abs(bottom.padding - bottom.expected) < 0.01, JSON.stringify(bottom));
         await post({ type: "ragents.panel.state", state: { ...filled, page: "runs" } });
-        await hosted.getByRole("button", { name: "Back to Start" }).waitFor();
+        await hosted.locator('main[data-page="runs"]').waitFor();
         const runs = await firstBlock();
         await post({ type: "ragents.panel.state", state: filled });
         await hosted.getByText("Night bus round").waitFor();
@@ -170,10 +169,10 @@ test("panel text and spacing follow ragents.zoom alone, not VS Code's font setti
     for (const [key, value] of Object.entries(measured)) {
       const zoom = Number(key.split("@")[1]) / 100;
       assert.equal(value.body, "14px", `${key}: the theme's body rule outranks VS Code's default layer`);
-      near(value.heading, base.heading * zoom, `${key}: the widget tab scales with the zoom`);
+      near(value.heading, base.heading * zoom, `${key}: the home heading scales with the zoom`);
       near(value.title, base.title * zoom, `${key}: run title scales with the zoom`);
       near(value.start, base.start * zoom, `${key}: the top offset scales with the zoom`);
-      near(value.runs, value.start, `${key}: Runs starts at the same height as Start`);
+      near(value.runs, value.start, `${key}: both home messages start at the same height`);
       assert.ok(value.overflow <= 0, `${key}: no horizontal overflow`);
     }
     for (const zoom of [100, 125, 200]) {

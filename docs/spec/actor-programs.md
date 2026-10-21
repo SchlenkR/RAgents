@@ -306,9 +306,9 @@ lock only the affected run before replay, without changing its files.
 
 The shared app host renders the selected mini-app through `RunAppView`.
 
-`ragents.actor-programs.apps` can limit its view listing to one `actorId`. Global app widgets
+`ragents.actor-programs.apps` can limit its view listing to one `actorId`. Global app cards on the Apps page
 use this ordinary listing and the shared frame, state, calls, and execution-log paths for their
-app actor. A failed package in another room does not block the widget's view loading.
+app actor. A failed package in another room does not block that app's view loading.
 
 The functions tab shows programs, owner
 actors, functions, and installed sources. It identifies a function by its package and function ID,
@@ -424,7 +424,7 @@ Structured control lists retain marker-free rows; form hints, loading messages a
 keep their own utility spacing and type instead of inheriting semantic defaults.
 
 Use these layouts for views instead of one paragraph per fact. Omit a heading that repeats the
-widget or tab title; put the actual item title and status `Badge` in the existing
+app or tab title; put the actual item title and status `Badge` in the existing
 `Stack direction="row"`, which wraps when needed. Combine related facts in one
 `type-meta text-muted-foreground` line. The authoring prompt, summary and global-app example
 teach this pattern. `view-defaults-browser.test.ts`, enabled with `RAGENTS_BROWSER_TESTS=1`, builds

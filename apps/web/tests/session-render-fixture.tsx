@@ -27,7 +27,7 @@ function HeavyPanel({ active, session }: WorkspaceTabContext) {
   }, []);
   return <div>
     <input aria-label="Heavy draft" />
-    <iframe title="Heavy frame" srcDoc={'<!doctype html><input aria-label="Frame draft"><script>window.identity = Math.random()</script>'} />
+    <iframe aria-label="Heavy frame" srcDoc={'<!doctype html><input aria-label="Frame draft"><script>window.identity = Math.random()</script>'} />
     <button onClick={() => setCount((value) => value + 1)}>Count</button>
     <output aria-label="Heavy count">{count}</output>
     <p>{active ? "Heavy active" : "Heavy inactive"}</p>
@@ -56,7 +56,6 @@ const fixture = {
     switch (contract.id) {
       case "ragents.runs.list": fixture.polls += 1; return structuredClone(fixture.runs);
       case "ragents.runs.markViewed": return null;
-      case "ragents.preferences.read": return null;
       case "ragents.startOptions.list": return [];
       case "ragents.runs.view": return structuredClone(view);
       case "ragents.chat.actorHistory": return { revision: view.revision, actors: {} };

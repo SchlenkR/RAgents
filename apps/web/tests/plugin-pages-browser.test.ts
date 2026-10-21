@@ -53,63 +53,45 @@ const withPages = async (query: string, run: (page: Page, errors: string[]) => P
 };
 
 const pageParameter = (page: Page) => new URL(page.url()).searchParams.get("page");
-const startPage = (page: Page) => page.locator('main[data-page="start"]:visible');
+const runsPage = (page: Page) => page.locator('main[data-page="runs"]:visible');
 const reportsPage = (page: Page) => page.locator('main[data-plugin-page="start.reports"]');
 const topBar = (page: Page) => page.locator("header").first();
 const button = (page: Page, name: string) => topBar(page).getByRole("button", { name, exact: true });
 const activeRun = (page: Page) => page.evaluate(() => window.runStartFixture.activeRun());
 
 for (const host of ["browser", "vscode"]) {
-  test(`Edit Start follows Start visibility through pages, runs, and edit mode in ${host}`, browserOnly, () => withPages(`host=${host}&rights=runs.read,runs.write,runs.create,runs.inspect,settings.read`, async (page, errors) => {
-    const edit = button(page, "Edit Start");
-    await edit.waitFor();
-    const [editBox, appearanceBox] = [await edit.boundingBox(), await button(page, "Appearance").boundingBox()];
-    assert.ok(editBox && appearanceBox && editBox.x + editBox.width <= appearanceBox.x && Math.abs(editBox.height - appearanceBox.height) < 1,
-      "the Start action uses the same icon size beside Appearance");
-    await edit.click();
-    const bar = page.getByRole("group", { name: "Edit Start", exact: true });
-    await bar.waitFor();
-    assert.equal(await edit.count(), 0, "only the existing edit bar is available during editing");
-    assert.equal(await startPage(page).getByRole("group", { name: "Edit Start", exact: true }).isVisible(), true);
-    await page.getByRole("button", { name: "Cancel", exact: true }).click();
-    await edit.waitFor();
-    assert.equal(await edit.evaluate((element) => element === document.activeElement), true, "Cancel returns focus to the top bar action");
+  test(`Runs and plugin views share the header and leave the run controls in ${host}`, browserOnly, () => withPages(`host=${host}&rights=runs.read,runs.write,runs.create,runs.inspect,settings.read`, async (page, errors) => {
+    await runsPage(page).waitFor();
+    assert.deepEqual(await topBar(page).getByRole("navigation", { name: "Pages", exact: true }).getByRole("button").allTextContents(), ["Runs", "Reports", "Broken"]);
+    assert.equal(await button(page, "Runs").getAttribute("aria-current"), "page");
+    assert.equal(await page.getByRole("button", { name: "Edit Start", exact: true }).count(), 0);
     await button(page, "Reports").click();
     await reportsPage(page).waitFor();
-    assert.equal(await edit.count(), 0, "a plugin page hides Start's action");
     await page.getByRole("button", { name: "Open existing run", exact: true }).click();
     await page.waitForFunction(() => window.runStartFixture.activeRun() === "existing");
-    assert.equal(await edit.count(), 0, "an open run hides Start's action");
     await button(page, "Run script").waitFor();
     await button(page, "Reports").click();
     await reportsPage(page).waitFor();
-    assert.equal(await button(page, "Run script").count(), 0, "a page also hides the run's controls in the shared slot");
-    await page.getByRole("button", { name: "Open existing run", exact: true }).click();
-    await button(page, "Run script").waitFor();
-    assert.equal(await button(page, "Run script").count(), 1, "the run restores its controls without duplicates");
-    await button(page, "Back to Start").click();
-    await edit.waitFor();
-    await page.getByRole("button", { name: "All 1 runs", exact: true }).click();
-    await page.locator('main[data-page="runs"]').waitFor();
-    assert.equal(await edit.count(), 0, "the Runs page has no Start action");
-    await button(page, "Back to Start").click();
-    await edit.waitFor();
-    assert.equal(await edit.count(), 1, "returning to Start restores exactly one action");
+    assert.equal(await button(page, "Run script").count(), 0);
+    await button(page, "Runs").click();
+    await runsPage(page).getByRole("list", { name: "Templates", exact: true }).waitFor();
+    assert.equal(await button(page, "Runs").getAttribute("aria-current"), "page");
     assert.deepEqual(errors, []);
   }));
 }
 
-test("the top bar shows a button per readable page and a page opens in the main area instead of Start", browserOnly, () => withPages("host=browser", async (page, errors) => {
-  await startPage(page).waitFor();
+test("the top bar shows a button per readable page and a page opens in the main area instead of Runs", browserOnly, () => withPages("host=browser", async (page, errors) => {
+  await runsPage(page).waitFor();
   assert.deepEqual(await topBar(page).getByRole("button").evaluateAll((buttons) => buttons.map((entry) => entry.getAttribute("aria-label"))).then((names) => names.filter((name) => ["Reports", "Audit", "Broken"].includes(name ?? ""))), ["Reports", "Broken"],
     "The page without the read right has no button.");
+  assert.equal(await button(page, "Runs").getAttribute("aria-current"), "page");
   assert.equal(await button(page, "Reports").getAttribute("aria-current"), null);
   assert.equal(await button(page, "Reports").locator("svg").count(), 1, "The button shows the page's icon.");
   assert.equal(await button(page, "Reports").innerText(), "Reports", "The button shows the title next to the icon.");
 
   await button(page, "Reports").click();
   await reportsPage(page).waitFor();
-  assert.equal(await startPage(page).count(), 0, "The page takes the main area from Start.");
+  assert.equal(await runsPage(page).count(), 0, "The page takes the main area from Runs.");
   assert.equal(await page.getByRole("dialog").count(), 0, "The page is plain content, not a dialog.");
   assert.equal(await button(page, "Reports").getAttribute("aria-current"), "page");
   assert.equal(await button(page, "Broken").getAttribute("aria-current"), null);
@@ -135,7 +117,7 @@ test("the top bar shows a button per readable page and a page opens in the main 
 }));
 
 test("the address names the open page, so reload, bookmark, back and forward follow it", browserOnly, () => withPages("host=browser", async (page, errors) => {
-  await startPage(page).waitFor();
+  await runsPage(page).waitFor();
   const entries = () => page.evaluate(() => history.length);
   const before = await entries();
   await button(page, "Reports").click();
@@ -143,7 +125,7 @@ test("the address names the open page, so reload, bookmark, back and forward fol
   assert.equal(await entries(), before + 1, "Opening a page adds one history entry.");
 
   await page.goBack();
-  await startPage(page).waitFor();
+  await runsPage(page).waitFor();
   assert.equal(pageParameter(page), null, "Back removes the page from the address.");
   assert.equal(await reportsPage(page).count(), 0);
   assert.equal(await button(page, "Reports").getAttribute("aria-current"), null);
@@ -161,11 +143,11 @@ test("the address names the open page, so reload, bookmark, back and forward fol
   await page.goto("about:blank");
   await page.goto(bookmark);
   await reportsPage(page).waitFor();
-  assert.equal(await startPage(page).count(), 0, "A bookmark opens the page directly.");
+  assert.equal(await runsPage(page).count(), 0, "A bookmark opens the page directly.");
 
-  await page.getByRole("button", { name: "Back to Start", exact: true }).click();
-  await startPage(page).waitFor();
-  assert.equal(pageParameter(page), null, "The logo returns to Start and takes the page out of the address.");
+  await page.getByRole("button", { name: "Home", exact: true }).click();
+  await runsPage(page).waitFor();
+  assert.equal(pageParameter(page), null, "The logo returns home and takes the page out of the address.");
   await page.goBack();
   await reportsPage(page).waitFor();
   assert.deepEqual(errors, []);
@@ -199,9 +181,9 @@ test("opening a run leaves the page and a page leaves the open run to return to 
   assert.deepEqual(errors, []);
 }));
 
-test("an unknown page or one without the read right falls back to Start with a notice, and the right shows it", browserOnly, async () => {
+test("an unknown page or one without the read right falls back home with a notice, and the right shows it", browserOnly, async () => {
   await withPages("host=browser&page=missing", async (page, errors) => {
-    await startPage(page).waitFor();
+    await runsPage(page).waitFor();
     await page.getByRole("status").filter({ hasText: "The page missing is not available." }).waitFor();
     assert.equal(await button(page, "Reports").getAttribute("aria-current"), null);
     await button(page, "Reports").click();
@@ -209,7 +191,7 @@ test("an unknown page or one without the read right falls back to Start with a n
     assert.deepEqual(errors, []);
   });
   await withPages("host=browser&page=start.audit", async (page, errors) => {
-    await startPage(page).waitFor();
+    await runsPage(page).waitFor();
     await page.getByRole("status").filter({ hasText: "The page start.audit is not available." }).waitFor();
     assert.deepEqual(errors, []);
   });
@@ -231,20 +213,121 @@ test("a page that throws shows its cause in the main area while the top bar and 
 }));
 
 test("in VS Code the page lives in the panel only: no address change, and the host's navigation leaves it", browserOnly, () => withPages("", async (page, errors) => {
-  await startPage(page).waitFor();
+  await runsPage(page).waitFor();
   const entries = await page.evaluate(() => history.length);
   await button(page, "Reports").click();
   await reportsPage(page).waitFor();
   assert.equal(pageParameter(page), null, "The panel's address is the host's, so it stays as it is.");
   assert.equal(await page.evaluate(() => history.length), entries);
-  assert.equal((await page.evaluate(() => window.runStartFixture.notifications)).some((message) => message.type === "showStart"), false, "Opening a page does not tell the extension to show Start.");
+  assert.equal((await page.evaluate(() => window.runStartFixture.notifications)).some((message) => message.type === "showStart"), false, "Opening a page does not tell the extension to show home.");
   await page.evaluate(() => window.runStartFixture.command({ type: "showPage", page: "start" }));
-  await startPage(page).waitFor();
+  await runsPage(page).waitFor();
   assert.equal(await reportsPage(page).count(), 0, "The extension's navigation leaves the page.");
   await button(page, "Reports").click();
   await reportsPage(page).waitFor();
   await page.evaluate(() => window.runStartFixture.command({ type: "selectRun", runId: "existing" }));
   await page.waitForFunction(() => window.runStartFixture.activeRun() === "existing");
   assert.equal(await reportsPage(page).count(), 0, "Selecting a run leaves the page.");
+  assert.deepEqual(errors, []);
+}));
+
+for (const host of ["browser", "vscode"]) {
+  test(`a readable plugin home opens first and the logo returns there in ${host}`, browserOnly, () => withPages(`host=${host}&home=reports`, async (page, errors) => {
+    await reportsPage(page).waitFor();
+    assert.equal(pageParameter(page), null);
+    assert.equal(await button(page, "Reports").getAttribute("aria-current"), "page");
+    assert.equal(await button(page, "Runs").getAttribute("aria-current"), null);
+    await button(page, "Runs").click();
+    await runsPage(page).getByRole("list", { name: "Templates", exact: true }).waitFor();
+    assert.equal(pageParameter(page), host === "browser" ? "runs" : null);
+    await page.reload();
+    if (host === "browser") await runsPage(page).waitFor();
+    else await reportsPage(page).waitFor();
+    await button(page, "Home").click();
+    await reportsPage(page).waitFor();
+    assert.equal(pageParameter(page), null);
+    await page.getByRole("button", { name: "Open existing run", exact: true }).click();
+    await page.waitForFunction(() => window.runStartFixture.activeRun() === "existing");
+    await button(page, "Home").click();
+    await reportsPage(page).waitFor();
+    assert.deepEqual(errors, []);
+  }));
+}
+
+test("home claims follow visible page order and an unreadable claim keeps Runs as home", browserOnly, async () => {
+  await withPages("host=browser&home=conflict&rights=runs.read,runs.write,runs.create,start.audit", async (page, errors) => {
+    await reportsPage(page).waitFor();
+    await button(page, "Audit").click();
+    await page.getByRole("heading", { name: "Audit trail", exact: true }).waitFor();
+    await button(page, "Home").click();
+    await reportsPage(page).waitFor();
+    assert.deepEqual(errors, []);
+  });
+  await withPages("host=browser&home=audit", async (page, errors) => {
+    await runsPage(page).waitFor();
+    assert.equal(await button(page, "Audit").count(), 0);
+    await button(page, "Reports").click();
+    await reportsPage(page).waitFor();
+    await button(page, "Home").click();
+    await runsPage(page).waitFor();
+    assert.deepEqual(errors, []);
+  });
+  await withPages("host=browser&home=reports&page=missing", async (page, errors) => {
+    await reportsPage(page).waitFor();
+    await page.getByRole("status").filter({ hasText: "The page missing is not available." }).waitFor();
+    assert.deepEqual(errors, []);
+  });
+});
+
+test("a plugin home and Runs stay reachable without horizontal scrolling at 400px", browserOnly, () => withPages("host=browser&home=reports", async (page, errors) => {
+  await page.setViewportSize({ width: 400, height: 820 });
+  await reportsPage(page).waitFor();
+  await button(page, "Runs").click();
+  await runsPage(page).getByRole("list", { name: "Templates", exact: true }).waitFor();
+  await runsPage(page).getByRole("searchbox", { name: "Search runs", exact: true }).fill("existing");
+  await runsPage(page).getByRole("button", { name: "Existing run", exact: true }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "Edit Start", exact: true }).count(), 0);
+  assert.equal(await page.getByRole("button", { name: "Add widget", exact: true }).count(), 0);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  await button(page, "Home").click();
+  await reportsPage(page).waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  assert.deepEqual(errors, []);
+}));
+
+test("the extension can request fixed Runs separately from a plugin home", browserOnly, () => withPages("home=reports", async (page, errors) => {
+  await reportsPage(page).waitFor();
+  await page.evaluate(() => window.runStartFixture.command({ type: "showPage", page: "runs" }));
+  await runsPage(page).getByRole("list", { name: "Templates", exact: true }).waitFor();
+  await page.evaluate(() => window.runStartFixture.command({ type: "showPage", page: "start" }));
+  await reportsPage(page).waitFor();
+  await page.evaluate(() => window.runStartFixture.command({ type: "selectRun", runId: "existing" }));
+  await page.waitForFunction(() => window.runStartFixture.activeRun() === "existing");
+  await page.evaluate(() => window.runStartFixture.command({ type: "selectRun", runId: null }));
+  await reportsPage(page).waitFor();
+  assert.deepEqual(errors, []);
+}));
+
+test("twelve visible plugin views wrap beside Runs without horizontal scrolling at 400px", browserOnly, () => withPages("host=browser&many-pages", async (page, errors) => {
+  await page.setViewportSize({ width: 400, height: 820 });
+  await runsPage(page).waitFor();
+  const navigation = topBar(page).getByRole("navigation", { name: "Pages", exact: true });
+  const entries = navigation.getByRole("button");
+  assert.equal(await entries.count(), 13);
+  assert.equal(await entries.first().getAttribute("aria-label"), "Runs");
+  const bounds = await entries.evaluateAll((buttons) => buttons.map((entry) => {
+    const box = entry.getBoundingClientRect();
+    return { left: box.left, right: box.right, top: Math.round(box.top), width: box.width };
+  }));
+  assert.ok(bounds.every((box) => box.width > 0 && box.left >= 0 && box.right <= 400));
+  assert.ok(new Set(bounds.map((box) => box.top)).size > 1);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  await button(page, "View 10").click();
+  await page.getByRole("heading", { name: "View 10", exact: true }).waitFor();
+  await button(page, "Runs").click();
+  await runsPage(page).getByRole("list", { name: "Templates", exact: true }).waitFor();
+  await button(page, "Home").click();
+  await runsPage(page).waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   assert.deepEqual(errors, []);
 }));

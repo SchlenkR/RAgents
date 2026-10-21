@@ -8,7 +8,6 @@ import type { Duplex } from "node:stream";
 import { ACCESS_TOKEN_QUERY, createAccessContext, DomainError, type AccessContext } from "@ragents/engine";
 import { coreChannels, coreMethods } from "./api/core-methods.js";
 import { attachmentContentRoute } from "./api/delivery.js";
-import { preferenceMethods } from "./api/preference-methods.js";
 import { assertRunAccess } from "./api/rights.js";
 import { RpcDispatcher } from "./rpc/dispatcher.js";
 import { RpcHttpTransport } from "./rpc/http-transport.js";
@@ -27,7 +26,6 @@ import { composeProfile, type ProfileComposition } from "./profile/compose.js";
 import { Protocol, teeConsole } from "./protocol.js";
 import { RunSessionProvider } from "./provider.js";
 import { layout } from "./layout.js";
-import { UserPreferences } from "./user-preferences.js";
 import { readHelpResponse } from "./help-files.js";
 import { watchParentProcess } from "./parent-watch.js";
 import { hostRoot, readPackageVersion } from "./host-version.js";
@@ -243,7 +241,6 @@ provider.plugins.methods.register("host", [
     settingsGuarded: () => !process.env.ACCESS_TOKEN && !accessSessions.enabled,
     external: { open: externalAccessOpen, set: setExternalAccess },
   }),
-  ...preferenceMethods(new UserPreferences(layout.preferencesDir)),
 ]);
 provider.plugins.channels.register("host", coreChannels({
   sessions: provider,

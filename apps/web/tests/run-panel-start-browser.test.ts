@@ -48,7 +48,7 @@ let fixtureUrl: Promise<string> | undefined;
 const launchBrowser = () => chromium.launch({ headless: true, executablePath: process.env.BROWSER_EXECUTABLE_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
 
 for (const host of ["browser", "vscode"] as const) {
-  test(`a Start plugin lists metadata from all visible runs and opens the selected run in ${host}`, {
+  test(`a plugin page lists metadata from all visible runs and opens the selected run in ${host}`, {
     skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 90_000,
   }, async () => {
     const url = await (fixtureUrl ??= buildFixture());
@@ -59,25 +59,24 @@ for (const host of ["browser", "vscode"] as const) {
       page.on("pageerror", (error) => errors.push(error.message));
       await page.goto(`${url}?host=${host}&documents`);
       const section = page.getByRole("region", { name: "Work documents", exact: true });
+      await page.getByRole("list", { name: "Runs", exact: true }).waitFor();
+      assert.equal(await page.getByRole("list", { name: "Runs", exact: true }).getByRole("listitem").count(), 7);
+      assert.equal(await section.count(), 0);
+      await page.locator("header").first().getByRole("button", { name: "Documents", exact: true }).click();
       await section.waitFor();
-      assert.deepEqual(await page.locator("main[data-page=start] h2").allTextContents(), ["New", "Continue", "Work documents"]);
-      assert.equal(await page.getByRole("list", { name: "Recent", exact: true }).getByRole("listitem").count(), 7);
-      assert.equal(await page.getByRole("button", { name: /^All 7 runs/ }).count(), 1);
       assert.deepEqual(await section.getByRole("button").allTextContents(), Array.from({ length: 6 }, (_, index) => `Work note ${index} - Document run ${index}`));
-      assert.equal(await page.getByRole("list", { name: "Recent", exact: true }).getByText("Document run 5").count(), 1);
       await section.getByRole("button", { name: "Work note 5 - Document run 5", exact: true }).click();
       await page.waitForFunction(() => window.runStartFixture.activeRun() === "document-run-5");
-      assert.equal(await section.count(), 0, "opening a document uses the run navigation and leaves Start");
-      await page.getByRole("button", { name: "Back to Start", exact: true }).click();
-      await section.waitFor();
-      await page.getByRole("list", { name: "Recent", exact: true }).getByRole("button", { name: /Document run 0/ }).click();
+      assert.equal(await section.count(), 0, "opening a document uses the run navigation and leaves its page");
+      await page.locator("header").first().getByRole("button", { name: "Home", exact: true }).click();
+      await page.getByRole("list", { name: "Runs", exact: true }).getByRole("button", { name: "Document run 0", exact: true }).click();
       await page.waitForFunction(() => window.runStartFixture.activeRun() === "document-run-0");
       assert.deepEqual(errors, []);
     } finally { await browser.close(); }
   });
 }
 
-test("the VS Code panel starts on the server's Start page and keeps one loading state from a start click to the first content", {
+test("the VS Code panel starts on the server's Runs view and keeps one loading state from a start click to the first content", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 90_000,
 }, async () => {
   const url = await (fixtureUrl ??= buildFixture());
@@ -93,7 +92,7 @@ test("the VS Code panel starts on the server's Start page and keeps one loading 
     const waitForTitle = (title: string) => page.waitForFunction((expected) => document.querySelector("[data-startup] strong")?.textContent === expected, title);
     const settle = () => page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     const chat = (event: unknown) => page.evaluate((payload) => window.runStartFixture.chat(payload), event);
-    const startPage = page.locator('main[data-page="start"]:visible');
+    const startPage = page.locator('main[data-page="runs"]:visible');
 
     await page.goto(`${url}?profile=pending`);
     await notice.waitFor();
@@ -102,7 +101,7 @@ test("the VS Code panel starts on the server's Start page and keeps one loading 
     assert.equal(await notice.locator("[role=progressbar]").count(), 1, "Loading the profile shows the same progress as the run.");
     await page.evaluate(() => window.runStartFixture.activate());
     await startPage.getByRole("list", { name: "Templates", exact: true }).waitFor();
-    assert.equal(await notice.count(), 0, "Without a run, VS Code shows the server's Start page immediately.");
+    assert.equal(await notice.count(), 0, "Without a run, VS Code shows the server's Runs view immediately.");
     assert.ok((await page.evaluate(() => window.runStartFixture.notifications)).some((message) => message.type === "ready"));
 
     await page.evaluate(() => { window.runStartFixture.holdStart = true; });
@@ -156,7 +155,7 @@ test("the VS Code panel starts on the server's Start page and keeps one loading 
     await chat({ kind: "status", running: true });
     await settle();
     assert.equal(await notice.count(), 0, "Once content was shown, later work brings no loading state back.");
-    assert.equal(await startPage.count(), 0, "A running run does not show the Start list.");
+    assert.equal(await startPage.count(), 0, "A running run does not show the home run list.");
 
     await page.goto(url);
     await startPage.waitFor();
@@ -200,9 +199,9 @@ test("the VS Code panel starts on the server's Start page and keeps one loading 
     await startPage.waitFor();
     await page.evaluate(() => window.runStartFixture.command({ type: "newRun", entryId: "start.script" }));
     await page.getByRole("alert").filter({ hasText: "New runs are not enabled for this user account." }).waitFor();
-    assert.equal(await startPage.isVisible(), true, "A refused start leaves the server's Start page visible.");
-    await page.getByRole("button", { name: "Back to Start", exact: true }).last().click();
-    assert.ok((await page.evaluate(() => window.runStartFixture.notifications)).some((message) => message.type === "showStart"), "The refusal leads back to Start.");
+    assert.equal(await startPage.isVisible(), true, "A refused start leaves the server's Runs view visible.");
+    await page.locator("header").first().getByRole("button", { name: "Home", exact: true }).click();
+    assert.ok((await page.evaluate(() => window.runStartFixture.notifications)).some((message) => message.type === "showStart"), "The refusal leads back home.");
 
     await page.goto(`${url}?rights=runs.read,runs.write`);
     await startPage.waitFor();
@@ -221,9 +220,8 @@ test("the VS Code panel starts on the server's Start page and keeps one loading 
     assert.equal(await startPage.isVisible(), true);
 
     await page.goto(`${url}?host=browser`);
-    await startPage.getByRole("tab", { name: "Continue", exact: true }).click();
     await page.getByText("Existing run").waitFor();
-    assert.equal(await notice.count(), 0, "The browser shows the same Start page without a run.");
+    assert.equal(await notice.count(), 0, "The browser shows the same Runs view without a run.");
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });
@@ -249,7 +247,7 @@ const pause = (page: Page) => page.evaluate(() => new Promise<void>((resolve) =>
 const browserOnly = { skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 90_000 };
 
 for (const host of ["browser", "vscode"] as const) {
-  test(`a guided template opens only its guide over Start, which closes completely and starts with its answer, in ${host}`, browserOnly, () => withPanel(async (page) => {
+  test(`a guided template opens only its guide over home, which closes completely and starts with its answer, in ${host}`, browserOnly, () => withPanel(async (page) => {
     const templates = page.getByRole("list", { name: "Templates", exact: true });
     const dialog = page.getByRole("dialog");
     const apply = dialog.getByRole("button", { name: "Apply topic", exact: true });
@@ -370,7 +368,7 @@ test("a template with a guide asks first in VS Code, like in the web app, and st
   assert.ok(notifications.some((message) => message.type === "runChanged" && message.runId === guided!.runId), "The extension learns the new run.");
 }));
 
-test("in the browser a template on Start shows the start progress at once", browserOnly, async () => {
+test("in the browser a template on home shows the start progress at once", browserOnly, async () => {
   const url = await (fixtureUrl ??= buildFixture());
   const browser = await launchBrowser();
   try {
@@ -645,7 +643,7 @@ const headerGeometry = async (header: Locator) => {
     for (const second of geometry.boxes.slice(index + 1)) {
       const overlapWidth = Math.min(first.right, second.right) - Math.max(first.left, second.left);
       const overlapHeight = Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top);
-      assert.ok(overlapWidth < 1 || overlapHeight < 1, `Header controls never cover one another: ${JSON.stringify({ first, second })}`);
+      assert.ok(overlapWidth < 1 || overlapHeight < 1, `Header controls never cover one another: ${JSON.stringify({ first, second, viewportWidth: geometry.viewportWidth })}`);
     }
   }
   return geometry;
@@ -675,7 +673,7 @@ for (const host of ["browser", "vscode"] as const) {
         const errors: string[] = [];
         page.on("pageerror", (error) => errors.push(error.message));
         await page.goto(`${url}?host=${host}&growing-header&rights=runs.read,runs.write,runs.create,runs.inspect,settings.read`);
-        await page.locator("[data-dashboard]").waitFor();
+        await page.locator('main[data-page="runs"]').waitFor();
         await page.evaluate(() => {
           window.runStartFixture.views.add("existing");
           window.runStartFixture.command({ type: "selectRun", runId: "existing" });
@@ -693,7 +691,7 @@ for (const host of ["browser", "vscode"] as const) {
         const chat = await page.locator('section[data-view="chat"]').elementHandle();
         const originalNotes = await notes.elementHandle();
         assert.ok(chat && originalNotes, "The run and its initial app button are mounted.");
-        const fixed = ["Back to Start", "Global coordinator", "Actors", "Share", "Run script", "Stop run", "Settings"];
+        const fixed = ["Home", "Global coordinator", "Actors", "Share", "Run script", "Stop run", "Settings"];
         const fixedBounds = async () => Promise.all(fixed.map(async (name) => {
           const bounds = await header.getByRole("button", { name, exact: true }).boundingBox();
           assert.ok(bounds, `The fixed header control is visible: ${name}`);
@@ -803,7 +801,7 @@ for (const { host, width } of [{ host: "browser", width: 1400 }, { host: "vscode
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
       await page.goto(`${url}?host=${host}&dropdowns`);
-      await page.locator("[data-dashboard]").waitFor();
+      await page.locator('main[data-page="runs"]').waitFor();
       await page.evaluate(() => {
         window.runStartFixture.views.add("existing");
         window.runStartFixture.command({ type: "selectRun", runId: "existing" });

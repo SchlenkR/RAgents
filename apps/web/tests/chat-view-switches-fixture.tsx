@@ -58,7 +58,6 @@ const fixture = {
       case "ragents.runs.view": return params.runId === "demo" ? view : null;
       case "ragents.runs.list": return [{ id: "demo", title: "Timestamps", updatedAt: 0, running: false, state: "idle", pendingActions: 0, workspaceAccessible: true }];
       case "ragents.runs.markViewed": return null;
-      case "ragents.preferences.read": return null;
       case "ragents.startOptions.list": return [];
       case "ragents.chat.actorHistory": return { actors: conversations };
       case "ragents.chat.capabilities": return { input: fixture.modelInput, model: "demo-model" };

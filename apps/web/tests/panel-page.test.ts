@@ -1,21 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
-import { readFile } from "node:fs/promises";
 import { renderToStaticMarkup } from "react-dom/server";
-import { createAccessContext } from "../../../packages/ragents/src/access";
-import { AccessContext } from "../src/AccessContext";
-import { PluginRegistry, type StartWidget, type StartWidgetContext, type WebPlugin } from "../src/PluginRegistry";
-import { HOST_START_WIDGETS, StartPageContext, type StartPageHost } from "../src/panel/host-start-widgets";
 import { PanelPage } from "../src/panel/PanelPage";
 import { canDeleteRun, RunLine, RunList } from "../src/panel/RunLine";
-import { isPanelActionMessage, isPanelStateMessage, type PanelAction, type PanelState, type ConnectionView } from "../src/panel/contract";
-import type { PreferenceStore } from "../src/preferences";
+import { isPanelActionMessage, isPanelStateMessage, type PanelState, type ConnectionView } from "../src/panel/contract";
 
-/** Start reads its layout from the server; these renders never get past loading, so the store only has to exist. */
-const preferences: PreferenceStore = { read: async () => null, write: async () => {} };
-
-const render = (state: PanelState) => renderToStaticMarkup(createElement(PanelPage, { preferences, state, send: () => {} }));
+const render = (state: PanelState) => renderToStaticMarkup(createElement(PanelPage, { state, send: () => {} }));
 
 const connection = (overrides: Partial<ConnectionView> = {}): ConnectionView => ({
   name: "workshop",
@@ -35,119 +26,20 @@ const connection = (overrides: Partial<ConnectionView> = {}): ConnectionView => 
 const page = (overrides: Partial<PanelState> = {}): PanelState =>
   ({ theme: "dark", page: "start", connections: [connection()], profileSuggestions: [], ...overrides });
 
-test("Start shows only the current server's recent runs and templates", () => {
+test("home combines the current server's templates and complete run list", () => {
   const html = render(page());
-  assert.doesNotMatch(html, /<h1/, "Start has no header of its own, the title is already in the view title bar");
-  assert.doesNotMatch(html, /aria-label="Runs"|aria-label="Set up server"|Back to Start/, "no icons the title bar already has");
-  assert.doesNotMatch(html, /aria-label="Server"|>Server</);
-  assert.doesNotMatch(html, /data-cell="route"|data-cell="connection"|>workshop</);
-  assert.match(html, />Continue</);
-  assert.match(html, />Night bus round</);
-  assert.match(html, /aria-label="Night bus round"/);
-  assert.match(html, /aria-label="running"/);
-  assert.match(html, />New</);
-  assert.ok(html.indexOf('aria-label="Templates"') < html.indexOf('>Continue<'), "New appears before Continue");
+  assert.match(html, /<h2[^>]*>New run<\/h2>/);
+  assert.match(html, /<h[12][^>]*>Runs<\/h[12]>/);
   assert.match(html, /aria-label="Templates"/);
   assert.match(html, />Collection board</);
   assert.match(html, />Discussion circle</);
-  assert.doesNotMatch(html, /Search templates/, "Start has no search over the templates");
-  assert.doesNotMatch(html, /Disconnect|Stop|Question/);
-});
-
-const registryWith = (plugins: WebPlugin[]) => new PluginRegistry({
-  brand: { title: "Workshop" }, product: { id: "workshop", title: "Workshop" }, plugins, startEntries: [],
-});
-
-test("Start widgets receive all listed runs with metadata and open through the current server", () => {
-  const runs = Array.from({ length: 17 }, (_, index) => ({
-    id: `run-${index}`, title: `Run ${index}`, state: "idle" as const, pendingActions: 0, updatedAt: index,
-    metadata: { "test.documents": [{ title: `Document ${index}` }] },
-  }));
-  const contexts: StartWidgetContext[] = [];
-  const actions: PanelAction[] = [];
-  const registry = registryWith([{ id: "test.documents", startWidgets: [{ id: "documents", order: 100, render: (context) => {
-    contexts.push(context);
-    return createElement("section", null, createElement("h2", null, "Work documents"));
-  } }] }]);
-  const html = renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state: page({ connections: [connection({ runs })] }), send: (action) => actions.push(action) }));
-  assert.ok(html.indexOf('>Continue<') < html.indexOf('>Work documents<'));
-  assert.doesNotMatch(html, />Run 0</, "the oldest run is outside Continue");
-  assert.deepEqual(contexts[0]!.runs, [...runs].reverse(), "the widget receives the complete list, newest first, with unchanged metadata");
-  assert.deepEqual(runs.map((run) => run.id), Array.from({ length: 17 }, (_, index) => `run-${index}`), "rendering does not reorder the source list");
-  contexts[0]!.onOpenRun("run-0");
-  assert.deepEqual(actions, [{ action: "openRun", name: "workshop", runId: "run-0" }]);
-  contexts.length = 0;
-  for (const current of ["runs", "connections"] as const) {
-    renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state: page({ page: current }), send: () => {} }));
-  }
-  assert.equal(contexts.length, 0, "only Start renders the widgets");
-});
-
-test("Start widgets retain contribution order and empty widgets add nothing but an empty wrapper", () => {
-  const state = page();
-  const empty = registryWith([{ id: "test.empty", startWidgets: [{ id: "empty", order: 0, render: () => null }] }]);
-  const withEmpty = renderToStaticMarkup(createElement(PanelPage, { preferences, registry: empty, state, send: () => {} }));
-  const wrapper = withEmpty.match(/<div[^>]*data-start-section="empty"[^>]*><\/div>/)?.[0];
-  assert.ok(wrapper, "the wrapper stays mounted, so the widget can show content later; without height it takes no place in the packing");
-  assert.equal(withEmpty.replace(wrapper, ""), render(state));
-  const plain = (id: string, order: number): StartWidget => ({ id, order, render: () => createElement("section", null, id) });
-  const registry = registryWith([
-    { id: "test.first", startWidgets: [plain("later", 200), plain("second", 100)] },
-    { id: "test.second", startWidgets: [plain("first", 100)] },
-    { id: "test.disabled", enabled: () => false, startWidgets: [plain("hidden", 0)] },
-  ]);
-  assert.deepEqual(registry.startWidgets.map((widget) => widget.id), ["start.new", "start.continue", "first", "second", "later"], "Start's own widgets come first by their order");
-  const html = renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state, send: () => {} }));
-  assert.match(html, /<section>first<\/section><\/div><div[^>]*><section>second<\/section><\/div><div[^>]*><section>later<\/section>/);
-  assert.doesNotMatch(html, />hidden</);
-  assert.deepEqual(registryWith([]).startWidgets, HOST_START_WIDGETS);
-  assert.throws(() => registryWith([{ id: "test.duplicate", startWidgets: [plain("same", 0), plain("same", 1)] }]), /Start widget registered twice: same/);
-  assert.throws(() => registryWith([{ id: "test.taken", startWidgets: [plain("start.continue", 0)] }]), /Start widget registered twice: start.continue/, "Start's own IDs are taken like a plugin's");
-  const early = registryWith([{ id: "test.early", startWidgets: [plain("early", -100)] }]);
-  assert.deepEqual(early.startWidgets.map((entry) => entry.id), ["early", "start.new", "start.continue"], "a lower order puts a plugin widget before New, as for any other widget");
-  assert.throws(() => registryWith([{ id: "test.empty", startWidgets: [plain("", 0)] }]), /Start widget without ID/);
-});
-
-test("a Start widget with a title gets a frame and its columns; without one it takes the whole width", () => {
-  const registry = registryWith([{ id: "test.widgets", startWidgets: [
-    { id: "board", order: 10, title: "Work board", render: () => createElement("p", null, "Board content") },
-    { id: "auto", order: 20, title: "Auto items", columns: 2, render: () => createElement("p", null, "Auto content") },
-    { id: "plain", order: 30, render: () => createElement("section", null, "Plain section") },
-  ] }]);
-  const html = renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state: page(), send: () => {} }));
-  assert.match(html, /<section aria-label="Work board"[^>]*><div[^>]*><h2[^>]*>Work board<\/h2><\/div><div[^>]*data-start-widget-body="board"><p>Board content<\/p>/,
-    "the host draws the title row above the content");
-  assert.match(html, /data-columns="6" data-max-columns="6" data-pack="board" data-start-widget="board"/, "a widget without columns starts at all six and is known by its contribution ID");
-  assert.match(html, /data-columns="2" data-max-columns="6" data-pack="auto" data-start-widget="auto"/, "packing starts at the configured columns and allows growth to the maximum");
-  assert.match(html, /data-columns="2" data-max-columns="6" data-pack="start.new" data-start-widget="start.new"/);
-  assert.match(html, /data-columns="4" data-max-columns="6" data-pack="start.continue" data-start-widget="start.continue"/);
-  assert.match(html, /data-dashboard="grid"[^>]*data-grid="6"/, "the grid has six columns");
-  assert.match(html, /<div class="absolute" data-columns="6" data-max-columns="6" data-pack="plain" data-start-section="plain" style="[^"]*"><section>Plain section<\/section><\/div>/,
-    "a widget without a title has no frame of its own and takes the whole width");
-  assert.ok(html.indexOf(">Work board<") < html.indexOf(">Auto items<") && html.indexOf(">Auto items<") < html.indexOf(">Plain section<"));
-});
-
-test("Start has no arrangement row while waiting for the stored layout", () => {
-  const registry = registryWith([{ id: "test.widgets", startWidgets: [{ id: "board", order: 10, title: "Work board", render: () => createElement("p", null, "Board content") }] }]);
-  const html = renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state: page(), send: () => {} }));
-  assert.doesNotMatch(html, /data-edit-start/, "Edit belongs in the host header once the layout is read");
-  assert.match(html, /data-dashboard="grid"[^>]*aria-busy="true"|aria-busy="true"[^>]*data-dashboard="grid"/);
-  assert.doesNotMatch(html, /Arrange|Customize|Move |Remove |Add widget|data-resize-handle|data-control/);
-  const without = renderToStaticMarkup(createElement(PanelPage, { registry, state: page(), send: () => {} }));
-  assert.doesNotMatch(without, /data-edit-start|aria-busy="true"/, "without a preference store, as in the local VS Code shell, Start shows its default layout and no Edit");
-  assert.match(without, /data-start-widget="board"/);
-});
-
-test("a Start widget with a read right mounts only when the viewer has that right", () => {
-  const state = page({ connections: [connection({ canCreate: false, runs: [] })] });
-  const registry = registryWith([{ id: "test.guarded", startWidgets: [{
-    id: "guarded", order: 0, readRight: "test.read", render: () => createElement("section", null, "Work documents"),
-  }] }]);
-  const renderWithRights = (rights: string[]) => renderToStaticMarkup(createElement(AccessContext.Provider, {
-    value: { ...createAccessContext({ enabled: true, user: { id: "alice", label: "Alice", rights, startEntries: [] } }), logout: async () => {} },
-  }, createElement(PanelPage, { preferences, registry, state, send: () => {} })));
-  assert.doesNotMatch(renderWithRights([]), /Work documents/);
-  assert.match(renderWithRights(["test.read"]), /Work documents/);
+  assert.match(html, />Night bus round</);
+  assert.match(html, /aria-label="running"/);
+  assert.match(html, /aria-label="Search runs"/);
+  assert.match(html, />Shared by me 0</);
+  assert.doesNotMatch(html, /data-cell="route"|data-cell="connection"|>workshop</);
+  assert.doesNotMatch(html, /Search templates|Arrange|Customize|Add widget|Resize/);
+  assert.equal(render(page({ page: "runs" })), html, "the extension's home and Runs messages use the same view");
 });
 
 test("Start and Runs require exactly one server, while server management accepts all configured servers", () => {
@@ -164,7 +56,7 @@ test("Start and Runs require exactly one server, while server management accepts
 
 test("New starts with the marked default template, otherwise with New chat", () => {
   const chat = render(page());
-  assert.match(chat, /<h2[^>]*>New<\/h2>/, "the title row names the widget without a count");
+  assert.match(chat, /<h2[^>]*>New run<\/h2>/, "the start panel has a fixed title");
   assert.match(chat, /<ul aria-label="Templates"[^>]*><li[^>]*><button[^>]*data-tile="New chat"/, "New chat is the first template");
   assert.match(chat, /aria-label="New chat"/);
   assert.doesNotMatch(chat, />No template</);
@@ -177,40 +69,7 @@ test("New starts with the marked default template, otherwise with New chat", () 
   assert.equal(standard.match(/>Discussion circle</g)?.length, 1);
   assert.doesNotMatch(standard, />New chat</);
   const none = render(page({ connections: [connection({ state: { kind: "stopped" }, runs: [], canCreate: false })] }));
-  assert.match(none, /data-start-widget-body="start.new"><\/div>/, "without the right to create runs New renders nothing, so Start leaves it out like any empty widget");
   assert.doesNotMatch(none, /aria-label="Templates"|New chat/);
-});
-
-test("New and Continue are ordinary Start widgets whose settings change what they show", () => {
-  const runs = Array.from({ length: 17 }, (unused, index) => ({
-    id: `run-${index}`, title: `Run ${index}`, state: "idle" as const, pendingActions: 0, updatedAt: Date.now() - index * 60_000,
-  }));
-  const host: StartPageHost = { connection: connection({ runs }), sharing: undefined, send: () => {}, starting: undefined, startRun: () => {} };
-  const [create, more] = HOST_START_WIDGETS;
-  assert.deepEqual(HOST_START_WIDGETS.map(({ id, order, title, columns, minColumns }) => ({ id, order, title, columns, minColumns })), [
-    { id: "start.new", order: -20, title: "New", columns: 2, minColumns: 2 },
-    { id: "start.continue", order: -10, title: "Continue", columns: 4, minColumns: 2 },
-  ]);
-  assert.deepEqual(more!.settings, { runs: { type: "number", label: "Number of runs", description: "How many of the most recent runs Continue lists.", default: 15, min: 3, max: 100 } });
-  assert.deepEqual(Object.keys(create!.settings!), ["descriptions"]);
-  const show = (widget: StartWidget, settings: Record<string, unknown>) => renderToStaticMarkup(createElement(StartPageContext.Provider, { value: host },
-    widget.render({ runs, onOpenRun: () => {}, settings: settings as never })));
-  const five = show(more!, { runs: 5 });
-  assert.equal(five.match(/<li /g)?.length, 5, "Continue lists as many runs as its setting says");
-  assert.match(five, />Run 4</);
-  assert.doesNotMatch(five, />Run 5</);
-  assert.match(five, />All 17 runs</, "the way to all runs follows the list");
-  assert.equal(show(more!, { runs: 100 }).match(/<li /g)?.length, 17);
-  assert.match(show(create!, { descriptions: true }), /data-slot="start-description"/);
-  assert.doesNotMatch(show(create!, { descriptions: false }), /data-slot="start-description"/, "New can show its templates without descriptions");
-});
-
-test("the dashboard and its layout code name none of Start's own widgets", async () => {
-  const files = ["StartDashboard.tsx", "dashboard-layout.ts", "dashboard-preferences.ts", "widget-settings.ts", "WidgetSettingsDialog.tsx", "StartPage.tsx", "start-widgets.tsx"];
-  for (const file of files) {
-    const source = await readFile(new URL(`../src/panel/${file}`, import.meta.url), "utf8");
-    assert.doesNotMatch(source, /start\.new|start\.continue|"New"|"Continue"|Templates|RunList|StartTiles/, `${file} treats New and Continue like any widget`);
-  }
 });
 
 test("server management retains sign-in, retry, and connect actions with the error cause", () => {
@@ -236,14 +95,15 @@ test("a run line names the cause of a locked run with a warning icon and opens n
   assert.match(html, /<button\b(?=[^>]*aria-disabled="true")(?=[^>]*aria-label="Night bus round")[^>]*>/);
 });
 
-test("Start shows at most fifteen runs and leads to the full list", () => {
+test("home lists every run, ordered by the latest activity", () => {
   const runs = Array.from({ length: 17 }, (unused, index) => ({
-    id: `run-${index}`, title: `Run ${index}`, state: "idle" as const, pendingActions: 0, updatedAt: Date.now() - index * 60_000,
+    id: `run-${index}`, title: `Run ${index}`, state: "idle" as const, pendingActions: 0, updatedAt: index,
   }));
   const html = render(page({ connections: [connection({ runs })] }));
-  assert.match(html, />All 17 runs</);
-  assert.match(html, />Run 14</);
-  assert.doesNotMatch(html, />Run 15</, "after fifteen lines the Continue block ends");
+  assert.match(html, />Run 0</);
+  assert.match(html, />Run 16</);
+  assert.ok(html.indexOf('>Run 16<') < html.indexOf('>Run 0<'));
+  assert.deepEqual(runs.map((run) => run.id), Array.from({ length: 17 }, (unused, index) => `run-${index}`));
 });
 
 test("a template with a guide is called Set up as in the web app, otherwise Start", () => {
@@ -271,9 +131,8 @@ test("the Runs page lists only the current server's runs and offers search, hidi
       ] }),
     ],
   }));
-  assert.match(html, /<h1[^>]*>Runs<\/h1>/);
-  assert.match(html, /aria-label="Back to Start"/);
-  assert.doesNotMatch(html, /aria-label="Server"/, "the header carries only the title and back");
+  assert.match(html, /<h[12][^>]*>Runs<\/h[12]>/);
+  assert.doesNotMatch(html, /aria-label="Server"|aria-label="Back to home"/);
   assert.match(html, /aria-label="Search runs"/);
   assert.match(html, />Hide ended</);
   assert.match(html, />Select</);
@@ -289,13 +148,11 @@ test("the Runs page lists only the current server's runs and offers search, hidi
   assert.doesNotMatch(html, /data-cell="connection"|Night bus round \(workshop\)/);
 });
 
-test("Runs and Server always lead back to Start with the arrow before their title, Start has no arrow", () => {
-  for (const [name, title] of [["runs", "Runs"], ["connections", "Server"]] as const) {
-    const html = render(page({ page: name }));
-    assert.match(html, new RegExp(`aria-label="Back to Start"[\\s\\S]*?<h1[^>]*>${title}</h1>`), `${name}: the arrow comes first`);
-    assert.equal(html.match(/aria-label="Back to Start"/g)?.length, 1);
-  }
-  assert.doesNotMatch(render(page()), /Back to Start/);
+test("Server has a back to home action and Runs remains a fixed home view", () => {
+  const html = render(page({ page: "connections" }));
+  assert.match(html, /aria-label="Back to home"[\s\S]*?<h1[^>]*>Server<\/h1>/);
+  assert.equal(html.match(/aria-label="Back to home"/g)?.length, 1);
+  assert.doesNotMatch(render(page()), /Back to home/);
 });
 
 test("the Server page lists the rows with their actions, without Start and Stop", () => {
@@ -307,7 +164,7 @@ test("the Server page lists the rows with their actions, without Start and Stop"
     ],
   }));
   assert.match(html, /<h1[^>]*>Server<\/h1>/);
-  assert.match(html, /aria-label="Back to Start"/);
+  assert.match(html, /aria-label="Back to home"/);
   assert.match(html, /aria-label="Open setting"[^>]*>.*settings\.json</);
   assert.match(html, /aria-label="Remove workshop"/);
   assert.match(html, /aria-label="http:\/\/localhost:4710"/);
@@ -344,7 +201,7 @@ test("the Server page lists names from ragents.hostEnvironment without a value a
   assert.match(two, /aria-label="Set value for SERVICE_TOKEN"/);
   assert.match(two, /aria-label="Set value for SERVICE_URL"/);
   assert.equal(two.match(/>Set value</g)?.length, 2, "one row per missing name");
-  assert.doesNotMatch(render(page({ missingSecrets: ["SERVICE_TOKEN"] })), /Missing values/, "Start stays as it was");
+  assert.doesNotMatch(render(page({ missingSecrets: ["SERVICE_TOKEN"] })), /Missing values/, "home stays as it was");
 });
 
 test("a server missing an environment variable explains the case and leads to the value and to a new attempt", () => {
@@ -475,10 +332,10 @@ test("shared runs carry an indicator, a sharee row says what the share permits, 
   assert.doesNotMatch(without, /data-cell="share"/, "without sharing or deletion there is no action column");
 });
 
-test("Start offers Share ... in its recent runs too and shows a short notice, such as for a share taken back", () => {
+test("home offers Share ... and shows a short notice, such as for a share taken back", () => {
   const html = render(page({ notice: "This run is no longer available to you.", connections: [connection({ runs: sharedRuns })] }));
   assert.match(html, /role="status">This run is no longer available to you\.<\/p>/);
-  assert.match(html, /<ul aria-label="Recent" class="[^"]*grid-cols-\[auto_minmax\(0,1fr\)_auto_auto\]/);
+  assert.match(html, /<ul aria-label="Runs" class="[^"]*grid-cols-\[auto_minmax\(0,1fr\)_auto_auto\]/);
   assert.match(html, /aria-label="Share Own review"/);
   assert.doesNotMatch(render(page()), /no longer available/);
 });

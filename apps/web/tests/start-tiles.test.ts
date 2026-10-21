@@ -5,7 +5,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createAccessContext, unrestrictedAccess } from "../../../packages/ragents/src/access.ts";
 import { PluginRegistry, type StartEntry } from "../src/PluginRegistry.tsx";
 import { connectionEntriesOf, StartTiles } from "../src/StartTiles.tsx";
-import { HOST_START_WIDGETS, StartPageContext, type StartPageHost } from "../src/panel/host-start-widgets.tsx";
 import type { ConnectionEntry } from "../src/panel/contract.ts";
 
 const entry = (id: string, kind: "skill" | "script", category: string, guided = false): ConnectionEntry =>
@@ -29,14 +28,7 @@ test("New omits unlisted skills and scripts while plugins keep them and permissi
   assert.equal(registry.startEntries.find((entry) => entry.id === "test.internal")?.listed, false);
   const restricted = createAccessContext({ enabled: true, user: { id: "alice", label: "Alice", rights: ["runs.write"], startEntries: ["test.internal", "test.default"] } });
   assert.deepEqual(connectionEntriesOf(registry, restricted).map((entry) => entry.id), ["test.default"]);
-  const host: StartPageHost = {
-    connection: { name: "test", kind: "server", address: "http://localhost", route: { kind: "server", host: "localhost", localHost: true },
-      state: { kind: "connected" }, runs: [], canCreate: true, entries: visible, defaultEntry: "test.internal" },
-    sharing: undefined, starting: undefined, send: () => {}, startRun: () => {},
-  };
-  const widget = HOST_START_WIDGETS.find((widget) => widget.id === "start.new")!;
-  const html = renderToStaticMarkup(createElement(StartPageContext.Provider, { value: host },
-    widget.render({ runs: [], onOpenRun: () => {}, settings: { descriptions: true } as never })));
+  const html = render({ entries: visible, defaultEntry: "test.internal" });
   assert.deepEqual(titles(html), ["New chat", "Script", "Default"]);
 });
 

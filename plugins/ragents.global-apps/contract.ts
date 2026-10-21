@@ -6,7 +6,7 @@ export const GLOBAL_APPS_PLUGIN_ID = "ragents.global-apps";
 export const globalAppsPermissions = [
   {
     id: "ragents.global-apps.read",
-    description: "View your global apps on Start.",
+    description: "View your global apps on the Apps page.",
   },
   {
     id: "ragents.global-apps.write",

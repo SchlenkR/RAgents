@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
-import { PluginRegistry, type StartWidgetContext } from "../src/PluginRegistry";
-import { PanelPage } from "../src/panel/PanelPage";
+import { PluginRegistry } from "../src/PluginRegistry";
+import { PluginPage } from "../src/run-panel/PluginPages";
+import { FileTextIcon } from "lucide-react";
 import type { ConnectionView, PanelState } from "../src/panel/contract";
 import { DataGrid, type DataGridColumn } from "../src/ui/data-grid";
 import { Button } from "../src/ui/button";
@@ -63,7 +64,7 @@ declare global {
   }
 }
 
-function BoardSection({ runs }: StartWidgetContext) {
+function BoardSection({ runs }: Pick<ConnectionView, "runs">) {
   const [layout, setLayout] = useState<Layout>(query.get("layout") === "list" ? "list" : "lanes");
   const [loading, setLoading] = useState(false);
   const [grouped, setGrouping] = useState(false);
@@ -94,9 +95,12 @@ function BoardSection({ runs }: StartWidgetContext) {
 }
 
 const registry = new PluginRegistry({
-  brand: { title: "Start scroll check" },
-  product: { id: "demo", title: "Start scroll check" },
-  plugins: [{ id: "demo.board", startWidgets: [{ id: "demo.work-board", order: 0, render: (props) => <BoardSection {...props} /> }] }],
+  brand: { title: "Plugin page scroll check" },
+  product: { id: "demo", title: "Plugin page scroll check" },
+  plugins: [{ id: "demo.board", pages: [{ id: "demo.work-board", title: "Work board", Icon: FileTextIcon, order: 0, Page: () => <>
+    <section aria-label="Overview" className="h-[900px]"><h1 className="type-title">Workspace overview</h1><p className="type-body">Review the work board below.</p></section>
+    <BoardSection runs={runs} />
+  </> }] }],
   startEntries: [],
 });
 
@@ -106,13 +110,13 @@ function Fixture() {
   window.startScrollFixture = { ...window.startScrollFixture, setNotice, renew: () => setState((current) => ({ ...current })) };
   if (query.get("mode") === "window") return <main className="min-h-screen bg-app p-3">
     <section aria-label="Overview" className="h-[900px]"><h1 className="type-title">Workspace overview</h1><p className="type-body">Review the work board below.</p></section>
-    <BoardSection runs={runs} onOpenRun={() => {}} />
+    <BoardSection runs={runs} />
   </main>;
   return <div className="flex h-full min-h-0 flex-col bg-app">
-    <header className="flex h-12 flex-none items-center border-b border-border p-3">Start scroll check</header>
-    <div aria-label="Start viewport" className="min-h-0 min-w-0 flex-1 overflow-auto">
+    <header className="flex h-12 flex-none items-center border-b border-border p-3">Plugin page scroll check</header>
+    <div aria-label="Page viewport" className="min-h-0 min-w-0 flex-1 overflow-auto">
       {notice && <p className="type-body min-h-12 p-3" role="status">{notice}</p>}
-      <PanelPage preferences={{ read: async () => null, write: async () => {} }} registry={registry} send={() => {}} state={state} />
+      <PluginPage page={registry.pages[0]!} onOpenRun={() => {}} />
     </div>
     <footer className="h-6 flex-none border-t border-border" aria-label="Run status bar" />
   </div>;

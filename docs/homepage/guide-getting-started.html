@@ -1056,10 +1056,10 @@ bundles or an outdated interface and names <code>pnpm build:plugins</code> or <c
 Settings opens the included help. For separate static hosting, <code>pnpm generate:homepage</code> creates
 the same website under <code>docs/homepage/dist</code>.</p>
 <h2 id="create-your-first-run">Create your first run</h2>
-<p>Start shows one server&#39;s permitted templates under &quot;New&quot;, its most recent runs under
-&quot;Continue&quot; (fifteen unless you configure another number), and any plugin widgets, in both the browser
-and VS Code: side by side on a wide screen,
-one at a time behind tabs in a narrow window or panel. Templates begin with
+<p>Runs is the standard home in both the browser and VS Code. It combines one server&#39;s permitted
+templates under &quot;New run&quot; with its complete run list, search, selection, deletion, and &quot;Shared by me&quot;.
+The Runs entry stays first in the header; plugin views follow it. The logo opens the home, which
+is Runs unless a plugin supplies a visible home view. Templates begin with
 &quot;New chat&quot; or the server&#39;s default template, then skill templates with a prepared task and script
 templates with programmed setups. &quot;New chat&quot; opens an empty run whose task you write in its chat;
 a template starts with one click. Some templates collect values in a setup dialog first (&quot;Set up&quot;); a skill template then
@@ -1068,9 +1068,9 @@ continues in the preparation chat. There you can discuss the task, give a clear 
 anything. In the browser a new run always works on the server; only VS Code and <code>ragents run</code>
 bind a run to a workstation. VS Code binds every new run to an open folder of its window unless
 the template sets its own workspace.</p>
-<p>Plugins can reserve templates for their own widgets. These unlisted templates do not appear in
-&quot;New&quot;, template search or galleries, Settings&#39; template catalog, or run-script pickers.
-A plugin widget or a caller that knows the template ID can still start it with the usual permissions.</p>
+<p>Plugins can reserve templates for their own views. These unlisted templates do not appear in
+&quot;New run&quot;, template search or galleries, Settings&#39; template catalog, or run-script pickers.
+A plugin view or a caller that knows the template ID can still start it with the usual permissions.</p>
 <p>Before starting, &quot;After restart&quot; defaults to &quot;Continue&quot;: actors that were working when the
 server stopped receive a continuation on its next start. Choose &quot;Stay interrupted&quot; to turn
 this off for the run. A profile can disable continuation for all its runs.</p>

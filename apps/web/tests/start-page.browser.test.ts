@@ -105,7 +105,7 @@ const checkHeader = async (page: Page, header: Locator) => {
 };
 
 const openStart = async (page: Page) => {
-  const back = page.getByRole("button", { name: "Back to Start", exact: true });
+  const back = page.getByRole("button", { name: "Home", exact: true });
   if (await back.isVisible()) await back.click();
   const templates = page.getByRole("list", { name: "Templates", exact: true });
   await templates.waitFor();
@@ -120,11 +120,10 @@ const offeredMachines = async (page: Page) => {
   return machines.getByRole("button").allTextContents();
 };
 
-/** On a narrow Start the recent runs are one of the widget tabs. */
-const recentRuns = async (page: Page) => {
-  await page.locator("[data-dashboard]").waitFor();
-  if (await page.locator('[data-dashboard="tabs"]').count() > 0) await page.getByRole("tab", { name: "Continue", exact: true }).click();
-  return page.getByRole("list", { name: "Recent", exact: true });
+const runsList = async (page: Page) => {
+  const list = page.getByRole("list", { name: "Runs", exact: true });
+  await list.waitFor();
+  return list;
 };
 
 const calls = (page: Page, id: string) => page.evaluate((method) => window.startPageFixture.calls.filter((call) => call.id === method).map((call) => call.params), id);
@@ -132,7 +131,7 @@ const calls = (page: Page, id: string) => page.evaluate((method) => window.start
 test("the browser offers only the server for new runs, the run panel in VS Code also the workstation", browserOnly, async () => {
   await withPage("view=web", 1280, async (page) => {
     const start = await openStart(page);
-    assert.equal(await start.locator("textarea").count(), 0, "Start has no task input");
+    assert.equal(await start.locator("textarea").count(), 0, "home has no task input");
     assert.equal(await start.getByRole("combobox").count(), 0, "and no start options");
     await start.getByRole("button", { name: /Clarify decision/ }).click();
     assert.deepEqual(await offeredMachines(page), ["Server"]);
@@ -148,7 +147,7 @@ test("the browser offers only the server for new runs, the run panel in VS Code 
   });
 });
 
-test("Start in the browser shows the tiles of Start in VS Code and starts like there", browserOnly, async () => {
+test("Runs in the browser and VS Code shows the same tiles and starts the same way", browserOnly, async () => {
   await withPage("view=web", 1280, async (page) => {
     let start = await openStart(page);
     const tiles = await start.getByRole("list", { name: "Templates" }).getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("data-tile")));
@@ -176,7 +175,7 @@ test("Start in the browser shows the tiles of Start in VS Code and starts like t
 });
 
 for (const [query, width] of [["view=web", 1280], ["view=panel&host=vscode", 520]] as const) {
-  test(`a guided skill opens only its guide over Start and then its preparation chat in the same dialog (${query})`, browserOnly, async () => {
+  test(`a guided skill opens only its guide over home and then its preparation chat in the same dialog (${query})`, browserOnly, async () => {
     await withPage(query, width, async (page) => {
       const templates = page.getByRole("list", { name: "Templates", exact: true });
       const dialog = page.getByRole("dialog");
@@ -202,7 +201,7 @@ for (const [query, width] of [["view=web", 1280], ["view=panel&host=vscode", 520
   });
 }
 
-test("Start marks the clicked template as starting until its next state", browserOnly, async () => {
+test("home marks the clicked template as starting until its next state", browserOnly, async () => {
   await withPage("view=start", 1280, async (page) => {
     const templates = page.getByRole("list", { name: "Templates", exact: true });
     const tile = (title: string) => templates.locator(`button[data-tile="${title}"]`);
@@ -231,7 +230,7 @@ test("Start marks the clicked template as starting until its next state", browse
   });
 });
 
-test("compact Start cards keep top-right actions visible and highlight hover and keyboard focus in both themes and hosts", browserOnly, async () => {
+test("compact home cards keep top-right actions visible and highlight hover and keyboard focus in both themes and hosts", browserOnly, async () => {
   const shots = join(tmpdir(), "ragents-browser-shots");
   await mkdir(shots, { recursive: true });
   for (const view of ["web", "start"] as const) {
@@ -258,7 +257,7 @@ test("compact Start cards keep top-right actions visible and highlight hover and
           assert.doesNotMatch(card.text ?? "", /No template|Mini-apps|\bDiscuss\b|Moderation|Run scripts|Set up|Start/);
           assert.ok(Math.abs(card.icon.top - card.title.top) < 1 && card.icon.left >= card.title.right, "action sits to the right of the title");
           assert.ok(card.description.top >= card.title.bottom, "description is below the title row");
-          assert.equal(card.clamp, "1", "the narrow New widget lists compact rows with one line of description");
+          assert.equal(card.clamp, "1", "the narrow start panel lists compact rows with one line of description");
           assert.ok(card.height < 72, `compact row: ${card.height}px`);
           assert.notEqual(card.shadow, "none", "a resting tile lifts off the backdrop with the card shadow");
         }
@@ -287,7 +286,7 @@ test("compact Start cards keep top-right actions visible and highlight hover and
   }
 });
 
-test("a template clicked on VS Code Start asks the host and retains its workstation folder", browserOnly, async () => {
+test("a template clicked from the VS Code home asks the host and retains its workstation folder", browserOnly, async () => {
   await withPage("view=panel&host=vscode", 520, async (page) => {
     const templates = page.getByRole("list", { name: "Templates", exact: true });
     await templates.waitFor();
@@ -382,94 +381,48 @@ for (const host of ["browser", "vscode"] as const) {
           assert.ok(Math.abs(metrics.gap - metrics.expected) < 1, JSON.stringify(metrics));
           assert.equal(metrics.overflow, false);
         };
-        assert.equal(await page.locator('[data-dashboard="tabs"]').count(), width < 700 ? 1 : 0);
         await checkBottom();
-        await recentRuns(page);
-        await page.getByRole("button", { name: /All .* runs/ }).click();
         await page.getByRole("searchbox", { name: "Search runs" }).waitFor();
-        await checkBottom();
       });
     });
   }
 }
 
 for (const view of ["web", "start"] as const) {
-  for (const width of [220, 380, 900, 1600, 2600, 6000]) {
-    test(`panel content stays bounded at ${width}px (${view})`, browserOnly, async (context) => {
+  for (const width of [220, 400, 900, 1600, 2600, 6000]) {
+    test(`fixed home stays bounded and stacks at ${width}px (${view})`, browserOnly, async () => {
       await withPage(`view=${view}`, width, async (page) => {
         await openStart(page);
-        const shots = join(tmpdir(), "ragents-browser-shots");
-        await mkdir(shots, { recursive: true });
-        const measure = () => page.evaluate(() => {
-          const main = document.querySelector("main")!;
-          const grid = main.querySelector<HTMLElement>('ul[aria-label="Templates"]');
-          const list = main.querySelector<HTMLElement>('ul[aria-label="Recent"], ul[aria-label="Runs"]')!;
-          const search = main.querySelector<HTMLInputElement>('input[aria-label="Search runs"]');
-          const rect = (main.querySelector<HTMLElement>("[data-dashboard]") ?? list.parentElement!).getBoundingClientRect();
-          const sections = [...main.querySelectorAll("[data-start-widget]:not([hidden]) > section")].map((section) => ({
-            box: section.getBoundingClientRect(), heading: section.children[0]!.getBoundingClientRect(), content: section.children[1]!.getBoundingClientRect(),
-          }));
-          const [first, second] = sections;
+        await runsList(page);
+        const metrics = await page.locator('main[data-page="runs"]').evaluate((main) => {
+          const content = main.firstElementChild!.getBoundingClientRect();
+          const create = main.querySelector<HTMLElement>('section[aria-label="New run"]')!.getBoundingClientRect();
+          const runs = main.querySelector<HTMLElement>('section[aria-label="Run list"]')!.getBoundingClientRect();
+          const grid = main.querySelector<HTMLElement>('ul[aria-label="Templates"]')!;
+          const search = main.querySelector<HTMLInputElement>('input[aria-label="Search runs"]')!.getBoundingClientRect();
           return {
-            top: main.querySelector(":scope > div > div > :first-child")!.getBoundingClientRect().top - main.getBoundingClientRect().top,
-            headingGap: first ? first.content.top - first.heading.bottom : undefined,
-            sectionGap: first && second ? Math.abs(second.box.top - first.box.top) < 1 ? second.box.left - first.box.right : second.box.top - first.box.bottom : undefined,
-            tabs: main.querySelector('[data-dashboard="tabs"]') !== null,
-            back: main.querySelector('button[aria-label="Back to Start"]') !== null,
-            left: rect.left, width: rect.width, hostWidth: main.clientWidth, hostLeft: main.getBoundingClientRect().left,
-            gridWidth: grid?.getBoundingClientRect().width,
-            widgetWidth: grid?.closest("[data-start-widget-body]")?.getBoundingClientRect().width,
-            columns: grid ? getComputedStyle(grid).gridTemplateColumns.split(" ").length : undefined,
-            searchWidth: search?.getBoundingClientRect().width,
-            rows: [...list.children].map((row) => row.getBoundingClientRect().width),
-            cards: grid ? [...grid.children].map((card) => ({ width: card.getBoundingClientRect().width, top: card.getBoundingClientRect().top })) : [],
+            width: content.width, left: content.left, hostWidth: main.clientWidth, hostLeft: main.getBoundingClientRect().left,
+            create: { left: create.left, right: create.right, top: create.top, bottom: create.bottom },
+            runs: { left: runs.left, top: runs.top, width: runs.width },
+            searchWidth: search.width, gridWidth: grid.getBoundingClientRect().width,
+            tileWidths: [...grid.children].map((tile) => tile.getBoundingClientRect().width),
             overflow: main.scrollWidth > main.clientWidth || document.documentElement.scrollWidth > innerWidth,
           };
         });
-        const checkColumn = (metrics: Awaited<ReturnType<typeof measure>>, bounded: boolean) => {
-          assert.ok(metrics.width > 0 && (bounded ? metrics.width <= 1280 : metrics.width >= metrics.hostWidth - 96), JSON.stringify(metrics));
-          assert.ok(Math.abs(metrics.left - metrics.hostLeft - (metrics.hostWidth - metrics.width) / 2) < 2, "content is centered in its host");
-          assert.ok(metrics.rows.every((row) => row <= metrics.width + 1));
-          assert.equal(metrics.overflow, false, JSON.stringify(metrics));
-        };
-        const start = await measure();
-        await page.screenshot({ path: join(shots, `panel-${view}-start-${width}.png`) });
-        checkColumn(start, false);
-        assert.equal(await page.getByRole("list", { name: "Server", exact: true }).count(), 0);
-        assert.equal(start.tabs, width < 700, "a narrow Start shows its widgets as tabs");
-        assert.ok(Math.abs(start.gridWidth! - start.widgetWidth!) < 1, "the templates fill their widget");
-        const compact = start.widgetWidth! < 448;
-        assert.equal(start.columns, compact ? 1 : Math.floor((start.widgetWidth! + 8) / 248));
-        assert.equal(start.cards.filter((card) => card.top === start.cards[0]!.top).length, Math.min(start.columns!, start.cards.length), "cards occupy each column");
-        assert.ok(start.cards.every((card) => compact || start.columns === 1 ? Math.abs(card.width - start.gridWidth!) < 1 : card.width <= 320 && card.width >= 240), "narrow widgets list compact rows, a single column fills its widget");
-        assert.equal(start.back, false, "Start has no back arrow");
-        if (!start.tabs) {
-          assert.ok(start.headingGap! >= 8, `a heading stands apart from its content: ${JSON.stringify(start)}`);
-          assert.ok(start.sectionGap! >= 2 * start.headingGap!, `widgets are set apart more than a heading from its content: ${JSON.stringify(start)}`);
+        assert.ok(metrics.width > 0 && metrics.width <= 1280, JSON.stringify(metrics));
+        assert.ok(Math.abs(metrics.left - metrics.hostLeft - (metrics.hostWidth - metrics.width) / 2) < 2);
+        assert.equal(metrics.overflow, false, JSON.stringify(metrics));
+        assert.ok(metrics.tileWidths.every((tile) => tile <= metrics.gridWidth + 1));
+        assert.ok(metrics.searchWidth > 0 && metrics.searchWidth <= metrics.runs.width);
+        if (metrics.width < 960) {
+          assert.ok(metrics.runs.top >= metrics.create.bottom, "the run list follows New run on narrow screens");
+          assert.ok(Math.abs(metrics.runs.left - metrics.create.left) < 1);
+        } else {
+          assert.ok(metrics.runs.left >= metrics.create.right, "the run list sits beside New run on wide screens");
         }
-        if (width === 2600) {
-          await page.evaluate(() => { document.getElementById("root")!.style.width = "220px"; });
-          await page.locator('[data-dashboard="tabs"]').waitFor();
-          const narrow = await measure();
-          assert.equal(narrow.columns, 1, "container width controls the grid, even in a wide window");
-          assert.equal(narrow.tabs, true, "and the dashboard turns into tabs");
-          assert.equal(narrow.overflow, false);
-          await page.evaluate(() => { document.getElementById("root")!.style.width = ""; });
-          await page.locator('[data-dashboard="grid"]').waitFor();
-        }
-        await recentRuns(page);
-        await page.getByRole("button", { name: /All .* runs/ }).click();
-        await page.getByRole("searchbox", { name: "Search runs" }).waitFor();
-        const runs = await measure();
-        await page.screenshot({ path: join(shots, `panel-${view}-runs-${width}.png`) });
-        checkColumn(runs, true);
-        assert.ok(runs.searchWidth! > 0 && runs.searchWidth! <= runs.width, "search stays within the bounded column of the rows");
-        assert.ok(runs.width <= start.width, "Runs keeps its bounded column inside the full-width Start");
-        assert.ok(Math.abs(runs.top - start.top) < 1, `Runs begins at the height of Start: ${runs.top} and ${start.top}`);
-        assert.equal(runs.back, true, "Runs leads back to Start next to its title, also below the browser's logo");
-        await page.locator("main").getByRole("button", { name: "Back to Start", exact: true }).click();
-        await page.getByRole("list", { name: "Recent", exact: true }).waitFor();
-        context.diagnostic(`Screenshots: ${shots}`);
+        assert.equal(await page.getByRole("button", { name: "Edit Start", exact: true }).count(), 0);
+        assert.equal(await page.getByRole("button", { name: "Add widget", exact: true }).count(), 0);
+        assert.equal(await page.locator('[data-resize-handle]').count(), 0);
       });
     });
   }
@@ -510,7 +463,7 @@ for (const host of ["browser", "vscode"] as const) {
         await page.keyboard.press("Escape");
         await history.waitFor({ state: "hidden" });
         if (host === "browser") {
-          await (await recentRuns(page)).getByRole("button").first().click();
+          await (await runsList(page)).getByRole("button").first().click();
         } else {
           await page.evaluate(() => window.startPageFixture.command({ type: "selectRun", runId: "existing" }));
         }
@@ -552,11 +505,11 @@ for (const host of ["browser", "vscode"] as const) {
       const shots = join(tmpdir(), "ragents-browser-shots");
       await mkdir(shots, { recursive: true });
       await page.screenshot({ path: join(shots, `header-${host}-start.png`) });
-      const logo = header.getByRole("button", { name: "Back to Start", exact: true });
-      assert.equal(await logo.count(), 1, "the logo is the way back to Start");
-      assert.equal(await page.getByPlaceholder("Ask the global coordinator").count(), 1, "Start has no second coordinator chat");
+      const logo = header.getByRole("button", { name: "Home", exact: true });
+      assert.equal(await logo.count(), 1, "the logo is the way back home");
+      assert.equal(await page.getByPlaceholder("Ask the global coordinator").count(), 1, "home has no second coordinator chat");
       if (host === "browser") {
-        await page.getByRole("list", { name: "Recent", exact: true }).getByRole("button").first().click();
+        await page.getByRole("list", { name: "Runs", exact: true }).getByRole("button").first().click();
       } else {
         await page.evaluate(() => window.startPageFixture.command({ type: "selectRun", runId: "existing" }));
       }
@@ -641,13 +594,12 @@ for (const host of ["browser", "vscode"] as const) {
       await page.keyboard.press("Enter");
       const templates = page.getByRole("list", { name: "Templates", exact: true });
       await templates.waitFor();
-      assert.equal(await header.getByRole("button", { name: "Stop run", exact: true }).count(), 0, "The logo leads back to this server's Start page.");
+      assert.equal(await header.getByRole("button", { name: "Stop run", exact: true }).count(), 0, "The logo leads back to this server's home.");
       if (host === "vscode") {
         assert.ok((await page.evaluate(() => window.startPageFixture.notifications)).some((message) => message.type === "showStart"));
       }
-      await page.getByRole("button", { name: /All .* runs/ }).click();
+      await header.getByRole("button", { name: "Runs", exact: true }).click();
       await page.getByRole("heading", { name: "Runs", exact: true }).waitFor();
-      if (host === "vscode") assert.ok((await page.evaluate(() => window.startPageFixture.notifications)).some((message) => message.type === "pageChanged" && message.page === "runs"));
       const runs = page.getByRole("list", { name: "Runs", exact: true });
       assert.equal(await runs.getByRole("listitem").count(), 1);
       assert.equal(await runs.getByRole("button").filter({ hasText: "Existing run" }).count(), 1);
@@ -658,9 +610,8 @@ for (const host of ["browser", "vscode"] as const) {
       assert.equal(await draft.inputValue(), "Unsent coordinator draft");
       await page.keyboard.press("Escape");
       await history.waitFor({ state: "hidden" });
-      await page.locator("main").getByRole("button", { name: "Back to Start", exact: true }).click();
+      await logo.click();
       await templates.waitFor();
-      if (host === "vscode") assert.ok((await page.evaluate(() => window.startPageFixture.notifications)).some((message) => message.type === "pageChanged" && message.page === "start"));
       await templates.locator('button[data-tile="Clarify decision"]').click();
       await page.getByRole("button", { name: "Cancel guide", exact: true }).click();
       await templates.waitFor();
@@ -672,20 +623,23 @@ for (const host of ["browser", "vscode"] as const) {
   });
 }
 
-test("returning from a run shows the same Start with its scroll position", browserOnly, async () => {
+test("returning from a run shows the same home with its scroll position", browserOnly, async () => {
   await withPage("view=web&host=browser", 1280, async (page) => {
     await page.setViewportSize({ width: 1280, height: 360 });
-    const start = page.locator('main[data-page="start"]');
+    const start = page.locator('main[data-page="runs"]');
     await start.getByRole("list", { name: "Templates", exact: true }).waitFor();
-    const scrolled = await start.evaluate((element) => { element.scrollTop = element.scrollHeight; return element.scrollTop; });
-    assert.ok(scrolled > 0, "the narrow window lets Start scroll");
+    await start.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+    const run = page.getByRole("list", { name: "Runs", exact: true }).getByRole("button").first();
+    await run.scrollIntoViewIfNeeded();
+    const scrolled = await start.evaluate((element) => element.scrollTop);
+    assert.ok(scrolled > 0, "the narrow window lets home scroll");
     const original = await start.elementHandle();
-    await page.getByRole("list", { name: "Recent", exact: true }).getByRole("button").first().click();
+    await run.click();
     await start.waitFor({ state: "hidden" });
-    await page.locator("header").getByRole("button", { name: "Back to Start", exact: true }).click();
+    await page.locator("header").getByRole("button", { name: "Home", exact: true }).click();
     await start.waitFor();
-    assert.equal(await start.evaluate((element, before) => element === before, original), true, "Start stays mounted behind the run");
-    assert.equal(await start.evaluate((element) => element.scrollTop), scrolled, "Start keeps its scroll position");
+    assert.equal(await start.evaluate((element, before) => element === before, original), true, "home stays mounted behind the run");
+    assert.equal(await start.evaluate((element) => element.scrollTop), scrolled, "home keeps its scroll position");
   });
 });
 

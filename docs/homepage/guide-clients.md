@@ -70,7 +70,7 @@ A row of tabs that does not fit its width never cuts a tab off or wraps it into 
 The active tab and the tabs before it stay; the rest move into "More tabs" (...) at the end of the
 row. Its menu lists exactly the hidden tabs; choosing one shows it and puts its tab at the end of the
 row. Use the arrow keys between the visible tabs, Tab to reach "More tabs", and Enter, the arrow keys,
-and Escape in its menu. Start's widgets in a narrow panel, the two Runs tabs, the Settings areas, and
+and Escape in its menu. The two Runs tabs, the Settings areas, and
 the views of an inspected actor work this way.
 
 Toolbar filters with up to five values show their choices as multiple-selection segments.
@@ -106,7 +106,8 @@ visible. If the browser blocks storage access, the list still shows its initial 
 
 The run panel is also available in the browser. `http://localhost:4710/run-panel.html?run=<id>`
 shows chat with an addressee selector, mini-app tabs, and the inspection bar on the right.
-Without `run`, it shows the shared Start page. `run-panel.html?page=<id>` opens a page that a plugin adds.
+Without `run` or `page`, it opens the home. `run-panel.html?page=runs` opens the fixed Runs view;
+`run-panel.html?page=<id>` opens a page that a plugin adds.
 `run-panel.html?layout=app&run=<id>&element=<app-id>` shows one mini-app without the tab bar.
 The browser docking layout and addressee are stored per run in the browser. Starting or opening
 a run focuses its visible chat input once it is ready, including a remembered chat partner.
@@ -131,7 +132,7 @@ to its button unless it has moved elsewhere.
 With write rights, the run header offers "Run script" right of the window buttons, behind a thin
 divider. Its dropdown lists the run scripts you may start, in two columns when there is room
 and one column in narrow panels.
-The scripts appear as the same compact cards as on the Start page with title, two lines of
+The scripts appear as the same compact cards as in Runs with title, two lines of
 description, and an always-visible play icon at the top right; hover or keyboard focus emphasizes
 the icon, and the whole card starts the script. Those you can start come first, the others
 follow greyed out with the reason when a script cannot
@@ -325,7 +326,7 @@ continues to pan the graph.
 
 
 The extension lives under `apps/vscode`. All configured **servers** can remain connected at the
-same time, while one selected **environment** supplies the visible Start page, Runs, templates,
+same time, while one selected **environment** supplies the visible home, Runs, templates,
 and plugin interface. A server in the `ragents.connections` setting is
 either a server (`name` and `url`; it connects automatically when activated and the panel asks
 for sign-in when needed) or a local profile (`name` and `profileFile`, the path to a
@@ -355,7 +356,7 @@ server entry. A local profile therefore needs no checkout. There is no setting f
 an extension started from a checkout (`scripts/start-vscode.sh`) uses that checkout instead of the
 package; its version and contribution states must match the server, or registration fails without
 fetching another host.
-The status bar shows the number of connected servers and opens the start page when clicked. See
+The status bar shows the number of connected servers and opens the home when clicked. See
 the root `README.md` for details.
 
 Install the extension from the Marketplace as `purestate.ragents-vscode` using "Extensions:
@@ -377,15 +378,13 @@ Window" and reopen the run panel. If `code` is not on `PATH`, it is available at
 needs no checkout; it fetches the host from `@schlenkr/ragents` when first required by a server
 or local profile.
 
-The extension shows Start, Runs, and the run panel from the selected server, plus its own "Server"
-configuration page. All appear in the RAgents panel of VS Code's secondary sidebar.
-Navigation and commands live in the view title
-bar, following VS Code conventions: Start (home), Runs (list), "Switch environment"
-(server-environment icon), Server (gear), "New run", and "Refresh". They remain available
-while the panel shows a run. Start has no separate page header; Runs and Server show their
-title next to a back arrow to Start, and the logo at the top left of the run panel ("Back to
-Start") also returns there. There is no Explorer tree in the activity bar. The view badge counts
-pending inputs in the selected environment, and Refresh refreshes that environment.
+The extension shows the selected server's home, Runs, plugin views, and run panel, plus its own
+"Server" configuration page. All appear in the RAgents panel of VS Code's secondary sidebar.
+Navigation and commands live in the view title bar: Home, Runs, "Switch environment"
+(server-environment icon), Server (gear), "New run", and "Refresh". They remain available while
+showing a run. Home and the logo open the resolved home; Runs always opens the fixed run view.
+Server keeps a back action to the home. There is no Explorer tree in the activity bar. The view
+badge counts pending inputs in the selected environment, and Refresh refreshes that environment.
 
 "Switch environment" opens VS Code's native Quick Pick for configured servers and local profiles.
 The title `RAgents: <name>` and the header pill showing the name identify the selection;
@@ -393,152 +392,62 @@ the pill's accessible name reads `Environment <name>`.
 The choice is remembered per workspace; reopening selects it again when still configured,
 otherwise the first configured environment. Switching changes the interface without stopping
 runs or disconnecting other servers or workstations. The selected server supplies its plugin
-header already on Start, including its global coordinator when installed. If that environment
+header already on the home, including its global coordinator when installed. If that environment
 needs sign-in, is starting, or cannot be reached, the local shell shows its status and the
 appropriate sign-in, connect, or retry action on a Server page showing only this environment.
 The gear opens connection and profile management for all configured environments.
 
-Start uses the full available width with wider side padding at desktop widths. Runs in both hosts and Server in
-VS Code share a centered content area up to 1280 pixels wide. The Runs search field and rows
-stay within this area, including on ultrawide displays. All panel pages leave 12 spacing units (`pb-12`,
-the page step, 45.12 px at a 16 px root) below their last content, including narrow
-Start tabs; this space scales with zoom. The outer header remains full width.
-All three pages begin their content at the same distance below the header, with more space at
-desktop widths, and on Start every
-widget stands 12 spacing units apart from its neighbors horizontally and vertically, including
-stacked regions in narrow tabs and the edit list. In both hosts, logo, global coordinator button, Settings, and Help share
-the header. The logo leads back to Start there, so the run header has no back arrow of its
-own; Runs keeps its back arrow ("Back to Start") next to its title in the browser as in VS Code. An open run places its layout actions in the run header, without a separate
-toolbar row. With an open run, the logo, global coordinator, run title, run controls, and
-settings share one header row whenever they fit, in both the browser and VS Code. Mini-app
-buttons use the remaining width between the fixed controls, then continue over the full width
-in further rows. VS Code opens them in editor tabs; the browser opens them in its
-workspace. Narrow panels can also wrap fixed controls.
+Runs in both hosts and Server in VS Code share a centered content area up to 1280 pixels wide.
+Plugin pages use the available width, with equal top and side insets. All panel pages leave 12
+spacing units (`pb-12`, the page step, 45.12 px at a 16 px root) below their last content; this space
+scales with zoom. The outer header remains full width. Logo, Runs, plugin views, global coordinator,
+Settings, and Help share the header. An open run places its layout actions in its own header,
+without a separate toolbar row. Mini-app buttons use the remaining width between fixed controls,
+then continue over the full width in further rows. VS Code opens mini-apps in editor tabs; the
+browser opens them in its workspace. Narrow panels also wrap fixed controls.
 
-A plugin can add pages to the application. Each page has a button with its icon and title next to the
-global coordinator button; the titles shorten when the header is narrow. A page replaces Start or
-the open run in the main area as plain content on the normal background, and the main area scrolls as a whole.
-The open page's button is highlighted. The logo returns to Start, and opening a run leaves the page. In the
-browser the address names the open page (`?page=<id>`), so a reload, a bookmark, and the browser's back and
-forward buttons keep it; back leads from a page to what it replaced, such as the run that was open. An
-address that names a page that does not exist or that you may not see shows Start with a notice.
+Runs is always the first view beside the logo. A plugin can add further views with an icon and
+title; the open entry is highlighted and long titles shorten in a narrow header. A plugin view
+replaces Runs or the open run as plain content on the normal background, and the main area scrolls
+as a whole. The logo opens the home; opening a run leaves the view. In the browser the address
+names Runs as `?page=runs` and a plugin view as `?page=<id>`, so reloading, bookmarking, back, and
+forward keep it. A page that does not exist or that you may not see shows the home with a notice.
+A run hidden behind a view keeps its input, layout, scroll position, and frames. Plugin pages
+mount only while open; a page that fails shows its cause and Retry while navigation stays usable.
 
-**Start** is a dashboard of widgets over the full width of the window: **New**, **Continue**, and those that plugins add,
-all of them widgets of the same kind. What fits
-depends on the width of Start itself, not of the window, so a narrow VS Code panel behaves like a
-narrow window. From 1100 pixels Start has six columns and every widget starts at its configured
-width, New two and Continue four. In the saved order, every widget takes the topmost free place
-where its width and content height fit, then the leftmost. Later widgets can fill room above a wider
-widget placed lower: with Continue three columns wide and a global app four columns wide below it,
-New two columns wide starts at columns four and five beside Continue. Empty widgets take no room. From
-700 pixels Start has three columns and every widget starts at half its configured columns, rounded up,
-so New and Continue still share a row. After placing the widgets, Start grows them to the right into
-free columns, top to bottom and left to right, up to each widget's maximum width. The added space
-must be free for the widget's full content height. For example, with New set to three columns,
-Continue to two beside it, and a three-column plugin widget below New, Continue grows to three
-columns and fills the sixth column. Your configured width stays the minimum; this growth changes
-only the width shown, never the saved layout. When a widget's content grows, the widgets below it
-move down with it. Tabs and one-column layouts keep their behavior. Below 700 pixels Start shows one widget at a time with tabs at the top;
-the chosen tab is remembered for this server address. A plugin widget without a title follows
-below the tabs, and a widget with nothing to show has neither a place nor a tab.
+**Runs** combines **New run** and the full run list in a fixed view, without an edit mode. From
+960 pixels of panel width they stand side by side; narrower panels stack them. New run is absent
+when the selected server permits no new runs. Its first entry is the default template, marked
+"Default", or "New chat". Remaining templates follow without duplicating the default. Each flat
+card has a title, two description lines, and an always-visible action icon: plus for "New chat",
+play for a direct start, sliders for "Set up". The entire card performs that action. Cards adapt
+to their own width and become compact full-width rows in a narrow panel. Skill and script templates
+share the same appearance. No dialog contains template tiles.
 
-Arrange Start in its edit mode. The pencil "Edit Start" in the top bar beside Appearance, Settings,
-and Help switches to it, also in a narrow panel; "Editing Start" above the widgets shows the mode until
-"Done" saves the layout. "Cancel" or Escape discards every change. While you edit, every widget
-gets a dashed frame and its content rests: drag a widget by the handle before its title onto another
-widget, before it on its left half and after it on its right half (on the upper or lower half of a widget
-across the whole width), or below all widgets to move it to the end; the other widgets slide out of the
-way as you drag, without sliding when your system reduces motion; drag its right edge, anywhere along it, to
-change its width: the columns of Start appear as guides, a label at the pointer shows the width
-("4 of 6 columns"), and the width snaps to each column between the narrowest and widest the widget
-allows, while the other widgets reflow; Escape during the drag puts the width back. The title row
-shows the grown width, such as "2 of 6". Dragging the edge and resizing with the keyboard start
-from that shown width; a drag that reaches no other column keeps your configured width.
-"x" removes the widget from Start. "Add widget" below the widgets opens a gallery of every widget
-that is not on Start, each with a short description and its width; choosing one adds it at the end
-in its usual width. "Reset layout" goes back to the order, widths, and settings Start comes with. With the
-keyboard, focus a widget's handle: the arrow keys move it, Shift with Left or Right makes it one
-column narrower or wider, and Delete removes it; a screen reader hears every change. In a narrow panel the edit mode
-lists the widgets as rows with a handle, up and down buttons, and "x"; widths are chosen on a wider
-Start. At medium widths the edge and the keys move by the three columns shown, and the tabs of a
-narrow panel follow your order. A layout saved before widgets had settings is not taken over; Start
-shows its usual layout until you save a new one.
+Clicking a template starts the run on its server and opens the run panel. Until the run opens,
+the entry shows "Starting ..." with a spinner and the other entries stay locked. Cancelling a
+folder choice or a guide, or a failed start, releases them and leaves Runs available.
+In VS Code a new run works in an open folder of the window, asking you to choose when several
+are open. A template that fixes its workspace keeps that choice. Without an open folder, VS Code
+asks you to open one and starts no run. During workstation registration, the run waits and a
+notification shows the current step. A refused registration leaves an error message and a notice
+such as "Workstation not registered:" followed by the reason. A folder refused when the run opens
+shows "The run cannot start as prepared:" in chat and sends no message.
 
-Some widgets can be configured. In edit mode they have a gear, "Configure", before "x" in their title
-row, also in a narrow panel's list. It opens a small dialog with the widget's settings, such as
-"Number of runs" for Continue (15 by default, from 3 to 100) and "Show descriptions" for New. A value
-the setting does not allow is named below its field, for example "This value is above the maximum
-100.", and "Apply" then keeps the dialog open. "Apply" shows the change on the widget at once, "Done"
-saves it with your layout, and "Cancel" discards it together with the other changes; "Cancel" or
-Escape in the dialog closes only the dialog. Configure exists only in edit mode, so Start changes in
-one place. If a saved value no longer fits a widget, for example after a plugin narrowed a range, the
-widget says so in a line above its content, such as "Number of runs: the saved value 500 is above the
-maximum 100, so the default 15 applies.", and uses the default until you configure it again.
+Until content appears, the panel shows startup progress. A startup or setup error stays in the
+same place while chat remains usable; an empty chat without a template has no loading state. If a
+run cannot be started, the panel explains why and offers "Back to home". New and existing runs focus the
+visible chat input when it becomes writable, including a remembered chat partner.
 
-Start keeps the layout and the widgets' settings on the server for your user, so the browser and VS
-Code show the same arrangement; without sign-in there is one layout for the server. The chosen tab of a narrow panel
-stays with this browser or VS Code panel. A widget added to the server later appears at its usual
-place, and a widget you removed stays removed, also after it was unavailable for a while. A widget
-that a plugin delivers only after Start opened, such as a global mini-app, takes its saved place and
-width, also when it arrives while you edit, and a widget that cannot load shows why in its own place.
-
-Each widget arranges its content for its own width. Template cards stand in several columns when
-the widget is wide enough, between 240 and 320 pixels wide; in a widget narrower than about 450
-pixels they become compact rows across its width with one line of description, as in the New
-widget beside Continue.
-It has no server block. **New** comes first; it stays empty, and so out of sight, when the selected
-server does not permit you new runs. With "Show descriptions" off, every card shows only its title. The first
-entry is its default template, marked "Default" in the title row, or "New chat". Remaining
-templates follow without duplicating the default. Each flat card shows a title and two lines
-of description, with an always-visible action icon at the top right: plus for "New chat",
-play for a direct start, and sliders for "Set up". Hover or keyboard focus emphasizes the icon.
-The whole card is clickable, with accessible name "New chat", `Start <title>`, or
-`Set up <title>`. There is no category row or bottom action bar, and skill and script templates
-share the same card appearance. Clicking an entry creates and starts the run on its server
-and opens the run panel. Until the run opens, the entry shows "Starting ..." with a
-spinner in the icon position and all other entries stay locked; a cancelled folder choice
-or a failed start unlocks them again. Cancelling a template's guide returns to the same server's Start page.
-
-The new run always works in an open folder of the window, asking you to choose when several are
-open. If the template defines its own workspace, such as one server folder per run, VS Code does
-not ask. Without an open folder, VS Code does not start the run and asks you to open one first.
-While the window is still registering as a workstation with the server, the run waits and a
-notification shows the current step. If the server does not accept the workstation, the run does
-not start either; an error message and Start name the cause, such as "Workstation not registered:"
-followed by the server's reason. If the server refuses the folder when the run opens, the chat
-shows "The run cannot start as prepared:" with the cause and does not send, and a template does
-not open its setup dialog. Go back to Start and try again.
-
-Until content appears, the panel shows a progress bar and the current step: starting,
-loading, preparing, or setting up. A startup or setup error appears in the same place while the
-chat input remains usable. The loading state disappears with the first mini-app or chat item; an
-empty chat without a template does not show it. If a run cannot be started, for example because
-the user may not create runs, the panel explains why and offers "Back to Start".
-For a new run, the visible chat input receives focus as
-soon as it becomes writable. Opening an existing run does the same for its selected chat partner.
-
-**Continue** follows with this server's most recent runs, fifteen unless you configured another
-number, in a fixed-column grid with status, title, and right-aligned time. Rows are
-the same as in the browser: below the title the owner and short details such as the workspace,
-the whole row is clickable, and a dot in the status icon marks activity you have not viewed in
-any host yet. Shared runs carry their sharing icon next to the title, and runs you may share
-end with "Share ..." (see [Share runs](#share-runs)). In a list narrower than 360 pixels the line
-with owner and details is left out, below 280 pixels also the time; this applies on Runs too.
-"All N runs" below the list opens this server's Runs page.
-The trash button ("Delete run ...") beside a run on Start and Runs opens its deletion
-confirmation. Runs shared with you have no delete button.
-Plugin widgets follow Continue when installed, for example a list of work documents from all
-runs you can see, with the same title row as New and Continue. Clicking such an entry can open its
-run. Empty widgets show no heading or gap. If a widget fails, it shows its error and "Retry" in its
-own place, and the rest of Start keeps working.
-
-**Runs**, "All runs", shows this server's complete list in the same card, with search, "Hide ended", and a
-selection mode that deletes several runs after a dialog confirmation. Checkboxes occupy an
-additional first column; row actions disappear during selection. A run the
-server has locked, for example because its journal uses an older format, shows a warning icon
-whose accessible name identifies the cause; it does not open, but the selection mode deletes it.
-"Shared by me" shows your outgoing shares, recipient access, and direct revocation; the same
-tabs and actions are available in the browser.
+**All runs** lists every visible run, with search, "Hide ended", and selection for deleting several
+runs after confirmation. Search and actions stay visible at the top of the list while it scrolls
+and wrap within narrow panels. Rows share status, title, time, owner, workspace details, read marker,
+and sharing actions in both hosts. Below 360 pixels of list width, owner and detail lines hide;
+below 280 pixels, time hides as well. Each deletable run also has "Delete run ..." with its own
+confirmation. Locked runs show their cause and stay selectable for deletion. A run shared with you
+has no delete button. Selection adds checkboxes and hides row actions. "Shared by me" lists your
+outgoing shares and recipients with View or Operate access and offers direct revocation. These
+controls are the same in the browser and VS Code.
 
 **Server** is the configuration page. You can add, edit, sign in, sign out, connect,
 disconnect, and remove servers with confirmation, then open `settings.json` from the link
@@ -615,8 +524,8 @@ In a regular browser, native keyboard and clipboard behavior remains in use.
 
 To make RAgents smaller or larger independently of VS Code's window zoom, set `ragents.zoom`
 in VS Code Settings. The value is a percentage from 50 to 200, with 100 as the default;
-for example, `"ragents.zoom": 90` makes the whole interface 10% smaller. It applies to Start,
-Runs, Server, the run panel, and mini-app editor tabs, including nested mini-apps. Changes take
+for example, `"ragents.zoom": 90` makes the whole interface 10% smaller. It applies to the home,
+Runs, plugin pages, Server, the run panel, and mini-app editor tabs, including nested mini-apps. Changes take
 effect immediately without reloading the page or losing input drafts. Regular browser pages
 are unaffected. This scales text, controls, and spacing together; it is independent of
 `editor.fontSize` and the built-in chat font settings.
@@ -634,7 +543,7 @@ After expiry or a server restart, that server asks for sign-in again without aff
 ## Share runs
 
 With sign-in, the owner of a run and users with `runs.read.all` can share it with other users of
-the same profile. Click "Share ..." at the end of its row on Start or Runs, or "Share" in the run
+the same profile. Click "Share ..." at the end of its row in Runs, or "Share" in the run
 header. A new empty run offers "Share" before its first message; the choice applies as soon as the
 run is created. The "Share run" dropdown opens below the header or the row's share action and
 uses the same panel and content in both places. It names the run and shows a list: "Everyone"
@@ -663,7 +572,7 @@ you for viewing only", and "Stop run", "Run script", answers to questions, and a
 missing. "Operate" works in the run within your own permissions, and the header shows "Shared".
 In someone else's run that only its owner operates, the chat input says "Only its owner operates
 this run"; "Stop run" and the stop button in the chat input stay. A run shared with you is never deleted by you. If a share is taken
-back while you have the run open, the panel returns to Start and shows "This run is no longer
+back while you have the run open, the panel returns to the home and shows "This run is no longer
 available to you."
 
 ## Connect an editor over ACP

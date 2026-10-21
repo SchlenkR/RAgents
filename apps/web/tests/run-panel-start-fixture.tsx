@@ -4,7 +4,7 @@ import { createAccessContext } from "../../../packages/ragents/src/access";
 import { OrchestrationRunPanel } from "../../../plugins/ragents.orchestration/web/run-panel/RunPanel";
 import { AccessContext } from "../src/AccessContext";
 import type { PluginActivationState } from "../src/PluginActivation";
-import { PluginRegistry, type SurfaceElementDefinition, type EntryGuideContext, type StartWidgetProps, type WebPlugin } from "../src/PluginRegistry";
+import { PluginRegistry, type SurfaceElementDefinition, type EntryGuideContext, type PageContext, type WebPlugin } from "../src/PluginRegistry";
 import type { ListedSession } from "../src/api";
 import { Button, DetailRow } from "../src/ui";
 import type { RunSharing, RunSharingResult } from "../src/run-sharing";
@@ -41,8 +41,8 @@ function TopicGuide({ onCancel, onComplete }: EntryGuideContext) {
     <button onClick={onCancel} type="button">Cancel guide</button>
   </div>;
 }
-function WorkDocuments({ runs, onOpenRun }: StartWidgetProps) {
-  const documents = runs.flatMap((run) => {
+function WorkDocuments({ onOpenRun }: PageContext) {
+  const documents = fixture.runs.flatMap((run) => {
     const titles = run.metadata?.["start.documents"];
     if (titles === undefined) return [];
     if (!Array.isArray(titles) || !titles.every((title) => typeof title === "string")) throw new Error("Invalid work document metadata.");
@@ -57,7 +57,7 @@ function WorkDocuments({ runs, onOpenRun }: StartWidgetProps) {
   </section>;
 }
 const documentPlugin: WebPlugin = {
-  id: "start.documents", startWidgets: [{ id: "start.documents", order: 100, render: (props) => <WorkDocuments {...props} /> }],
+  id: "start.documents", pages: [{ id: "start.documents", order: 100, title: "Documents", Icon: FileTextIcon, Page: WorkDocuments }],
 };
 const metadataTexts = {
   workspace: "/home/user/project/packages/an-example-package-with-a-long-name/src/features/shared-header-panels/complete-session-metadata.ts",
@@ -82,13 +82,17 @@ const growingHeaderPlugin: WebPlugin = {
 const pagesPlugin: WebPlugin = {
   id: "start.pages",
   pages: [
-    { id: "start.reports", order: 10, title: "Reports", Icon: FileTextIcon, Page: ({ onOpenRun }) => <section aria-label="Reports content">
+    { id: "start.reports", order: 10, home: ["reports", "conflict"].includes(query.get("home") ?? ""), title: "Reports", Icon: FileTextIcon, Page: ({ onOpenRun }) => <section aria-label="Reports content">
       <h1>Reports</h1>
       <button onClick={() => onOpenRun("existing")} type="button">Open existing run</button>
       <div data-tall style={{ height: 2400 }} />
     </section> },
-    { id: "start.audit", order: 20, title: "Audit", readRight: "start.audit", Icon: ScrollTextIcon, Page: () => <h1>Audit trail</h1> },
+    { id: "start.audit", order: 20, home: ["audit", "conflict"].includes(query.get("home") ?? ""), title: "Audit", readRight: "start.audit", Icon: ScrollTextIcon, Page: () => <h1>Audit trail</h1> },
     { id: "start.broken", order: 30, title: "Broken", Icon: TriangleAlertIcon, Page: () => { throw new Error("The report data is damaged."); } },
+    ...(query.has("many-pages") ? Array.from({ length: 10 }, (_, index) => ({
+      id: `start.extra-${index + 1}`, order: 40 + index, title: `View ${index + 1}`, Icon: FileTextIcon,
+      Page: () => <h1>View {index + 1}</h1>,
+    })) : []),
   ],
 };
 const registry = new PluginRegistry({
@@ -98,7 +102,7 @@ const registry = new PluginRegistry({
     surface: { RunPanel: OrchestrationRunPanel },
     surfaceElements: [{ id: "start.app", order: 0, select: () => fixture.elements, Element: () => <p>Mini-app ready</p> }],
     guides: [{ id: "start.topic", Guide: TopicGuide }],
-  }, documentPlugin, ...(query.has("dropdowns") ? [dropdownPlugin] : []), ...(query.has("growing-header") ? [growingHeaderPlugin] : []), ...(query.has("pages") ? [pagesPlugin] : [])],
+  }, ...(query.has("documents") ? [documentPlugin] : []), ...(query.has("dropdowns") ? [dropdownPlugin] : []), ...(query.has("growing-header") ? [growingHeaderPlugin] : []), ...(query.has("pages") ? [pagesPlugin] : [])],
   startEntries: [
     { id: "start.script", owner: "start", title: "Setup template", description: "Builds a mini-app", action: "script", coordinator: false },
     { id: "start.other", owner: "start", title: "Second template", description: "Builds something else", action: "script", coordinator: false },
@@ -168,7 +172,6 @@ const fixture = {
     switch (contract.id) {
       case "ragents.runs.list": return fixture.runs;
       case "ragents.runs.markViewed": return null;
-      case "ragents.preferences.read": return null;
       case "ragents.startOptions.list": return query.has("dropdowns") ? [{ id: "start.dropdown.mode", owner: "start.dropdown", value: "careful", presentation: {}, selectable: false, locked: true, chosen: false }]
         : query.has("preset") ? [{ id: "start.machine", owner: "start", value: "server", presentation: {}, selectable: true, locked: false, chosen: false }]
           : query.has("models") ? [{ id: "ragents.model", owner: "start", value: { model: "fast" }, presentation: { kind: "model", provider: "demo", options: ["fast", "deep"], thinkingOptions: ["off"] }, selectable: true, locked: false, chosen: false }] : [];

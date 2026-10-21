@@ -45,7 +45,7 @@ const shoot=async(page:Page,path:string)=>{
 const preparePage=async(initial:unknown):Promise<string>=>{
   const scratch="/private/tmp/ragents-panel-pages";await mkdir(scratch,{recursive:true});const directory=await mkdtemp(`${scratch}/page-`);const root=fileURLToPath(new URL("../../../",import.meta.url));
   await build({stdin:{contents:`import React,{useState}from'react';import{createRoot}from'react-dom/client';import{PanelPage}from'${root}apps/web/src/panel/PanelPage.tsx';import'${root}apps/web/src/ui/tailwind.css';
-function App(){const[state,setState]=useState(window.fixture.initial);window.fixture={...window.fixture,setState};window.fixture.sent??=[];return <PanelPage preferences={{read:async()=>null,write:async()=>{}}} state={state} send={action=>window.fixture.sent.push(action)}/>};createRoot(document.getElementById('root')).render(<App/>);`,resolveDir:`${root}apps/web`,loader:"tsx"},jsx:"automatic",bundle:true,platform:"browser",format:"iife",outfile:`${directory}/app.js`,plugins:[tailwindPlugin([])],logLevel:"silent"});
+function App(){const[state,setState]=useState(window.fixture.initial);window.fixture={...window.fixture,setState};window.fixture.sent??=[];return <PanelPage state={state} send={action=>window.fixture.sent.push(action)}/>};createRoot(document.getElementById('root')).render(<App/>);`,resolveDir:`${root}apps/web`,loader:"tsx"},jsx:"automatic",bundle:true,platform:"browser",format:"iife",outfile:`${directory}/app.js`,plugins:[tailwindPlugin([])],logLevel:"silent"});
   await writeFile(`${directory}/index.html`,`<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><link rel="stylesheet" href="app.css"><script>window.fixture={initial:${JSON.stringify(initial)}};document.documentElement.dataset.theme=window.fixture.initial.theme</script></head><body><div id="root"></div><script src="app.js"></script></body></html>`);
   return `file://${directory}/index.html`;
 };
@@ -57,20 +57,20 @@ const sent=(page:Page)=>page.evaluate(()=>(window as any).fixture.sent.at(-1));
 const columnEdges=(page:Page,list:string,cell:string)=>page.evaluate(([label,name])=>
   new Set([...document.querySelectorAll(`ul[aria-label="${label}"] [data-cell="${name}"]`)].map((item)=>Math.round(item.getBoundingClientRect().left))).size,[list,cell]);
 
-test("Start shows only one server's recent runs and templates and sends each action to that server",{skip,timeout:120_000},async(context)=>{
+test("Home shows one server's runs and templates and sends each action to that server",{skip,timeout:120_000},async(context)=>{
   const url=await preparePage({theme:"dark",page:"start",profileSuggestions:[],connections:[workshop]});
   const browser=await launch();
   try{
     const page=await browser.newPage({viewport:{width:900,height:1100}});await page.goto(url);
-    await page.getByRole('heading',{name:'Continue'}).waitFor();
-    assert.deepEqual(await page.getByRole('heading',{level:2}).allTextContents(),['New','Continue'],'templates appear before recent runs');
-    assert.equal(await page.getByRole('heading',{level:1}).count(),0,'Start has no header of its own');
+    await page.getByRole('heading',{name:'Runs',exact:true}).waitFor();
+    assert.deepEqual(await page.getByRole('heading',{level:2}).allTextContents(),['New run']);
+    assert.equal(await page.getByRole('heading',{level:1,name:'Runs'}).count(),1);
     assert.equal(await page.getByRole('list',{name:'Server',exact:true}).count(),0);
     assert.equal(await page.getByRole('heading',{name:'Server',exact:true}).count(),0);
     assert.equal(await page.locator('[data-cell="route"], [data-cell="connection"]').count(),0);
-    assert.equal(await page.getByRole('button',{name:/^All 3 runs/}).count(),1);
+    assert.equal(await page.getByRole('list',{name:'Runs',exact:true}).getByRole('listitem').count(),3);
     assert.equal(await page.locator('button[aria-label="Editorial workshop: landing page"]').count(),1);
-    assert.equal(await columnEdges(page,'Recent','time'),1);
+    assert.equal(await columnEdges(page,'Runs','time'),1);
     assert.equal(await page.getByLabel('Search templates').count(),0);
     const templates=page.getByRole('list',{name:'Templates',exact:true});
     const tile=(title:string)=>templates.locator(`button[data-tile="${title}"]`);
@@ -90,14 +90,12 @@ test("Start shows only one server's recent runs and templates and sends each act
     await page.evaluate(()=>(window as any).fixture.setState((current:any)=>({...current})));
     await page.locator('button[aria-label="Balcony plan south side"]').click();
     assert.deepEqual(await sent(page),{action:'openRun',name:'workshop',runId:'run-b'});
-    await page.getByRole('button',{name:/^All 3 runs/}).click();
-    assert.deepEqual(await sent(page),{action:'page',page:'runs'});
 
     await page.getByRole('button',{name:'Delete Balcony plan south side',exact:true}).click();
     const deletion=page.getByRole('dialog',{name:'Delete one run?'});
     await deletion.getByText('The run "Balcony plan south side"',{exact:false}).waitFor();
     await deletion.getByRole('button',{name:'Cancel',exact:true}).click();
-    assert.deepEqual(await sent(page),{action:'page',page:'runs'},'cancel keeps the run');
+    assert.deepEqual(await sent(page),{action:'openRun',name:'workshop',runId:'run-b'},'cancel keeps the run');
     await page.getByRole('button',{name:'Delete Balcony plan south side',exact:true}).click();
     await deletion.getByRole('button',{name:'Delete',exact:true}).click();
     assert.deepEqual(await sent(page),{action:'deleteRuns',name:'workshop',runIds:['run-b']});
@@ -108,7 +106,7 @@ test("Start shows only one server's recent runs and templates and sends each act
     await setConnections(page,[{...core,defaultEntry:'ragents.reference.circle'}]);
     await page.locator('button[aria-label="Moderated round: good collaboration"]').waitFor();
     assert.equal(await page.locator('button[aria-label="Editorial workshop: landing page"]').count(),0,'replacing the server replaces its content');
-    assert.equal(await page.getByRole('button',{name:/^All 2 runs/}).count(),1);
+    assert.equal(await page.getByRole('list',{name:'Runs',exact:true}).getByRole('listitem').count(),2);
     assert.equal(await templates.locator(':scope > li > button').first().getAttribute('data-tile'),'Discussion circle');
     assert.equal(await tile('Discussion circle').getByText('Default').count(),1);
     assert.equal(await tile('Discussion circle').count(),1,'the default is shown once');
@@ -182,9 +180,9 @@ test("Runs searches, hides ended runs and deletes confirmed selections on the cu
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 
     await setPage(page,'start');
-    await page.getByRole('heading',{name:'Continue'}).waitFor();
+    await page.getByRole('heading',{name:'Runs',exact:true}).waitFor();
     await page.setViewportSize({width:420,height:1100});
-    assert.equal(await page.getByRole('button',{name:'Back to Start'}).count(),0);
+    assert.equal(await page.getByRole('button',{name:'Back to home'}).count(),0);
     context.diagnostic(`Screenshots: ${shots}`);
   }finally{await browser.close()}
 });
@@ -307,8 +305,7 @@ test("a long run title stays within the panel width and the page scrolls vertica
         scrollTop:main.scrollTop,
       };
     });
-    await page.getByRole('tab',{name:'Continue'}).click();
-    await page.getByRole('heading',{name:'Continue'}).waitFor();
+    await page.getByRole('heading',{name:'Runs',exact:true}).waitFor();
 
     const metrics={...templates,...await page.evaluate((title)=>{
       const span=[...document.querySelectorAll(`button[aria-label="${title}"] span`)].find((item)=>item.childElementCount===0&&item.textContent===title)!;
@@ -454,7 +451,7 @@ for(const width of [1400,360,320]){
       const row=await trigger.boundingBox();
       const bounds=await panel.boundingBox();
       assert.ok(row&&bounds);
-      assert.ok(Math.abs(bounds.y-row.y-row.height-8)<1,'sharing opens below its row button');
+      assert.ok(Math.abs(bounds.y-row.y-row.height-8)<1||Math.abs(bounds.y+bounds.height+8-row.y)<1,'sharing stays anchored to its row when available space flips it');
       assert.ok(bounds.x>=7&&bounds.x+bounds.width<=width-7,'the sharing dropdown stays in the viewport');
       const style=await panel.evaluate((element)=>{
         const computed=getComputedStyle(element);
@@ -509,11 +506,11 @@ for(const width of [1400,360,320]){
       assert.deepEqual(await sent(page),{action:'closeSharing'});
       await update(page,undefined);
       await panel.waitFor({state:'detached'});
-      await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='Back to Start').catch(async(error)=>{
+      await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='New chat').catch(async(error)=>{
         const focused=await page.evaluate(()=>({tag:document.activeElement?.tagName,id:document.activeElement?.id,label:document.activeElement?.getAttribute('aria-label')}));
         throw new Error(`The page's first control did not receive focus: ${JSON.stringify(focused)}.`,{cause:error});
       });
-      assert.equal(await page.getByRole('button',{name:'Back to Start',exact:true}).evaluate((element)=>element===document.activeElement),true,'a vanished row restores the page first control');
+      assert.equal(await page.getByRole('button',{name:'New chat',exact:true}).evaluate((element)=>element===document.activeElement),true,'a vanished row restores the page first control');
       assert.deepEqual(errors,[]);
     }finally{await browser.close()}
   });

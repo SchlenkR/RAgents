@@ -236,7 +236,7 @@ in the profile is a startup error that names the build command.
 The server-side `PluginHost` has registries for:
 
 - agent hooks (`host.agentRuntime`, section Agent hooks), skill paths, and audiences
-- templates (`host.startEntries`): everything a plugin puts on the Start page, in ONE
+- templates (`host.startEntries`): everything a plugin puts on the Runs view, in ONE
   contract with `id`, `title`, `description`, `order`, optional `listed` (defaults to true),
   optional `guide` (ID of a web guide),
   optional `tags` (unique search keywords), and the discriminator `action`: `skill` carries the
@@ -248,8 +248,8 @@ The server-side `PluginHost` has registries for:
   checks that every skill is registered, every package is complete, and every fixed start option
   is registered and its value satisfies its schema; the web checks that an active plugin provides
   the guide.
-  `listed: false` omits the template from user-facing catalogs, search, galleries, Start's "New"
-  widget, and run-script pickers in every client. The registry and permission-filtered bootstrap
+  `listed: false` omits the template from user-facing catalogs, search, galleries, the Runs view's "New run"
+  section, and run-script pickers in every client. The registry and permission-filtered bootstrap
   still include it for plugin lookup. Starting by ID uses the same permissions, validation,
   fixed start options, and lifecycle as a listed template; the flag grants no access.
   A product plugin additionally reads `SKILLS_DIR`, so local skills including templates can be
@@ -329,7 +329,7 @@ The server-side `PluginHost` has registries for:
   `ragents.runs.startScript` (run script, also from `pnpm driver`, `ragents run --entry`, and
   `ragents.overseer.createRun` with `script`; in a running run the stored value decides) and
   `ragents.chat.send` with `entry` (skill template, first message from the preparation chat or
-  the Start page). The core only knows "this template fixes this option to this value".
+  the Runs view). The core only knows "this template fixes this option to this value".
   Model and system prompt choice are the
   start options `ragents.model` and `ragents.system-prompt` of the product plugin
   (`plugin-support/product-start-options.ts`); the workspace is the start option
@@ -1161,8 +1161,8 @@ plugin on the old name and the host share the same context and module state. `ho
 `host-api.ts` maps the alias to its target; the type probe, the runtime names, the register source
 of the build, and `apps/server/tests/host-api.test.ts` resolve the target instead of the alias, and
 `apps/web/tsconfig.plugin.json` maps the types of `quassel` to the installed `@schlenkr/quassel`, so
-that a plugin on the old name still builds and type-checks. The alias is removed with the next
-`HOST_API_VERSION` jump (rule 5 below). A plugin author imports `@schlenkr/quassel` instead and rebuilds;
+that a plugin on the old name still builds and type-checks. Its removal is a separate cleanup with a
+`HOST_API_VERSION` jump; the home-view change keeps the alias within its scope limit. A plugin author imports `@schlenkr/quassel` instead and rebuilds;
 a bundle that names the new specifier needs a host that offers it, and an older host reports the missing
 module at startup through `hostNames`.
 
@@ -1185,10 +1185,11 @@ module at startup through `hostNames`.
    such as a model in the catalog; plugins only pass them through.
 4. From `@ragents/workspace-executor` only the names plugins need, as for every host
    module.
-5. An entry without users drops out at the next version jump, as does a name.
+5. Entries and names without users are removed with a version jump in the cleanup that owns them.
 
-**Version contract.** `HOST_API_VERSION` is 19 for typed run script parameters (`RunManagement`
-starts and `ActorStart` carry `parameters` instead of `input`). It increases with every incompatible change of a
+**Version contract.** `HOST_API_VERSION` is 20 for the fixed Runs home and plugin page contributions.
+Plugins built for earlier host APIs must rebuild; the former configurable home contributions and
+per-user arrangement store have no compatibility aliases. It increases with every incompatible change of a
 list entry, a listed name, or a fully allowed library, not with every
 package version; whatever else a host module exports changes without a new number. The manifest names it
 in `api`; the host requires equality and otherwise aborts with a cause and the command to rebuild;
@@ -1455,7 +1456,7 @@ Sign-in is a transport matter: HTTP with cookie, bearer, or `?access=` as before
 
 Core contracts: `ragents.chat.*`, `ragents.runs.*` (run list and read markers, run view, journal,
 queues, stop, and questions from the engine), `ragents.startOptions.*`,
-`ragents.runs.prepare`, `ragents.settings.*`, `ragents.preferences.*`, `ragents.plugins.bootstrap`,
+`ragents.runs.prepare`, `ragents.settings.*`, `ragents.plugins.bootstrap`,
 `ragents.external.set`, and the channels `ragents.runs`, `ragents.run`, and `ragents.chat`
 (`apps/server/src/api/contracts.ts`, `packages/ragents/src/http/contracts.ts`). Whatever is not a
 JSON message remains delivery through `host.http`: static interface, mini-app frames,
@@ -1632,104 +1633,39 @@ Instead, plugins fill typed slots for:
   coordinates overview and toolbar history. Toolbar contributions are mounted from application start,
   but activate their own connections only on use and keep them afterwards across run switches.
   In both browser and VS Code, only the selected server supplies these contributions, including
-  on Start before a run is opened. Contributions from different environments are never merged.
-- pages (`pages`): a whole page in the main area instead of a dialog. A `PageContribution` declares `id`,
-  `order`, `title`, `Icon`, optional `readRight`, and `Page`, which renders the content and receives
-  `PageContext` with `onOpenRun(runId)`. The registry sorts pages by `order` and then `id`, rejects a
-  duplicate or empty `id`, an `id` with whitespace around it, and a blank `title`, and
-  `PluginRegistry.pagesFor(access)` filters by `readRight`.
-  The top bar shows one button per readable page (`PageButtons` in `run-panel/PluginPages.tsx`) after the
-  overview and toolbar contributions, with the page's icon and title, which truncate when the bar is
-  short. While pages exist, the global bar may grow from 18 to 36 rem and the buttons take at most three
-  quarters of the width beside the logo, so the coordinator keeps the rest. The open page's button carries
-  `aria-current="page"` and stands out like a selected control; a click on it changes nothing.
-  A page replaces Start or the open run in the main area (`PluginPage`) as plain content on the
-  application background, without dialog and frame. The main area scrolls as a whole, so a page needs no
-  scroll container of its own, and `RenderBoundary` shows a page that throws with its cause in its place
-  while the top bar stays usable. A page is mounted only while it is open: what must survive leaving it
-  stays on the server or in a service of the plugin.
-  Opening a page closes a start dialog and cancels a pending start. The run that was open stays selected
-  and mounted but hidden in an `Activity` boundary, so its unsent input, scroll position, layout, and
-  frames remain, and it returns when the page is left; its effects pause meanwhile, and its title bar and
-  controls leave with the page. Toolbar contributions receive the location "home" while a page is open.
-  The page is left by the logo (Start), `onOpenRun`, a template that starts, and, in VS Code, the
-  extension's `selectRun` and `showPage`.
-  The browser names the open page in its address as `page=<id>` next to the other query parameters
-  (`withPage`, `pageIn`, and `parseRunPanelLocation` in `run-panel/run-panel-location.ts`).
-  `usePageHistory` (`run-panel/page-history.ts`) adds one history entry per change and sets the page again
-  on `popstate`, so reload, bookmark, back, and forward follow it. The run selection is not part of the
-  address, as before, so back and forward toggle the page over whatever is selected at that time. An ID
-  the registry does not know or the viewer may not read shows Start with the notice "The page <id> is
-  not available."; the address keeps the ID until the next navigation. In VS Code the page lives in the
-  panel only: the iframe's address belongs to the extension and stays unchanged, and the extension is
-  not told about the page, so a reload of the webview shows Start. The contribution is additive;
-  `HOST_API_VERSION` stays unchanged.
-- Start widgets (`startWidgets`): a plugin contributes `StartWidget` values either as a readonly list
-  or as a factory that publishes them per viewer. Both are the same widgets; Start, its layout, edit
-  mode, gallery, and settings make no difference between them. A widget declares `id`, `order`, optional
-  `readRight`, optional `title`, `description`, `columns`, `minColumns`, `maxColumns`, and `settings`, and
-  `render`, which returns the widget's content from `StartWidgetProps`: the `StartWidgetContext` with
-  `runs` and `onOpenRun(runId)`, plus `settings`, the values of the widget's settings by key. The host
-  calls `render` inside a component of its own, so `render` returns elements and leaves state and effects
-  to the components it renders, whose types stay the same across renders and snapshots. With `title` the
-  host draws the widget's frame, a `SectionHeading` title row above the content, and gives it a tab on a
-  narrow dashboard. `columns` is its minimum shown width in columns of Start's six-column grid, a whole number from 1
-  to 6, by default 6. The widget's body is a size container named `widget`, so the content adapts to
-  the widget's own width with Tailwind's `@container` variants (`@md/widget:`, or plain `@md:` for the
-  nearest container). Without `title` a widget owns its heading and spacing, fills a whole row, stays
-  below the tabs on a narrow dashboard, and is not arranged in edit mode. `description` is one sentence
-  for the widget gallery of Start's edit mode. `minColumns` and `maxColumns` (by default 1 and 6) bound
-  the widths the viewer may choose there; the resize handle and the keyboard offer only these. After
-  packing, a widget grows right into free columns up to `maxColumns`, without changing its configured width. A width
-  field, `description`, or `settings` without `title`, a blank `title` or `description`, an `order` that
-  is not a finite number, a missing `render`, a width that is not a whole number from 1 to 6, and
-  `columns` outside `minColumns` to `maxColumns` (the default 6 included) break the rules that
-  `checkedStartWidget` in `panel/start-widgets.tsx` checks for every widget alike, with `widthProblem`
-  in `panel/dashboard-layout.ts` and `settingsProblem` in `panel/widget-settings.ts`, and names as
-  "Start widget <id> <cause>."; for a listed widget that is a registry error. Start's own widgets "New"
-  and "Continue" are listed widgets, which the registry adds before the plugins'
-  (`HOST_START_WIDGETS` in `panel/host-start-widgets.tsx`, `order` -20 and -10); every widget sorts by
-  `order` and then `id`, so widgets with an order of 0 or more follow them, and a widget with the ID
-  `start.new` or `start.continue` is registered twice.
-  `settings` (only with `title`) declares what the viewer may change with "Configure" in Start's edit
-  mode: settings by key, a key being letters and digits that starts with a letter, each with `type`,
-  `label`, optional `description`, and `default`. The types are `number` with `min`, `max`, and optional
-  `step` (by default 1, counted from `min`), `boolean`, `choice` with `options` of `value` and `label`,
-  and `text`, one line of at most 200 characters (`StartWidgetNumberSetting`,
-  `StartWidgetBooleanSetting`, `StartWidgetChoiceSetting`, `StartWidgetTextSetting`). An empty
-  `settings`, a key, `label`, or `description` that does not fit, a range with `min` above `max`, a step
-  that is not above 0, a choice without options or with empty or repeated values or empty labels, and a
-  `default` that its own setting rejects break the same rules. `render` is typed
-  `(props: StartWidgetProps<never>) => ReactNode`, so a widget types its props by its own settings as
-  `StartWidgetProps<typeof settings>` (declared `as const satisfies StartWidgetSettings`) and gets
-  `number`, `boolean`, the choice's values, or `string` per key (`StartWidgetSettingValues`); the
-  host passes values it checked against those settings (Arranging Start). The `id` is also the
-  widget's ID in the viewer's Start layout, so it stays the same across snapshots and releases; `title`,
-  `columns`, and `order` are the defaults that the viewer's arrangement starts from. The props
-  carry every run the server lists for the viewer, sorted by update time, through readonly
-  `ConnectionRun` values including `id`, `title`, `updatedAt`, and optional `metadata` keyed by
-  server-side `sessionMetadata` contribution ID. `connectionRunOf` preserves `ListedSession.metadata`;
-  row detail lines still come from `listDetail`. `onOpenRun` uses the same navigation as a run
-  row. The slot performs no additional run access checks; `readRight` only gates the widget.
-  A widget may return `null`; it then takes no cell, no tab, and no gap. A widget that
-  throws shows its error and "Retry" in its own place (`RenderBoundary`) while Start stays usable.
-  `RunPanelApp` passes its registry to `PanelPage` for both browser and VS Code server frames.
-  `PanelPage` also works without a registry; Start then shows only its own widgets, which tests use.
-  A factory receives `StartWidgetFactoryContext`, with the same `runs` and `onOpenRun` as a widget's
-  props, an `AbortSignal`, and `update(widgets)` for later snapshots, and returns its readonly widgets,
-  synchronously or as a promise. Their IDs start with the plugin's ID and a colon
-  (`ragents.global-apps:<name>`) and are unique within a snapshot; a listed widget may not use the ID
-  prefix of a plugin with a factory (a registry error), so no two widgets share an ID. The returned value
-  is the factory's first snapshot unless `update` came first. The host calls the factory again when the
-  run list changes and keeps its previous widgets until the new call delivers a snapshot, so a factory
-  that waits for a live channel returns a promise of its first snapshot rather than an empty list. A
-  factory releases its subscriptions when `signal` aborts; live changes can use the existing RPC/SSE
-  connection. Its `render` returns components defined outside the factory with the snapshot's data as
-  props and keeps the widget ID across updates, so their state and mounted frames survive snapshots; a
-  component created per snapshot would remount. A factory that fails, or whose snapshot breaks the
-  rules, shows its cause with "Retry" in its own widget (`<plugin id>:unavailable`, two columns,
-  `order` 200) while other contributions remain usable, and a widget whose content throws keeps its
-  error in its own cell.
+  on the home before a run is opened. Contributions from different environments are never merged.
+- pages (`pages`): a whole view in the main area instead of a dialog. A `PageContribution` declares
+  `id`, `order`, `title`, `Icon`, optional `readRight`, optional `home`, and `Page`, which renders the
+  content and receives `PageContext` with `onOpenRun(runId)`. The registry sorts pages by `order` and
+  then `id`, rejects a duplicate or empty `id`, an `id` with whitespace around it, the reserved ID
+  `runs`, and a blank `title`. `PluginRegistry.pagesFor(access)` filters by `readRight`.
+  The header always starts with the standard Runs entry beside the logo; `PageButtons` in
+  `run-panel/PluginPages.tsx` places the readable plugin pages after it, in that sorted order.
+  Entries show their icon and title and adapt to narrow headers. The open entry carries
+  `aria-current="page"`; clicking it changes nothing.
+  `home: true` claims the home for that page. Among visible claims, the smallest `order` wins,
+  then the smallest `id` in case-sensitive lexical string order, using the same sort as the page
+  list. Plugin registration order and browser locale have no effect. Without a visible claim, home is Runs. The logo and VS Code's Home action always
+  open the resolved home; Runs remains the first header entry regardless of that choice.
+  A plugin page replaces Runs or the open run in the main area (`PluginPage`) as plain content on
+  the application background, without dialog or frame. The main area scrolls as a whole, so a page
+  needs no scroll container of its own. `RenderBoundary` shows a page that throws with its cause in
+  its place while the header stays usable. A plugin page is mounted only while open: state that
+  must survive leaving it stays on the server or in a service of the plugin.
+  Opening a view closes a start dialog and cancels a pending start. The selected run stays mounted
+  but hidden in an `Activity` boundary, preserving unsent input, scroll position, layout, and frames;
+  effects pause meanwhile, and its title bar and controls leave with the page. Toolbar contributions
+  receive the location "home" while a view is open. `onOpenRun`, a template that starts, and the
+  extension's `selectRun` leave the view.
+  The browser names Runs as `page=runs` and a plugin page as `page=<id>` next to the other query
+  parameters (`withPage`, `pageIn`, and `parseRunPanelLocation` in `run-panel/run-panel-location.ts`).
+  An address without `page` opens the resolved home. `usePageHistory` (`run-panel/page-history.ts`)
+  adds one history entry per change and restores the view on `popstate`, so reload, bookmark,
+  back, and forward follow it. Run selection stays outside the address, so back and forward toggle
+  views over whichever run is selected. An unknown or unreadable ID shows the home with the notice
+  "The page <id> is not available."; its address stays until the next navigation. In VS Code the
+  view lives in the panel only: the extension's iframe address stays unchanged and reloading it
+  opens the home.
 - workspace tabs and badges (`workspaceTabs`, `workspaceTabsFor`): the toolbar at the right edge
   with the tab area as a popout over the selected content view; the same contribution, the same visibility (`readRight`, `requiresWorkspace`, `available`);
   `placement: "window"` (default `"sidebar"`) lists a tab in the browser among the run's windows in the
@@ -1783,14 +1719,14 @@ Instead, plugins fill typed slots for:
   of `ragents.reference`); a run script with parameters but without a guide gets the generated
   parameter form instead
 
-The shared `main.tsx` bootstrap renders `RunPanelApp` for either host. The browser and the VS Code
-iframe use the same `PanelPage`, `StartPage`, and `RunsPage` with one current-server adapter.
-In the browser the address selects that server; in VS Code the selected environment does.
-Start shows permitted templates under "New", then the most recent runs under "Continue" (fifteen
-unless the viewer configures another number), then plugin widgets, as one dashboard; Runs adds search, deletion with confirmation, and the "Shared by me" tab.
-Neither page combines servers, and Start contains no server chips.
-Start and Runs stay mounted in a hidden React `Activity` behind an open run; returning shows the same
-page with its state and scroll position, which `PanelPage` restores when it becomes visible again.
+The shared `main.tsx` bootstrap renders `RunPanelApp` for either host. The browser and VS Code
+iframe use the same `PanelPage` and `RunsPage` with one current-server adapter. In the browser the
+address selects that server; in VS Code the selected environment does. Runs combines permitted
+new-run templates with the complete run list, search, selection, deletion with confirmation, and
+"Shared by me". It contains no server chips and never combines servers. Plugins add separate views
+through `pages`; the logo opens the resolved home described above.
+Runs stays mounted in a hidden React `Activity` behind an open run; returning preserves its state
+and scroll position, which `PanelPage` restores when it becomes visible again.
 Free creation, template access, reading, and deletion retain their independent rights.
 Both hosts draw run rows from the same mapping of `ragents.runs.list` (`connectionRunOf` in
 `run-overview.ts`): state, pending actions, read notice, owner, metadata lines, and lock.
@@ -1814,7 +1750,7 @@ unrelated parent renders do not notify context consumers. Real chat, run-view, o
 still update the context.
 Global coordinator and other toolbar contributions stay mounted across run switches and starts;
 overview contributions retain their slot. Settings and Help are header buttons.
-A guided template opens only its guide as a dialog over Start. Browser runs use the server.
+A guided template opens only its guide as a dialog over Runs. Browser runs use the server.
 The journal remains in the shared bottom status bar and is also a dockable browser tool.
 
 The shared panel defaults to the primary chat actor. The addressee selector below the input
@@ -2245,7 +2181,7 @@ always including the active one, which displaces the last of them and alone may 
 button opens a `DropdownMenu` with exactly the hidden tabs as radio items, which marks the active
 value; choosing one selects it, and it takes its place at the end of the strip. Arrow keys move
 between the visible tabs, Tab reaches the button, and the menu works with arrows, Enter, and
-Escape. Start's widget tabs, the Runs tabs, the Settings areas, and the actor views of the
+Escape. The Runs tabs, the Settings areas, and the actor views of the
 inspector use it; plugins receive it through `@ragents/web/ui`. Segmented `ToggleGroup` choices and
 equal-item toolbars do not use it yet (`TODO.md`); the dock's area tabs shrink with truncated titles
 and the run header continues mini-app buttons in further rows by design.
@@ -2285,7 +2221,7 @@ virtualizer follows the window or the nearest ancestor that actually scrolls; on
 rows and a small overscan are mounted. Virtualization starts after locating the actual scroll
 container and measuring the grid's offset, with that container's current scroll position.
 Both virtualizers batch React updates (`useFlushSync: false`), so a ResizeObserver batch that
-remeasures many rows while a widget is resized or hidden cannot force nested renders for each row.
+remeasures many rows while its container is resized or hidden cannot force nested renders for each row.
 Mounting or remounting a grid, including switching between a list and lanes, therefore preserves
 the outer page position. Non-scrolling overflow wrappers retain page virtualization
 and header positioning. The header stays sticky at `stickyOffset` pixels, so a caller
@@ -2391,7 +2327,7 @@ has eight steps, written as Tailwind numbers (one unit is `--spacing`, 0.235rem 
 cards of a stack, rows of a list), 3 *group* (a heading and its content, the clusters inside one card, the padding of compact
 cards and tiles), 4 *gutter* (padding of panels and dialogs, gaps between tiles of a grid), 6 *section* (groups inside a section,
 a toolbar and the data it controls, story groups in a lane), 8 *block* (sections within one page region), and 12 *page*
-(independent regions of a page, including dashboard widgets in either axis, stacked regions, and the page's bottom clearance).
+(independent regions of a page, including stacked sections and the page's bottom clearance).
 Independent regions always use page spacing, larger than the block spacing within them, at every column count and width.
 A container pads
 all four sides equally, so a card never shows more space at its bottom than at its top: no empty trailing child, and a gap
@@ -2431,7 +2367,7 @@ section label), `type-item` (item title), `type-body` (descriptions, notices, em
 Each sets size in `rem`, line height, weight, and letter spacing; `leading-*`, `font-*`, and
 `tracking-*` still override them. They are called `type-*` because `cn` takes every unknown
 `text-<name>` for a text color and drops it next to `text-muted-foreground` or `text-destructive`.
-Text on Start, Runs, Server, in their dialogs, on the template tiles, and in the run header uses
+Text on Runs, plugin pages, Server, in their dialogs, on the template tiles, and in the run header uses
 these roles; controls such as buttons, inputs, and dialog titles keep the library's size scale.
 `type-prose` is the common reading role for rendered Markdown, including Topic, documents in
 the panel and dialog, Markdown files in Settings, and the mini-app building blocks `Markdown` and
@@ -2453,7 +2389,7 @@ owning their gaps: `AppLayout` uses 3 units for content rhythm and nested paddin
 defaults to 2, responsive `Grid` to 3. Cards retain equal padding and gaps (4, or 3 with `size="sm"`)
 and `Badge` remains compact and inline. Authoring guidance uses the existing wrapping
 `Stack direction="row"` for a title and badge, one muted metadata line for related facts, and no
-heading that repeats the widget or tab title. No additional layout component is needed.
+heading that repeats the app or tab title. No additional layout component is needed.
 Both include `quassel.css` after the host's utilities: the precompiled stylesheet
 of the chat building blocks `@schlenkr/quassel/chat.css` (classes with prefix `qsl:`, variables `--qsl-*`) and the
 mapping of host colors, fonts, radii, shadows, and `--qsl-color-scheme` to the tokens from `theme.css`.
@@ -2537,7 +2473,7 @@ element, and `backdropClassName` places the dimming surface (header dropdowns st
 
 Settings and Help are icon buttons in the shared header. The run title opens metadata, start
 options, and contributed run controls. The logo at the left of the header is the button
-"Back to Start"; Run details provides "Stop run" in its footer.
+"Home"; Run details provides "Stop run" in its footer.
 `ShareContent` in `panel/SharePanel.tsx` owns loading, access choices, and errors;
 `SharePanel` presents it in the same dropdown shell for run headers and run-list actions.
 Callers without an action anchor use a virtual anchor at the top of their page container.
@@ -2826,10 +2762,10 @@ OCR fallback processing. TypeScript actors receive files as referenced artifacts
 The composer slot `toolbarLeft` is reachable only for the owner of the surface; the host deliberately offers no general
 composer toolbar slot.
 
-Start tiles exist only on Start (`panel/StartPage.tsx` with the building block `StartTiles` in
+Start tiles appear in the Runs view (the building block `StartTiles` in
 `apps/web/src/StartTiles.tsx`) and as single `StartTile` items in the run script list of an open
 run (`RunScriptMenu`); no dialog shows them. These lists omit templates with `listed: false`.
-One path in `RunPanelApp` (`startNew`) handles a click on Start or in a plugin widget, a `newRun`
+One path in `RunPanelApp` (`startNew`) handles a click in Runs or a plugin view, a `newRun`
 from the host, and a Help sample, in the browser and in the VS Code panel alike. Unlisted
 templates remain available by ID through this path.
 "New chat" and a `newRun` without a template open a fresh empty run whose task is created in the
@@ -2843,7 +2779,7 @@ in declaration order, labeled with its `title` or name and described by its `des
 ones marked; a string is a text field (a text area above 200 characters), a string with
 `format: "model"` a text field that suggests the configured models but takes any name, an integer or
 number a number field with its bounds, a boolean a checkbox, and a choice the segmented control or
-selection menu. Submitting starts with the filled values; the server's check decides. A refused start names its reason on Start instead ("New runs are not enabled
+selection menu. Submitting starts with the filled values; the server's check decides. A refused start names its reason in Runs instead ("New runs are not enabled
 for this user account.", "Free runs are not enabled for this user account.", or "This template is
 not enabled for this user account."). New browser runs use the server workspace.
 
@@ -2927,7 +2863,7 @@ taken over, and further updates are combined into a subsequent query.
 As a result, the start dialog does not hang even with slow responses. Already closed
 start dialogs ignore late send responses, so that these cannot close a newly opened draft.
 
-The shared header contains the brand on Start, or Back and the active run title. In VS Code,
+The shared header always contains the brand and view entries, plus the active title for an open run. In VS Code,
 the pill shows the selected server's name on every page, with the accessible name `Environment <name>`. The global
 coordinator stays mounted beside it across navigation. Run layout actions share the run header
 and wrap when needed; run details and plugin header contributions without bar placement open
@@ -3005,13 +2941,13 @@ five-second fetch remains for further metadata. The actual model response has
 no guaranteed immediate running time. Titles from `run_configure` or a prepared setup
 still take precedence; stored automatic titles are kept when the model changes.
 
-The run list offers no new run; new runs start from the tiles on Start. Single and multiple deletion with All/None, confirmation, and
+The Runs view starts new work through the tiles beside its complete run list, or above it when narrow. Single and multiple deletion with All/None, confirmation, and
 visible errors are kept; the profile rights determine whether opening, creating, or
 deleting is offered. Without a run read right and without a visible contribution there is no corner.
-The global header stays in one bar: the brand logo on the left, the global coordinator button beside
-it, and the menu on the right. The logo is a ghost button with the accessible name "Back to Start"
-(`showStart`), with hover background and focus ring and the same footprint as the bare logo. Run layout actions share the run title row. `PanelPage` gives Start,
-Runs, and Server the same top offset (`pt-6`), so their content begins at one height below the
+The global header contains the logo, Runs first, plugin page entries, the global coordinator, and
+its actions. Controls wrap as the available width requires. The logo is a ghost button with the accessible name "Home"
+(`showStart`), with hover background and focus ring and the same footprint as the bare logo. Run layout actions share the run title row. `PanelPage` gives Runs
+and Server the same top offset (`pt-6`), so their content begins at one height below the
 header; sections on a page are `gap-8` apart, a section heading is `gap-3` above its content,
 and all lists stay inside the centered 1280-pixel column.
 Long titles truncate within the available space; the menu remains reachable.
@@ -3045,7 +2981,7 @@ relative page links resolve correctly.
 of the overview buttons. On display and after every user change, the contribution queries
 the run ID of the user's own coordinator with `ragents.overseer.coordinator` and only then binds chat,
 level of detail, and attachments to it; until then the space stays empty, and an error appears as an exclamation mark.
-In VS Code the selected environment supplies its own global coordinator, also on Start. It
+In VS Code the selected environment supplies its own global coordinator, also on the home. It
 oversees only this server's runs; switching environments selects a separate conversation.
 Coordinator runs do not appear in the ordinary run list. In the header the contribution is a plain button (`PopoverTrigger`) with the
 accessible name "Global coordinator", styled like an input field with that text in muted color;
@@ -3186,9 +3122,10 @@ narrow windows the navigation items are on one row that can be scrolled sideways
 `index.html` is the only server HTML source and loads `main.tsx`, which composes `RunPanelApp`.
 Vite emits an identical `run-panel.html` alias for the iframe host contract; both routes load the
 same assets and initialize host modules, access, theme, and host navigation once. The server
-rejects a build whose entry pages differ. `?run=<id>` chooses a run and `?page=<id>` opens a plugin page
-(web contributions, `pages`); without a run both hosts show this server's Start page. The logo returns there.
-VS Code selects the environment and embeds its server interface for Start, Runs, and the run;
+rejects a build whose entry pages differ. `?run=<id>` chooses a run, `?page=runs` opens Runs, and
+`?page=<id>` opens a plugin page (web contributions, `pages`). Without either selection, both hosts
+open this server's resolved home. The logo returns to that home. VS Code selects the environment
+and embeds its server interface for the home, Runs, plugin pages, and the run;
 connection management and unavailable-server states remain in the extension's local shell.
 `?layout=app&run=<id>&element=<id>` renders one app through the same catalog and renderer.
 `PluginChat` has only `panel` and `{ element }`; the single `surface.RunPanel` contribution
@@ -3304,7 +3241,7 @@ The system prompt control uses "Show prompt text" and "Hide prompt text" to togg
 complete texts inline below its choices; reading them changes neither selection nor scope.
 With `runs.write`, "Run script" (`RunScriptMenu`) sits in the fixed trailing controls behind a
 thin divider: an outline button in the primary color whose pop-out lists the run scripts from
-`ragents.runs.scripts` (with each script's parameters) as the Start page's compact `StartTile` items filling their grid cells,
+`ragents.runs.scripts` (with each script's parameters) as the Runs view's compact `StartTile` items filling their grid cells,
 with title, two lines of description, and a play icon at the top right. Available ones come
 first and unavailable ones after them disabled with their reason, each group in listed order.
 `HeaderDropdown` supplies the shared panel geometry; the script cards form two columns from a
@@ -3325,7 +3262,7 @@ with you - view only" or "Shared with you - can operate". The panel hides "Stop 
 buttons of the chat inputs for a read share and keeps them for a run only its owner operates
 (`canStopRun` on the access context below the run), and the chat input names why it is disabled ("Shared with you for viewing only", "Only its
 owner operates this run", otherwise "Read access to this run"). When the open run, seen as shared
-with the viewer, leaves the run list, the panel returns to Start with "This run is no longer available
+with the viewer, leaves the run list, the panel returns to the home with "This run is no longer available
 to you."; in the host `vscode` it sends `showStart` with this `notice`.
 The header dropdowns, including sharing, and the recipient popout use the shared theme dimming.
 At the far right of the shared header, `RunPanelActions` shows icon buttons for Settings
@@ -3453,7 +3390,7 @@ addressee. This includes direct run URLs and `selectRun`. The request waits for 
 connection and remembered addressee; explicit user interaction or another dialog cancels it.
 Pure mini-apps receive no chat focus; reconnections or messages do not bring it back.
 If the panel cannot execute a `newRun` because the right to new runs is missing, a free run is requested
-without `runs.create`, or the template is not enabled for the user, it shows the reason and "Back to Start" (`showStart`) instead of the loading state.
+without `runs.create`, or the template is not enabled for the user, it shows the reason and "Home" (`showStart`) instead of the loading state.
 The preset start options of a `newRun` are the provider's `initialValues` (`StartOptionsProvider` in
 `apps/web/src/StartOptions.tsx`); they apply once the run's options have loaded and no reload is under
 way, only to options the run lets you choose (`initialStartOptionUpdates`). Until then the chat input
@@ -3481,8 +3418,8 @@ ancestors, besides their own origin, the VS Code webviews (`https://*.vscode-cdn
 
 The VS Code shell scales its whole interface with `ragents.zoom` (50 to 200 percent,
 default 100), independently of the window zoom and the font size settings of VS Code.
-The scaling applies once at the outermost shell, also for nested mini-apps. Start,
-Runs, Servers, run panel, and mini-app editor tabs take over changes through a host message
+The scaling applies once at the outermost shell, also for nested mini-apps. The home,
+Runs, plugin pages, Servers, run panel, and mini-app editor tabs take over changes through a host message
 without reloading and keep their state. Normal browser pages stay unchanged; they have their own zoom
 under Settings, Appearance. A value
 outside the limits is an error: every view shows the message instead of its content and rebuilds
@@ -3500,18 +3437,17 @@ one such server for the visible interface; the code types remain `Connection*`. 
 is stored per VS Code workspace. Reopening restores it when still configured, otherwise the
 first configured environment is selected. Switching environments changes the interface without
 disconnecting other sessions, stopping their hosts, or ending runs.
-The secondary sidebar embeds the selected server's interface for Start, Runs, and the run,
+The secondary sidebar embeds the selected server's interface for the home, Runs, plugin pages, and the run,
 including its installed web plugins before a run is opened. A mini-app adds an editor tab with
 `layout=app`. The local shell, composed from `apps/web/src/panel/` with `PanelState` and
 `PanelAction`, retains connection management and the status, sign-in, and retry controls when
 the selected environment is not connected. That fallback Server page shows only the selected
 environment; the gear opens management of all configured connections.
-The paths between the pages and the commands (Start, Runs, Switch environment,
-Server, New run, Refresh) are exclusively in the view's `view/title` menu; the
-pages themselves carry no icons for them (`panel/PanelHeader.tsx` has only back arrow and title,
-Start no header; Runs keeps the back arrow in the browser too, where the logo also leads to Start;
-Server management is local to VS Code), and the commands `ragents.showStart`, `ragents.showRuns`, and
-`ragents.showConnections` also work while the server's iframe is shown. The server-environment
+The commands (Home, Runs, Switch environment, Server, New run, Refresh) stay in the view's
+`view/title` menu. The shared server header additionally exposes the logo and view entries.
+`panel/PanelHeader.tsx` gives local Server management a back arrow and title; Runs needs no back
+arrow. The commands `ragents.showStart`, `ragents.showRuns`, and `ragents.showConnections` also
+work while the server's iframe is shown. The server-environment
 button opens the native "Switch environment" Quick Pick for configured remote servers and local
 profiles (`ragents.selectEnvironment`). The view title is "RAgents: <name>".
 Home and Runs navigate within the selected server; Refresh refreshes that environment. The gear
@@ -3555,7 +3491,7 @@ The nested clipboard browser regression checks editor and document focus right a
 text appears and, after an empty paste, waits for both with frame-local polling before typing,
 without refocusing the editor through a locator action.
 
-There is no longer an Explorer tree next to it: the selected server supplies Start and Runs,
+There is no longer an Explorer tree next to it: the selected server supplies the home, Runs, and plugin pages,
 and the native picker selects the environment. Every session speaks the same
 message layer with the same client (`RpcClient` with its own `fetch` and bearer), keeps its
 own event stream, signs in itself with `POST /api/access/login`, and reads its
@@ -3621,184 +3557,21 @@ and `RunPanelApp`, `ChatInputToolbar`, `ragents.processes`, and the menu entry "
 the whole run is called "Stop run" everywhere, interrupting the running turn in the chat "Stop
 work".
 
-**Shared page width.** `PanelPage` owns the content column with side padding. The Start dashboard
-uses the full available width in both hosts; its side padding equals its top padding at every width,
-and plugin pages use the same insets. Runs
-in both hosts and Server in VS Code use a centered column of at most 1280 pixels. All panel
-pages except Start have more top padding at desktop widths. The page scroller ends with 12 spacing units (`pb-12`,
-the page step, 45.12 px at a 16 px root)
-below the content in both hosts and at every width, including Start's
-tabs mode. This clearance follows the host's spacing unit and zoom.
-The browser
-page host adds no second padding; the outer header remains full width. The Runs search field
-and run rows use the same bounded column. The page scroller (`main[data-page]`) is the containing
-block of its content, so visually hidden labels further down cannot extend the document and moving
-focus scrolls only the page, never the header with it.
+**Shared page width.** `PanelPage` owns the content column and its padding. Runs and Server in
+VS Code use a centered column of at most 1280 pixels; plugin pages use the available width with
+matching side and top insets. The page scroller ends with 12 spacing units (`pb-12`, the page step,
+45.12 px at a 16 px root) below its content in both hosts and at every width. This clearance follows
+zoom and the host's spacing unit. The browser page host adds no second padding; the outer header
+stays full width. The Runs search field and run rows share the same bounded column. The page
+scroller (`main[data-page]`) is the containing block, so visually hidden labels cannot extend the
+document and moving focus scrolls only the page.
 
-**Start** is a dashboard of widgets (`panel/StartDashboard.tsx`): Start's own "New" (2 columns,
-`minColumns` 2) and "Continue" (4 columns, `minColumns` 2), then the plugin widgets. New and Continue
-are ordinary listed Start widgets (Web as plugin host): `StartPage` turns every listed and published
-widget into the same `DashboardWidget` with a key, title, description, width, settings, and a content function,
-and the dashboard, its layout, packing, edit mode, gallery, and stored preferences treat each one alike
-and name none of them. Its layout follows the width of the
-dashboard's own container, measured with a `ResizeObserver`, not the window, because a VS Code panel is
-often narrow on a wide screen. `dashboardLayout` in `panel/dashboard-layout.ts` decides it: from
-1100 pixels (`DASHBOARD_WIDE_FROM`) the grid has six columns (`DASHBOARD_COLUMNS`) and every widget
-takes at least its configured columns; from 700 pixels (`DASHBOARD_TABS_BELOW`) the grid has three columns and a
-widget starts at half its configured columns, rounded up (`shownColumns`); a widget without a title always takes all
-columns. Both column and row gaps use the page step (12 units), also between stacked regions in tabs
-and the narrow edit list. Column lengths and resize guides share `--start-gap-x`; packing and resize
-snapping read the grid's computed gaps. Widgets keep their own content heights and pack into free rectangles (`packWidgets`): in their
-order, each takes the topmost place where its columns and its own height fit among the rectangles
-already placed, with a row gap above and below widgets in the same columns, then the leftmost place
-among equal tops (tops within half a pixel count as equal). Later widgets can fill room above a lower,
-wider widget. With Continue three columns wide, a global app four columns wide below it, empty Topics,
-and New two columns wide in that order, New starts at columns four and five at the top beside Continue.
-A widget without height, such as an empty section, takes no place. After placing all widgets,
-`packWidgets` processes them top to bottom, then left to right, and grows each to the right into
-directly adjacent free columns. Every added column must be free for the widget's full height,
-including the row gap to other widgets, and growth stops at the grid edge or its `maxColumns`
-converted with `shownColumns`. With New configured to three columns, Continue to two beside it,
-and a three-column plugin widget below New, Continue shows three columns and fills the sixth column.
-Configured widths remain the minimum and stored preferences do not change. Tabs and one-column grids
-retain their layout. `packCells` reads the cells as rendered, in order with their minimum columns
-(`data-columns`), maximum columns (`data-max-columns`), and heights, and writes each cell's width,
-`data-shown-columns`, `left`, and `top`, its edit width label, and the grid's height;
-the cells are absolutely positioned in the grid, their width is a share of its width less the column gaps
-(`--start-gap-x`), and their DOM order stays the widget order, which is also the focus order. Packing runs
-after every render of the dashboard and from a `ResizeObserver` on the cells, both before the browser
-paints, so content that grows, such as a list that loads, pushes the widgets below it without a frame of
-overlap. The observer callback writes the places directly and renders nothing, because a React render
-there would also flush unrelated pending updates that change cell sizes inside the callback; the
-dashboard's own width is measured on a probe of no height in the grid, so packing that changes the
-grid's height never notifies that observer. When the arrangement changes (order, widths, the widgets
-on the dashboard) at the same grid, the cells that move slide from their former place to the new one
-(`transform`, 200 milliseconds); a slide still running follows the place that settling heights give,
-while growing content, a new width or column count, the first paint, and reduced motion
-(`prefers-reduced-motion`) slide nothing.
-Below 700 pixels, with at least two framed
-widgets, the dashboard becomes tabs ("Start widgets", `OverflowTabsList` with the widget title): the
-active widget fills the width, and its frame hides its title row, because the tab names it. The choice is stored per server origin under
-`ragents.start.widget:<encoded-origin>` and falls back to the first widget while the stored one is
-missing or empty. Widgets without a title follow the tabs. Every widget stays mounted while
-another tab is active or while its content renders nothing (`hidden`), so its state survives
-switching and a widget that later shows content reappears; a `MutationObserver` watches each body's
-direct children to keep cells and tabs in step with empty bodies. Packing changes a width label only
-when its text changes and never triggers an empty-body check. The page's scroller reserves its
-scrollbar gutter, so the measured width does not flip at the limits when a scrollbar appears.
+**Runs** is one fixed view. Its New run section uses the existing `StartTiles`; the complete list
+uses `RunsPage`, `RunList`, and `RunLine`. From 960 pixels of panel width, templates stand beside
+the list; below that they stack. It has no arranging or per-user layout state. Header
+navigation always exposes it first as `page=runs`, including when a plugin page is the home.
 
-**Arranging Start.** In view mode, "Edit Start" (`data-edit-start`) is a pencil icon button in the
-top bar beside Appearance, Settings, and Help, with the same size and styling. It uses the existing
-`RunHeader` controls portal shared with run controls, without a plugin API change. Its `HeaderControls`
-wrapper attaches controls only while their page is active, including pages kept in `Activity`. It appears only
-while Start is visible, a preference store is available, and the stored layout has been read.
-The shared tooltip names the otherwise unlabelled pencil on hover and keyboard focus. There is no
-Edit row above the widgets and no Edit icon in the tab strip. Edit mode works on a draft: the mode
-indicator (group "Edit Start" with "Editing Start", a hint line, "Reset layout", "Cancel", and "Done")
-stays above the widgets; "Done" saves, "Cancel" and Escape (outside a dialog or a running drag)
-discard the draft, and focus returns to the top bar's Edit Start button. At 700 pixels and more the
-grid stays and every framed widget gets a dashed outline that leaves its geometry unchanged, a title
-row with the drag handle (`Move <title>`), its grown width as shown columns of the grid ("2 of 6", "1 of 3"),
-and "x" (`Remove <title>`), and a resize handle on its right edge when the grid can show it in more
-than one width; its body stays mounted but is `inert` and
-dimmed, and a widget with nothing to show appears with "Nothing to show right now.". Dragging the
-handle moves the widget live (`dropPlace` in `panel/dashboard-layout.ts`): over another widget the
-dragged one goes before it or after it by that widget's middle, horizontally, or vertically for a widget
-as wide as the grid and in the narrow list; below every widget or over "Add widget" it goes to the end;
-over its own place, a gap, or free room it stays. The boxes are the packed layout boxes of the cells
-(`offsetLeft`, `offsetTop`), not a slide in progress, and each new place renders at once
-(`flushSync`), so the next pointer event measures the grid that shows it; once the dragged widget takes
-the place under the pointer, the pointer is over its own box and the place holds. The dragged widget is
-its own placeholder at its new place, with a primary outline and a drop indicator at its leading edge,
-the others re-pack around it, and a label with its title follows the pointer. The resize handle
-(`data-resize-handle`) covers the whole right edge in a 20-pixel strip that ends before the title row's
-"x" and carries a grip on the outline; hovering the widget or the edge colors them. Dragging it shows
-the grid's columns as guides (`data-column-guides`) and a label with the target width
-("4 of 6 columns") at the pointer, adds the columns the pointer moved to the shown width at the start of the
-drag, snaps at the middle of each column within `minColumns` and `maxColumns` (`draggedColumns`), and
-re-packs live with the same free-rectangle rule; a widget that no longer fits beside its neighbors
-moves to the topmost place where its columns and height fit. At three columns the edge
-snaps to the columns shown and stores the most of the six columns that show that width, or keeps the
-stored columns when they already do (`resizedColumns`), so every step is visible. Release commits the
-width to the draft only when the pointer reaches another shown column; starting a drag without
-changing columns keeps the configured width. Pointer handling is the
-shared `usePointerDrag` (`lib/pointer-drag.ts`, also used by the dock): pointer capture on the grid,
-Escape, `pointercancel`, and leaving the window end a drag and restore the draft from its start, and a
-drag that a second pointer starts ends the running one the same way, so moving and resizing never share
-a pointer.
-"Add widget" follows below the packed grid as a dashed tile two columns wide (one at three columns),
-so it cannot block widget growth in edit mode; its dialog (`Add widget`) lists
-every framed widget that is not on the dashboard as `Add <title>` with its description and width
-("Width: 2 of 6 columns, adjustable from 1 to 3"); choosing one adds it at the end in its default width. The drag handle also
-takes the keyboard (described by a hidden hint): the arrow keys move the widget one place in the widget
-order (the grid re-packs), also with Shift and Up or Down, Shift with Left or Right starts at the grown width and changes it by one column of the grid shown
-(`resizedColumns`), and Delete or Backspace removes it; a polite live region announces
-each change, the ends ("already at its widest"), and saving, and focus follows the moved widget or, after a removal, the next
-handle. Below 700 pixels edit mode is a vertical list of rows with handle, title, "Move <title> up",
-"Move <title> down", and "x", without widths and with the bodies and the widgets without a title
-hidden; dragging there compares only the vertical middle of each row.
-
-A widget that declares settings gets "Configure <title>" (a gear, `data-control="configure"`) before
-"x" in its edit title row, in the grid and in the narrow list; outside edit mode nothing configures a
-widget, so Start has one place where it changes. It opens the dialog "Configure <title>"
-(`panel/WidgetSettingsDialog.tsx`) with one field per setting in the declared order, each with its
-label and description: a number field with the setting's `min`, `max`, and `step`, a switch, a
-`ChoiceSelect` for a choice, or a text field of at most 200 characters. The form starts from the values
-the widget shows. A value its setting rejects shows "This value <reason>." below its field, such as
-"This value is above the maximum 100.", and "Apply" then focuses that field instead of applying. "Apply"
-puts the values into the edited layout (`configureWidget`), storing only those that differ from their
-defaults (`storedSettingsOf`), so the widget shows them at once; it announces "<title> settings
-applied; Done saves them." and focus returns to Configure. "Cancel", the close button, and Escape
-close the dialog without a change, and Escape there leaves edit mode open. "Done" saves the settings
-with the layout, "Cancel" of edit mode discards them with the draft, and "Reset layout" also resets
-every widget's settings ("Start shows its default layout and settings again; Done saves them.").
-
-A widget renders with the values `widgetSettingsOf` (`panel/widget-settings.ts`) gives for its settings
-and its stored values: a stored value that its setting accepts; the default where nothing is stored;
-and the default for a stored value that its setting rejects, such as one of another type, outside the
-range, off the step, not among the options, or longer than 200 characters or with a line break. Such a
-value is reported above the widget's body, one sentence each ("Number of runs: the saved value 500 is
-above the maximum 100, so the default 15 applies.", `data-settings-problem`), and the Configure dialog
-repeats it with "Apply replaces the saved values."; it stays stored until the widget is configured or
-the layout reset. No stored value is converted, rounded, or clamped. Stored keys the widget does not
-declare are ignored and kept the same way. The values keep their identity for the same settings and
-stored values, so a widget's effects do not run again on every render of Start.
-
-The model is `panel/dashboard-preferences.ts`: `DashboardPreferences` holds `order`, `columns`,
-`removed`, and `settings` (the stored values of each widget's settings by setting key, as saved), each
-by widget ID, so any ID works, also one of a widget that only some users have or
-that a plugin adds per user (`ragents.global-apps:<name>`). Widget IDs are the `id` of a Start
-widget, Start's own `start.new` and `start.continue` included; two widgets
-with the same ID are an error, which the prefix rule of a factory's widgets rules out between plugins.
-`arrangeWidgets` puts the framed widgets that `order` names into their slots in that order, while
-widgets without a title and widgets that `order` does not name keep their default place, so a new
-widget appears where its contribution puts it; widths and removal apply only to framed widgets, and
-IDs of widgets that are not there and widths outside a widget's range are ignored. Edit mode keeps the
-edited layout as preferences; its draft (`DashboardDraft`, from `draftOf`) is the list of framed
-widgets that these preferences put on the dashboard, with their columns. `moveWidget`, `resizeWidget`
-(only widths within the range), `removeWidget`, and `addWidget` change the draft, and `preferencesOf` turns it
-back into preferences: the default order and default widths store nothing, widgets that are not
-there keep their removal and width while their place falls back to the default, and every widget
-keeps its settings, also a removed or absent one. So a widget that
-arrives while Start is edited, such as a published widget whose plugin answers late, takes its saved
-place and width or stays removed, and one that disappears for a moment returns to its place unless the
-layout changed while it was gone. The layout is the
-preference `start.layout` of the server's per-user preference store (`spec/profiles.md`, User
-preferences), read whenever Start opens and written on "Done", so the browser and VS Code show the
-same layout: JSON with `version` 3, `order`, `columns` (widget ID to a whole number from 1 to 6),
-`removed`, and `settings` (widget ID to an object of setting values), or `null` for the default layout
-and settings. A layout of a former format (`version` 1 with named sizes, `version` 2 without settings)
-is ignored without migration: Start shows its default layout and the next "Done" replaces it. `PanelPage` passes the store from `RunPanelApp`
-(`SERVER_PREFERENCES` in `preferences.ts`) to Start; the local VS Code shell has none, so a Start
-rendered there shows the default layout without Edit. While
-the layout loads, the widgets are mounted but invisible; a failed read shows its cause with "Retry"
-and the default layout, with Edit disabled, and a stored value that cannot be read shows its cause
-with the default layout until "Done" replaces it. A failed save keeps edit mode and the draft with
-its cause. The chosen tab of a narrow Start belongs to the device and stays in browser storage.
-
-**Start** has no page header or server block. **New** comes first; while the selected server does
-not allow new runs it renders nothing, so like any empty widget it takes no cell and no tab and appears
-only in edit mode, as "Nothing to show right now.". First is its default template from
+**New run** is absent when the selected server allows no new runs. Its first tile is the default template from
 `ConnectionView.defaultEntry` with the marker "Default" in the title row, or the entry "New chat"
 (plus icon, `newRun` without `entryId`). Then follow the selected server's other templates, the
 default not a second time; the title row has no count. Each compact, flat card shows only its title
@@ -3812,24 +3585,21 @@ shape or color badge. Category metadata stays intact. Cards use the shared typog
 the grid is `repeat(auto-fill, minmax(240px, 1fr))`, with cards capped at 320 pixels.
 `StartTiles` measures its own container (`@container/templates`): below 240 pixels it uses one shrinking
 column, without horizontal overflow, and below 448 pixels the cards become compact full-width rows
-with smaller padding and one line of description. On a wide dashboard the New widget is narrow and
-therefore lists compact rows; a narrow dashboard shows New across its width as cards.
+with smaller padding and one line of description.
 There is no search here, and `ListDetail` does not fit, because it measures itself by its own
 width and would become a list with a detail page at 420 pixels (decisions of 09/19 and
 09/21/2026). The tiles are the building block `StartTiles`; the run script list of an open run
-shows the same single `StartTile`. New's setting "Show descriptions" (on by default) leaves the
-description line out of every card when it is off (`StartTiles` with `descriptions`).
+shows the same single `StartTile`.
 
-**Continue** follows with the selected server's most recent runs, as many as its setting "Number of
-runs" says (15 by default, 3 to 100), in `RunList` (`panel/RunLine.tsx`): a CSS grid with the columns
-state, title, and time, in selection mode the checkbox in front; every row and its
-button are `grid-cols-subgrid`, so that the columns stand at the same edge in all rows, and
-"All N runs" below the list, at its end, leads to the Runs page. Below the title, inside the same button, a second line
+**The run list** shows the selected server's complete list in `RunList`
+(`panel/RunLine.tsx`): a CSS grid with columns for state, title, and time, with a checkbox first
+in selection mode. Every row and its button use `grid-cols-subgrid`, so their columns align.
+Below the title, inside the same button, a second line
 names the owner (`ConnectionRun.owner`) and then the metadata lines (`ConnectionRun.details`), each
 with its icon (`FolderIcon`, `GitBranchIcon`) and accessible name "label: text"; hover, focus, and click
 cover the whole item, in selection mode the click toggles it. `RunCard` is a size container
 (`@container/runs`): in a card narrower than 360 pixels the second line drops, below 280 pixels the
-time as well, on Start and on Runs. The gap to the second line is
+time as well, in the Runs view. The gap to the second line is
 smaller than the gap between items. State and pending actions come from `ragents.runs.list`, which
 derives them from the journal: running while an actor has a running turn or the session works,
 otherwise waiting with pending actions, ended when every non-human actor has stopped, otherwise
@@ -3858,7 +3628,7 @@ saved sharing. Escape and outside presses send `closeSharing` without changing t
 `openSharing` and `saveSharing` in `run-sharing.ts` are this flow for every host:
 the server interface keeps the panel in React
 state in both the browser and VS Code, and an answer for a panel closed meanwhile is dropped.
-`PanelState.notice` is a short message on Start, such as the one for a share taken back.
+`PanelState.notice` is a short message on the home or Runs view, such as the one for a share taken back.
 
 `RunsPage` has "All runs" and "Shared by me" tabs (`OverflowTabs`). The latter uses only the run list's
 owner-specific `sharing` summaries and lists each run's recipients with View or Operate access.
@@ -3870,15 +3640,10 @@ use `revokeSharing` and refresh after success. Revocation requires `canShare`; a
 can still inspect their outgoing shares. Revoking an individual share leaves Everyone access
 intact and names that effect. All-runs selection and deletion stay in their own tab.
 
-Plugin `startWidgets` follow Continue with the complete server-listed visible run list and its
-metadata. The host frames every widget with a title; a widget without a title keeps its own heading
-and spacing.
-
-**Runs** is the selected server's complete list in one `RunCard`: search over title, "Hide ended", and a
+**All runs** shows the complete list in one `RunCard`: search over title, "Hide ended", and a
 selection mode with checkboxes. Search (the shared `SearchInput`, whose own clear button replaces the browser's) and the
 actions share one toolbar row at the top of the card (they wrap in a narrow panel); it sticks flush to the top of the page
-while the list scrolls and has the card's surface, so it never shows as a slab on the backdrop. Start's "Continue" list
-uses the same card without a toolbar, and rows are separated by `border` lines (1.35:1 against every surface). A row's
+while the list scrolls and has the card's surface, so it never shows as a slab on the backdrop. Rows are separated by `border` lines (1.35:1 against every surface). A row's
 hover fill spans the whole row including its actions, except for a locked run, whose row is dimmed
 without dimming its focus ring. Selection replaces "Hide ended" and "Select" with "Select all", the selected count,
 "Delete", and "Cancel" in that order (all outlined buttons, "Delete" destructive), without a bottom bar. Start tiles
@@ -3890,22 +3655,22 @@ and leaves selection mode. The controls are keyboard accessible. The deletion it
 host's business: the page sends `deleteRuns` with the IDs, the server interface calls
 `ragents.runs.delete` and refreshes the list. A row the user cannot delete, on a server without
 `canDelete` or with `sharedAccess`, keeps an empty checkbox cell and opens its run on a click; the
-selection mode hides the row actions. Start and Runs offer "Delete run ..." next to each
+selection mode hides the row actions. Runs offers "Delete run ..." next to each
 deletable row, including locked runs. Its confirmation names the run and sends `deleteRuns`
 with that one ID; cancellation sends nothing. Rows shared with the viewer and users without
-delete permission have no delete button. Deletion errors remain visible on both pages.
+delete permission have no delete button. Deletion errors remain visible in Runs.
 
 **New runs in VS Code** start within the selected server's interface. The extension binds every
 new run to its workstation and the selected open folder unless the template fixes its workspace;
 with several open folders it asks which to use. The binding is mandatory: without an open file
 folder in the window, with a refused registration (`workspaceRegistrationRefusal`), or with a failed
-one, the extension sends no `newRun` and reports the cause as an error message and as a notice on
-Start ("Workstation not registered: <message>" for a failure). While the workstation is still
+one, the extension sends no `newRun` and reports the cause as an error message and as a notice in
+Runs ("Workstation not registered: <message>" for a failure). While the workstation is still
 registering, it waits for the registration (`ConnectionSession.registeredWorkspaceClient`) and shows
 its current preparation step in a progress notification. The run panel applies only start options the
 template does not fix (`withoutFixedStartOptions`). Direct templates use `startLaunch`, guided
-ones open only their guide over Start, as in the browser. Closing the guide leaves this server's
-Start page as it was. A cancelled folder choice or failed start releases the pending tile; an environment
+ones open only their guide over Runs, as in the browser. Closing the guide leaves this server's
+Runs view as it was. A cancelled folder choice or failed start releases the pending tile; an environment
 switch or newer navigation prevents a late start result from reopening the old environment.
 An already created run remains on its server.
 The default template comes from `defaultStartEntry` in `ragents.plugins.bootstrap`; `RunStore`
@@ -3913,8 +3678,8 @@ rejects one absent from the delivered templates. The `ragents.newRun` Quick Pick
 environment's default first, or "New chat" when none is configured, followed by its other templates.
 The extension sends `newRun` to the selected server iframe, waiting for `ready` when it is new.
 The pending start keeps its template title or "New run" and shows preparation progress in the
-chat area until content appears. A refusal remains visible with "Back to Start".
-Home, the logo ("Back to Start"), and Runs keep the selected server; they preserve its mounted
+chat area until content appears. A refusal remains visible with "Back to home".
+Home, the logo, and Runs keep the selected server; they preserve its mounted
 toolbar contributions across run navigation.
 
 **Servers** is the page where setup happens: per server a row with icon,
@@ -5339,7 +5104,7 @@ one example. Its single category is in `category`, independent of concept tags.
 The `description` of every demo template names its demonstration purpose in short prose:
 which concepts work together and what is meant to become observable. This applies to skills and
 run scripts; for similar cases it names the difference. The text is directly in the
-existing description field and appears on Start and in the reference.
+existing description field and appears in Runs and in the reference.
 The host has no fixed list of permitted categories. The reference templates use, among
 others, Mini-apps, TypeScript without UI, Collaboration, and Code and diagnostics. The
 mini-app group contains pure views, shared functions, LLM views, several views
@@ -5785,7 +5550,7 @@ declares the backend, optional React views, triggers, and permissions
 ([Actor programs](actor-programs.md#triggers)), and the actor-program plugin runs its triggers,
 checks its permissions, and keeps its state and log. The plugin adds only what belongs to the
 global space: creating an app in its own room of the owner's hidden global coordinator run,
-listing and removing apps, Start widgets, and a short `requiresTools` prompt contribution that
+listing and removing apps, the Apps view, and a short `requiresTools` prompt contribution that
 teaches authoring and verification to agents with its tools. App code is authored by an agent;
 users describe the behavior they want.
 
@@ -5793,7 +5558,7 @@ Apps live in their owner's global coordinator run on the server. The coordinator
 `main`; each app has its own room, TypeScript actor, and package beside it. Apps inherit no
 authoring workstation or model conversation. Each app actor carries one journaled record
 `{ app: <name> }` under the plugin's ID; everything else belongs to the actor program. Without the
-plugin the programs stay where they are and keep their triggers; only the tools and widgets are
+plugin the programs stay where they are and keep their triggers; only its tools and Apps view are
 missing.
 
 `global_app_create({ name, program })` resolves the source package in the calling agent's room,
@@ -5821,26 +5586,21 @@ newest entry in its state and a view that renders it (`apps/server/tests/global-
 The interval refreshes the summary even while the coordinator is idle; an empty list clears the
 previous summary. This example displays the latest activity rather than opening the run.
 
-The web plugin publishes its Start widgets through a `startWidgets` factory, with stable IDs
-`ragents.global-apps:<name>`, `order: 200`, `readRight: "ragents.global-apps.read"`, and the
-app's description for the widget gallery. It returns a promise of the first snapshot of its live
-channel. An app with a view defaults to `columns: 4`; a headless app, an app that needs repair, and the
-system widgets default to `columns: 2`.
-The viewer's Start layout overrides place and width and removes the widget by this stable ID.
-Removing the widget from Start does not pause its triggers. The dashboard owns the frame and title.
-A widget embeds the ordinary actor-program view frame and uses its shared state, calls, and
-execution logs, or shows last run and next run for a headless backend. Every widget, including
-one with a view, shows the last output or result. Every app has status, description, and "Open
-details"; an app with an input handler also has "Run now" and "Pause"/"Resume", which call the
-actor-program methods `ragents.actor-programs.trigger` and `ragents.actor-programs.pause`.
-Details read `ragents.actor-programs.status` for triggers, permissions, process protection, state,
-and the recent log, and offer "Remove". Container queries adapt the content to its own width.
-Multiple views can be selected within the same app widget.
+The web plugin contributes one page, "Apps" (`page=ragents.global-apps`), with
+`readRight: "ragents.global-apps.read"` and no home claim. It subscribes to its live app list over the
+existing RPC/SSE connection. The page shows one card per app, with the same ordinary actor-program
+view frame, shared state, calls, and execution logs as a run. Headless apps show last run and next
+run. Every app, including one with a view, shows its last output or result, status, description,
+and "Open details". An app with an input handler also has "Run now" and "Pause"/"Resume", which call
+`ragents.actor-programs.trigger` and `ragents.actor-programs.pause`. Details read
+`ragents.actor-programs.status` for triggers, permissions, process protection, state, and the recent
+log, and offer "Remove". Multiple views remain selectable within one app. Container queries adapt
+content to the available width. An empty page shows "No global apps yet.".
 
-A damaged app record and an app whose program is no longer active remain visible as individual
-error widgets with "Retry" and "Remove". One damaged record, failed creation, view load or render
-error, or trigger failure does not hide other apps. Live snapshots use the existing RPC/SSE stream
-and stable React content types instead of mounting a new component type on every update.
+A damaged app record or inactive program stays visible as its own error card with "Retry" and
+"Remove". One damaged record, failed creation, view load, render error, or trigger failure never
+hides the other apps. Live snapshots preserve stable React content types and keys, so updates do
+not replace working frames. Leaving Apps does not pause its programs or triggers.
 Server access resolves only the caller's own apps. Reading and live updates require
 `ragents.global-apps.read`; view loading and the actor-program methods also check `runs.read` or
 `runs.write` and access to the global coordinator run. Management requires
@@ -5983,13 +5743,13 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   browser storage, in VS Code therefore per window. The rail sidebar opens one tool at a time;
   browser tools docked in separate areas can be visible together. A workspace tab with
   `placement: "window"` is a window only in the browser; VS Code keeps it in its rail.
-  Start, Runs, run, and app frames load from their server; only connection management and the
+  The home, Runs, plugin pages, run, and app frames load from their server; only connection management and the
   unavailable-server shell are packaged locally.
   A local profile of the extension names its templates only once its host is running; before the
   start nobody knows the templates, because they come into being only with the registered plugins.
   If the extension rebuilds the iframe during a start (for example when switching theme or
   access token), the local pending response is lost; an already created run remains available
-  on its server's Start page. The run view
+  on its server's Runs view. The run view
   loads independently of the chat; until it is there, a run whose only content is a mini-app
   can briefly show an empty chat after connecting. Only a surface contribution with `RunPanel`
   shows a loading state in the run; without it the empty chat is shown.
@@ -5998,14 +5758,10 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   absence from a final one. An actor program view finds its place by the room name without a
   trailing `-<number>`, so the first start of a run script whose name itself ends that way has a
   place of its own.
-- Start's packing follows the widget order: a later widget that fills the room beside a tall one can
-  stand above an earlier, wider one, and the focus order stays the widget order there. Room that no
-  remaining widget fits stays free. Moving a widget in the order reorders
-  the cells in the DOM, so a frame inside a moved cell, such as a global app's view, can load again.
-- A plugin page is not kept mounted while Start or a run is shown. Only the page, not the selected run,
+- A plugin page is not kept mounted while Runs or a run is shown. Only the page, not the selected run,
   is part of the browser's history and address, so back and forward toggle the page over whatever is
   selected at that time. In VS Code the extension does not know the open page, so a reload of its webview
-  shows Start.
+  opens the home.
 - Hidden `Activity` boundaries pause React effects and retain parent-fed panel props. They do not
   suspend scripts inside an iframe; independent context or state updates can still render a
   hidden React subtree at lower priority.

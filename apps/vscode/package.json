@@ -67,7 +67,7 @@
       },
       {
         "command": "ragents.showStart",
-        "title": "Start",
+        "title": "Home",
         "category": "RAgents",
         "icon": "$(home)"
       },

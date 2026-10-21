@@ -40,8 +40,8 @@ test("unchanged session polls preserve context identity and hidden panels pause 
     await page.getByText("Heavy active", { exact: true }).waitFor();
     await page.getByRole("textbox", { name: "Heavy draft", exact: true }).fill("Unsent draft");
     await page.getByRole("button", { name: "Count", exact: true }).click();
-    const frame = await page.locator('iframe[title="Heavy frame"]').elementHandle();
-    await page.frameLocator('iframe[title="Heavy frame"]').getByRole("textbox", { name: "Frame draft" }).fill("Frame input");
+    const frame = await page.locator('iframe[aria-label="Heavy frame"]').elementHandle();
+    await page.frameLocator('iframe[aria-label="Heavy frame"]').getByRole("textbox", { name: "Frame draft" }).fill("Frame input");
     const identity = await frame!.evaluate((element) => Reflect.get((element as HTMLIFrameElement).contentWindow!, "identity"));
     await settle();
     const shown = await snapshot();
@@ -58,7 +58,8 @@ test("unchanged session polls preserve context identity and hidden panels pause 
     await settle();
     assert.equal((await snapshot()).renders, shown.renders, "an unrelated parent render keeps the panel tree stable");
 
-    await buttons.getByRole("button", { name: "Light", exact: true }).click();
+    if (host === "browser") await page.getByRole("button", { name: "Close Heavy", exact: true }).click();
+    else await buttons.getByRole("button", { name: "Light", exact: true }).click();
     await page.getByText("Light panel", { exact: true }).waitFor();
     await page.waitForFunction(() => window.sessionRenderFixture.cleanups === 1);
     await settle();
@@ -84,8 +85,8 @@ test("unchanged session polls preserve context identity and hidden panels pause 
     assert.equal(await page.getByRole("textbox", { name: "Heavy draft", exact: true }).inputValue(), "Unsent draft");
     assert.equal(await page.getByRole("status", { name: "Heavy count" }).textContent(), "1");
     assert.equal(await frame!.evaluate((element) => Reflect.get((element as HTMLIFrameElement).contentWindow!, "identity")), identity);
-    assert.equal(await page.locator('iframe[title="Heavy frame"]').evaluate((element, original) => element === original, frame), true);
-    assert.equal(await page.frameLocator('iframe[title="Heavy frame"]').getByRole("textbox", { name: "Frame draft" }).inputValue(), "Frame input");
+    assert.equal(await page.locator('iframe[aria-label="Heavy frame"]').evaluate((element, original) => element === original, frame), true);
+    assert.equal(await page.frameLocator('iframe[aria-label="Heavy frame"]').getByRole("textbox", { name: "Frame draft" }).inputValue(), "Frame input");
     await page.waitForFunction((ticks) => window.sessionRenderFixture.ticks > ticks, hidden.ticks);
     assert.equal((await snapshot()).effects, 2, "revealing resumes the retained panel's effects");
   }

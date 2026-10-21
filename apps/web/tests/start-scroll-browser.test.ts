@@ -28,8 +28,8 @@ const settle = (page: Page) => page.evaluate(async () => {
   for (let frame = 0; frame < 4; frame++) await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 });
 const position = (page: Page) => page.evaluate(() => ({
-  page: document.querySelector<HTMLElement>('main[data-page="start"]')?.scrollTop ?? window.scrollY,
-  outer: document.querySelector<HTMLElement>('[aria-label="Start viewport"]')?.scrollTop ?? 0,
+  page: document.querySelector<HTMLElement>('main[data-plugin-page="demo.work-board"]')?.scrollTop ?? window.scrollY,
+  outer: document.querySelector<HTMLElement>('[aria-label="Page viewport"]')?.scrollTop ?? 0,
   window: window.scrollY,
 }));
 const scrollToBoard = async (page: Page) => {
@@ -37,7 +37,7 @@ const scrollToBoard = async (page: Page) => {
   await settle(page);
   await page.evaluate(() => {
     const toolbar = document.querySelector<HTMLElement>('[role="toolbar"][aria-label="Board view"]')!;
-    const main = document.querySelector<HTMLElement>('main[data-page="start"]');
+    const main = document.querySelector<HTMLElement>('main[data-plugin-page="demo.work-board"]');
     const top = toolbar.getBoundingClientRect().top + (main?.scrollTop ?? window.scrollY) - (main?.getBoundingClientRect().top ?? 0) - 80;
     if (main) main.scrollTop = top;
     else window.scrollTo({ top, behavior: "instant" });
@@ -143,7 +143,7 @@ for (const density of ["compact", "comfortable", "spacious"] as const) for (cons
   });
 }
 
-test("Start state updates and an outer notice retain the nested panel's scroll position", browserOnly, async () => {
+test("Plugin page state updates and an outer notice retain the nested panel's scroll position", browserOnly, async () => {
   await withPage("panel", "lanes", async (page) => {
     await scrollToBoard(page);
     const before = await position(page);

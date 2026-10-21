@@ -261,7 +261,7 @@ to the plugin (`packages/ragents/src/plugin-types.ts`):
 | `functions`         | typed run functions, optionally as a tool           |
 | `prompts`           | chapters in the system prompt                       |
 | `skills`            | fixed workflows as skill files                      |
-| `startEntries`      | start page templates: skills, run scripts           |
+| `startEntries`      | new-run templates: skills, run scripts           |
 | `actorPackages`     | shared actor packages that run scripts name         |
 | `profiles`          | roles (`model_list`)                                |
 | `agentRuntime`      | hooks before model calls and after tool calls       |
@@ -273,7 +273,7 @@ to the plugin (`packages/ragents/src/plugin-types.ts`):
 | `provide`           | provide a service under a token                     |
 | `service`           | obtain another plugin's service by its token        |
 | `optionalService`   | obtain another plugin's service that may be missing |
-| `startOptions`      | start options of the start page, frozen per run     |
+| `startOptions`      | new-run options, frozen per run     |
 | `accessProjections` | what an access without `runs.inspect` sees of state |
 | `methods`           | messaging layer methods with a contract             |
 | `channels`          | channels with notifications per subscription        |
@@ -287,7 +287,7 @@ to the plugin (`packages/ragents/src/plugin-types.ts`):
 ### Extension points in the web
 
 A web plugin fills slots in the frontend (`WebPlugin` in `apps/web/src/PluginRegistry.tsx`):
-`brand`, `surface` (one `RunPanel`), `surfaceElements`, `cardSections`, `chatDisplayPolicy`, `resolveRunUrl`, `startOptions`, `startWidgets`,
+`brand`, `surface` (one `RunPanel`), `surfaceElements`, `cardSections`, `chatDisplayPolicy`, `resolveRunUrl`, `startOptions`,
 `needsRunView`, `SessionProvider`, `sessionHeaders`, `sessionStatus`, `overviewPanels`, `pages`,
 `settings`, `workspaceTabs`, `workspaceTabsFor`, `toolPresenters`, `entityPresenters`, `guides`,
 `sessionMetadata`, `actionViews`, `attention`; plus `activate` and `enabled`. `actionViews`
@@ -298,7 +298,7 @@ a surface contribution's `add` offers an addition such as "Show app..." beside t
 Browser runs arrange Chat, apps, and inspection tools through `run-panel/DockWorkspace.tsx`;
 `PluginChat` supplies `DockToolsContext`, and the surface contribution supplies its chat and apps.
 `dock-state.ts` owns immutable tree operations, `dock-geometry.ts` rectangles and docking targets,
-`lib/pointer-drag.ts` pointer capture/cancellation (shared with Start's edit mode), and
+`lib/pointer-drag.ts` pointer capture/cancellation, and
 `dock-storage.ts` per-origin/run persistence.
 All panel containers stay at stable DOM positions during moves. Hidden visited panels retain
 their parent-fed props inside React `Activity`, preserving state and frames while pausing effects;
@@ -317,20 +317,15 @@ sidebar behavior, persistence, and iframe/draft identity with `RAGENTS_BROWSER_T
 `startOptions` provides, per server-side start option, its own control component and a badge
 for the header of the running run; without a component, the host draws a selection menu from the
 option's presentation.
-`startWidgets` adds widgets to the Start dashboard beside "New" templates and "Continue" recent runs,
-which are widgets of the host's own (`panel/host-start-widgets.tsx`), as a list or as a factory
-`(context) => widgets` that publishes them per viewer; both give the same `StartWidget` with `id`,
-`order`, optional `title`, `description`, `columns`, `minColumns`, `maxColumns`, `readRight`, and
-`settings`, and `render(props)`, which receives all server-listed visible runs with their metadata, run
-navigation, and the typed `settings` (`StartWidgetProps<typeof settings>`) and returns the content.
-`title` makes it a framed widget, `columns` (1 to 6 of Start's six-column grid, by default 6) sets its
-width and `minColumns` and `maxColumns` the range the viewer may choose, `settings` declares numbers,
-switches, choices, and short texts the viewer configures in Start's edit mode, and below 700 pixels of
-Start's own width the widgets become tabs. A factory's IDs start with its plugin's ID
-(`<plugin id>:<name>`); its context supplies `signal` for cleanup and `update` for live snapshots using
-the existing RPC connection, a factory that waits for its first snapshot returns a promise of it, and
-`render` returning components defined outside the factory preserves local state and frames through
-updates.
+The fixed Runs view combines `StartTiles` with the full `RunsPage` list. It is always the first
+header entry (`page=runs`, a reserved page ID). Plugin `pages` follow it; `PageContribution.home`
+can make a readable plugin page the home. Among visible pages with `home: true`, the smallest
+`order` wins, then `id` in case-sensitive lexical string order, independent of plugin loading
+order and browser locale. Without a visible claim the home is Runs. The logo and VS Code's Home action open that home; Runs remains reachable.
+Page history uses the existing `page=<id>` navigation. `ragents.global-apps` contributes its own
+Apps page with the existing app frames, controls, and permissions, without claiming the home.
+Host API 20 requires older plugins to rebuild after removal of the configurable home API and its
+unused preference store.
 
 A domain plugin owns its prompt parts, skills, server API, web components, CSS, configuration,
 and storage itself. If you remove it from the profile, prompt,
@@ -578,7 +573,7 @@ is not part of `pnpm check`, because it needs Docker.
 `apps/web/index.html` loads `src/main.tsx` for browser runs and VS Code run/app frames.
 The host build emits the same HTML as `run-panel.html` for the iframe host contract; the server
 verifies that both pages match. Both routes share access, theme, host modules, and `RunPanelApp`.
-Start, Runs, and the run belong to this server in both hosts, including its plugin header before
+The home, Runs, plugin pages, and the run belong to this server in both hosts, including its plugin header before
 a run opens. The extension selects one environment per workspace and sends navigation to that
 server's frame. `src/panel.tsx` binds VS Code messages to the local connection-management and
 unavailable-server shell using `panel/PanelPage`.
@@ -822,8 +817,8 @@ connection, run panel, run switching, and a mini-app in the center; `RAGENTS_HOS
 or `RAGENTS_HOST_TEST_TOKEN=<token>` check sign-in.
 `RAGENTS_HOST_TEST_WORKSPACE=<folder>` additionally checks a run on the workstation,
 `RAGENTS_HOST_TEST_SECOND=<address>` a second server alongside: both connected at the same time, the
-selected server's Start page, environment switching, the workstation registered with both servers,
-a click on a template, the way back to the same Start page, deleting a run, a new empty run,
+selected server's Runs view, environment switching, the workstation registered with both servers,
+a click on a template, the way back to the same Runs view, deleting a run, a new empty run,
 and a disconnect that affects only one. `RAGENTS_HOST_TEST_VSIX=<path>` checks the packaged
 extension instead of the checkout: the runner unpacks the file into its user folder and
 loads `extension/` from it, that is, exactly what is also installed - without `node_modules`

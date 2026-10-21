@@ -35,10 +35,6 @@ for (const host of ["browser", "vscode"]) {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(`${url}?host=${host}`);
-    const recent = page.getByRole("list", { name: "Recent", exact: true });
-    await recent.waitFor();
-    assert.equal(await recent.getByRole("listitem").count(), 15, "Start shows fifteen recent runs");
-    await page.getByRole("button", { name: /^All 23 runs/ }).click();
     const allTab = page.getByRole("tab", { name: "All runs", exact: true });
     const sharedTab = page.getByRole("tab", { name: "Shared by me 3", exact: true });
     await allTab.waitFor();

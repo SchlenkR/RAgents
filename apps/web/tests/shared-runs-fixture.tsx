@@ -81,7 +81,7 @@ function Fixture() {
     }
   };
   return <>
-    <PanelPage preferences={{ read: async () => null, write: async () => {} }} state={{ ...state, revoking }} send={send} />
+    <PanelPage state={{ ...state, revoking }} send={send} />
     {opened && <output aria-label="Opened run">{opened}</output>}
   </>;
 }

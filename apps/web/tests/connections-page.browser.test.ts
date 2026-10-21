@@ -19,7 +19,7 @@ const sent=(page:Page)=>page.evaluate(()=>(window as any).fixture.sent.at(-1));
 test("the Server page creates in the dialog, keeps input on an error, edits, signs in and removes after a confirmation in the dialog",{skip:process.env.RAGENTS_BROWSER_TESTS!=="1",timeout:120_000},async(context)=>{
   const scratch="/private/tmp/ragents-connections-page";await mkdir(scratch,{recursive:true});const directory=await mkdtemp(`${scratch}/page-`);const root=fileURLToPath(new URL("../../../",import.meta.url));
   await build({stdin:{contents:`import React,{useState}from'react';import{createRoot}from'react-dom/client';import{PanelPage}from'${root}apps/web/src/panel/PanelPage.tsx';import'${root}apps/web/src/ui/tailwind.css';
-function App(){const[state,setState]=useState(window.fixture.initial);window.fixture={...window.fixture,setState};window.fixture.sent??=[];return <PanelPage preferences={{read:async()=>null,write:async()=>{}}} state={state} send={action=>window.fixture.sent.push(action)}/>};createRoot(document.getElementById('root')).render(<App/>);`,resolveDir:`${root}apps/web`,loader:"tsx"},jsx:"automatic",bundle:true,platform:"browser",format:"iife",outfile:`${directory}/app.js`,plugins:[tailwindPlugin([])],logLevel:"silent"});
+function App(){const[state,setState]=useState(window.fixture.initial);window.fixture={...window.fixture,setState};window.fixture.sent??=[];return <PanelPage state={state} send={action=>window.fixture.sent.push(action)}/>};createRoot(document.getElementById('root')).render(<App/>);`,resolveDir:`${root}apps/web`,loader:"tsx"},jsx:"automatic",bundle:true,platform:"browser",format:"iife",outfile:`${directory}/app.js`,plugins:[tailwindPlugin([])],logLevel:"silent"});
   const initial={theme:"dark",page:"connections",connections:[],profileSuggestions:suggestions};
   await writeFile(`${directory}/index.html`,`<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><link rel="stylesheet" href="app.css"><script>window.fixture={initial:${JSON.stringify(initial)}}</script></head><body><div id="root"></div><script src="app.js"></script></body></html>`);
   const browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_EXECUTABLE_PATH??"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"});
@@ -29,7 +29,7 @@ function App(){const[state,setState]=useState(window.fixture.initial);window.fix
     const closed=()=>page.waitForSelector('[role=dialog]',{state:'detached'});
     await page.getByRole('heading',{name:'Server'}).waitFor();
     assert.equal(await page.getByText('No server yet.').count(),1);
-    assert.equal(await page.getByRole('button',{name:'Back to Start'}).count(),1);
+    assert.equal(await page.getByRole('button',{name:'Back to home'}).count(),1);
 
     // Creating goes through the dialog, not through a form on the page.
     await page.getByRole('button',{name:'New server'}).click();

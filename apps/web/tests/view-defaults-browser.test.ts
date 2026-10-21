@@ -220,7 +220,7 @@ test("semantic views have frame defaults and library rows keep related facts com
     const title = await compactFrame.getByText(state.title, { exact: true }).boundingBox();
     const badge = await compactFrame.getByText(state.status, { exact: true }).boundingBox();
     assert.ok(title && badge && title.y < badge.y + badge.height && badge.y < title.y + title.height, "title and status share one row");
-    assert.ok(await compactFrame.locator("#root").evaluate(element => element.scrollWidth <= element.clientWidth), "the compact view fits a narrow widget");
+    assert.ok(await compactFrame.locator("#root").evaluate(element => element.scrollWidth <= element.clientWidth), "the compact view fits a narrow app");
     const shot = join(screenshots, `view-defaults-${theme}-${width}.png`);
     await page.screenshot({ path: shot });
     context.diagnostic(`${shot}: plain ${plainLines.count} lines, compact ${compactLines.count} lines`);

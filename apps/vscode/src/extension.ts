@@ -221,8 +221,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     statusBar.text = `${notices.length > 0 ? "$(warning)" : "$(plug)"} RAgents: ${connected} connected`;
     statusBar.backgroundColor = notices.length === 0 ? undefined : new vscode.ThemeColor(blocking ? "statusBarItem.errorBackground" : "statusBarItem.warningBackground");
     statusBar.tooltip = current.length === 0
-      ? "No server set up. Click: Start"
-      : `${current.map((snapshot) => `${snapshot.connection.name}: ${stateOf(snapshot)}${snapshot.versionNotice ? `\n${snapshot.versionNotice.text}` : ""}`).join("\n")}\nClick: Start`;
+      ? "No server set up. Click: Home"
+      : `${current.map((snapshot) => `${snapshot.connection.name}: ${stateOf(snapshot)}${snapshot.versionNotice ? `\n${snapshot.versionNotice.text}` : ""}`).join("\n")}\nClick: Home`;
     statusBar.show();
   };
 

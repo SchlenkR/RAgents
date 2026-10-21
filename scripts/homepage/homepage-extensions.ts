@@ -66,15 +66,6 @@ const contracts: Contract[] = [
   { id: "start", file: "packages/ragents/src/plugin-types.ts", name: "StartEntryBase" },
   { id: "web", file: "apps/web/src/PluginRegistry.tsx", name: "WebPlugin" },
   { id: "webIdentity", file: "apps/web/src/PluginRegistry.tsx", name: "WebPluginDescriptor" },
-  { id: "startWidget", file: "apps/web/src/PluginRegistry.tsx", name: "StartWidget" },
-  { id: "startWidgetContext", file: "apps/web/src/PluginRegistry.tsx", name: "StartWidgetContext" },
-  { id: "startWidgetProps", file: "apps/web/src/PluginRegistry.tsx", name: "StartWidgetProps" },
-  { id: "startWidgetFactoryContext", file: "apps/web/src/PluginRegistry.tsx", name: "StartWidgetFactoryContext" },
-  { id: "numberSetting", file: "apps/web/src/PluginRegistry.tsx", name: "StartWidgetNumberSetting" },
-  { id: "booleanSetting", file: "apps/web/src/PluginRegistry.tsx", name: "StartWidgetBooleanSetting" },
-  { id: "choiceSetting", file: "apps/web/src/PluginRegistry.tsx", name: "StartWidgetChoiceSetting" },
-  { id: "settingOption", file: "apps/web/src/PluginRegistry.tsx", name: "StartWidgetSettingOption" },
-  { id: "textSetting", file: "apps/web/src/PluginRegistry.tsx", name: "StartWidgetTextSetting" },
   { id: "surfaceElement", file: "apps/web/src/PluginRegistry.tsx", name: "SurfaceElementDefinition" },
   { id: "choiceSelect", file: "apps/web/src/ui/choice-select.tsx", name: "ChoiceSelectProps" },
   { id: "overflowTab", file: "apps/web/src/ui/overflow-tabs.tsx", name: "OverflowTabItem" },
@@ -445,7 +436,7 @@ host.runCondition((runId) => domainRuns.has(runId));`, ["host.runCondition"], [
     "The condition is synchronous and runs on every prompt composition and every tool, skill, and hook resolution of a run. It reads a decision stored in the journal instead of determining it again.",
     "If it throws, the run's turn fails with this cause; that way a run whose decision could not be determined stays blocked. At most one condition per plugin.",
   ]),
-  entry("start-entries", "Server contributions", "Skills and run scripts as templates", "The Start page offers templates for a new run. A skill combines an editable start task with working instructions and optional files. A run script provides a programmed setup. Plugins register both kinds through the same contract.", "Inside register(host); text-review is a registered skill.", `
+  entry("start-entries", "Server contributions", "Skills and run scripts as templates", "The Runs view offers templates for a new run. A skill combines an editable start task with working instructions and optional files. A run script provides a programmed setup. Plugins register both kinds through the same contract.", "Inside register(host); text-review is a registered skill.", `
 host.startEntries({
   id: "ragents.example.start", title: "Review text",
   description: "Starts with a review task.", order: 100,
@@ -454,10 +445,10 @@ host.startEntries({
   action: "skill", skill: "text-review", category: "Collaboration",
   prompt: "Please check my text for contradictions.",
 });`, ["host.startEntries", "start.id", "start.title", "start.description", "start.order", "start.listed", "start.guide", "start.tags", "start.fixedStartOptions"], [
-    "listed defaults to true. Set listed: false for a template started by a plugin widget with fixed input: user-facing template lists, search, galleries, and run-script pickers omit it, while plugin lookup and permission-checked starts by ID remain available.",
+    "listed defaults to true. Set listed: false for a template started by a plugin page with fixed input: user-facing template lists, search, galleries, and run-script pickers omit it, while plugin lookup and permission-checked starts by ID remain available.",
     "For skill templates, category is exactly one free, non-empty text used to group examples in the reference; compact Start cards do not show it. Independently of that, tags is an optional list of keywords for search, filters, and the reference. Only the tags are given comma-separated in SKILL.md and RUN.md frontmatter. The reference plugin provides demos and possible high-level test cases. Their description explains the demonstration purpose; Use case, Concept demo, and product concepts are in tags. The public generation checks at least two different examples per product concept. UI controls have no example quota and do not have to appear completely in the demos. Pure operating concepts use separate walkthroughs from the reference plugin's walkthroughs.ts. These create no templates and do not extend the StartEntry contract.",
     "action: skill uses the registered skill name. action: script contains a RunScriptPackage. guide refers to a web guide with the same name.",
-    "fixedStartOptions sets start options for every run from the template, for example { \"ragents.workspace.binding\": { machine: \"server\", folder: \"fresh\" } }; in RUN.md the header line is called fixed-start-options. A different choice made beforehand is an error at start, and the Start page shows the option as fixed.",
+    "fixedStartOptions sets start options for every run from the template, for example { \"ragents.workspace.binding\": { machine: \"server\", folder: \"fresh\" } }; in RUN.md the header line is called fixed-start-options. A different choice made beforehand is an error at start, and the Runs view shows the option as fixed.",
     "Use as task opens the preparation chat with the editable start task for every skill, even after a guide. Only Create run sends the task with the skill reference; for a script, the guide's object is passed to the prepared actor as its parameters.",
   ]),
   entry("actor-packages", "Server contributions", "Share an actor package between run scripts", "A program that several run scripts use belongs to the plugin, not to each script. The run then has one actor for it, whichever script comes first.", "Usually the folder actors/<name>/ next to run-scripts/; explicitly inside register(host) with the complete package files.", `
@@ -761,114 +752,6 @@ const cards = {
   cardSections: [{ id: "ragents.example.note", order: 100,
     Section: () => <p>Additional card content</p> }],
 } satisfies WebPlugin;`, ["web.cardSections"], ["actor is unknown at this boundary. Anyone using actor fields must check them with the contract of the responsible plugin. An empty contribution can render null."], "tsx"),
-  entry("web-start-widgets", "Web contributions", "Work documents across runs on Start", "A plugin can add a widget to the Start dashboard beside New and Continue. It receives all runs the viewer can see, including their metadata, can open an entry's run through the host navigation, and offers settings the viewer changes in Start's edit mode.", "Properties of a WebPlugin; Type comes from typebox. The server metadata contribution ragents.example.documents returns documents with id and title.", `
-import { Value } from "typebox/value";
-import type { StartWidgetProps, StartWidgetSettings } from "@ragents/web/PluginRegistry";
-
-const documentsSchema = Type.Array(Type.Object({ id: Type.String(), title: Type.String() }));
-const documentSettings = {
-  limit: { type: "number", label: "Documents", description: "How many documents the widget lists.", default: 10, min: 5, max: 50, step: 5 },
-  showRun: { type: "boolean", label: "Show the run", default: true },
-  order: { type: "choice", label: "Order", default: "newest", options: [{ value: "newest", label: "Newest first" }, { value: "title", label: "By title" }] },
-  note: { type: "text", label: "Note", description: "One line above the list.", default: "" },
-} as const satisfies StartWidgetSettings;
-
-function WorkDocuments({ runs, onOpenRun, settings }: StartWidgetProps<typeof documentSettings>) {
-  const documents = runs.flatMap((run) => {
-    const value = run.metadata?.["ragents.example.documents"];
-    if (value === undefined) return [];
-    if (!Value.Check(documentsSchema, value)) throw new Error("Invalid work document metadata.");
-    return value.map((document) => ({ ...document, runId: run.id, runTitle: run.title }));
-  });
-  const shown = (settings.order === "title" ? [...documents].sort((left, right) => left.title.localeCompare(right.title)) : documents).slice(0, settings.limit);
-  if (shown.length === 0) return null;
-  return <div className="grid gap-2">
-    {settings.note && <p>{settings.note}</p>}
-    <ul className="grid gap-2 @md/widget:grid-cols-2">{shown.map((document) => <li key={document.runId + ":" + document.id}>
-      <button onClick={() => onOpenRun(document.runId)}>{document.title}{settings.showRun && " (" + document.runTitle + ")"}</button>
-    </li>)}</ul>
-  </div>;
-}
-
-const startUi = {
-  id: "ragents.example",
-  startWidgets: [{
-    id: "ragents.example.documents", order: 100, readRight: "ragents.example.read",
-    title: "Work documents", description: "Documents of all runs, newest first.", columns: 3, minColumns: 2,
-    settings: documentSettings, render: (props) => <WorkDocuments {...props} />,
-  }],
-} satisfies WebPlugin;`, ["web.startWidgets", "startWidget.id", "startWidget.order", "startWidget.readRight", "startWidget.title", "startWidget.description", "startWidget.columns", "startWidget.minColumns", "startWidget.maxColumns", "startWidget.settings", "startWidget.render", "startWidgetContext.runs", "startWidgetContext.onOpenRun",
-    "startWidgetProps.runs", "startWidgetProps.onOpenRun", "startWidgetProps.settings",
-    "numberSetting.type", "numberSetting.label", "numberSetting.description", "numberSetting.default", "numberSetting.min", "numberSetting.max", "numberSetting.step",
-    "booleanSetting.type", "booleanSetting.label", "booleanSetting.description", "booleanSetting.default",
-    "choiceSetting.type", "choiceSetting.label", "choiceSetting.description", "choiceSetting.default", "choiceSetting.options", "settingOption.value", "settingOption.label",
-    "textSetting.type", "textSetting.label", "textSetting.description", "textSetting.default"], [
-    "startWidgets is a list of widgets, as here, or a factory that publishes them per viewer (next example); both kinds have the same fields and are the same on Start. New and Continue are the host's own widgets with order -20 and -10, so plugin widgets with an order of 0 or more follow them, sorted by order and id. The props contain every server-listed visible run, sorted by updatedAt, with id, title, updatedAt, and optional metadata keyed by contribution ID.",
-    "render returns the widget's content from its props. Put state and effects into a component it renders, as WorkDocuments here; that component keeps its state while Start renders again.",
-    "settings makes the widget configurable with Configure in Start's edit mode: per key a number with min, max, and step (by default 1, counted from min), a boolean, a choice among options, or one line of text of at most 200 characters, each with label, optional description, and default. render receives the values as settings; typed as StartWidgetProps<typeof settings>, they are number, boolean, the choice's values, and string. A stored value its setting rejects is reported in the widget, and the widget gets the default instead; nothing is converted or clamped.",
-    "title gives the widget the host's title row and, below 700 pixels of Start's own width, its tab. columns is its width in columns of Start's six-column grid, 1 to 6, by default 6; from 700 pixels the grid has three columns and the widget takes half its columns, rounded up. Its body is a size container named widget, so @container variants such as @md/widget: follow the widget's width.",
-    "In Start's edit mode the viewer moves, resizes, removes, and adds widgets. description is the sentence the widget gallery shows; minColumns and maxColumns limit the widths the viewer may choose, by default 1 to 6, and must include columns. The id is the widget's ID in the viewer's saved layout, so it stays the same across releases.",
-    "The server filters the run list for the viewer; the slot performs no additional run access checks. readRight hides the entire widget without the named permission.",
-    "onOpenRun uses the same navigation as a run row in both browser and VS Code server frames. The local VS Code shell has no plugin registry and contributes no widgets.",
-    "Returning null leaves no cell, tab, or gap. A widget without title keeps its own heading and spacing, fills a row, and cannot be arranged; description, settings, columns, minColumns, and maxColumns require a title.",
-  ], "tsx"),
-  entry("web-start-widget-factory", "Web contributions", "Publish Start widgets per viewer", "A plugin can publish a changing list of Start widgets through the existing RPC connection. Stable identifiers and React component types preserve their local state as snapshots change.", "Properties of a WebPlugin; Type and defineChannel describe the shared channel contract. The server emits only widgets the viewer may read.", `
-import { rpc } from "@ragents/web/rpc";
-import type { StartWidget, StartWidgetProps, StartWidgetSettings } from "@ragents/web/PluginRegistry";
-
-const widgetSnapshots = defineChannel({
-  id: "ragents.example.widgets.changed",
-  description: "Reports the viewer's current widgets.",
-  rights: ["ragents.example.read"],
-  params: Type.Object({}, { additionalProperties: false }),
-  message: Type.Object({ widgets: Type.Array(Type.Object({
-    name: Type.String(),
-    title: Type.String(),
-    runId: Type.String(),
-  })) }),
-});
-
-const workSettings = { label: { type: "text", label: "Button text", default: "Open run" } } as const satisfies StartWidgetSettings;
-
-function WorkWidget({ runId, label, onOpenRun }: Readonly<{ runId: string; label: string; onOpenRun: (runId: string) => void }>) {
-  return <button onClick={() => onOpenRun(runId)}>{label}</button>;
-}
-
-const dynamicStartUi = {
-  id: "ragents.example",
-  startWidgets: ({ signal, update }) => new Promise<readonly StartWidget[]>((resolve) => {
-    const publish = (widgets: readonly StartWidget[]) => {
-      if (signal.aborted) return;
-      update(widgets);
-      resolve(widgets);
-    };
-    const unsubscribe = rpc.subscribe(widgetSnapshots, {}, ({ widgets }) => publish(widgets.map((widget): StartWidget => ({
-      id: "ragents.example:" + widget.name,
-      title: widget.title,
-      description: "Opens the run behind this piece of work.",
-      columns: 4,
-      minColumns: 3,
-      order: 200,
-      readRight: "ragents.example.read",
-      settings: workSettings,
-      render: ({ onOpenRun, settings }: StartWidgetProps<typeof workSettings>) => <WorkWidget label={settings.label} runId={widget.runId} onOpenRun={onOpenRun} />,
-    }))), (problem) => publish([{
-      id: "ragents.example:problem",
-      title: "Work widgets unavailable",
-      columns: 2,
-      order: 200,
-      render: () => <p role="alert">{problem}</p>,
-    }]));
-    signal.addEventListener("abort", unsubscribe, { once: true });
-  }),
-} satisfies WebPlugin;`, ["web.startWidgets", "startWidgetFactoryContext.runs", "startWidgetFactoryContext.onOpenRun", "startWidgetFactoryContext.signal", "startWidgetFactoryContext.update"], [
-    "A factory returns readonly widgets synchronously or as a promise. Its widgets have the same fields as a listed widget and follow the same rules; in Start's edit mode the viewer moves, resizes, configures, removes, and adds them back like any other widget, and columns and order are defaults.",
-    "Every id starts with the plugin's id and a colon and stays the same across snapshots and releases, because the viewer's saved Start layout refers to it. A listed widget may not use that prefix.",
-    "The context includes every server-listed visible run in runs and onOpenRun, like the props of a widget. update replaces this factory's current widget snapshot, and signal aborts when its context is released; the factory then unsubscribes from live channels.",
-    "The host calls the factory again when the run list changes and keeps its previous widgets until the new call delivers a snapshot. A factory that waits for a live channel therefore returns a promise of its first snapshot, as here, rather than an empty list.",
-    "Keep the same widget id and let render return a component defined outside the factory, such as WorkWidget, with the snapshot's data as props. The component type stays the same across snapshots, so its state and frames survive them; a component created per snapshot would remount.",
-    "The host draws the title, frame, and narrow-dashboard tab and adapts layout to its own width. Errors must stay visible rather than silently removing affected widgets; a factory that fails shows its cause in a widget of its own, and removing a widget from Start does not stop its server-side work.",
-  ], "tsx"),
   entry("web-context", "Web contributions", "Run data and React context", "Several interface contributions of a plugin can need shared data about the open run. A SessionProvider passes this data on through React context. With needsRunView, the plugin additionally requests the run state provided by the server.", "Properties of a WebPlugin; the provider can use its own Context.Provider here.", `
 const sessionUi = {
   id: "ragents.example",
@@ -898,13 +781,14 @@ const headers = {
   sessionStatus: [{ id: "ragents.example.run-status", order: 100,
     Status: ({ session }) => <span>{session.connected ? "Connected" : "Disconnected"}</span> }],
 } satisfies WebPlugin;`, ["web.overviewPanels", "web.sessionHeaders", "web.sessionStatus"], ["The context provides registry, open, onOpen, onClose, and onBusy. Without placement, the contribution appears in the overview and is mounted when first opened. Toolbar contributions are mounted from application startup; they activate their own connections only when used. The host coordinates open toolbar contributions. sessionHeaders appear in the run details sheet: label and explanation wrap the value in a shared DetailRow. Their order is shared with metadata so useful facts can come first. The actions placement puts controls in its footer; bar puts them in the title bar next to Share. A contribution without content returns null. Run header and lower status groups receive SessionContext and navigation and follow the active run."], "tsx"),
-  entry("web-pages", "Web contributions", "Pages in the main area", "A plugin can add a whole page to the application. Its button with icon and title appears in the top bar, and the page replaces Start or the open run in the main area. In the browser the address names the open page, so reloading, bookmarks, and the back and forward buttons keep it.", "Properties of a WebPlugin; the icon is any React component.", `
+  entry("web-pages", "Web contributions", "Pages and the home view", "A plugin can add a whole view beside Runs in the application header and make it the home opened by the logo. In the browser the address names the open page, so reloading, bookmarks, and the back and forward buttons keep it.", "Properties of a WebPlugin; the icon is any React component.", `
 const reports = {
   id: "ragents.example",
   pages: [{
     id: "ragents.example.reports",
     order: 100,
     title: "Reports",
+    home: true,
     readRight: "ragents.example.read",
     Icon: () => <svg aria-hidden viewBox="0 0 16 16" width="16" height="16"><path d="M2 14V6h3v8zm4.5 0V2h3v12zM11 14V9h3v5z" fill="currentColor" /></svg>,
     Page: ({ onOpenRun }) => <section>
@@ -912,11 +796,12 @@ const reports = {
       <button onClick={() => onOpenRun("run-1")} type="button">Open the latest run</button>
     </section>,
   }],
-} satisfies WebPlugin;`, ["web.pages", "page.id", "page.order", "page.title", "page.Icon", "page.readRight", "page.Page", "pageContext.onOpenRun"], [
-    "The top bar shows one button per page the user may read, after the overview and toolbar contributions and sorted by order and then id. It shows the icon and the title, which shorten when the header is narrow. The open page's button is highlighted. readRight hides button and page without the named permission. A blank title, an id with whitespace around it, and a duplicate id are registry errors.",
-    "The page replaces Start or the open run in the main area as plain content on the application background, without dialog or frame. The main area scrolls as a whole, so Page needs no scroll container. A Page that throws shows its cause in its place while the top bar stays usable.",
-    "The logo returns to Start, and onOpenRun, a template that starts, and the extension's navigation in VS Code leave the page. The run that was open stays selected, with its unsent input, and returns when the page is left. A page is mounted only while it is open, so state that must survive leaving it belongs on the server or in a service of the plugin.",
-    "In the browser the address names the open page as page=<id> and gets one history entry per change, so a reload, a bookmark, and the back and forward buttons keep it. The id stays the same across releases for that reason. An id that no plugin registers or the user may not read shows Start with a notice. In VS Code the page lives in the panel only and the extension does not know it.",
+} satisfies WebPlugin;`, ["web.pages", "page.id", "page.order", "page.title", "page.home", "page.Icon", "page.readRight", "page.Page", "pageContext.onOpenRun"], [
+    "Runs is always the first view in the header. Plugin pages follow, sorted by order and then id, with an icon and a title that shortens in a narrow header. The open view is highlighted. readRight hides button and page without the named permission. A blank title, an id with whitespace around it, a duplicate id, and the reserved id runs are registry errors.",
+    "home: true makes this page a candidate for the user's home. Among visible candidates the smallest order wins; equal orders use id in case-sensitive lexical string order, exactly as the page list does. Plugin loading order and browser locale do not affect the choice. Without a visible candidate, home is Runs. The logo and VS Code's Home action open that home; the Runs entry always opens Runs.",
+    "The page replaces Runs or the open run in the main area as plain content on the application background, without dialog or frame. The main area scrolls as a whole, so Page needs no scroll container. A Page that throws shows its cause in its place while the header stays usable.",
+    "onOpenRun opens the named run through the host's navigation. Opening a view keeps the selected run mounted but hidden, preserving unsent input, scroll position, and frames. A plugin page is mounted only while open, so state that must survive leaving it belongs on the server or in a service of the plugin.",
+    "In the browser the address names Runs as page=runs and a plugin page as page=<id>, with one history entry per change. A reload, a bookmark, and back and forward keep that view. Keep page ids stable across releases. An unknown or unreadable id shows the home with a notice. In VS Code the view lives in the panel and its navigation leaves the extension's iframe address unchanged.",
   ], "tsx"),
   entry("web-settings", "Web contributions", "Editable plugin settings", "A plugin can offer its own interface for editing its settings. With category, it appears under Models or Appearance, and additionally on the plugin's settings page. The application assigns it to the active plugin.", "Properties of a WebPlugin; ExampleSettings is the plugin's own React component.", `
 import { useState } from "react";

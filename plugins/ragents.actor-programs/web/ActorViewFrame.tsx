@@ -135,7 +135,7 @@ export function ActorViewFrame({
   const sendChatState = useCallback((port: MessagePort, actor: string, requestId?: string) => {
     const current = sessionRef.current;
     if (!current) {
-      port.postMessage({ type: RUN_APP_ERROR, version: RUN_APP_BRIDGE_VERSION, requestId, message: "This dashboard view has no chat session." });
+      port.postMessage({ type: RUN_APP_ERROR, version: RUN_APP_BRIDGE_VERSION, requestId, message: "This app view has no chat session." });
       return;
     }
     const generation = bridgeGenerationRef.current;
@@ -275,7 +275,7 @@ export function ActorViewFrame({
         try {
           if (!writableRef.current) throw new Error("You have read-only access to this chat.");
           const current = sessionRef.current;
-          if (!current) throw new Error("This dashboard view has no chat session.");
+          if (!current) throw new Error("This app view has no chat session.");
           const snapshot = chatSnapshotOf(current, request.actor);
           if (snapshot.error) throw new Error(snapshot.error);
           const { actor } = resolveChatActor(current, request.actor);
