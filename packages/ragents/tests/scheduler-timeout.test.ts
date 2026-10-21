@@ -253,6 +253,35 @@ test("inactivity expires after the last progress, despite another actor's activi
     }
 });
 
+test("streaming after the turn ended elsewhere no longer resets inactivity", async (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    const setup = setupRun({ execution: executionFor("worker", { profile: "agent", turnTimeoutMs: 1_000 }) });
+    let abortedAtLimit = false;
+    const driver = new FakeDriver(async (request, signal) => {
+        t.mock.timers.tick(900);
+        setup.runtime.interruptTurn({ actorId: setup.view.ownerId, commandId: "external-end" },
+            setup.view.id, setup.agent.id, { turnId: request.turnId, reason: "Ended elsewhere." });
+        for (let index = 0; index < 3; index++) {
+            request.publish({ kind: "text", delta: "Still streaming" });
+            t.mock.timers.tick(30);
+        }
+        t.mock.timers.tick(10);
+        abortedAtLimit = signal.aborted;
+        return { failure: null, usage: noUsage() };
+    });
+    const scheduler = new TurnScheduler(setup.runtime, setup.journal, { drivers: registryOf(driver), catalog });
+    try {
+        postTo(setup.runtime, setup.view, setup.agent.id, "ended-elsewhere", "Work");
+        scheduler.start();
+        await scheduler.waitForIdle();
+        assert.equal(abortedAtLimit, true);
+        assert.equal(setup.runtime.view(setup.view.id).turns[0]?.reason, "Ended elsewhere.");
+    } finally {
+        await scheduler.stop();
+        setup.journal.close();
+    }
+});
+
 for (const turnTimeoutMs of [null, 0]) {
     test(`turnTimeoutMs ${turnTimeoutMs} leaves turns unlimited`, async (t) => {
         t.mock.timers.enable({ apis: ["setTimeout"] });

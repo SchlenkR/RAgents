@@ -771,6 +771,20 @@ test("action resolution stays an event and does not route actor input", () => {
     journal.close();
 });
 
+test("reads share one frozen state per revision and see each change", () => {
+    const { runtime, view } = create();
+    const first = runtime.state(view.id);
+
+    assert.equal(runtime.state(view.id), first);
+    assert.ok(Object.isFrozen(first.actors.get(view.ownerId)));
+    spawn(runtime, view, "worker");
+    const second = runtime.state(view.id);
+
+    assert.notEqual(second, first);
+    assert.ok(second.revision > first.revision);
+    assert.equal([...second.actors.values()].length, [...first.actors.values()].length + 1);
+});
+
 test("artifact access cannot be self-granted and may be forwarded by an authorized actor", () => {
     const { journal, runtime, view } = create();
     const author = spawn(runtime, view, "author", [grant("artifact.publish")]).actor;
@@ -801,7 +815,7 @@ test("artifact access cannot be self-granted and may be forwarded by an authoriz
     );
     const escapedInput = runtime.view(view.id).inputs.find((entry) => entry.id === unshared.inputs.at(-1)?.id);
     assert.ok(escapedInput);
-    (escapedInput.artifactIds as string[]).push(artifact.id);
+    assert.throws(() => (escapedInput.artifactIds as string[]).push(artifact.id), TypeError);
     assert.throws(() => runtime.artifactContent(view.id, artifact.id, reader.id), /may not read artifact/);
 
     const escapedRecord = journal.records(view.id)

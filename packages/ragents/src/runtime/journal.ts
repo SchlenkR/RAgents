@@ -84,7 +84,7 @@ const deepFreeze = <Value>(value: Value): Value => {
     if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
         Object.freeze(value);
 
-        for (const entry of Object.values(value))
+        for (const entry of value instanceof Map ? value.values() : Object.values(value))
             deepFreeze(entry);
     }
 
@@ -261,6 +261,7 @@ export class Journal {
     readonly #listeners = new Set<(events: JournalEvent[]) => void>();
     readonly #pendingPublications: JournalEvent[][] = [];
     readonly #runs = new Map<RunId, RunLog>();
+    readonly #snapshots = new WeakMap<RunDraft, RunState>();
     readonly #validateRecord: ((record: CommandRecord) => void) | undefined;
     readonly #loadFailures = new Map<string, JournalLoadFailure>();
     readonly #onLoadError: (failure: JournalLoadFailure) => void;
@@ -418,7 +419,18 @@ export class Journal {
     stateOf(runId: RunId): RunState | null {
         const state = this.#runs.get(runId)?.state;
 
-        return state ? clone(state) : null;
+        if (!state)
+            return null;
+
+        const known = this.#snapshots.get(state);
+
+        if (known)
+            return known;
+
+        const snapshot = deepFreeze(clone(state));
+        this.#snapshots.set(state, snapshot);
+
+        return snapshot;
     }
 
     updatedAt(runId: RunId): string | null {

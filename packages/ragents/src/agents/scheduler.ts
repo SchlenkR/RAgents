@@ -911,11 +911,13 @@ export class TurnScheduler {
         };
         progress();
         const unsubscribeProgress = turnTimeoutMs ? this.#journal.subscribe((events) => {
-            if (events.some((event) => event.runId === runId
-                && event.actorId === actorId
+            const own = events.filter((event) => event.runId === runId
                 && "turnId" in event.payload
-                && event.payload.turnId === turn.turnId
-                && turnProgressEvents.has(event.type)))
+                && event.payload.turnId === turn.turnId);
+
+            if (own.some((event) => event.type === "turn.finished" || event.type === "turn.interrupted"))
+                ended = true;
+            else if (own.some((event) => event.actorId === actorId && turnProgressEvents.has(event.type)))
                 progress();
         }) : null;
 
