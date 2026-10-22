@@ -1,5 +1,17 @@
 # Decisions
 
+## 2026-10-22: A short comment follows every burst on the event stream
+
+Chapters: `spec/plugins.md` (Messaging layer).
+
+**Why.** In Safari, channel messages that the server wrote back to back, several of them about one
+megabyte each, reached the page only with the next ping, up to 15 seconds later; with no further
+bytes they did not arrive at all. A single message of the same size arrived at once, and Chrome
+delivered every burst at once. A few more bytes after the burst release the held data.
+
+**Decision.** The HTTP transport writes an empty SSE comment 20 ms after the first message of a
+burst. The client already ignores comments.
+
 ## 2026-10-21: Identical package checks run once on worker threads, and reactivations are bounded
 
 Chapters: `spec/typescript-platform.md` (Build and process lifecycle, Open limits),

@@ -1449,7 +1449,9 @@ a connection without a stream (`streamless`) can neither subscribe nor be called
 Transports serve the same dispatcher. HTTP: `POST /rpc` per message (request, the client's
 response to a callback, or notification) and `GET /rpc/stream` as an SSE stream per
 connection, which announces itself with `hello` and a connection ID and carries notifications as well as
-requests from the server; the ID comes along in the header `x-ragents-connection`. Stdio: one
+requests from the server; the ID comes along in the header `x-ragents-connection`. A short SSE comment
+follows every burst of messages after 20 ms, because Safari holds back the end of a large burst
+until more bytes arrive. Stdio: one
 JSON message per line on stdin and stdout; the caller counts as trusted and has all rights.
 Sign-in is a transport matter: HTTP with cookie, bearer, or `?access=` as before
 (`/api/access`, `/api/access/login`, `/api/access/logout` stay HTTP), stdio without.

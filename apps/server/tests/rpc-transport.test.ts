@@ -111,13 +111,14 @@ const httpFixture = async (t: TestContext) => {
     const response = await fetch(`${base}/rpc/stream`, { signal: controller.signal });
     const lines = response.body!.pipeThrough(new TextDecoderStream()).getReader();
     let buffered = "";
-    const next = async (): Promise<{ event?: string; data: unknown }> => {
+    const read = async (flush: boolean): Promise<{ event?: string; data: unknown }> => {
       for (;;) {
         const end = buffered.indexOf("\n\n");
         if (end >= 0) {
           const block = buffered.slice(0, end);
           buffered = buffered.slice(end + 2);
-          if (block.startsWith(":")) continue;
+          if (flush && block === ":") return { data: undefined };
+          if (flush || block.startsWith(":")) continue;
           const event = block.match(/^event: (.+)$/m)?.[1];
           const data = block.match(/^data: (.+)$/m)?.[1];
           return { event, data: data === undefined ? undefined : JSON.parse(data) };
@@ -127,9 +128,10 @@ const httpFixture = async (t: TestContext) => {
         buffered += chunk.value;
       }
     };
+    const next = () => read(false);
     const hello = await next();
     assert.equal(hello.event, "hello");
-    return { connection: (hello.data as { connection: string }).connection, next, close: () => controller.abort() };
+    return { connection: (hello.data as { connection: string }).connection, next, flushed: () => read(true), close: () => controller.abort() };
   };
   return { ...f, transport, base, post, stream };
 };
@@ -155,6 +157,17 @@ test("http: requests are answered with JSON-RPC results, failures and rights che
   assert.equal((await f.post("nonsense")).status, 400);
   const streamless = (await f.post({ jsonrpc: "2.0", id: 8, method: RPC_METHODS.subscribe, params: { channel: "test.ticks", params: { runId: "r" } } })).body as { error: { data: { code: string } } };
   assert.equal(streamless.error.data.code, "stream-required");
+});
+
+test("http: a short comment follows each burst of stream messages, so browsers that hold back its end release it", async (t) => {
+  const f = await httpFixture(t);
+  const stream = await f.stream();
+  await f.post({ jsonrpc: "2.0", id: 1, method: RPC_METHODS.subscribe, params: { channel: "test.ticks", params: { runId: "run-1" } } }, stream.connection);
+  for (const tick of [1, 2, 3]) f.emitters.get("run-1")!({ tick });
+  while (((await stream.next()).data as { params: { message: { tick: number } } }).params.message.tick !== 3);
+  const started = Date.now();
+  await stream.flushed();
+  assert.ok(Date.now() - started < 1_000);
 });
 
 test("http: a stream carries subscriptions, progress and requests from the server to the client", async (t) => {
