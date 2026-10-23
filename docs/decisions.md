@@ -1,6 +1,26 @@
 # Decisions
 
+## 2026-10-23: Native SSE feeds the shared browser RPC client
+
+Chapters: `spec/plugins.md` (Message layer, Web as plugin host).
+
+**Why.** The 20 ms comment from the previous change did not reliably release delayed browser
+updates. In the installed macOS WebKit, the same page over HTTP/2 showed its initial channel
+state after 15.8 seconds. Disabling only the fetch byte-stream feature in an isolated test view
+reduced that to 0.76 seconds; native `EventSource` delivered it in 0.93 seconds. This identifies
+the [WebKit fetch backpressure regression](https://bugs.webkit.org/show_bug.cgi?id=322545):
+bytes already received by the browser can remain stashed until the next network chunk.
+Buffering ahead in a transform stream did not resolve it.
+
+**Decision.** The browser singleton adapts native `EventSource` into the existing RPC reader.
+State handling, authentication, subscription binding, and reconnecting keep their existing
+implementations. Non-browser clients retain fetch streaming. Keepalives are named `ping` events
+so both receivers observe them and the shared idle deadline stays accurate. The ineffective
+delayed comments and their timer are removed.
+
 ## 2026-10-22: A short comment follows every burst on the event stream
+
+Superseded by the native SSE receiver on 2026-10-23; the assumed remedy was not reliable.
 
 Chapters: `spec/plugins.md` (Messaging layer).
 

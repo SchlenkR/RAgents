@@ -21,15 +21,12 @@ export const RPC_STREAM_PATH = "/rpc/stream";
 export const RPC_CONNECTION_HEADER = "x-ragents-connection";
 
 const PING_INTERVAL_MS = 15_000;
-/** Safari holds back the end of a large burst until more bytes arrive; a short comment after each burst releases it. */
-const FLUSH_DELAY_MS = 20;
 const DEFAULT_MAX_BODY_BYTES = 32 * 1024 * 1024;
 
 interface StreamConnection {
   connection: RpcConnection;
   response: ServerResponse;
   ping: NodeJS.Timeout;
-  flush?: NodeJS.Timeout;
   requests: Map<string, RpcPeer>;
 }
 
@@ -84,12 +81,9 @@ export class RpcHttpTransport {
     const write = (payload: string) => {
       if (!response.writableEnded && !response.destroyed) response.write(payload);
     };
-    const peer = new RpcPeer({ send: (message) => {
-      write(`data: ${JSON.stringify(message)}\n\n`);
-      stream.flush ??= setTimeout(() => { stream.flush = undefined; write(":\n\n"); }, FLUSH_DELAY_MS);
-    } });
+    const peer = new RpcPeer({ send: (message) => write(`data: ${JSON.stringify(message)}\n\n`) });
     const connection = new RpcConnection({ id, access, local, peer }, this.#dispatcher);
-    const stream: StreamConnection = { connection, response, requests: new Map(), ping: setInterval(() => write(": ping\n\n"), PING_INTERVAL_MS) };
+    const stream: StreamConnection = { connection, response, requests: new Map(), ping: setInterval(() => write("event: ping\ndata: {}\n\n"), PING_INTERVAL_MS) };
     this.#streams.set(id, stream);
     response.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
     write(`event: hello\ndata: ${JSON.stringify({ connection: id })}\n\n`);
@@ -99,7 +93,6 @@ export class RpcHttpTransport {
   #end(stream: StreamConnection, reason: string): void {
     if (!this.#streams.delete(stream.connection.id)) return;
     clearInterval(stream.ping);
-    clearTimeout(stream.flush);
     for (const peer of stream.requests.values()) peer.close(reason);
     stream.requests.clear();
     stream.connection.close(reason);

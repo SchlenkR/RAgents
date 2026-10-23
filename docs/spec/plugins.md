@@ -1449,9 +1449,9 @@ a connection without a stream (`streamless`) can neither subscribe nor be called
 Transports serve the same dispatcher. HTTP: `POST /rpc` per message (request, the client's
 response to a callback, or notification) and `GET /rpc/stream` as an SSE stream per
 connection, which announces itself with `hello` and a connection ID and carries notifications as well as
-requests from the server; the ID comes along in the header `x-ragents-connection`. A short SSE comment
-follows every burst of messages after 20 ms, because Safari holds back the end of a large burst
-until more bytes arrive. Stdio: one
+requests from the server; the ID comes along in the header `x-ragents-connection`. Every 15 seconds
+a named `ping` event with `{}` as data keeps the connection observable to native SSE consumers.
+Stdio: one
 JSON message per line on stdin and stdout; the caller counts as trusted and has all rights.
 Sign-in is a transport matter: HTTP with cookie, bearer, or `?access=` as before
 (`/api/access`, `/api/access/login`, `/api/access/logout` stay HTTP), stdio without.
@@ -1481,7 +1481,13 @@ Pending run starts retain a visible title in the accessible Run title bar region
 
 Every page holds exactly ONE live connection to the server: the client `rpc` (`apps/web/src/rpc.ts`)
 opens `GET /rpc/stream` with the first subscription or the first callback handler and closes
-it when nothing is open anymore. Requests go as `POST /rpc`. Subscriptions are channel contracts:
+it when nothing is open anymore. The browser receives SSE with native `EventSource`, authenticated
+by the sign-in cookie or the installed access token in the URL. Its events feed the same RPC
+reader as fetch streams in non-browser clients. Native retry is disabled by closing on an error;
+the shared client owns reconnecting, deadlines, and subscriptions. `hello`, `message`, and `ping`
+events all count as activity. This avoids WebKit's fetch byte-stream buffering regression, which
+can withhold received data until another network chunk arrives. Requests go as `POST /rpc`.
+Subscriptions are channel contracts:
 `rpc.subscribe(contract, params, onMessage, onError)`; on connection loss the client reconnects,
 resubscribes all channels, and calls `onConnected` listeners, which is why providers repeat
 their initial state on subscribing. Core channels: `ragents.runs` (list changes, one

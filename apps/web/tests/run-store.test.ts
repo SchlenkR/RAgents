@@ -16,7 +16,6 @@ interface PendingRequest {
 }
 
 function fixture(t: TestContext) {
-  const encoder = new TextEncoder();
   const requests: PendingRequest[] = [];
   t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 10_000 });
   const visibility = Object.assign(new EventTarget(), { visibilityState: "visible" });
@@ -25,14 +24,22 @@ function fixture(t: TestContext) {
   let deliver: ((chunk: string) => void) | undefined;
   const channels: string[] = [];
   const answer = (id: number, result: unknown) => Response.json({ jsonrpc: "2.0", id, result });
-  const stream = () => new ReadableStream<Uint8Array>({
-    start(controller) {
-      deliver = (chunk) => controller.enqueue(encoder.encode(chunk));
-      deliver(`event: hello\ndata: ${JSON.stringify({ connection: "test" })}\n\n`);
-    },
-  });
+  class Source extends EventTarget {
+    closed = false;
+    constructor() {
+      super();
+      deliver = (data) => { if (!this.closed) this.dispatchEvent(new MessageEvent("message", { data })); };
+      queueMicrotask(() => {
+        if (this.closed) return;
+        this.dispatchEvent(new Event("open"));
+        this.dispatchEvent(new MessageEvent("hello", { data: JSON.stringify({ connection: "test" }) }));
+      });
+    }
+    close() { this.closed = true; }
+  }
   for (const [key, value] of Object.entries({
     document: visibility,
+    EventSource: Source,
   })) {
     const previous = Object.getOwnPropertyDescriptor(globalThis, key);
     Object.defineProperty(globalThis, key, { configurable: true, value });
@@ -42,7 +49,6 @@ function fixture(t: TestContext) {
     });
   }
   t.mock.method(globalThis, "fetch", async (url: string, init: RequestInit) => {
-    if (String(url).endsWith("/rpc/stream")) return new Response(stream(), { headers: { "content-type": "text/event-stream" } });
     const call = JSON.parse(String(init.body)) as RpcCall;
     if (call.method === "rpc.subscribe") {
       const subscription = `subscription-${call.id}`;
@@ -68,7 +74,7 @@ function fixture(t: TestContext) {
     return close;
   };
   const emit = async (kind: string, channel = channels.length - 1) => {
-    deliver?.(`data: ${JSON.stringify({ jsonrpc: "2.0", method: "rpc.event", params: { subscription: channels[channel], channel: "ragents.run", message: { kind } } })}\n\n`);
+    deliver?.(JSON.stringify({ jsonrpc: "2.0", method: "rpc.event", params: { subscription: channels[channel], channel: "ragents.run", message: { kind } } }));
     await settled();
   };
   const tick = async (ms = 2000) => {
