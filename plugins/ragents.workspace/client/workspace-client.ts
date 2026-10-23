@@ -1,6 +1,8 @@
+import { execFile } from "node:child_process";
 import { realpath } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
+import { promisify } from "node:util";
 import {
   EXECUTOR_CONTRIBUTION_FILE,
   WORKSPACE_EXECUTOR_VERSION,
@@ -106,6 +108,17 @@ const realPathOf = async (target: string): Promise<string> => {
     const parent = dirname(target);
     return parent === target ? target : join(await realPathOf(parent), basename(target));
   }
+};
+
+/** Commits of the model carry the developer's Git identity of this folder; the environment outranks any user.name the model passes itself. */
+const gitIdentityEnvironment = async (folder: string): Promise<Record<string, string>> => {
+  const value = async (key: string): Promise<string | undefined> =>
+    (await promisify(execFile)("git", ["-C", folder, "config", "--get", key]).catch(() => ({ stdout: "" }))).stdout.trim() || undefined;
+  const [name, email] = await Promise.all([value("user.name"), value("user.email")]);
+  return {
+    ...(name ? { GIT_AUTHOR_NAME: name, GIT_COMMITTER_NAME: name } : {}),
+    ...(email ? { GIT_AUTHOR_EMAIL: email, GIT_COMMITTER_EMAIL: email } : {}),
+  };
 };
 
 /** Where a workstation without its own value creates the new folders per run: in the workstation's data folder, never in an offered project. */
@@ -397,7 +410,7 @@ export class WorkspaceClient {
       home: { home: homedir() },
       logDirectory: join(tmpdir(), "ragents-workspace-logs", input.runId),
       hostRoot: attachment.built?.hostRoot,
-      additions: input.env,
+      additions: { ...input.env, ...await gitIdentityEnvironment(root) },
       ...(input.browserNetwork ? { browserNetwork: input.browserNetwork } : {}),
       baseEnvironment: "inherited",
       ...(this.options.bash === undefined ? {} : { bash: this.options.bash }),

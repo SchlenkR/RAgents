@@ -131,6 +131,23 @@ test("the workspace bash inherits the environment of this machine, without VS Co
   }
 });
 
+test("commits in the workspace bash carry the Git identity of the folder, even when the command names another one", async () => {
+  const server = await startStubServer();
+  const { client, directory, runs, execute } = await started(server);
+  try {
+    await execute("bash", { command: "git init -q && git config user.name Developer && git config user.email developer@example.invalid" });
+    const output = textOf((await execute("bash", {
+      command: "git -c user.name=Agent -c user.email=agent@example.invalid commit -q --allow-empty -m first && git log -1 --format='%an <%ae>|%cn <%ce>'",
+    })).value);
+    assert.equal(output.trim(), "Developer <developer@example.invalid>|Developer <developer@example.invalid>");
+  } finally {
+    client.rpc.close();
+    await rm(directory, { recursive: true, force: true });
+    await rm(runs, { recursive: true, force: true });
+    await server.close();
+  }
+});
+
 test("with a bundled rg, the workspace registers rg and its bash finds exactly that one first", async () => {
   const tools = await folder();
   const rg = join(tools, "rg", process.platform === "win32" ? "rg.exe" : "rg");
