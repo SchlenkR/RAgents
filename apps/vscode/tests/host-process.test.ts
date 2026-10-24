@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -178,6 +178,9 @@ const fakeNpm = (body: string): { directory: string; environment: NodeJS.Process
   };
 };
 
+/** The calls as if npm had installed into the final folder instead of its private staging folder. */
+const unstaged = (calls: string[]): string[] => calls.map((call) => call.replace(/[/\\]\.staging-[^/\\]+/g, ""));
+
 const installing = `
 const { appendFileSync, mkdirSync, writeFileSync } = require("node:fs");
 const path = require("node:path");
@@ -196,7 +199,7 @@ test("the extension fetches the host as an npm package exactly once per version 
   const lines: string[] = [];
   const root = await ensureHostPackage(storage, "0.1.0", npm.environment, (line) => lines.push(line));
   assert.equal(root, path.join(hostPackageFolder(storage, "0.1.0"), "node_modules", "@schlenkr", "ragents"));
-  assert.deepEqual(npm.calls(), [`install --prefix ${hostPackageFolder(storage, "0.1.0")} ${HOST_PACKAGE_NAME}@0.1.0`]);
+  assert.deepEqual(unstaged(npm.calls()), [`install --prefix ${hostPackageFolder(storage, "0.1.0")} ${HOST_PACKAGE_NAME}@0.1.0`]);
   assert.ok(lines.some((line) => line.includes(`${HOST_PACKAGE_NAME}@0.1.0`)));
   assert.ok(lines.includes("added 1 package"), "the npm output appears in the channel");
   assert.equal(await ensureHostPackage(storage, "0.1.0", npm.environment, () => undefined), root);
@@ -220,7 +223,7 @@ test("for a test, a local .tgz takes the place of the published package", async 
   const storage = mkdtempSync(path.join(tmpdir(), "ragents-storage-"));
   const lines: string[] = [];
   await ensureHostPackage(storage, "0.1.2", { ...npm.environment, RAGENTS_HOST_PACKAGE_SPEC: "/tmp/ragents.tgz" }, (line) => lines.push(line));
-  assert.deepEqual(npm.calls(), [`install --prefix ${hostPackageFolder(storage, "0.1.2")} /tmp/ragents.tgz`]);
+  assert.deepEqual(unstaged(npm.calls()), [`install --prefix ${hostPackageFolder(storage, "0.1.2")} /tmp/ragents.tgz`]);
   assert.ok(lines.some((line) => line.includes("/tmp/ragents.tgz")));
 });
 
@@ -242,6 +245,21 @@ test("concurrent requests for one host version share the installation", async ()
   ]);
   assert.equal(roots[0], roots[1]);
   assert.equal(npm.calls().length, 1);
+});
+
+test("clients in other processes install into private folders and keep the host that arrives first", async (t) => {
+  const npm = fakeNpm(installing.replace('console.log("added 1 package");', `
+const other = path.join(path.dirname(path.dirname(prefix)), path.basename(prefix), "node_modules", "@schlenkr", "ragents");
+mkdirSync(path.join(other, "apps", "server", "src"), { recursive: true });
+writeFileSync(path.join(other, "package.json"), JSON.stringify({ name: "@schlenkr/ragents", version: path.basename(prefix) }));
+writeFileSync(path.join(other, "apps", "server", "src", "main.ts"), "");
+writeFileSync(path.join(other, "first"), "");`));
+  const storage = mkdtempSync(path.join(tmpdir(), "ragents-storage-"));
+  t.after(() => { rmSync(npm.directory, { recursive: true, force: true }); rmSync(storage, { recursive: true, force: true }); });
+  const root = await ensureHostPackage(storage, "0.1.0", npm.environment, () => undefined);
+  assert.equal(root, path.join(hostPackageFolder(storage, "0.1.0"), "node_modules", "@schlenkr", "ragents"));
+  assert.ok(existsSync(path.join(root, "first")), "the installation that arrived first stays in place");
+  assert.deepEqual(readdirSync(path.join(storage, "hosts")), ["0.1.0"]);
 });
 
 test("a fetched or cached package with the wrong version is refused", async () => {
@@ -278,7 +296,7 @@ test("a published workstation host is installed from npm without downloading the
   const root = await ensureHostPackage(storage, "0.1.40", npm.environment, () => undefined, { download, fetch });
   assert.equal(readPackageVersion(root), "0.1.40");
   assert.equal(fetch.mock.callCount(), 0);
-  assert.deepEqual(npm.calls(), [`install --prefix ${hostPackageFolder(storage, "0.1.40")} @schlenkr/ragents@0.1.40`]);
+  assert.deepEqual(unstaged(npm.calls()), [`install --prefix ${hostPackageFolder(storage, "0.1.40")} @schlenkr/ragents@0.1.40`]);
 });
 
 test("an unpublished workstation host uses the verified server archive after npm fails and reuses the installed cache", async (t) => {
@@ -291,7 +309,7 @@ test("an unpublished workstation host uses the verified server archive after npm
   const environment = { ...npm.environment, RAGENTS_FAKE_ARCHIVE_INTEGRITY: archiveIntegrity };
   const root = await ensureHostPackage(storage, version, environment, () => undefined, { download, fetch });
   assert.equal(readPackageVersion(root), version);
-  assert.deepEqual(npm.calls(), [
+  assert.deepEqual(unstaged(npm.calls()), [
     `install --prefix ${folder} @schlenkr/ragents@${version}`,
     `install --prefix ${folder} ${path.join(folder, "host.tgz")}`,
   ]);

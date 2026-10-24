@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { accessSync, constants, statSync } from "node:fs";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createInterface, type Interface } from "node:readline";
 import { readPackageVersion } from "../../apps/server/src/host-version.ts";
@@ -120,16 +120,30 @@ export const verifyHostIntegrity = (content: Uint8Array, integrity: string): voi
   if (!timingSafeEqual(actual, expected)) throw new Error("The server's host package integrity does not match the downloaded tarball");
 };
 
+/** Several clients on one machine share the folder: each installs into its own staging folder and moves it into place. */
 const fetchHostPackage = async (folder: string, version: string, environment: NodeJS.ProcessEnv, log: (line: string) => void, source?: HostPackageSource): Promise<string> => {
   const installed = installedHostRoot(folder);
   if (isHostRoot(installed)) return matchingHostVersion(installed, version);
   const specifier = hostPackageSpecifier(version, environment);
+  const stagingParent = path.join(path.dirname(folder), `.staging-${process.pid}-${randomUUID()}`);
+  const staging = path.join(stagingParent, path.basename(folder));
   log(`== Fetching host package ${specifier} into ${folder}`);
-  let root: string;
   try {
-    root = await installHostPackage(folder, specifier, environment, log);
+    await installStagedHost(staging, specifier, version, environment, log, source);
+    await rename(staging, folder).catch((cause: unknown) => {
+      if (!isHostRoot(installed)) throw cause;
+    });
+  } finally {
+    await rm(stagingParent, { recursive: true, force: true });
+  }
+  return matchingHostVersion(installed, version);
+};
+
+const installStagedHost = async (staging: string, specifier: string, version: string, environment: NodeJS.ProcessEnv, log: (line: string) => void, source?: HostPackageSource): Promise<void> => {
+  try {
+    await installHostPackage(staging, specifier, environment, log);
   } catch (npmFailure) {
-    await rm(folder, { recursive: true, force: true });
+    await rm(staging, { recursive: true, force: true });
     const cause = npmFailure instanceof Error ? npmFailure.message : String(npmFailure);
     if (!source?.download) throw new Error(`Host ${version} is unavailable: npm failed: ${cause}. The server offers no host package download.`);
     try {
@@ -140,20 +154,18 @@ const fetchHostPackage = async (folder: string, version: string, environment: No
       if (!response.ok) throw new Error(`Host package download failed: HTTP ${response.status} ${await response.text()}`);
       const content = Buffer.from(await response.arrayBuffer());
       verifyHostIntegrity(content, download.integrity);
-      await mkdir(folder, { recursive: true });
-      const tarball = path.join(folder, "host.tgz");
+      await mkdir(staging, { recursive: true });
+      const tarball = path.join(staging, "host.tgz");
       await writeFile(tarball, content);
       try {
-        root = await installHostPackage(folder, tarball, environment, log);
+        await installHostPackage(staging, tarball, environment, log);
       } finally {
         await rm(tarball, { force: true });
       }
     } catch (serverFailure) {
-      await rm(folder, { recursive: true, force: true });
       throw new Error(`Host ${version} is unavailable: npm failed: ${cause}. Server download failed: ${serverFailure instanceof Error ? serverFailure.message : String(serverFailure)}`);
     }
   }
-  return matchingHostVersion(root, version);
 };
 
 export const matchingHostVersion = (root: string, version: string): string => {

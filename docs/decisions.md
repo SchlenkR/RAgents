@@ -1,5 +1,17 @@
 # Decisions
 
+## 2026-10-24: Workstation hosts install into private staging folders
+
+Chapter: `spec/plugins.md` (workstation host fetching).
+
+**Why.** Two workspace clients on one machine fetched the same unpublished host into the same
+cache folder; after npm failed, one removed the folder while the other's npm ran in it, and both
+registrations died with `ENOENT uv_cwd`. Sharing the fetch only worked within one process.
+
+**Decision.** Every fetch installs into its own staging folder beside the cache, by npm or from the
+server archive, and renames it into place; if another client placed a valid host first, that host
+is kept. Failures remove only the own staging folder.
+
 ## 2026-10-23: Open documents and file previews follow file changes
 
 Chapters: `spec/plugins.md` (Ownership per facet, Workspace, sandbox tools, and processes);

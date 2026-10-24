@@ -75,6 +75,9 @@ writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "@schlenkr
 writeFileSync(path.join(root, "apps", "server", "src", "main.ts"), "");
 `;
 
+/** An argument as if npm had installed into the final folder instead of its private staging folder. */
+const unstaged = (argument: string): string => argument.replace(/[/\\]\.staging-[^/\\]+/g, "");
+
 const fakeNpm = (directory: string, unpublished = false): { environment: NodeJS.ProcessEnv; calls: () => string[][] } => {
   const bin = path.join(directory, "bin");
   const calls = path.join(directory, "npm-calls.jsonl");
@@ -88,7 +91,7 @@ const fakeNpm = (directory: string, unpublished = false): { environment: NodeJS.
   }
   return {
     environment: { PATH: process.platform === "win32" ? `${bin}${path.delimiter}${path.dirname(process.execPath)}` : bin, RAGENTS_FAKE_NPM_CALLS: calls, RAGENTS_FAKE_UNPUBLISHED: unpublished ? "1" : "0", RAGENTS_FAKE_ARCHIVE_INTEGRITY: archiveIntegrity },
-    calls: () => existsSync(calls) ? readFileSync(calls, "utf8").trim().split("\n").map((line) => JSON.parse(line) as string[]) : [],
+    calls: () => existsSync(calls) ? readFileSync(calls, "utf8").trim().split("\n").map((line) => (JSON.parse(line) as string[]).map(unstaged)) : [],
   };
 };
 

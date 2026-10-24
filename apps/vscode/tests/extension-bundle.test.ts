@@ -843,7 +843,8 @@ test("a remote-only workstation fetches the server's host version, registers, an
   assert.ok(result.progress.includes("Fetching host package 0.1.8 ..."));
   assert.ok(result.progress.includes("Provisioning workstation tools ..."));
   assert.equal(host.calls().length, 1);
-  assert.deepEqual(host.calls()[0], {
+  const call = host.calls()[0];
+  assert.deepEqual({ ...call, args: call?.args.map((argument) => argument.replace(/[/\\]\.staging-[^/\\]+/g, "")) }, {
     args: ["install", "--prefix", path.join(realpathSync(directory), "storage/hosts/0.1.8"), host.environment.RAGENTS_HOST_PACKAGE_SPEC],
     registry: "https://registry.example.com",
   });

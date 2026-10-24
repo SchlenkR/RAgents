@@ -4733,7 +4733,10 @@ download cause or its absence. No local profile or distributing server is requir
 
 The extension cache is `<globalStorage>/hosts/<version>/`; the CLI cache is `ragents/hosts/<version>/`
 under the operating system's user cache directory. Requests for the same version share the fetch;
-installed packages are reused across sessions and restarts. The CLI reuses its launching host
+clients in separate processes each install into a private staging folder next to the cache and
+move it into place, keeping a host that another client placed first, so a failed attempt never
+removes a folder another client is installing into. Installed packages are reused across sessions
+and restarts. The CLI reuses its launching host
 when its package version matches the server. The Servers entry reports fetching progress and
 failures with their cause.
 
