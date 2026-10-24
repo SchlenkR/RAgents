@@ -1,5 +1,6 @@
-import { ArrowLeftIcon, XIcon } from "lucide-react";
+import { ArrowLeftIcon, RefreshCw, XIcon } from "lucide-react";
 import {
+  Alert,
   Badge,
   Button,
   Dialog,
@@ -16,12 +17,13 @@ import {
   InteractiveItem,
   Spinner,
 } from "@ragents/web/ui";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Markdown, QuasselProvider, type Message } from "@schlenkr/quassel";
 import { formatBytes } from "@ragents/web/lib/format";
 import { SourceCode } from "@ragents/web/SourceCode";
 import { useDocumentGrants, type GrantSnapshot } from "./grants";
-import { baseAddressOf, documentUrlResolver, grantedAddressOf, htmlWithBase, type AddressState, type DocumentBase } from "./links";
+import { useBlobAddress, useDocumentContent, type DocumentContent as LoadedContent } from "./content";
+import { baseAddressOf, documentUrlResolver, htmlWithBase, type DocumentBase } from "./links";
 
 export type DocumentFormat = "markdown" | "text" | "html" | "image" | "binary";
 
@@ -41,6 +43,7 @@ export interface RunDocument {
   base?: DocumentBase;
   createdAt?: string;
   size?: number;
+  version?: string;
   meta?: string;
 }
 
@@ -123,44 +126,6 @@ export const documentsFrom = (messages: Message[]): RunDocument[] =>
     }
   });
 
-type LoadState = { text: string } | { error: string } | undefined;
-
-const messageOf = (error: unknown): string => error instanceof Error ? error.message : String(error);
-
-const failureOf = async (response: Response): Promise<Error> => {
-  const body = await response.json().catch(() => undefined) as { error?: unknown } | undefined;
-  return new Error(typeof body?.error === "string" ? body.error : `Status ${response.status}`);
-};
-
-const useDocumentContent = (document: RunDocument | undefined): LoadState => {
-  const [cache, setCache] = useState<Record<string, LoadState>>({});
-  const textual = document?.format === "markdown" || document?.format === "text" || document?.format === "html";
-  const url = document?.content === undefined && textual ? document?.contentUrl : undefined;
-
-  useEffect(() => {
-    if (!url || cache[url]) return;
-    let alive = true;
-    void fetch(url, { cache: "no-store" })
-      .then(async (response) => {
-        if (!response.ok) throw await failureOf(response);
-        return response.text();
-      })
-      .then((text) => alive && setCache((current) => ({ ...current, [url]: { text } })))
-      .catch((error: unknown) => alive && setCache((current) => ({
-        ...current,
-        [url]: { error: messageOf(error) },
-      })));
-    return () => {
-      alive = false;
-    };
-  }, [url, cache]);
-
-  if (!document) return undefined;
-  if (document.content !== undefined) return { text: document.content };
-  if (!textual) return { text: "" };
-  return url ? cache[url] : undefined;
-};
-
 interface DocumentToolCallProps {
   active: boolean;
   document: RunDocument;
@@ -209,49 +174,14 @@ export function DocumentToolCall({ active, document, onOpen, status }: DocumentT
   );
 }
 
-/** A result lies outside the content route and its grants: with a token its bytes load with the page's sign-in and show under a blob address. */
-const useBlobAddress = (url: string | undefined): AddressState => {
-  const [state, setState] = useState<{ url: string; value: AddressState }>();
-
-  useEffect(() => {
-    if (url === undefined) return;
-    let alive = true;
-    let objectUrl: string | undefined;
-    void fetch(url, { cache: "no-store" })
-      .then(async (response) => {
-        if (!response.ok) throw await failureOf(response);
-        return response.blob();
-      })
-      .then((blob) => {
-        if (!alive) return;
-        objectUrl = URL.createObjectURL(blob);
-        setState({ url, value: { url: objectUrl } });
-      })
-      .catch((error: unknown) => alive && setState({ url, value: { error: messageOf(error) } }));
-    return () => {
-      alive = false;
-      if (objectUrl !== undefined) URL.revokeObjectURL(objectUrl);
-    };
-  }, [url]);
-
-  return url !== undefined && state?.url === url ? state.value : undefined;
-};
-
-/** Where an image or a download loads from: with a cookie the route itself, with a token the grant of its root or, for a result, its bytes. */
-const useFileAddress = (url: string | undefined, base: DocumentBase | undefined, grants: GrantSnapshot | undefined): AddressState => {
-  const blob = useBlobAddress(url !== undefined && grants !== undefined && base === undefined ? url : undefined);
-  if (url === undefined || grants === undefined) return url === undefined ? undefined : { url };
-  return base === undefined ? blob : grantedAddressOf(base, url, grants);
-};
-
 type FrameGrant = { grant?: string } | { error: string } | undefined;
 
 /** With a token an HTML document reaches its files through the grant of its root and keeps the one it opened with until its file changes, so that a renewal does not reload it. */
-const useFrameGrant = (document: RunDocument, grants: GrantSnapshot | undefined): FrameGrant => {
+const useFrameGrant = (document: RunDocument, grants: GrantSnapshot | undefined, text: string | undefined): FrameGrant => {
   const base = document.base;
   const current: FrameGrant = document.format === "html" && base !== undefined && grants !== undefined ? grants.grantFor(base.runId, base.root) : {};
   const [opened, setOpened] = useState<{ key: string; grant: string }>();
-  const key = `${document.id}\n${document.contentUrl ?? ""}`;
+  const key = `${document.id}\n${document.contentUrl ?? ""}\n${text ?? ""}`;
   const ready = current !== undefined && "grant" in current ? current.grant : undefined;
   if (ready !== undefined && opened?.key !== key) setOpened({ key, grant: ready });
   return opened?.key === key ? { grant: opened.grant } : current;
@@ -281,7 +211,18 @@ function ContentFailure({ failure }: { failure: string }) {
   );
 }
 
-function DocumentContent({ document, loaded }: { document: RunDocument; loaded: LoadState }) {
+function HtmlDocument({ html, label }: { html: string; label: string }) {
+  const frame = useRef<HTMLIFrameElement>(null);
+  const scroll = useRef({ left: 0, top: 0 });
+  useLayoutEffect(() => () => {
+    const view = frame.current?.contentWindow;
+    if (view) scroll.current = { left: view.scrollX, top: view.scrollY };
+  }, [html]);
+  return <iframe ref={frame} className="h-full min-h-full w-full border-0 bg-white" sandbox="allow-same-origin" srcDoc={html} aria-label={label}
+    onLoad={() => frame.current?.contentWindow?.scrollTo(scroll.current.left, scroll.current.top)} />;
+}
+
+function DocumentContent({ document, loaded }: { document: RunDocument; loaded: LoadedContent | undefined }) {
   const grants = useDocumentGrants();
   const base = document.base;
   const routePrefix = base?.routePrefix;
@@ -294,14 +235,14 @@ function DocumentContent({ document, loaded }: { document: RunDocument; loaded: 
       : keepUrl,
     [routePrefix, runId, folder, root, grants],
   );
-  const fileUrl = document.format === "image" || document.format === "binary" ? document.contentUrl : undefined;
-  const file = useFileAddress(fileUrl, base, grants);
-  const grant = useFrameGrant(document, grants);
-  if (fileUrl !== undefined) {
-    if (file === undefined) return <ContentLoading />;
-    if ("error" in file) return <ContentFailure failure={file.error} />;
+  const blob = loaded && "blob" in loaded ? loaded.blob : undefined;
+  const file = useBlobAddress(blob, document.format === "image");
+  const grant = useFrameGrant(document, grants, loaded && "text" in loaded ? loaded.text : undefined);
+  if (document.format === "image" || document.format === "binary") {
+    if (file.url === undefined) return file.error === undefined ? <ContentLoading /> : <ContentFailure failure={file.error} />;
+    if (blob === undefined) return <ContentLoading />;
     if (document.format === "image") {
-      return <ImagePreview className="block max-w-full border border-border" fileName={document.title} src={file.url} />;
+      return <>{file.error && <Alert variant="destructive">{file.error}</Alert>}<ImagePreview className="block max-w-full border border-border" fileName={document.title} src={file.url} /></>;
     }
     return (
       <Empty className="min-h-30 gap-2 p-6">
@@ -315,19 +256,28 @@ function DocumentContent({ document, loaded }: { document: RunDocument; loaded: 
       </Empty>
     );
   }
-  const failure = loaded && "error" in loaded ? loaded.error : grant && "error" in grant ? grant.error : undefined;
+  const failure = grant && "error" in grant ? grant.error : undefined;
   if (failure !== undefined) return <ContentFailure failure={failure} />;
-  if (!loaded || "error" in loaded || !grant || "error" in grant) return <ContentLoading />;
+  if (!loaded || !("text" in loaded) || !grant || "error" in grant) return <ContentLoading />;
   if (document.format === "html") {
     // Scripts stay off; the app's origin lets the sign-in cookie reach the images the document names, a grant in the base does so without one.
     const html = base ? htmlWithBase(loaded.text, baseAddressOf(base, grant.grant)) : loaded.text;
-    return <iframe className="h-full min-h-full w-full border-0 bg-white" sandbox="allow-same-origin" srcDoc={html} aria-label={document.title} />;
+    return <HtmlDocument html={html} label={document.title} />;
   }
   if (document.format === "text") {
     return <SourceCode className={sourceClass} content={loaded.text} path={document.title} />;
   }
   // quassel resolves an address only when its Markdown mounts, so a changed grant mounts it again.
   return <ImagePreviewGroup><QuasselProvider resolveUrl={resolveUrl}><div className="type-prose"><Markdown key={grants?.revision} text={loaded.text} /></div></QuasselProvider></ImagePreviewGroup>;
+}
+
+function DocumentReload({ document, pending, reload }: { document: RunDocument; pending: boolean; reload: () => void }) {
+  if (document.content !== undefined || document.contentUrl === undefined) return null;
+  return (
+    <Button aria-label="Reload document" aria-busy={pending} onClick={reload} size="icon" variant="ghost">
+      <RefreshCw className={pending ? "animate-spin" : undefined} size={15} strokeWidth={1.8} />
+    </Button>
+  );
 }
 
 function DocumentHead({ document }: { document: RunDocument }) {
@@ -352,7 +302,7 @@ interface DocumentModalProps {
 }
 
 export function DocumentModal({ document, onClose }: DocumentModalProps) {
-  const loaded = useDocumentContent(document);
+  const { content: loaded, pending, error, reload } = useDocumentContent(document);
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -362,12 +312,16 @@ export function DocumentModal({ document, onClose }: DocumentModalProps) {
         <DialogTitle className={copyClass} render={<span />}>
           <DocumentHead document={document} />
         </DialogTitle>
-        <Button aria-label="Close" shape="round" onClick={onClose} size="icon" aria-description="Close" variant="outline">
-          <XIcon />
-        </Button>
+        <div className="flex items-center gap-1">
+          <DocumentReload document={document} pending={pending} reload={reload} />
+          <Button aria-label="Close" shape="round" onClick={onClose} size="icon" aria-description="Close" variant="outline">
+            <XIcon />
+          </Button>
+        </div>
       </header>
+      {error && <Alert variant="destructive">{error}</Alert>}
       <div className="min-h-0 flex-1 overflow-y-auto px-[clamp(18px,calc(var(--ragents-viewport-width,100vw)*0.04),54px)] pt-4 pb-8">
-        <DocumentContent document={document} loaded={loaded} />
+        {error && loaded === undefined ? <ContentFailure failure={error} /> : <DocumentContent key={document.id} document={document} loaded={loaded} />}
       </div>
     </DialogContent>
     </Dialog>
@@ -383,7 +337,7 @@ interface DocumentPanelProps {
 
 export function DocumentPanel({ activeId, sections, truncated, onSelect }: DocumentPanelProps) {
   const active = sections.flatMap((section) => section.documents).find((document) => document.id === activeId);
-  const loaded = useDocumentContent(active);
+  const { content: loaded, pending, error, reload } = useDocumentContent(active);
   const [modalOpen, setModalOpen] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
 
@@ -480,10 +434,14 @@ export function DocumentPanel({ activeId, sections, truncated, onSelect }: Docum
         <span className={copyClass}>
           <DocumentHead document={active} />
         </span>
-        {active.format !== "image" && <Button onClick={() => setModalOpen(true)} size="sm" variant="outline">Expand document</Button>}
+        <div className="flex items-center gap-1">
+          <DocumentReload document={active} pending={pending} reload={reload} />
+          {active.format !== "image" && <Button onClick={() => setModalOpen(true)} size="sm" variant="outline">Expand document</Button>}
+        </div>
       </header>
+      {error && <Alert variant="destructive">{error}</Alert>}
       <div className="min-h-0 flex-1 overflow-y-auto px-workspace-inset py-4">
-        <DocumentContent document={active} loaded={loaded} />
+        {error && loaded === undefined ? <ContentFailure failure={error} /> : <DocumentContent key={active.id} document={active} loaded={loaded} />}
       </div>
       {modalOpen && <DocumentModal document={active} onClose={() => setModalOpen(false)} />}
     </div>

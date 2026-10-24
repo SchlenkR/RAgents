@@ -1,7 +1,7 @@
 import { lstat, readdir } from "node:fs/promises";
 import path from "node:path";
-import { DomainError, implement, type AccessContext, type HttpRouteContribution, type MethodContribution } from "@ragents/engine";
-import { BYTE_OPERATIONS, type FileBytes } from "@ragents/workspace-executor";
+import { DomainError, implement, implementChannel, type AccessContext, type ChannelContribution, type HttpRouteContribution, type MethodContribution } from "@ragents/engine";
+import { BYTE_OPERATIONS, watchDirectory, type FileBytes } from "@ragents/workspace-executor";
 import { guardedJsonRoute, withAbort } from "@ragents/host/plugin-support/http.js";
 import type { SandboxServices } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
 import { documentsContracts, rootOfReference, type RunFileEntry, type RunFilesListing } from "../contract.js";
@@ -87,6 +87,15 @@ export const createFilesMethod = (options: FilesRouteOptions): MethodContributio
   implement(documentsContracts.files, async ({ runId }) => {
     options.ensureSession(runId);
     return listingOf(await options.filesFor(runId));
+  });
+
+export const createFilesChannel = (options: FilesRouteOptions): ChannelContribution =>
+  implementChannel(documentsContracts.changed, async ({ runId }, emit) => {
+    options.ensureSession(runId);
+    const changed = (): void => emit({ changed: true });
+    const stop = await watchDirectory(await options.filesFor(runId), { onChange: changed, onError: (error) => emit({ error: error.message }) });
+    changed();
+    return stop;
   });
 
 /** A segment that decodes to a separator or climbs with `..` never comes from an address a document resolves; it would leave the root it starts with. */

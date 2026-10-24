@@ -1,5 +1,24 @@
 # Decisions
 
+## 2026-10-23: Open documents and file previews follow file changes
+
+Chapters: `spec/plugins.md` (Ownership per facet, Workspace, sandbox tools, and processes);
+usage: `usage.md` (Run chat and inspection).
+
+**Why.** Keeping document content by URL indefinitely hid later edits, and file-browser
+notifications refreshed the tree without refreshing its selected preview. Markdown in Files
+also required reading the source to inspect a report.
+
+**Decision.** The documents plugin owns a filesystem-watch channel for its store with
+`runs.read`; working-directory documents reuse the workspace browse channel and its stronger
+rights through the existing plugin dependency. The shared connection carries both. Visibility
+and reconnects revalidate content; only URL sources outside these watched roots use a visible
+30-second check. Reload retains content until a replacement is ready and compares bytes to
+keep unchanged frames and images in place. Both document headers offer an explicit reload.
+Files refreshes its selected preview with browse changes and manual refresh, and adds a
+panel-wide Rendered/Source choice for Markdown, initially Rendered. HTML stays as source in
+Files; Markdown addresses there stay as written until a browse-root resolver is available.
+
 ## 2026-10-23: Native SSE feeds the shared browser RPC client
 
 Chapters: `spec/plugins.md` (Message layer, Web as plugin host).

@@ -752,9 +752,6 @@ that only this bash has the variables, and that one call reaches only one machin
 prompt contribution and no tool description names such a variable, only the alias. The
 chat system note on resolution remains the notice for the user alongside it.
 
-The run files listing loads once and polls every five seconds during running work while the page
-is visible. A hidden page pauses the poll and reloads once when it becomes visible.
-
 The document store is a separate service: `ragents.documents` provides `documentStoreToken`
 (`directoryFor(runId)`), by default under `host.storage.session(runId, "documents")`,
 with `DOCUMENTS_DIR` as a subfolder per run under an external path. The store is not in the
@@ -800,6 +797,22 @@ Image documents use the host's `ImagePreview`; Markdown images use `ImagePreview
 Clicking a preview opens the shared full-window image viewer. Text documents keep their
 "Expand document" action.
 
+The document store listing and open documents under `@documents` follow the filesystem watch
+channel `ragents.documents.changed` (`runId`, `runs.read`), including its initial notification.
+Documents in the working directory follow `ragents.workspace.browse` for the workspace root,
+with its `runs.inspect` requirement. The documents plugin requires `ragents.workspace` and
+consumes its declared web contract export. Both channels use the page's shared connection.
+The listing and open documents revalidate when the page becomes visible or reconnects. Other
+URL sources without one of these watched roots are checked every 30 seconds while visible.
+Inline `show_document` content remains the text that was shown.
+
+Both document headers, in the panel and expanded dialog, offer "Reload document" with a spinning
+refresh icon while loading. A reload retains the displayed content and its scroll container
+until the replacement is ready; a failure names its cause alongside the retained content.
+Fetched bytes are compared before replacing content, so unrelated file changes and manual
+reloads leave unchanged HTML frames and image addresses intact. Image replacements load before
+the displayed image changes.
+
 The content route `GET /api/plugins/ragents.documents/runs/<runId>/raw/<reference>` serves the
 bytes of one file, text or binary, with the media type of its extension, `Cache-Control: no-store`,
 `Content-Security-Policy: sandbox`, and `X-Content-Type-Options: nosniff`. `<reference>` names the
@@ -836,24 +849,23 @@ every link and image address with it before its link policy, so the source stays
 blocks stay untouched. An HTML document gets a `<base href>` for its folder and
 `<meta name="referrer" content="no-referrer">` at its start, after a doctype, in the `srcDoc` of its
 frame; the frame keeps its sandbox without scripts but with `allow-same-origin`, so that the browser
-sends the sign-in cookie with the images the document names. Image documents and downloads load
-from the route directly.
+sends the sign-in cookie with the images the document names. Image documents and downloads fetch
+authenticated bytes and use `blob:` addresses.
 
 Where the page carries an access token instead of a cookie (VS Code), no address of a document
-carries it. Every address of the content route takes, instead of `raw/`, the grant of the root its
-first segment names (`grantedAddressOf` in `web/links.ts`): resolved Markdown addresses, image
-documents, and downloads alike, so a Markdown address that climbs from `@documents` into the run's
-root takes that root's grant. An HTML document puts the grant of its own root into its base
+carries it. Embedded resources and links under the content route take, instead of `raw/`, the
+grant of the root their first segment names (`grantedAddressOf` in `web/links.ts`): resolved
+Markdown links and embedded image addresses, so a Markdown address that climbs from
+`@documents` into the run's root takes that root's grant. An HTML document puts the grant of its own root into its base
 (`.../runs/<runId>/grant/<grant>/` and its folder), so that its relative addresses keep it, and keeps
 the grant it opened with until its file changes, so that a renewal does not reload the frame. The
 page holds one grant per run and root (`DocumentGrantStore` in `web/grants.ts`), shared by the
 Documents view and the chat: it asks for one when an address first needs it, renews it after half its
 lifetime while a view watches, and hands none out in its last minute. A failed grant is asked again
 after 30 seconds; until then a document shows the error instead, and a Markdown address keeps its
-plain address, which fails visibly. While a grant loads, a Markdown address is empty. A result of
-`artifact_publish` lies on the host's artifact route, which knows no grant: with a token, its image
-or download loads with the page's bearer, as text documents always did, and shows under a `blob:`
-address.
+plain address, which fails visibly. While a grant loads, a Markdown address is empty. The main
+document content uses the page's authentication, including images and downloads; it does not
+need a grant. Results of `artifact_publish` use the host's artifact route in the same way.
 
 quassel resolves a Markdown address only when its Markdown mounts: Streamdown's memo ignores a
 changed `urlTransform`. The Documents view therefore mounts its Markdown again with every change of
@@ -2378,8 +2390,8 @@ Each sets size in `rem`, line height, weight, and letter spacing; `leading-*`, `
 Text on Runs, plugin pages, Server, in their dialogs, on the template tiles, and in the run header uses
 these roles; controls such as buttons, inputs, and dialog titles keep the library's size scale.
 `type-prose` is the common reading role for rendered Markdown, including Topic, documents in
-the panel and dialog, Markdown files in Settings, and the mini-app building blocks `Markdown` and
-`DocumentViewer`: its size and line height come from `--text-prose` (0.8rem, the size of
+the panel and dialog, Markdown previews in Files and Settings, and the mini-app building blocks
+`Markdown` and `DocumentViewer`: its size and line height come from `--text-prose` (0.8rem, the size of
 `type-body`) and `--text-prose--line-height` (1.6), so reading text does not stand above the
 rest of the interface. Document headings use the shared `--text-prose-h1` through `--text-prose-h4`
 scale relative to this reading role. Chat messages and composers use quassel's 13-pixel root at line height 1.5,
@@ -4634,7 +4646,7 @@ start ID and the signal are separate operating system calls; they form no atomic
 process reference.
 
 `ragents.workspace` also contributes the purely reading tab `Files`: the run's working directory and
-document store as a tree with text preview, without writing and deleting; the methods
+document store as a tree with file previews, without writing and deleting; the methods
 `ragents.workspace.browse.list` and `ragents.workspace.browse.preview` provide tree and preview.
 The tab reads the workspace through the file module of the run's executor, for a workstation
 therefore there, and the location line then names its label and path
@@ -4648,7 +4660,17 @@ over 256 KB or a binary file names the reason instead of the content. The channe
 is up as soon as the observation is up, and if a running observation ends, it reports a change
 so that the view reloads and shows the cause, and starts a new one every five seconds; when
 it is up again, it reports one more change. The file module also ends open observations itself,
-on run stop and on the executor's `shutdown`. A 30-second poll remains only as a fallback.
+on run stop and on the executor's `shutdown`. The browser uses these notifications to reload
+the tree and the selected preview, retaining current preview content until the next read
+succeeds. Manual "Refresh files", reconnecting, and returning to a visible page also reload
+both; the 30-second directory check remains. Out-of-order reads cannot replace a newer selection,
+and errors show their cause without clearing a loaded preview.
+
+Markdown files (`.md`, `.markdown`, case-insensitive) open with quassel's `Markdown` inside
+`type-prose`. The preview header offers "Rendered" and "Source"; the choice defaults to
+"Rendered" and stays with the browser panel across files and roots for its session. Other files,
+including HTML, use the source preview. The Markdown provider keeps link and image addresses
+as written.
 
 ### Contributions to the executor
 
@@ -5795,8 +5817,8 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   every such request. Chrome's preload scanner may request an image once against the address of the
   page before the base applies, which answers with an error.
 - With an access token, a run shows only once the grants of its root and of `@documents` have
-  settled, one round trip more when it first opens, and the Documents view loads the images of an
-  open document again with every renewal, every five minutes.
+  settled, one round trip more when it first opens, and the Documents view loads embedded Markdown
+  images again with every grant renewal, every five minutes.
 - The panel's own address still carries the long-lived access token in `?access=`, as do the
   addresses of mini-app frames, so access logs of the server and of every proxy before it name it
   with these requests; the referrer policy keeps it out of all others. Removing it from the panel's

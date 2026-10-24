@@ -138,14 +138,14 @@ test("an unknown id and an unbuilt built-in plugin abort the start", async () =>
 
 test("a missing requires aborts the start", async () => {
   await assert.rejects(
-    () => loadPlugins(["ragents.documents"]),
+    () => loadPlugins(["ragents.workspace", "ragents.documents"]),
     /Plugin ragents\.documents needs the missing plugin ragents\.orchestration/,
   );
 });
 
 test("a wrong order aborts the start", async () => {
   await assert.rejects(
-    () => loadPlugins(["ragents.documents", "ragents.orchestration"]),
+    () => loadPlugins(["ragents.workspace", "ragents.documents", "ragents.orchestration"]),
     /Plugin ragents\.orchestration must be registered before ragents\.documents/,
   );
 });

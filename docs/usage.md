@@ -187,16 +187,27 @@ Mini-app listing errors offer Retry and also retry briefly or when the connectio
 
 A document an agent shows appears as a card in the chat and opens in Documents: text it wrote,
 or a file, also an image, from the run's document store `@documents` or from the workspace, also
-one on a workstation. A file is read when you open it, so it shows the current content; a workspace
-file needs the permission to inspect the workspace. Images and links inside a Markdown or HTML
+one on a workstation. Documents renders Markdown and HTML, previews images, shows text as
+source, and offers downloads for other files. Open file documents follow file changes, including
+Markdown, text, HTML, images, and downloads; a workspace file needs the permission to inspect the workspace. The
+"Reload document" button in the panel and expanded document reads it again and spins while
+loading. Current content stays visible until its replacement is ready, keeping the scroll
+position where possible. Unchanged HTML and images stay in place. Text shown directly by an
+agent stays as it was shown. Images and links inside a Markdown or HTML
 document resolve relative to the document's folder, so a report under `@documents/review/` shows
 the screenshots stored next to it, in the browser and in VS Code. In the chat, an image or link
 that an agent names relative to the working directory or with `@documents/...` opens the same
 way; addresses with a scheme stay as written. Agents put reports and evidence under `@documents` and
 deliverables into the project, and move files between the two with `copy`. Documents lists the
 store by folder; Files shows it as a tree next to the working directory.
-The Files preview follows the selected file, even when reads finish out of order. A failed
-preview shows its cause; Refresh retries it, and hiding the panel retains a loaded preview.
+
+The Files preview follows changes to the selected file and keeps its content visible while
+reloading, even when reads finish out of order. Markdown files open in "Rendered" view; switch
+to "Source" in the preview header to read their source. The choice stays with this Files panel
+when you select another file or root. Other formats, including HTML, show their source. Relative
+links and image addresses in this Markdown preview stay as written.
+"Refresh files" reloads both the tree and the selected preview. A failed preview shows its cause
+and retains loaded content; Refresh retries it, and hiding the panel retains a loaded preview.
 
 Click an image in Documents, a Markdown report, or the chat's attachments to open it across
 the window. The preview shows a magnifier on hover. The viewer shows the file name; use the

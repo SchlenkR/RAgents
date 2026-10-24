@@ -116,6 +116,7 @@ Ids from results are reused programmatically, not copied by hand.
 | --- | --- | --- |
 | ragents.actor-programs.display | ragents.actor-programs | runs.read |
 | ragents.chat | host | no fixed rights |
+| ragents.documents.changed | ragents.documents | runs.read |
 | ragents.global-apps.changed | ragents.global-apps | ragents.global-apps.read |
 | ragents.mcp.status | ragents.mcp | runs.read, ragents.mcp.read |
 | ragents.processes | ragents.processes | runs.read, ragents.processes.read |
@@ -6263,6 +6264,66 @@ Owner: host. Rights: no fixed rights.
   "type": "object",
   "additionalProperties": true,
   "x-typescript-type": "ChatEvent"
+}
+```
+
+## Channel ragents.documents.changed
+
+Reports changes in a run's document store. Right: runs.read.
+
+Owner: ragents.documents. Rights: runs.read.
+
+### Parameter
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Message
+
+```json
+{
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "changed"
+      ],
+      "properties": {
+        "changed": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "error"
+      ],
+      "properties": {
+        "error": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
 }
 ```
 

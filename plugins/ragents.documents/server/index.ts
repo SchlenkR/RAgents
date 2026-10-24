@@ -2,7 +2,7 @@ import path from "node:path";
 import type { RAgentsPlugin } from "@ragents/engine";
 import { createDocumentToolContributor } from "./tool-contributor.js";
 import { DOCUMENTS_ALIAS, documentsApiPrefix } from "../contract.js";
-import { createContentRoute, createFilesMethod, createGrantMethod } from "./files-route.js";
+import { createContentRoute, createFilesChannel, createFilesMethod, createGrantMethod } from "./files-route.js";
 import { DocumentGrants } from "./grants.js";
 import { ragentsDocumentsConfig, ragentsDocumentsConfigDescriptors } from "./config.js";
 import { RunDocumentStore } from "./store.js";
@@ -34,6 +34,7 @@ const documentsPlugin: RAgentsPlugin = {
     const grants = new DocumentGrants();
     const contentAccess = { ensureSession: host.service(runGuardToken), ensureWorkspaceAccess: host.service(workspaceGuardToken) };
     host.methods(createFilesMethod({ filesFor, ensureSession: host.service(runGuardToken) }), createGrantMethod({ ...contentAccess, grants }));
+    host.channels(createFilesChannel({ filesFor, ensureSession: host.service(runGuardToken) }));
     host.http(createContentRoute({ ...contentAccess, execute: sandbox.execute, grants }));
     host.lifecycle({
       id: "ragents.documents.lifecycle",

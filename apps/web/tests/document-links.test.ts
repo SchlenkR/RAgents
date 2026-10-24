@@ -72,7 +72,7 @@ test("an HTML document gets the base address of its folder after its doctype, a 
   assert.equal(htmlWithBase("<p>Hello</p>", "/x?a=1&b=\"2\""), `<base href="/x?a=1&amp;b=&quot;2&quot;">${meta}<p>Hello</p>`);
 });
 
-test("the Documents view renders a Markdown document with its images under the content route and an image document by reference", () => {
+test("the Documents view renders a Markdown document with its images under the content route and loads an image document before display", () => {
   const sections: DocumentSection[] = [{
     id: "chat", label: "Shown in chat", kind: "chat",
     documents: [
@@ -84,7 +84,7 @@ test("the Documents view renders a Markdown document with its images under the c
   const render = (activeId: string) => renderToStaticMarkup(createElement(RunUrls, { resolve: () => "/resolved-by-the-run", runId: "run-1" },
     createElement(DocumentPanel, { activeId, sections, truncated: false, onSelect: () => {} })));
   assert.match(render("report"), new RegExp(`<img[^>]*src="${raw}/@documents/review/shots/home\\.png"`));
-  assert.match(render("shot"), new RegExp(`<img[^>]*src="${raw}/%40documents/review/shots/home\\.png"`));
+  assert.match(render("shot"), /aria-label="Reload document" aria-busy="true"/);
   assert.match(render("result"), /<img[^>]*src="plan\.png"/, "a document without a base keeps its addresses, also inside a run that resolves them");
 });
 

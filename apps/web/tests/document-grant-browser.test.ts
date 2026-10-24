@@ -73,7 +73,7 @@ test("document addresses carry grants instead of the access token where the page
     }
     if (rpc) {
       response.setHeader("Content-Type", "application/json");
-      response.end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id ?? null, result: rpc.method === "ragents.documents.grant" ? { grant: GRANTS[rpc.params?.root ?? ""] } : null }));
+      response.end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id ?? null, result: rpc.method === "ragents.documents.grant" ? { grant: GRANTS[rpc.params?.root ?? ""] } : rpc.method === "rpc.subscribe" ? { subscription: `subscription-${seen.length}` } : null }));
       return;
     }
     if (url.pathname === `${prefix}/raw/%40documents/review/report.html`) {
@@ -155,15 +155,16 @@ test("document addresses carry grants instead of the access token where the page
     assert.ok(entry.referer === undefined || entry.referer === `${origin}/`, `${entry.path} sends at most the origin as referrer, not ${entry.referer}`);
   }
   const imagePaths = new Set(loads.filter((entry) => /\.png$/.test(entry.path)).map((entry) => entry.path));
-  assert.deepEqual([...imagePaths].sort(), images.map((reference) => `${prefix}/grant/${grantFor(reference)}/${reference}`).sort(),
-    "every image of a document and of the chat loads through the grant of its root");
-  assert.ok(loads.filter((entry) => /\.png$/.test(entry.path)).every((entry) => entry.authorization === undefined && entry.cookie === undefined));
+  assert.deepEqual([...imagePaths].sort(), [...images.map((reference) => `${prefix}/grant/${grantFor(reference)}/${reference}`), `${prefix}/raw/%40documents/review/shots/home.png`].sort(),
+    "embedded images use grants and standalone image bytes use the signed-in fetch");
+  assert.ok(loads.filter((entry) => /\.png$/.test(entry.path) && entry.path.includes("/grant/")).every((entry) => entry.authorization === undefined && entry.cookie === undefined));
   const frameImage = loads.find((entry) => entry.path.endsWith("/review/shots/home.png") && entry.referer === undefined);
   assert.ok(frameImage, "the frame of the HTML document sends no referrer at all");
   const result = loads.filter((entry) => entry.path === artifact);
-  assert.deepEqual(result.map((entry) => entry.authorization), [`Bearer ${TOKEN}`], "a result outside the content route loads once with the bearer");
+  assert.ok(result.length > 0 && result.every((entry) => entry.authorization === `Bearer ${TOKEN}`), "a result outside the content route fetches and revalidates with the bearer");
   assert.ok(tokenPage.sources.some((source) => source.startsWith("blob:")), "and shows under a blob address");
-  assert.equal(tokenPage.download, `${origin}${prefix}/grant/${GRANTS["@documents"]}/%40documents/review/data.zip`, "a download leads to the grant address");
+  assert.ok(tokenPage.download.startsWith("blob:"), "a download uses the loaded bytes");
+  assert.ok(loads.some((entry) => entry.path.endsWith("/data.zip") && entry.authorization === `Bearer ${TOKEN}`), "download bytes use the signed-in fetch");
   assert.ok(tokenPage.sources.every((source) => !source.includes(TOKEN)));
 
   seen.splice(0);
@@ -171,6 +172,6 @@ test("document addresses carry grants instead of the access token where the page
   assert.equal(seen.filter((entry) => entry.method === "ragents.documents.grant").length, 0, "without a token no grant is needed");
   assert.deepEqual([...new Set(seen.filter((entry) => /\.png$/.test(entry.path)).map((entry) => entry.path))].sort(), images.map((reference) => `${prefix}/raw/${reference}`).sort(),
     "with a cookie every image loads through the plain route");
-  assert.ok(cookiePage.sources.includes(`${origin}${artifact}`), "a result loads from its own route");
-  assert.equal(cookiePage.download, `${origin}${prefix}/raw/%40documents/review/data.zip`);
+  assert.ok(cookiePage.sources.some((source) => source.startsWith("blob:")), "a result shows the bytes loaded from its own route");
+  assert.ok(cookiePage.download.startsWith("blob:"));
 });

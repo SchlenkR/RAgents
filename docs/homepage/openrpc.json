@@ -6400,6 +6400,58 @@
       "x-rights": []
     },
     {
+      "name": "ragents.documents.changed",
+      "description": "Reports changes in a run's document store. Right: runs.read.",
+      "params": {
+        "type": "object",
+        "required": [
+          "runId"
+        ],
+        "properties": {
+          "runId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "additionalProperties": false
+      },
+      "message": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": [
+              "changed"
+            ],
+            "properties": {
+              "changed": {
+                "type": "boolean",
+                "const": true
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "error"
+            ],
+            "properties": {
+              "error": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "x-owner": "ragents.documents",
+      "x-rights": [
+        "runs.read"
+      ]
+    },
+    {
       "name": "ragents.global-apps.changed",
       "description": "Your current global apps after every change and reconnect.",
       "params": {

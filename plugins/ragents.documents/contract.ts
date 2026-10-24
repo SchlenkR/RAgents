@@ -1,5 +1,5 @@
 import { Type, type Static } from "typebox";
-import { defineOperation } from "@ragents/engine/src/rpc/contract";
+import { defineChannel, defineOperation } from "@ragents/engine/src/rpc/contract";
 
 export const documentsApiPrefix = "/api/plugins/ragents.documents";
 
@@ -42,6 +42,16 @@ export type RunFileEntry = Static<typeof fileEntry>;
 export type RunFilesListing = Static<typeof filesListing>;
 
 export const documentsContracts = {
+  changed: defineChannel({
+    id: "ragents.documents.changed",
+    description: "Reports changes in a run's document store. Right: runs.read.",
+    rights: ["runs.read"],
+    params: Type.Object({ runId: Type.String({ minLength: 1, maxLength: 64 }) }, { additionalProperties: false }),
+    message: Type.Union([
+      Type.Object({ changed: Type.Literal(true) }, { additionalProperties: false }),
+      Type.Object({ error: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
+    ]),
+  }),
   files: defineOperation({
     id: "ragents.documents.files",
     description: "A run's file store as groups and loose files. Right: runs.read.",

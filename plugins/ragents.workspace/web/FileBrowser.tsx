@@ -18,10 +18,13 @@ import { BROWSE_ROOTS, workspaceContracts, type BrowseListing, type BrowsePrevie
 import { fetchBrowseListing, fetchBrowsePreview } from "./api";
 import { fileIconFor, fileToneClass } from "./file-icons";
 import { SourceCode } from "@ragents/web/SourceCode";
+import { Markdown, QuasselProvider } from "@schlenkr/quassel";
 
 const rowClass = "h-auto w-full justify-start gap-2 rounded-none py-1 pr-3 pl-(--row-indent) text-[0.78rem] font-normal";
 const previewSourceClass = "min-w-0 px-3 pt-0 pb-3 whitespace-pre-wrap break-words";
 const indent = (depth: number) => ({ "--row-indent": `${8 + depth * 12}px` }) as CSSProperties;
+const keepUrl = (url: string): string => url;
+type MarkdownView = "rendered" | "source";
 
 const rootLabels: Readonly<Record<BrowseRoot, string>> = {
   workspace: "Working directory",
@@ -58,12 +61,14 @@ export function FileBrowserPanel({ active, session }: WorkspaceTabContext) {
   const roots: readonly BrowseRoot[] = reachable ? BROWSE_ROOTS : ["files"];
   const [chosenRoot, setRoot] = useState<BrowseRoot>("workspace");
   const [showHidden, setShowHidden] = useState(false);
+  const [markdownView, setMarkdownView] = useState<MarkdownView>("rendered");
   const root: BrowseRoot = reachable ? chosenRoot : "files";
   return <RootBrowser key={JSON.stringify([runId, root])} active={active} runId={runId} root={root}
-    roots={roots} setRoot={setRoot} memory={treeMemory.current} showHidden={showHidden} setShowHidden={setShowHidden} />;
+    roots={roots} setRoot={setRoot} memory={treeMemory.current} showHidden={showHidden} setShowHidden={setShowHidden}
+    markdownView={markdownView} setMarkdownView={setMarkdownView} />;
 }
 
-function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, setShowHidden }: {
+function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, setShowHidden, markdownView, setMarkdownView }: {
   active: boolean;
   runId: string;
   root: BrowseRoot;
@@ -72,6 +77,8 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
   memory: Map<string, BrowserMemory>;
   showHidden: boolean;
   setShowHidden: (showHidden: boolean) => void;
+  markdownView: MarkdownView;
+  setMarkdownView: (view: MarkdownView) => void;
 }) {
   const stateKey = JSON.stringify([runId, root]);
   const saved = memory.get(stateKey);
@@ -84,6 +91,7 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
   const [listingPending, setListingPending] = useState(false);
   const [previewPending, setPreviewPending] = useState(false);
   const [reload, setReload] = useState(0);
+  const [previewRevision, setPreviewRevision] = useState(0);
   const pending = listingPending || previewPending;
   const error = previewError ?? listingError;
 
@@ -92,7 +100,7 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
   }, [expanded, memory, selected, stateKey]);
 
   useEffect(() => {
-    if (!active || selected === undefined || preview !== undefined) return;
+    if (!active || selected === undefined || document.visibilityState === "hidden") return;
     let alive = true;
     const controller = new AbortController();
     setPreviewPending(true);
@@ -100,7 +108,7 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
     void fetchBrowsePreview(runId, root, selected, controller.signal)
       .then((value) => {
         if (alive) {
-          setPreview(value);
+          setPreview((current) => current?.previewable && value.previewable && current.path === value.path && current.content === value.content ? current : value);
           setPreviewPending(false);
         }
       })
@@ -114,7 +122,7 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
       alive = false;
       controller.abort();
     };
-  }, [active, preview, reload, root, runId, selected]);
+  }, [active, previewRevision, reload, root, runId, selected]);
 
   useEffect(() => {
     if (!active) return;
@@ -122,9 +130,11 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
     const controller = new AbortController();
     let timer: number | undefined;
     let busy = false;
+    let queued = false;
 
     const load = async (visible: boolean) => {
-      if (busy) return;
+      if (document.visibilityState === "hidden") return;
+      if (busy) { queued = true; return; }
       busy = true;
       if (visible) setListingPending(true);
       try {
@@ -150,18 +160,32 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
         busy = false;
         if (alive) {
           if (visible) setListingPending(false);
+          if (queued) {
+            queued = false;
+            void load(false);
+            return;
+          }
           if (timer !== undefined) window.clearTimeout(timer);
           timer = window.setTimeout(() => void load(false), 30000);
         }
       }
     };
 
-    const unsubscribe = rpc.subscribe(workspaceContracts.channels.browse, { runId, root }, () => void load(false));
+    const changed = () => {
+      if (document.visibilityState === "hidden") return;
+      setPreviewRevision((value) => value + 1);
+      void load(false);
+    };
+    const unsubscribe = rpc.subscribe(workspaceContracts.channels.browse, { runId, root }, changed, setListingError);
+    const connected = rpc.onConnected(changed);
+    document.addEventListener("visibilitychange", changed);
     void load(true);
     return () => {
       alive = false;
       controller.abort();
       unsubscribe();
+      connected();
+      document.removeEventListener("visibilitychange", changed);
       if (timer !== undefined) window.clearTimeout(timer);
     };
   }, [active, expanded, reload, root, runId]);
@@ -244,7 +268,7 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
           >
             {showHidden ? <Eye size={15} strokeWidth={1.8} /> : <EyeOff size={15} strokeWidth={1.8} />}
           </Toggle>
-          <Button aria-label="Refresh files" onClick={() => { setPreview(undefined); setReload((value) => value + 1); }} size="icon" aria-description="Refresh" variant="ghost">
+          <Button aria-label="Refresh files" aria-busy={pending} onClick={() => setReload((value) => value + 1)} size="icon" aria-description="Refresh" variant="ghost">
             <RefreshCw className={pending ? "animate-spin" : undefined} size={15} strokeWidth={1.8} />
           </Button>
         </div>
@@ -267,12 +291,22 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
       <div className="min-h-0 flex-1 overflow-auto pb-2">{renderLevel("", 0)}</div>
       {selected && (
         <div className="flex min-h-0 flex-1 flex-col border-t border-border-soft">
-          <div className="whitespace-normal wrap-anywhere px-3 py-2 font-mono text-[0.66rem] text-muted-foreground" aria-label={selected}>{selected}</div>
-          {previewPending && <div className="px-3 pb-2 text-[0.68rem] text-muted-foreground" role="status">Loading preview...</div>}
+          <header className="flex items-center justify-between gap-2 px-3 py-2">
+            <span className="whitespace-normal wrap-anywhere font-mono text-[0.66rem] text-muted-foreground" aria-label={selected}>{selected}</span>
+            {/\.(md|markdown)$/i.test(selected) && (
+              <ToggleGroup aria-label="Markdown view" size="sm" value={[markdownView]} onValueChange={([value]) => { if (value) setMarkdownView(value); }}>
+                <ToggleGroupItem value="rendered">Rendered</ToggleGroupItem>
+                <ToggleGroupItem value="source">Source</ToggleGroupItem>
+              </ToggleGroup>
+            )}
+          </header>
+          {previewPending && preview === undefined && <div className="px-3 pb-2 text-[0.68rem] text-muted-foreground" role="status">Loading preview...</div>}
           {preview && !preview.previewable && <div className="px-3 pb-2 text-[0.68rem] text-muted-foreground">{preview.reason}</div>}
           {preview && preview.previewable && (
             <div className="min-h-0 flex-1 overflow-auto">
-              <SourceCode className={previewSourceClass} content={preview.content} path={selected} />
+              {/\.(md|markdown)$/i.test(selected) && markdownView === "rendered"
+                ? <QuasselProvider resolveUrl={keepUrl}><div className="type-prose px-3 pb-3"><Markdown text={preview.content} /></div></QuasselProvider>
+                : <SourceCode className={previewSourceClass} content={preview.content} path={selected} />}
             </div>
           )}
         </div>

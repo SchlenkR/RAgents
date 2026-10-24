@@ -61,7 +61,7 @@ test("the language servers come from their plugins: the server loads the contrib
 
 test("a workstation provisions exactly the built-in plugins with an executor contribution and the bundles they need to load", () => {
   assert.deepEqual(workspaceProvisionPlugins().map((plugin) => plugin.id).sort(),
-    ["ragents.acp", "ragents.ask", "ragents.browser", "ragents.documents", "ragents.mcp", ...LANGUAGE_SERVER_PLUGINS].sort());
+    ["ragents.acp", "ragents.ask", "ragents.browser", "ragents.documents", "ragents.mcp", "ragents.workspace", ...LANGUAGE_SERVER_PLUGINS].sort());
 });
 
 test("the copied MCP executor bundle connects without packages in the workstation folder", async (t) => {

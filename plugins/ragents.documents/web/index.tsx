@@ -10,10 +10,11 @@ import {
   type RunDocument as Document,
   type DocumentSection,
 } from "./DocumentViewer";
+import { rpc } from "@ragents/web/rpc";
 import { fetchRunFiles } from "./api";
 import { documentGrants, useRunGrantsSettled } from "./grants";
 import { documentBaseOf, documentUrlResolver } from "./links";
-import { DOCUMENTS_ALIAS, contentPathOf, type RunFileEntry, type RunFilesListing } from "../contract";
+import { DOCUMENTS_ALIAS, contentPathOf, documentsContracts, type RunFileEntry, type RunFilesListing } from "../contract";
 import { actorAddress, runArtifactContentUrl, runViewFrom, type RunView } from "@ragents/web/run-view";
 import { accessTokenInstalled } from "@ragents/web/access-token";
 import { Alert, Badge } from "@ragents/web/ui";
@@ -101,29 +102,53 @@ const useRunFilesContext = (): RunFilesState => {
 const useRunFiles = (session: SessionContext): RunFilesState => {
   const [listing, setListing] = useState<RunFilesListing>();
   const [error, setError] = useState<string>();
+  const [watchError, setWatchError] = useState<string>();
   const runId = session.session.id;
 
   useEffect(() => {
     let alive = true;
-    const load = () => void fetchRunFiles(runId)
-      .then((value) => {
-        if (!alive) return;
-        setListing(value);
-        setError(undefined);
-      })
-      .catch((cause: unknown) => alive && setError(cause instanceof Error ? cause.message : String(cause)));
+    let loading = false;
+    let queued = false;
+    const controller = new AbortController();
+    const load = () => {
+      if (loading) { queued = true; return; }
+      loading = true;
+      void fetchRunFiles(runId, controller.signal)
+        .then((value) => {
+          if (!alive) return;
+          setListing(value);
+          setError(undefined);
+        })
+        .catch((cause: unknown) => alive && setError(cause instanceof Error ? cause.message : String(cause)))
+        .finally(() => {
+          loading = false;
+          if (alive && queued) {
+            queued = false;
+            loadVisible();
+          }
+        });
+    };
     const loadVisible = () => { if (document.visibilityState !== "hidden") load(); };
     loadVisible();
     document.addEventListener("visibilitychange", loadVisible);
-    const timer = session.running ? setInterval(loadVisible, 5000) : undefined;
+    const unsubscribe = rpc.subscribe(documentsContracts.changed, { runId }, (message) => {
+      if ("error" in message) setWatchError(message.error);
+      else {
+        setWatchError(undefined);
+        loadVisible();
+      }
+    }, setWatchError);
+    const connected = rpc.onConnected(loadVisible);
     return () => {
       alive = false;
-      clearInterval(timer);
+      controller.abort();
+      unsubscribe();
+      connected();
       document.removeEventListener("visibilitychange", loadVisible);
     };
-  }, [runId, session.running]);
+  }, [runId]);
 
-  return useMemo(() => ({ listing, error }), [listing, error]);
+  return useMemo(() => ({ listing, error: watchError ?? error }), [listing, error, watchError]);
 };
 
 function DocumentsSessionProvider({ children, session }: SessionProviderProps) {
@@ -167,7 +192,8 @@ const sectionsFrom = (
       id: `file:${relative}`,
       title: entry.path,
       format: formatFromName(entry.path),
-      contentUrl: `${contentPathOf(routePrefix, runId, reference)}?v=${encodeURIComponent(entry.modifiedAt)}`,
+      contentUrl: contentPathOf(routePrefix, runId, reference),
+      version: `${entry.modifiedAt}:${entry.size}`,
       base: documentBaseOf(routePrefix, runId, reference),
       createdAt: entry.modifiedAt,
       size: entry.size,
