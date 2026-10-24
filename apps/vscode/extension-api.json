@@ -20,7 +20,7 @@
   "files": {
     "apps/web/src/run-panel/host-contract.ts": "e27a2b31b5e903c723e951a6d52cefdd393573f74c3ac521685a465066713894",
     "packages/ragents/src/rpc/protocol.ts": "82bbcb8181a2f90708dc607922fef4a9d472cd82d6dede09324df778773699a6",
-    "apps/server/src/rpc/http-transport.ts": "106da64289a5c90e59b483285347156ac9eb54a08a03427c8aafb0a408ef4c8c",
+    "apps/server/src/rpc/http-transport.ts": "3628cf45a5dbd12e7b74c7db99a00a8eabca51a2c4b7d045ed3834f54f450f75",
     "apps/server/src/access-session.ts": "315452c735d674baf0ee22e41f73ac7019fa058d55a4386b110b8a7a4d08589c",
     "packages/ragents/src/access.ts": "59fd8368e099e4318b1ed303bffefd2fe7c26d0cfc420a4ad9ac84f9bce4d3dd",
     "apps/server/src/host-package.ts": "079886247234519e193ef41b0cd7a76ef76ce9db33896b76447a24e936169034",
