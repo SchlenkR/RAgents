@@ -36,8 +36,8 @@ import { RunHeader } from "./RunHeader";
 
 const headerClass = "relative z-[80] flex min-h-header flex-none flex-wrap items-center border-b border-border bg-shell shadow-bar";
 const globalBarClass = "flex min-w-0 flex-[0_1_auto] items-center gap-1";
-// Plugin pages add buttons to the bar, so its limit is wider than what fits the logo and the coordinator.
-const globalBarWidth = (pages: number) => pages > 0 ? "max-w-[36rem]" : "max-w-[18rem]";
+// Each plugin page adds a button, so the limit grows with them and the buttons stay in one row.
+const globalBarWidth = (pages: number) => ({ maxWidth: `${18 + 9 * pages}rem` });
 // From 768px the run title shrinks first down to its chevron; only then the global bar shrinks instead of overlapping the actions.
 const runBarClass = "flex min-w-0 max-w-[22rem] flex-[0_1_auto] items-stretch @min-[768px]/run-header:min-w-8 @min-[768px]/run-header:shrink-[1000]";
 const actionsBarClass = "ml-auto flex max-w-full min-w-0 flex-wrap items-center justify-end gap-1";
@@ -377,7 +377,7 @@ function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { c
   };
   return <WorkspaceModalContext.Provider value={workspaceContainer}><div className="flex h-full flex-col">
     <RunHeader leading={<>
-      <div className={`${globalBarClass} ${globalBarWidth(pages.length)}`}>
+      <div className={globalBarClass} style={globalBarWidth(pages.length)}>
         <Button aria-label="Home" className="self-center" onClick={showHome} size="icon" variant="ghost">
           <BrandLogo className="size-6 text-foreground" title={registry.brand.title} />
         </Button>
