@@ -611,7 +611,10 @@ stays empty. Updated role rules and
 short initial hints thus take effect per turn; explicitly retrieved detail chapters remain
 conversation content and are not additionally taken into the system prompt. Thinking level `off`
 sends OpenRouter the explicit deactivation from the model catalog, such as
-`reasoning: { effort: "none" }`, or without such a mapping `reasoning: { enabled: false }`. Before
+`reasoning: { effort: "none" }`, or without such a mapping `reasoning: { enabled: false }`.
+Host-side requests without a thinking level of their own (skill preselection, compaction, titles)
+ask for none; a model whose catalog entry cannot disable reasoning (`off: null`) gets its lowest
+level instead. Before
 every turn, RAgents checks the chosen thinking level against the actual model of the turn. An
 unavailable selection ends the turn with an error message including the valid levels before a
 model request is sent; it is not replaced by another thinking level. The model catalog and tool

@@ -22,6 +22,24 @@ test("OpenRouter explicitly disables reasoning for off and retains the requested
   }
 });
 
+test("a model whose reasoning cannot be disabled gets its lowest level instead of off, also without a requested level", async () => {
+  const mandatory = { ...model, thinkingLevelMap: { off: null, minimal: null, low: "low", high: "high" } };
+  for (const reasoning of [undefined, "off", "minimal", "high"] as const) {
+    let payload: unknown;
+    await streamSimple(mandatory, { messages: [{ role: "user", content: "Hello", timestamp: 1 }] }, {
+      apiKey: "test-only", ...(reasoning ? { reasoning } : {}),
+      onPayload: (value) => { payload = structuredClone(value); throw new Error("captured before network"); },
+    }).result();
+    assert.deepEqual((payload as { reasoning: unknown }).reasoning, { effort: reasoning === "high" ? "high" : "low" });
+  }
+  let payload: unknown;
+  await streamSimple(model, { messages: [{ role: "user", content: "Hello", timestamp: 1 }] }, {
+    apiKey: "test-only",
+    onPayload: (value) => { payload = structuredClone(value); throw new Error("captured before network"); },
+  }).result();
+  assert.deepEqual((payload as { reasoning: unknown }).reasoning, { enabled: false });
+});
+
 test("interleaved tool arguments retain Unicode across JSON fragments and single-byte SSE chunks", async (t) => {
   const values = [{ text: "Umlauts and more: äöü ÄÖÜ ß 🚀" }, { text: "Greetings with \\ and \"quote\" plus\nlines" }];
   const argumentsText = values.map((value) => JSON.stringify(value));

@@ -379,7 +379,8 @@ export const cacheMarksOf = (value: unknown): number => {
 };
 
 export const streamSimple: StreamFunction<"openai-completions", SimpleStreamOptions> = (model, context, options) => {
-	const reasoning = options?.reasoning ? clampThinkingLevel(model, options.reasoning) : undefined;
+	// A model that cannot think off gets its lowest level, also when the caller asks for none.
+	const reasoning = clampThinkingLevel(model, options?.reasoning ?? "off");
 	return stream(model, context, {
 		...buildBaseOptions(model, context, options, options?.apiKey),
 		reasoningEffort: reasoning === "off" ? undefined : reasoning,

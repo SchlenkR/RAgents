@@ -1,5 +1,18 @@
 # Decisions
 
+## 2026-10-24: Requests without a thinking level respect mandatory reasoning
+
+Chapter: `spec/core.md` (model runtime, thinking level `off`).
+
+**Why.** Skill preselection, compaction, and titles call the model without a thinking level, and
+the runtime then sent `reasoning: { enabled: false }`. Endpoints that require reasoning, such as
+current Claude models on OpenRouter, refused with 400; skill preselection fell back to the catalog
+on every turn start.
+
+**Decision.** `streamSimple` clamps a missing level like `off` against the model catalog: where
+`off` is unavailable, the lowest available level is sent. Models that can disable reasoning keep
+the explicit deactivation. A change to the forked runtime in `packages/ai`.
+
 ## 2026-10-24: Workstation hosts install into private staging folders
 
 Chapter: `spec/plugins.md` (workstation host fetching).
