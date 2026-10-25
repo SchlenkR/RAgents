@@ -1,24 +1,57 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import { RenderBoundary } from "../RenderBoundary";
 import type { PageContribution } from "../PluginRegistry";
-import { Button } from "../ui";
+import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui";
 
-/** One button per plugin page in the top bar, with its icon and title, which truncate when the bar is short; the open page's button is highlighted. */
+// Below the header width at which the titles last wrapped or were cut, the buttons show only their icons.
+const useIconsOnly = () => {
+  const nav = useRef<HTMLElement>(null);
+  const [limit, setLimit] = useState<number>();
+  const [width, setWidth] = useState<number>();
+  useLayoutEffect(() => {
+    const element = nav.current;
+    const header = element?.closest("header");
+    if (!element || !header) return;
+    const measure = () => {
+      const current = header.clientWidth;
+      setWidth(current);
+      if (element.dataset.iconsOnly === "true") return;
+      const buttons = [...element.children] as HTMLElement[];
+      const wraps = buttons.some((button) => button.offsetTop !== buttons[0]!.offsetTop);
+      const cut = [...element.querySelectorAll<HTMLElement>("[data-page-title]")].some((title) => title.scrollWidth > title.clientWidth);
+      if (wraps || cut) setLimit(current + 1);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+  return { nav, iconsOnly: limit !== undefined && width !== undefined && width < limit };
+};
+
+/** One button per plugin page in the top bar, with its icon and title; when the titles do not fit in one row, only the icons remain and the title shows on hover. The open page's button is highlighted. */
 export function PageButtons({ active, onOpen, pages }: {
   active: string | undefined;
   onOpen: (pageId: string) => void;
   pages: readonly Pick<PageContribution, "id" | "Icon" | "title">[];
 }) {
+  const { nav, iconsOnly } = useIconsOnly();
   if (pages.length === 0) return null;
   return (
-    <nav aria-label="Pages" className="flex max-w-full flex-[0_1_auto] flex-wrap items-center gap-1" style={{ minWidth: `min(100%, calc(var(--spacing) * ${pages.length * 9 + pages.length - 1}))` }}>
-      {pages.map(({ id, Icon, title }) => (
-        <Button aria-current={id === active ? "page" : undefined} aria-label={title} className="min-w-9" key={id}
-          onClick={() => { if (id !== active) onOpen(id); }} style={{ flexShrink: 1 }} variant="ghost">
-          <Icon />
-          <span className="truncate">{title}</span>
-        </Button>
-      ))}
-    </nav>
+    <TooltipProvider>
+      <nav aria-label="Pages" className="flex max-w-full flex-[0_1_auto] flex-wrap items-center gap-1" data-icons-only={iconsOnly} ref={nav} style={{ minWidth: `min(100%, calc(var(--spacing) * ${pages.length * 9 + pages.length - 1}))` }}>
+        {pages.map(({ id, Icon, title }) => (
+          <Tooltip disabled={!iconsOnly} disableHoverablePopup key={id}>
+            <TooltipTrigger aria-current={id === active ? "page" : undefined} aria-label={title} className="min-w-9"
+              onClick={() => { if (id !== active) onOpen(id); }} render={<Button variant="ghost" />} style={{ flexShrink: 1 }}>
+              <Icon />
+              {!iconsOnly && <span className="truncate" data-page-title="">{title}</span>}
+            </TooltipTrigger>
+            <TooltipContent className="pointer-events-none" side="bottom" sideOffset={6}>{title}</TooltipContent>
+          </Tooltip>
+        ))}
+      </nav>
+    </TooltipProvider>
   );
 }
 
