@@ -3,7 +3,7 @@ import { RenderBoundary } from "../RenderBoundary";
 import type { PageContribution } from "../PluginRegistry";
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui";
 
-// Below the header width at which the titles last wrapped or were cut, the buttons show only their icons.
+// Below the header width at which the header row last wrapped or a title was cut, the buttons show only their icons.
 const useIconsOnly = () => {
   const nav = useRef<HTMLElement>(null);
   const [limit, setLimit] = useState<number>();
@@ -16,8 +16,8 @@ const useIconsOnly = () => {
       const current = header.clientWidth;
       setWidth(current);
       if (element.dataset.iconsOnly === "true") return;
-      const buttons = [...element.children] as HTMLElement[];
-      const wraps = buttons.some((button) => button.offsetTop !== buttons[0]!.offsetTop);
+      const row = header.firstElementChild?.getBoundingClientRect().height ?? 0;
+      const wraps = row > (element.firstElementChild?.getBoundingClientRect().height ?? row) * 1.5;
       const cut = [...element.querySelectorAll<HTMLElement>("[data-page-title]")].some((title) => title.scrollWidth > title.clientWidth);
       if (wraps || cut) setLimit(current + 1);
     };
@@ -29,7 +29,7 @@ const useIconsOnly = () => {
   return { nav, iconsOnly: limit !== undefined && width !== undefined && width < limit };
 };
 
-/** One button per plugin page in the top bar, with its icon and title; when the titles do not fit in one row, only the icons remain and the title shows on hover. The open page's button is highlighted. */
+/** One button per plugin page in the top bar, with its icon and title; when the header does not fit in one row with the titles, only the icons remain and the title shows on hover. The open page's button is highlighted. */
 export function PageButtons({ active, onOpen, pages }: {
   active: string | undefined;
   onOpen: (pageId: string) => void;
