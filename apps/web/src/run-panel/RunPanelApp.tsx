@@ -381,7 +381,7 @@ function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { c
         <Button aria-label="Home" className="self-center" onClick={showHome} size="icon" variant="ghost">
           <BrandLogo className="size-6 text-foreground" title={registry.brand.title} />
         </Button>
-        <div className="flex min-w-0 flex-1 flex-wrap items-center empty:hidden @min-[768px]/run-header:flex-nowrap">
+        <div className="flex min-w-0 flex-1 items-center empty:hidden">
           <PageButtons active={viewingPage ? currentPageId : undefined} onOpen={openPage} pages={[runsPage, ...pages]} />
           <PanelContributions registry={registry} userLocation={chatUserLocation(viewingPage ? undefined : runId, false, runLocation)} />
         </div>
