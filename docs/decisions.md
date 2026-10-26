@@ -1,5 +1,19 @@
 # Decisions
 
+## 2026-10-26: Chat follows quassel 0.5.6 for copying and scrolling
+
+Chapters: `spec/plugins.md` (Web as plugin host, UI library); `development.md` (Developing quassel and RAgents together).
+
+**Why.** quassel 0.5.2 to 0.5.6 move message actions below the message, let answers be copied as
+Markdown or with formatting, and use one boundary (`jumpToEndThreshold`) for following and the
+jump-to-end button. 0.5.4 lost an upward wheel step while a streamed render landed before its scroll
+event, which the existing chat scroll regression caught; 0.5.6 holds a gesture pause until the user
+scrolls back down.
+
+**Decision.** The exact pins use `@schlenkr/quassel` 0.5.6 and the chat keeps the library defaults:
+user messages and answers can be copied, answers also with formatting. `copyChatHtml` joins the web
+host API without a new `HOST_API_VERSION`, because no name disappears.
+
 ## 2026-10-24: Requests without a thinking level respect mandatory reasoning
 
 Chapter: `spec/core.md` (model runtime, thinking level `off`).

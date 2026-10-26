@@ -57,7 +57,7 @@
     "@ragents/plugins": "workspace:*",
     "@ragents/web": "workspace:*",
     "@ragents/workspace-executor": "workspace:*",
-    "@schlenkr/quassel": "0.5.1",
+    "@schlenkr/quassel": "0.5.6",
     "@tailwindcss/node": "^4.3.3",
     "@tailwindcss/oxide": "^4.3.3",
     "@xyflow/react": "^12.11.6",

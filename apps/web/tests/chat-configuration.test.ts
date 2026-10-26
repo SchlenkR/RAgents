@@ -14,10 +14,11 @@ const render = (options: Partial<ComponentProps<typeof ChatMessages>> = {}) =>
 const timestamps = (html: string) => [...html.matchAll(/<time\b[^>]*>(.*?)<\/time>/g)].map((match) => match[1]);
 const buttons = (html: string, label: string) => [...html.matchAll(/<button\b[^>]*>/g)].filter((match) => match[0].includes(`aria-label="${label}"`));
 
-test("default chat appearance keeps timestamps hidden and copying limited to user messages", () => {
+test("default chat appearance keeps timestamps hidden and copies user messages and answers, answers also with formatting", () => {
   const html = render();
   assert.deepEqual(timestamps(html), []);
-  assert.equal(buttons(html, "Copy message").length, 1);
+  assert.equal(buttons(html, "Copy as Markdown").length, 2);
+  assert.equal(buttons(html, "Copy with formatting").length, 1);
   assert.doesNotMatch(html, /data-chat="day-separator"|data-chat="sender"/);
   assert.match(html, /data-message="user"/);
   assert.match(html, /data-message="answer"/);
@@ -79,9 +80,11 @@ test("grouped steps split at calendar boundaries when day separators are enabled
 });
 
 test("message copy controls can be disabled, enabled for all text, or selected per message", () => {
-  assert.equal(buttons(render({ messageActions: { copy: false } }), "Copy message").length, 0);
-  assert.equal(buttons(render({ messageActions: { copy: true } }), "Copy message").length, 2);
-  assert.equal(buttons(render({ messageActions: { copy: (message) => message.role === "assistant" } }), "Copy message").length, 1);
+  assert.equal(buttons(render({ messageActions: { copy: false } }), "Copy as Markdown").length, 0);
+  assert.equal(buttons(render({ messageActions: { copy: false } }), "Copy with formatting").length, 0);
+  assert.equal(buttons(render({ messageActions: { copy: true } }), "Copy as Markdown").length, 2);
+  assert.equal(buttons(render({ messageActions: { copy: (message) => message.role === "assistant" } }), "Copy as Markdown").length, 1);
+  assert.equal(buttons(render({ messageActions: { copyFormatted: false } }), "Copy with formatting").length, 0);
 });
 
 test("edit and retry actions only appear when supplied by the host", () => {

@@ -2027,12 +2027,13 @@ and system texts use the static mode. The unchanged message text keeps
 indentation and line breaks. HTML from messages is not executed; links keep
 the host's link handling. The styling stays in the shared chat CSS.
 The chat history shows the normal mouse pointer; text stays selectable, inputs keep
-the text cursor. User messages with text have a small copy icon, also in
+the text cursor. User messages and answers with text have a small copy icon, also in
 colored speech bubbles and without a speech bubble. It copies the unchanged message text
-including Markdown and line breaks; attachments keep their download links.
-The button sits without its own row at the top right above the message and appears on hover
-or keyboard focus. On devices without hover it stays reachable. It confirms success with
-a check mark and reports failed copying.
+including Markdown and line breaks; attachments keep their download links. Answers also offer
+copying with formatting (HTML plus plain text).
+The buttons sit small in a row below the message, aligned with its side, and appear on hover
+or keyboard focus; the row of answers is lighter. On devices without hover it stays reachable.
+It confirms success with a check mark and reports failed copying.
 Chat views show timestamps according to their chat's choice and use the chosen
 level of detail for agents, from hidden steps to fully visible details;
 the expand permission stays in effect. Without a product default, `grouped` applies (see below);
@@ -2612,7 +2613,8 @@ preferences:
   requesting responses again, and custom actions. Editing and requesting again
   appear only with a host callback; the components change neither the journal nor the model run.
   Asynchronous actions lock further actions of the same message until they return and report
-  errors visibly. The default remains copying own messages. `texts` replaces the texts,
+  errors visibly. By default user messages and answers can be copied, answers also with formatting
+  (`copyFormatted`). `texts` replaces the texts,
   including action and clipboard errors.
 - `sendShortcut` on `ChatInputToolbar` chooses `enter` or `mod-enter` (Ctrl/Command+Enter).
   Shift+Enter stays a line break; IME input and key repeat do not send multiple times.

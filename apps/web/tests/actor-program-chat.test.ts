@@ -104,7 +104,7 @@ test("chat owner suppresses only matching sender bubbles and preserves the same 
   assert.match(defaults, /data-message="user"/);
   const reviewer = render("reviewer");
   assert.doesNotMatch(reviewer, /background:#123456/);
-  assert.match(reviewer, /data-message="answer"[^>]*>(<div[^>]*>)?<p[^>]*><strong[^>]*>Answer<\/strong>/);
+  assert.match(reviewer, /data-message="answer"[^>]*>(<div[^>]*>)*<p[^>]*><strong[^>]*>Answer<\/strong>/);
   assert.match(reviewer, /background:#abcdef/);
   assert.match(reviewer, /background:#654321/);
   assert.match(reviewer, /data-message="user"/);
