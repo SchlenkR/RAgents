@@ -66,16 +66,18 @@ export function TitleModelSettings() {
     finally { saving.current = false; setPending(false); }
   };
 
-  const options = titleModelOptions(settings.models);
+  const unavailable = draft !== null && !settings.models.some((model) => model.provider === draft.provider && model.id === draft.model);
+  const options = titleModelOptions(settings.models, settings.selection);
   return <form aria-label="Model for automatic titles" className="flex min-w-0 flex-col items-start gap-3" onSubmit={(event) => {
     event.preventDefault();
     void save();
   }}>
     <p className={noteClasses}>Condenses the first task into a short title line. Applies to the next automatically generated titles.</p>
-    {settings.models.length === 0 && <p className={noteClasses}>The provider offers no model for titles; automatic titles stay off.</p>}
+    {settings.models.length === 0 && draft === null && <p className={noteClasses}>The provider offers no model for titles; automatic titles stay off.</p>}
+    {unavailable && <p className="text-[0.76rem] text-destructive" role="alert">The stored title model is no longer configured. Choose another model or turn automatic titles off, then save. Until then, titles stay as they are.</p>}
     {!writable && <p className={noteClasses}>You have read access to these settings.</p>}
     <Select disabled={!writable || pending} items={options} value={titleSelectionKey(draft)} onValueChange={(key) => {
-      if (key === null) return;
+      if (key === null || key === titleSelectionKey(draft)) return;
       setDraft(titleSelectionFromKey(key, settings.models));
       setError(undefined);
       setNotice(undefined);
@@ -86,7 +88,7 @@ export function TitleModelSettings() {
       </SelectContent>
     </Select>
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <Button disabled={!writable || pending || !dirty} type="submit">{pending ? "Saving ..." : "Save"}</Button>
+      <Button disabled={!writable || pending || !dirty || unavailable} type="submit">{pending ? "Saving ..." : "Save"}</Button>
       {dirty && <Button variant="outline" disabled={pending} onClick={() => {
         setDraft(settings.selection); setError(undefined); setNotice(undefined);
       }}>Discard changes</Button>}

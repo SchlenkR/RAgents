@@ -19,7 +19,7 @@ type ProfileBase = {
 
 export type AgentProfile = ProfileBase & (
     | { driver: "manual" | "script" }
-    | { driver: "agent"; provider: string; model: string; thinking?: ThinkingLevel }
+    | { driver: "agent"; provider: string; model: string; thinking?: ThinkingLevel; storedDefault?: string }
     | { driver: "external"; runtime: string }
 );
 
@@ -163,6 +163,16 @@ const selectionFor = (
 
     const provider = named ?? providerFor(models, driver, model);
 
+    if (profile?.storedDefault) {
+        const entry = models.find((candidate) => candidate.driver === driver && candidate.provider === provider && candidate.model === model);
+        const fail = (message: string): never => {
+            throw new DomainError("stored-model-default-invalid", `The role ${profile.name} cannot use its stored default: ${message} ${profile.storedDefault}`, 400);
+        };
+        if ((request.model === undefined || request.model === profile.model) && !entry)
+            fail(`model ${provider}/${model} is no longer offered.`);
+        if (request.thinking === undefined && profile.thinking && entry && !entry.thinking.includes(profile.thinking))
+            fail(`thinking level ${profile.thinking} is no longer offered for ${provider}/${model}.`);
+    }
     const thinking = thinkingFor(models, driver, provider, model, request, profile);
 
     return { provider, model, ...(thinking ? { thinking } : {}) };

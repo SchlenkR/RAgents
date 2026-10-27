@@ -75,9 +75,9 @@ test("corrupt persisted title settings and unavailable provider catalogs fail im
   const { file, runtime, directory } = await fixture(t);
   await writeFile(file, "not-json");
   await assert.rejects(TitleSettingsStore.create(file, runtime, initial, "openrouter"), SyntaxError);
-  for (const value of [{}, { selection: { ...initial, model: "missing-model" } }, { selection: initial, extra: true }]) {
+  for (const value of [{}, { selection: { provider: initial.provider } }, { selection: initial, extra: true }]) {
     await writeFile(file, JSON.stringify(value));
-    await assert.rejects(TitleSettingsStore.create(file, runtime, initial, "openrouter"), /selection|not available for selection/);
+    await assert.rejects(TitleSettingsStore.create(file, runtime, initial, "openrouter"), /selection|needs provider and model|not available for selection/);
   }
   await assert.rejects(TitleSettingsStore.create(directory, runtime, initial, "openrouter"), /EISDIR/);
   await assert.rejects(TitleSettingsStore.create(path.join(directory, "new.json"), runtime, initial, "unknown-provider"), /not available for selection/);
@@ -108,4 +108,21 @@ test("failed title settings writes preserve the active selection and later seria
   assert.deepEqual(saved.map((value) => value.selection), [next, null, initial]);
   assert.deepEqual(store.selection(), initial);
   assert.deepEqual(JSON.parse(await readFile(file, "utf8")), { selection: initial });
+});
+
+
+test("a stale title model loads, fails only title generation and can be replaced or disabled", async (t) => {
+  const { file, runtime } = await fixture(t);
+  for (const selection of [{ ...initial, model: "removed" }, { ...initial, model: "z-ai/glm-5.3-flash" }, { ...initial, provider: "removed" }]) {
+    await writeFile(file, JSON.stringify({ selection }));
+    const store = await TitleSettingsStore.create(file, runtime, initial, "openrouter");
+    assert.deepEqual(store.get().selection, selection);
+    assert.throws(store.selection, /stored title model from title-settings.json.*Settings, Models, Titles.*not available for selection/);
+    await assert.rejects(store.save({ selection }), /not available for selection/);
+    await store.save({ selection: next });
+    assert.deepEqual(store.selection(), next);
+    assert.deepEqual(JSON.parse(await readFile(file, "utf8")), { selection: next });
+    await store.save({ selection: null });
+    assert.equal(store.selection(), null);
+  }
 });

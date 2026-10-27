@@ -177,6 +177,9 @@ the `coordinator` role. A regression test checks both roles against the profile'
 that, settings and coordinator chat use the same plugin setting. Changes apply from the next turn
 without a restart and change neither the start options nor the models of other runs. The allowed
 selection comes from the configured model catalog and is checked against the model capabilities.
+If the profile no longer offers the stored model or thinking level, the server still starts: the
+settings show the stored selection with a notice, and every turn of the global coordinator fails
+with an error naming it until another selection is saved. A damaged file still aborts the start.
 
 The model provider is `AGENT_PROVIDER` in `ragents.product`, default `openrouter`. Every
 ordinary provider and its models come from `host.MODEL_PROVIDERS`; the host has no built-in
@@ -586,15 +589,22 @@ product plugin owns its own store and its own methods `ragents.product.modelSett
 all actual roles; missing, duplicate, or unknown roles, models not offered, and disallowed thinking
 levels are rejected before writing. The file is replaced atomically.
 
-If the file is missing, the validated configured defaults apply. Corrupted or invalid file contents
-abort the start. New actors and the default selection of runs not yet started use the stored
-defaults without a server restart. An explicit start or spawn selection remains authoritative;
-existing actors keep their frozen execution.
+If the file is missing, invalid configured defaults abort the start. A stored file is checked for
+shape, including exact fields and all roles without duplicates. Damaged files abort the start with
+the cause. A stored model or thinking level that is no longer offered keeps the server starting
+and remains visible in settings and start options. Using that default for a new coordinator or an
+agent fails with the role, stored value, source file, and Settings, Models as the place to fix it.
+Each affected role has a notice; all affected roles must have an offered model and level before
+saving the complete draft. An explicit valid start or spawn selection remains authoritative;
+existing actors keep their frozen execution. New actors and defaults of runs not yet started use
+saved changes without a server restart. The model relay serves configured aliases independently
+of these role defaults.
 
 The global coordinator still has its own immediately effective model selection and its own store.
-Its initial selection is stored already at the first initialization. Changes to the product
-defaults therefore do not switch it, even after a restart; conversely, its own selection changes no
-defaults for new runs or agents.
+Its initial selection is stored at the first initialization only if it validates. A stale inherited
+coordinator default stays in memory, fails when used, and is derived again from the role default at
+the next start. Once stored, changes to the product defaults do not switch it, even after a restart;
+conversely, its own selection changes no defaults for new runs or agents.
 
 ## Model for automatic titles
 
@@ -612,9 +622,13 @@ the settings; a default without a matching model stays a start error. The bundle
 and showcase use `google/gemma-4-26b-a4b-it` (Gemma 4 A4B). Gemma 4 A4B, Qwen 3.8 Flash, and
 GPT-5.4 nano are at the top of the suitable model selection; further matching models stay
 selectable. Stored settings take precedence. The file contains `selection` with provider and model
-or `null` to disable. Unknown models and invalid file or request contents are rejected; an invalid
-stored state prevents the start. Saving replaces the file atomically and applies the selection only
-after a successful write.
+or `null` to disable. A stored selection whose model is no longer suitable or configured loads
+without blocking startup. Settings show it with a notice and offer another model or turning titles
+off. Generation with it leaves the run's title unchanged and reports a warning naming the stored
+model, `title-settings.json`, and Settings, Models, Titles. Other runs and settings stay available.
+Damaged JSON, wrong shapes, and extra fields still abort startup. Saves reject unavailable models
+and invalid request contents, replace the file atomically, and apply the selection only after a
+successful write.
 
 `ragents.settings.titles.read` returns selection and available catalog with `settings.read`.
 `ragents.settings.titles.save` additionally requires `settings.write` and stores exclusively the

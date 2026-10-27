@@ -255,7 +255,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
   }));
   const catalog = new ProductCatalog(configuredModels, () => options.plugins.profiles.profiles(), () => options.plugins.actorRuntimes.describe());
   for (const profile of catalog.profiles()) {
-    resolveExecution(catalog, { profile: profile.name }, "profile-validation", configuredModels);
+    if (profile.driver !== "agent" || !profile.storedDefault) resolveExecution(catalog, { profile: profile.name }, "profile-validation", configuredModels);
   }
   const globalProfile = catalog.profiles().find((profile) => profile.name === productRuntime.coordinator.profile);
   if (globalChat?.model && globalProfile?.driver === "agent") {

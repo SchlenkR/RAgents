@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
 import test from "node:test";
@@ -64,6 +64,7 @@ test("invalid model configuration fails startup with the key, provider and confi
     { host: defaultHost, product: { ...defaultProduct, AGENT_PROVIDER: undefined }, error: /AGENT_PROVIDER: provider openrouter is not configured; declare it in MODEL_PROVIDERS or set AGENT_PROVIDER/ },
     { host: { COMPACTION_MODEL: "" }, product: defaultProduct, error: /COMPACTION_PROVIDER: provider openrouter is not configured; declare it in MODEL_PROVIDERS or set COMPACTION_PROVIDER/ },
     ...["AGENT_MODEL", "AGENT_COORDINATOR_MODEL"].map((key) => ({ host: defaultHost, product: { ...defaultProduct, [key]: "missing" }, error: new RegExp(`${key}: model missing is not configured for provider local; configured model ids: worker, coordinator, extra`) })),
+    { host: defaultHost, product: { ...defaultProduct, AGENT_COORDINATOR_THINKING: "max" }, error: /thinking level max of role coordinator is not available/ },
     { host: defaultHost, product: { ...defaultProduct, AGENT_MODELS: ["worker", "coordinator", "missing"] }, error: /AGENT_MODELS: model missing is not configured for provider local; configured model ids: worker, coordinator, extra/ },
     { host: { ...defaultHost, COMPACTION_MODEL: "missing" }, product: defaultProduct, error: /COMPACTION_MODEL: model missing is not configured for provider local; configured model ids: worker, coordinator, extra/ },
     { host: defaultHost, product: { ...defaultProduct, OPENROUTER_API_KEY: { kind: "environment", name: "TEST_MODEL_KEY" } }, error: /ragents\.product\.OPENROUTER_API_KEY is not declared for this plugin/ },
@@ -130,6 +131,38 @@ test("a relay profile loads its models once before resolving roles, aliases and 
   } finally {
     await stopChild(child);
     await new Promise<void>((resolve, reject) => relay.close((error) => error ? reject(error) : resolve()));
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+
+test("the built host starts with stale title and role choices, renders their settings and keeps relay aliases independent", { timeout: 60_000 }, async () => {
+  const { directory, options } = fixture({ ...defaultHost,
+    PLUGINS: ["ragents.orchestration", "ragents.workspace", "ragents.product", "ragents.overseer", "ragents.model-relay"],
+    MODEL_ALIASES: [{ alias: "shared", model: "local/worker", compaction: { threshold: 100_000, keepRecentTokens: 20_000, summaryTokens: 8_000 } }],
+  });
+  const data = options.env.DATA_DIR!;
+  mkdirSync(path.join(data, "plugins", "ragents.product"), { recursive: true });
+  const stored = { profiles: ["coordinator", "relay", "standard"].map((name) => ({ name, model: "removed", thinking: "off" })) };
+  writeFileSync(path.join(data, "plugins", "ragents.product", "model-settings.json"), JSON.stringify(stored));
+  writeFileSync(path.join(data, "title-settings.json"), JSON.stringify({ selection: { provider: "local", model: "removed-title" } }));
+  const output: string[] = [];
+  const child = spawn(process.execPath, ["--import", "tsx", "src/main.ts", "--port", "0"], { ...options, stdio: ["ignore", "pipe", "pipe"] });
+  try {
+    const host = await announcement(child, output);
+    const settings = await rpc(host, "ragents.product.modelSettings.read") as { profiles: { model: string }[] };
+    assert.ok(settings.profiles.every(({ model }) => model === "removed"));
+    const titles = await rpc(host, "ragents.settings.titles.read") as { selection: unknown };
+    assert.deepEqual(titles.selection, { provider: "local", model: "removed-title" });
+    const global = await rpc(host, "ragents.overseer.settings.read") as { model: string };
+    assert.equal(global.model, "removed");
+    assert.deepEqual(await rpc(host, "ragents.runs.list"), []);
+    const response = await fetch(`${host.url}/relay/v1/models`, { headers: { authorization: `Bearer ${host.token}` } });
+    assert.equal(response.status, 200);
+    const catalog = await response.json() as { data: { id: string }[] };
+    assert.deepEqual(catalog.data.map(({ id }) => id), ["shared"]);
+  } finally {
+    await stopChild(child);
     rmSync(directory, { recursive: true, force: true });
   }
 });

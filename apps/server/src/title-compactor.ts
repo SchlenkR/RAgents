@@ -93,9 +93,17 @@ export const createTitleCompactor = (options: TitleCompactorOptions): TitleCompa
         cache.set(runId, persisted);
         return persisted;
       }
-      const selection = options.selection();
+      if (stopped || cancelled.has(runId) || !prompt?.trim() || running.has(runId)) return undefined;
+      let selection: TitleModelSelection | null;
+      try { selection = options.selection(); }
+      catch (error) {
+        const key = `invalid:${error instanceof Error ? error.message : String(error)}`;
+        if (failed.get(runId) !== key) options.onError?.(error);
+        failed.set(runId, key);
+        return undefined;
+      }
       const key = JSON.stringify(selection);
-      if (!selection || stopped || cancelled.has(runId) || !prompt?.trim() || running.has(runId) || failed.get(runId) === key) return undefined;
+      if (!selection || failed.get(runId) === key) return undefined;
       const controller = new AbortController();
       const done = compact(runId, prompt, selection, controller.signal)
         .catch((error) => {

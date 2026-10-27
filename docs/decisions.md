@@ -1,5 +1,24 @@
 # Decisions
 
+## 2026-10-27: Stale stored model choices no longer block the start
+
+Chapters: `spec/profiles.md` (global coordinator, editable model defaults, automatic titles);
+`usage.md` (model settings and global coordinator).
+
+**Why.** With models declared in the profile, removing a model or reasoning level is ordinary
+configuration work. Stored choices must not make the server unavailable when runs with removed
+models already fail only their affected actor's next turn.
+
+**Decision.** The global coordinator, title model, and product role stores check stored file shapes
+at startup and model availability when used. Damaged files and invalid configured defaults remain
+start errors; saving remains strict. Settings keep stale choices visible with notices and let the
+user replace them or disable titles. A stale global coordinator choice fails its turns; a stale
+title choice warns per run and keeps the title. A stale role default rejects only executions that
+use it, with the role, value, source, and Settings, Models as the remedy. Explicit valid choices
+work, presentations stay available, and existing actors keep their frozen executions. The initial
+global coordinator choice may inherit a stale stored role default without blocking startup, but
+keeps that choice only in memory and derives it again from the role default at the next start.
+
 ## 2026-10-27: Models belong to profile configuration
 
 Chapters: `spec/profiles.md` (model providers, aliases, titles); `spec/plugins.md` (host API, model relay, attachments); `spec/core.md` (compaction); `spec/overview.md` (reference generation); `operations.md` (model access); `usage.md` (model selection); `development.md` (maintenance tools).

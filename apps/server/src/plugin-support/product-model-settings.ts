@@ -21,6 +21,7 @@ export class ProductModelSettingsStore {
   readonly #baseProfiles: readonly AgentProfile[];
   readonly #choice: ModelChoice;
   #current: ProductModelDraft;
+  #stored = false;
   #pending: Promise<unknown> = Promise.resolve();
   readonly modelChoice: ModelChoice;
 
@@ -28,20 +29,29 @@ export class ProductModelSettingsStore {
     this.#file = file;
     this.#choice = choice;
     this.#baseProfiles = profiles.map((profile) => ({ ...profile }));
+    for (const profile of this.#agentProfiles()) {
+      if (profile.provider !== choice.provider) throw invalid(`The role ${profile.name} uses a different provider.`);
+    }
     let saved: unknown;
-    try { saved = JSON.parse(readFileSync(file, "utf8")); }
+    try { saved = JSON.parse(readFileSync(file, "utf8")); this.#stored = true; }
     catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-      saved = { profiles: this.#agentProfiles().map(({ name, model, thinking }) => ({ name, model, thinking })) };
+      saved = this.#validate({ profiles: this.#agentProfiles().map(({ name, model, thinking }) => ({ name, model, thinking })) });
     }
-    this.#current = this.#validate(saved);
+    this.#current = this.#parsed(saved);
     const store = this;
     this.modelChoice = {
       provider: choice.provider,
       get options() { return choice.options; },
       get selectable() { return choice.selectable; },
       get defaultModel() { return store.#selection("coordinator").model; },
-      thinkingOptionsFor: (model) => choice.thinkingOptionsFor(model ?? store.#selection("coordinator").model),
+      thinkingOptionsFor: (model) => {
+        const selected = store.#selection("coordinator");
+        const id = model ?? selected.model;
+        if (!choice.options.includes(id)) return [];
+        const allowed = choice.thinkingOptionsFor(id);
+        return model === null && !allowed.includes(selected.thinking) ? [] : allowed;
+      },
       ...(choice.defaultThinkingFor ? { defaultThinkingFor: choice.defaultThinkingFor } : {}),
     };
   }
@@ -54,6 +64,7 @@ export class ProductModelSettingsStore {
     return {
       ...profile, ...selected,
       description: `${selected.model} with thinking level ${selected.thinking}. ${profile.description}`,
+      ...(this.#stored ? { storedDefault: "From model-settings.json; change it in Settings, Models." } : {}),
     };
   });
 
@@ -75,6 +86,7 @@ export class ProductModelSettingsStore {
       await writeFile(`${this.#file}.tmp`, JSON.stringify(selected), { mode: 0o600 });
       renameSync(`${this.#file}.tmp`, this.#file);
       this.#current = selected;
+      this.#stored = true;
       return this.get();
     });
     this.#pending = operation.catch(() => undefined);
@@ -91,7 +103,7 @@ export class ProductModelSettingsStore {
     return selected;
   }
 
-  #validate(value: unknown): ProductModelDraft {
+  #parsed(value: unknown): ProductModelDraft {
     const { profiles } = objectOf(value, ["profiles"]);
     const expected = this.#agentProfiles();
     if (!Array.isArray(profiles) || profiles.length !== expected.length) throw invalid(`All of these roles are required: ${expected.map((profile) => profile.name).join(", ")}.`);
@@ -102,13 +114,20 @@ export class ProductModelSettingsStore {
       if (!profile) throw invalid(`Unknown role ${String(entry.name)}.`);
       if (seen.has(profile.name)) throw invalid(`The role ${profile.name} is listed twice.`);
       seen.add(profile.name);
-      if (profile.provider !== this.#choice.provider) throw invalid(`The role ${profile.name} uses a different provider.`);
-      if (typeof entry.model !== "string" || !this.#choice.options.includes(entry.model)) throw invalid(`The model ${String(entry.model)} is not available for selection.`);
-      const allowed = this.#choice.thinkingOptionsFor(entry.model);
-      if (!isThinkingLevel(entry.thinking) || !allowed.includes(entry.thinking)) throw invalid(`The thinking level ${String(entry.thinking)} is not available for ${entry.model} (valid: ${allowed.join(", ")}).`);
-      return { name: profile.name, model: entry.model, thinking: entry.thinking };
+      if (typeof entry.model !== "string" || typeof entry.thinking !== "string") throw invalid(`The role ${profile.name} needs model and thinking strings.`);
+      return { name: profile.name, model: entry.model, thinking: entry.thinking as ThinkingLevel };
     });
     return { profiles: expected.map((profile) => validated.find((entry) => entry.name === profile.name)!) };
+  }
+
+  #validate(value: unknown): ProductModelDraft {
+    const parsed = this.#parsed(value);
+    for (const entry of parsed.profiles) {
+      if (!this.#choice.options.includes(entry.model)) throw invalid(`The model ${entry.model} of role ${entry.name} is not available for selection.`);
+      const allowed = this.#choice.thinkingOptionsFor(entry.model);
+      if (!isThinkingLevel(entry.thinking) || !allowed.includes(entry.thinking)) throw invalid(`The thinking level ${entry.thinking} of role ${entry.name} is not available for ${entry.model} (valid: ${allowed.join(", ")}).`);
+    }
+    return parsed;
   }
 }
 

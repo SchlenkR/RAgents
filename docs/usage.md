@@ -573,14 +573,19 @@ In VS Code the setting `ragents.zoom` takes its place (see "Settings and behavio
 extension").
 
 The gear first opens "Models". "Global coordinator" changes its own selection
-from the next work step. The first global selection is stored independently and
-stays separate from the product defaults even after a restart. "New runs and agents" offers model and thinking level for every role of the
+from the next work step. The first valid global selection is stored independently and
+stays separate from the product defaults even after a restart. An unavailable inherited default
+stays in memory and is taken from the role again at the next start. "New runs and agents" offers model and thinking level for every role of the
 product; in core these are coordinator, relay, and standard. Save the
 complete draft. New actors and defaults of runs not yet started use it
 immediately; existing actors and an explicitly made start selection are kept.
 
-The selection contains only configured models and their supported thinking levels; invalid
-drafts are rejected before saving. The available model list is still maintained in the
+A stored model or thinking level removed from the profile stays visible with a notice per affected
+role. Choose an offered model and reasoning level for every affected role, then save the complete
+draft. Until then, starting with such a default or spawning an agent with it fails and points here.
+An explicit offered model and level in a new run or spawn still work. Runs and start options stay
+available; a new run's picker also shows the unavailable coordinator default with a notice.
+Invalid drafts are rejected before saving. The available model list is still maintained in the
 profile file. Storage, precedence, and startup errors of the saved defaults are in
 [profiles.md](spec/profiles.md) under "Editable model defaults".
 
@@ -608,7 +613,10 @@ require a restart and, for the new coordinator prompt, a new implementation run.
 Under "Titles" you independently choose the model for short automatic
 list titles. With a large model list, the search helps. "Save" applies the selection,
 "Discard changes" discards only the draft. "No automatic titles" followed by
-saving disables new generations; existing titles are kept.
+saving disables new generations; existing titles are kept. If the stored title model is no longer
+configured, it remains visible with a notice. Choose another model or "No automatic titles", then
+save. Until then, title generation reports a warning for the run and leaves its title as it is;
+the server and other work remain available.
 The selection applies from the next generation and does not change any agent models.
 
 Offered are text models of the configured `COMPACTION_PROVIDER` that can work without
@@ -653,6 +661,8 @@ in the settings under Models and at `ragents.overseer`. It is stored per profile
 and applies from the next work step; a running response is not
 switched. Other runs keep their models. An incompatible model, for example one without
 support for images already sent, is rejected and the previous selection stays.
+If the profile no longer offers the stored model, the selection shows a notice, and the global
+coordinator answers every message with an error until you choose another model.
 
 When sending, the global coordinator learns whether you are on the start view, in the run overview,
 or in a run, which area you have opened, and which element you have selected.

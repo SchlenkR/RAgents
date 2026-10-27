@@ -4,7 +4,7 @@ import { Alert, AlertAction, AlertDescription, Button } from "../ui";
 import { ModelPickers } from "./ModelPickers";
 import { thinkingLabel } from "../lib/labels";
 import type { ProductModelDraft, ProductModelSettings as Settings } from "@ragents/host/plugin-support/product-model-settings-contract";
-import { modelDraftOf, requestProductModelSettings } from "./model-settings";
+import { modelDraftOf, requestProductModelSettings, unavailableModelDefaults } from "./model-settings";
 import { modelDefaultsChangedEvent } from "../model-settings-events";
 
 const profileLabels: Record<string, { title: string; description: string }> = {
@@ -58,13 +58,14 @@ export function ProductModelSettings({ pluginId }: { pluginId: string }) {
   </Alert>;
   if (state.status !== "ready" || !draft) return <p role="status">Loading model defaults ...</p>;
   const { settings } = state;
+  const unavailable = unavailableModelDefaults(settings, draft);
   const change = (name: string, model: string, thinking: ProductModelDraft["profiles"][number]["thinking"]) => {
     setDraft({ profiles: draft.profiles.map((profile) => profile.name === name ? { ...profile, model, thinking } : profile) });
     setError(undefined);
     setNotice(undefined);
   };
   const save = async () => {
-    if (!writable || saving.current || !dirty) return;
+    if (!writable || saving.current || !dirty || unavailable.length > 0) return;
     saving.current = true;
     setPending(true);
     setError(undefined);
@@ -88,30 +89,37 @@ export function ProductModelSettings({ pluginId }: { pluginId: string }) {
     <div className="grid gap-4">
       {settings.profiles.map((profile) => {
         const value = draft.profiles.find((entry) => entry.name === profile.name)!;
-        const metadata = settings.models.find((model) => model.provider === profile.provider && model.id === value.model)!;
+        const metadata = settings.models.find((model) => model.provider === profile.provider && model.id === value.model);
         const label = profileLabels[profile.name] ?? { title: profile.name, description: profile.description };
-        const modelOptions = settings.models.filter((model) => model.provider === profile.provider).map((model) => ({ value: model.id, label: model.label }));
-        const thinkingOptions = metadata.thinking.map((thinking) => ({ value: thinking, label: thinkingLabel(thinking) }));
+        const offeredModels = settings.models.filter((model) => model.provider === profile.provider).map((model) => ({ value: model.id, label: model.label }));
+        const modelOptions = [...(!metadata ? [{ value: value.model, label: `${profile.provider}/${value.model} (unavailable)` }] : []), ...offeredModels];
+        const thinkingOptions = [
+          ...(!metadata?.thinking.includes(value.thinking) ? [{ value: value.thinking, label: `${value.thinking} (unavailable)` }] : []),
+          ...metadata?.thinking.map((thinking) => ({ value: thinking, label: thinkingLabel(thinking) })) ?? [],
+        ];
         return <fieldset className="min-w-0 border-t border-border pt-4 first:border-t-0 first:pt-0" key={profile.name} disabled={!writable || pending}>
           <legend className="float-left w-full text-[0.9rem] font-semibold">{label.title}</legend>
           <p className="clear-both mt-0.5 mb-3 text-[0.8rem] text-muted-foreground">{label.description}</p>
+          {unavailable.some((entry) => entry.name === profile.name) && <p className="mb-3 text-[0.8rem] text-destructive" role="alert">The choice {profile.provider}/{value.model} with thinking level {value.thinking} is no longer configured for {profile.name}. Choose an offered model and reasoning level.</p>}
           <ModelPickers appearance="form" disabled={!writable || pending} model={value.model} models={modelOptions}
             onModel={(model) => {
-              const next = settings.models.find((entry) => entry.id === model && entry.provider === profile.provider)!;
+              const next = settings.models.find((entry) => entry.id === model && entry.provider === profile.provider);
+              if (!next) return;
               const thinking = next.thinking.includes(value.thinking) ? value.thinking : next.thinking[0]!;
               change(profile.name, model, thinking);
               if (thinking !== value.thinking) setNotice(`The available reasoning level ${thinkingLabel(thinking)} was chosen for ${label.title}. Check it before saving.`);
             }}
             onReasoning={(thinking) => {
-              const level = metadata.thinking.find((entry) => entry === thinking);
+              const level = metadata?.thinking.find((entry) => entry === thinking);
               if (level) change(profile.name, value.model, level);
             }}
             reasoning={thinkingOptions} reasoningValue={value.thinking} />
         </fieldset>;
       })}
     </div>
+    {unavailable.length > 0 && <p className="text-[0.8rem] text-destructive" role="alert">Choose a valid model and reasoning level for every affected role before saving: {unavailable.map((profile) => profile.name).join(", ")}.</p>}
     <div className="flex flex-wrap items-center gap-3">
-      <Button type="submit" disabled={!writable || pending || !dirty}>{pending ? "Saving ..." : "Save defaults"}</Button>
+      <Button type="submit" disabled={!writable || pending || !dirty || unavailable.length > 0}>{pending ? "Saving ..." : "Save defaults"}</Button>
       {dirty && <Button disabled={pending} variant="outline" onClick={() => {
         setDraft(modelDraftOf(settings)); setError(undefined); setNotice(undefined);
       }}>Discard changes</Button>}

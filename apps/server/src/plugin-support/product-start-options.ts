@@ -53,7 +53,11 @@ export const modelStartOption = (choice: ModelChoice, preferredThinking: Thinkin
     rights: ["runs.inspect"],
     changeable: true,
     selectable: () => choice.selectable,
-    defaultValue: () => ({ ...resolved(choice.defaultModel, undefined) }),
+    defaultValue: () => {
+      const model = choice.defaultModel;
+      const thinking = typeof preferredThinking === "function" ? preferredThinking() : preferredThinking;
+      return choice.thinkingOptionsFor(null).length === 0 ? { model, thinking } : { ...resolved(model, undefined) };
+    },
     accept: (value) => {
       const { model, thinking } = value as unknown as ModelStartOptionValue;
       return { ...resolved(model, thinking) };
@@ -64,7 +68,7 @@ export const modelStartOption = (choice: ModelChoice, preferredThinking: Thinkin
         kind: "model",
         provider: displayProvider(choice.provider),
         options: [...choice.options],
-        thinkingOptions: [...choice.thinkingOptionsFor(model)],
+        thinkingOptions: choice.options.includes(model) ? [...choice.thinkingOptionsFor(model)] : [],
       };
     },
   };

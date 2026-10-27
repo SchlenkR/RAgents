@@ -26,33 +26,36 @@ export function ModelSettings({ active = true, compact = false, disabled = false
   const state = useModelSettings(active && readable);
   const settings = state.settings;
   const model = settings?.models.find((entry) => entry.id === settings.model && entry.provider === settings.provider);
+  const unavailable = settings && !model?.thinking.includes(settings.thinking);
   const save = (selection: OverseerModelSelection) => { void modelSettingsStore.save(selection).catch(() => {}); };
-  const modelOptions = settings?.models.map((entry) => ({ value: selectionKey(entry.provider, entry.id), label: entry.label })) ?? [];
+  const storedOption = settings && !model ? [{ value: selectionKey(settings.provider, settings.model), label: `${settings.provider}/${settings.model} (unavailable)` }] : [];
+  const modelOptions = [...storedOption, ...settings?.models.map((entry) => ({ value: selectionKey(entry.provider, entry.id), label: entry.label })) ?? []];
   const thinkingOptions = model?.thinking.map((level) => ({ value: level, label: thinkingLabel(level) })) ?? [];
   if (!readable) return null;
   const saving = state.status === "saving";
   const spacing = compact ? "mt-2 " : "";
-  const pickers = settings && model ? <ModelPickers appearance={compact ? "composer" : "form"} disabled={!writable || disabled || saving}
+  const pickers = settings ? <ModelPickers appearance={compact ? "composer" : "form"} disabled={!writable || disabled || saving}
     model={selectionKey(settings.provider, settings.model)} models={modelOptions}
     onModel={(key) => {
       const next = settings.models.find((entry) => selectionKey(entry.provider, entry.id) === key);
-      if (!next) throw new Error("The selected model is no longer available");
+      if (!next) return;
       const thinking = next.thinking.includes(settings.thinking) ? settings.thinking : next.thinking[0];
       if (!thinking) throw new Error("No reasoning level is configured for the model");
       save({ provider: next.provider, model: next.id, thinking });
     }}
     onReasoning={(thinking) => save({ provider: settings.provider, model: settings.model, thinking: thinking as typeof settings.thinking })}
     reasoning={thinkingOptions} reasoningValue={settings.thinking} />
-    : state.status === "loading" ? <p className={`${compact ? noteClass : formNoteClass} min-w-0 flex-[0_1_auto]`} role="status">Loading models ...</p>
-    : !state.error && <p className={`${spacing}${errorClass} min-w-0 flex-[0_1_auto]`} role="alert">The stored model is missing from the model catalog.</p>;
+    : state.status === "loading" && <p className={`${compact ? noteClass : formNoteClass} min-w-0 flex-[0_1_auto]`} role="status">Loading models ...</p>;
+  const notice = unavailable && <p className={`${spacing}${errorClass}`} role="alert">The stored selection is no longer configured. Choose another one; until then the global coordinator cannot answer.</p>;
   const failure = state.error && <div className={`${spacing}${errorClass}`} role="alert">
     <span>{state.error}</span>
     <Button onClick={() => { void modelSettingsStore.load(); }} variant="outline">Reload</Button>
   </div>;
   if (!compact) return (
     <section aria-label="Model of the global coordinator" className="grid min-w-0 gap-4">
-      {settings && model && <p className={formNoteClass} role="status">{saving ? "Saving ..." : "Applies from the next answer on. The conversation history is kept."}</p>}
+      {settings && !unavailable && <p className={formNoteClass} role="status">{saving ? "Saving ..." : "Applies from the next answer on. The conversation history is kept."}</p>}
       {pickers}
+      {notice}
       {actions}
       {failure}
     </section>
@@ -63,7 +66,8 @@ export function ModelSettings({ active = true, compact = false, disabled = false
         {pickers}
         {actions && <div className="ml-auto flex-none">{actions}</div>}
       </div>
-      {settings && model && saving && <p className={noteClass} role="status">Saving ...</p>}
+      {settings && saving && <p className={noteClass} role="status">Saving ...</p>}
+      {notice}
       {failure}
     </section>
   );

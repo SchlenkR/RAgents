@@ -61,12 +61,15 @@ export function ModelControl({ disabled, error, option, setValue }: StartOptionC
     void setValue({ model: value.model, thinking });
   };
 
-  const modelOptions = presentation.options.map((model) => ({ value: model, label: modelLabel(presentation.provider, model) }));
+  const offeredModels = presentation.options.map((model) => ({ value: model, label: modelLabel(presentation.provider, model) }));
+  const unavailable = !presentation.options.includes(value.model) || (value.thinking !== undefined && !presentation.thinkingOptions.includes(value.thinking));
+  const modelOptions = [...(!presentation.options.includes(value.model) ? [{ value: value.model, label: `${modelLabel(presentation.provider, value.model)} (unavailable)` }] : []), ...offeredModels];
   const thinkingOptions = presentation.thinkingOptions.map((level) => ({ value: level, label: thinkingLabel(level) }));
   return (
     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
       <ModelPickers appearance="composer" disabled={disabled} model={value.model} models={modelOptions} onModel={chooseModel}
         onReasoning={chooseThinking} reasoning={thinkingOptions} reasoningValue={value.thinking} />
+      {unavailable && <p className={`${errorClass} w-full`} role="alert">The selected model or reasoning level is no longer configured. Choose an offered model here. Role defaults can be changed in Settings, Models.</p>}
       {error && <p className={`${errorClass} w-full`} role="alert">{error}</p>}
     </div>
   );

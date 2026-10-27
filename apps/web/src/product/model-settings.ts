@@ -8,7 +8,7 @@ const text = (value: unknown): value is string => typeof value === "string" && v
 
 export const productModelSettingsFrom = (value: unknown): ProductModelSettings => {
   if (!record(value) || !Array.isArray(value.models) || !Array.isArray(value.profiles)
-    || !value.models.length || !value.profiles.length
+    || !value.profiles.length
     || !value.models.every((model) => record(model) && text(model.id) && text(model.provider)
       && text(model.label) && Array.isArray(model.thinking) && model.thinking.length > 0 && model.thinking.every(text))
     || !value.profiles.every((profile) => record(profile) && text(profile.name) && typeof profile.description === "string"
@@ -17,12 +17,17 @@ export const productModelSettingsFrom = (value: unknown): ProductModelSettings =
   }
   const settings = value as unknown as ProductModelSettings;
   const names = settings.profiles.map((profile) => profile.name);
-  if (new Set(names).size !== names.length || settings.profiles.some((profile) => !settings.models.some((model) =>
-    model.id === profile.model && model.provider === profile.provider && model.thinking.includes(profile.thinking)))) {
+  if (new Set(names).size !== names.length) {
     throw new Error("The model defaults do not match the available model catalog.");
   }
   return settings;
 };
+
+export const unavailableModelDefaults = (settings: ProductModelSettings, draft: ProductModelDraft) =>
+  draft.profiles.filter((profile) => {
+    const provider = settings.profiles.find((entry) => entry.name === profile.name)?.provider;
+    return !settings.models.some((model) => model.provider === provider && model.id === profile.model && model.thinking.includes(profile.thinking));
+  });
 
 export const modelDraftOf = (settings: ProductModelSettings): ProductModelDraft => ({
   profiles: settings.profiles.map(({ name, model, thinking }) => ({ name, model, thinking })),

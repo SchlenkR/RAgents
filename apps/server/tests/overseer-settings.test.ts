@@ -100,6 +100,27 @@ test("failed initial persistence keeps the overseer selection unavailable", asyn
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
+test("an unavailable initial overseer selection stays in memory and is derived again after restart", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "ragents-overseer-unavailable-initial-"));
+  const file = path.join(directory, "settings.json");
+  try {
+    for (const unavailable of [{ ...initial, model: "removed" }, { ...initial, thinking: "high" }]) {
+      const settings = new OverseerModelSettings(file);
+      await settings.initialize(models, unavailable, () => []);
+      assert.equal(settings.get().model, unavailable.model);
+      assert.equal(settings.get().thinking, unavailable.thinking);
+      assert.throws(settings.selection, /cannot use its stored model selection.*(test\/removed|Reasoning high)/);
+      await assert.rejects(readFile(file, "utf8"), { code: "ENOENT" });
+      await assert.rejects(readFile(`${file}.tmp`, "utf8"), { code: "ENOENT" });
+      await assert.rejects(settings.save(unavailable), /Unknown model|Reasoning high/);
+    }
+    const restarted = new OverseerModelSettings(file);
+    await restarted.initialize(models, next, () => []);
+    assert.deepEqual(restarted.selection(), next);
+    assert.deepEqual(JSON.parse(await readFile(file, "utf8")), next);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
 test("overseer settings persist independently, reject invalid selections and retain state on write failure", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-overseer-settings-"));
   const file = path.join(directory, "settings.json");
@@ -121,8 +142,24 @@ test("overseer settings persist independently, reject invalid selections and ret
     await assert.rejects(settings.save(initial), /EISDIR/);
     assert.deepEqual(settings.selection(), next);
     assert.deepEqual(JSON.parse(await readFile(file, "utf8")), next);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test("a stored overseer model that is no longer configured keeps the start, fails the next turn and can be replaced", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "ragents-overseer-removed-"));
+  const file = path.join(directory, "settings.json");
+  try {
     await writeFile(file, JSON.stringify({ ...next, model: "removed" }));
-    await assert.rejects(new OverseerModelSettings(file).initialize(models, initial, () => []), /Unknown model/);
+    const settings = new OverseerModelSettings(file);
+    await settings.initialize(models, initial, () => []);
+    assert.equal(settings.get().model, "removed");
+    assert.equal(settings.get().models.length, 2);
+    assert.throws(() => settings.selection(), /cannot use its stored model selection.*Unknown model test\/removed\. Valid: test\/first, test\/second/);
+    await settings.save(initial);
+    assert.deepEqual(settings.selection(), initial);
+    assert.deepEqual(JSON.parse(await readFile(file, "utf8")), initial);
+    await writeFile(file, JSON.stringify({ provider: "test" }));
+    await assert.rejects(new OverseerModelSettings(file).initialize(models, initial, () => []), /provider, model and thinking are required/);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 

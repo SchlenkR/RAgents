@@ -670,15 +670,18 @@ export class RunChatSession implements ChatSessionLike {
     const choiceInRun = this.#engine.journal.select(this.id, (state) => storedModelChoice(state));
     const selected = this.#engine.startOptions.entry(modelStartOptionId);
     const modelChoice = selected ? this.#startValueOf(selected, choice) as { model?: string; thinking?: string } : undefined;
-    const model = modelChoice?.model ?? choiceInRun?.model;
-    const thinking = modelChoice?.thinking ?? choiceInRun?.thinking;
+    const profile = this.#engine.catalog.profiles().find((profile) => profile.name === this.#coordinator.profile);
+    const selectedModel = profile?.driver === "agent" ? this.#modelSelection?.() : undefined;
+    const model = selectedModel?.model ?? modelChoice?.model ?? choiceInRun?.model;
+    const thinking = selectedModel?.thinking ?? modelChoice?.thinking ?? choiceInRun?.thinking;
+    const requestedThinking = !selectedModel && profile?.driver === "agent" && thinking === profile.thinking ? undefined : thinking;
     const execution = resolveExecution(this.#engine.catalog, {
       profile: this.#coordinator.profile,
+      ...(selectedModel ? { provider: selectedModel.provider } : {}),
       ...(model ? { model } : {}),
-      ...(isThinkingLevel(thinking) ? { thinking } : {}),
+      ...(isThinkingLevel(requestedThinking) ? { thinking: requestedThinking } : {}),
     }, this.#coordinator.handle, this.#engine.catalog.modelList);
-    return execution.driver.kind === "agent" && this.#modelSelection
-      ? { ...execution, driver: { kind: "agent", config: this.#modelSelection() } } : execution;
+    return execution;
   }
 
   preparationSelection(userId: string | null): ModelSelection {

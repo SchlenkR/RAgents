@@ -12,8 +12,8 @@ export class TitleSettingsStore {
   #selection: TitleModelSelection | null;
   #pending: Promise<unknown> = Promise.resolve();
 
-  private constructor(private readonly file: string, private readonly models: TitleModelSettings["models"], value: unknown) {
-    this.#selection = this.#validate(value);
+  private constructor(private readonly file: string, private readonly models: TitleModelSettings["models"], value: unknown, stored: boolean) {
+    this.#selection = stored ? this.#parsed(value) : this.#validate(value);
   }
 
   static async create(file: string, runtime: ModelRuntime, defaults: TitleModelSelection | null, provider: string): Promise<TitleSettingsStore> {
@@ -24,18 +24,26 @@ export class TitleSettingsStore {
       return rank(left.id) - rank(right.id) || left.label.localeCompare(right.label);
     });
     let value: unknown;
+    let stored = true;
     try { value = JSON.parse(await readFile(file, "utf8")); }
     catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       value = { selection: defaults };
+      stored = false;
     }
-    return new TitleSettingsStore(file, models, value);
+    return new TitleSettingsStore(file, models, value, stored);
   }
 
-  selection = (): TitleModelSelection | null => this.#selection ? { ...this.#selection } : null;
+  selection = (): TitleModelSelection | null => {
+    try { return this.#validate({ selection: this.#selection }); }
+    catch (error) {
+      if (!(error instanceof DomainError)) throw error;
+      throw invalid(`Cannot use the stored title model from title-settings.json. Choose another model or turn titles off in Settings, Models, Titles. ${error.message}`);
+    }
+  };
 
   get(): TitleModelSettings {
-    return { selection: this.selection(), models: this.models.map((model) => ({ ...model })) };
+    return { selection: this.#selection ? { ...this.#selection } : null, models: this.models.map((model) => ({ ...model })) };
   }
 
   async save(value: unknown): Promise<TitleModelSettings> {
@@ -51,7 +59,7 @@ export class TitleSettingsStore {
     return operation;
   }
 
-  #validate(value: unknown): TitleModelSelection | null {
+  #parsed(value: unknown): TitleModelSelection | null {
     if (!value || typeof value !== "object" || Array.isArray(value)
       || Object.keys(value).length !== 1 || !("selection" in value)) throw invalid("Only selection with a model choice or null is allowed.");
     const selected = value.selection;
@@ -60,6 +68,12 @@ export class TitleSettingsStore {
       || Object.keys(selected).some((key) => !["provider", "model"].includes(key))
       || !("provider" in selected) || typeof selected.provider !== "string"
       || !("model" in selected) || typeof selected.model !== "string") throw invalid("The title model choice needs provider and model.");
+    return { provider: selected.provider, model: selected.model };
+  }
+
+  #validate(value: unknown): TitleModelSelection | null {
+    const selected = this.#parsed(value);
+    if (selected === null) return null;
     if (!this.models.some((model) => model.provider === selected.provider && model.id === selected.model))
       throw invalid(`The title model ${selected.provider}/${selected.model} is not available for selection; a text model supporting reasoning off is required; configured suitable model ids: ${this.models.filter((model) => model.provider === selected.provider).map((model) => model.id).join(", ") || "none"}.`);
     return { provider: selected.provider, model: selected.model };

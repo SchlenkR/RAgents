@@ -7,6 +7,7 @@ import test, { type TestContext } from "node:test";
 
 import { ModelRuntime } from "@ragents/agent";
 import { fauxAssistantMessage, registerFauxProvider } from "@ragents/ai";
+import { TitleSettingsStore } from "../src/title-settings.ts";
 import { createTitleCompactor } from "../src/title-compactor.ts";
 import type { TitleModelSelection } from "../src/title-settings-contract.ts";
 
@@ -271,4 +272,24 @@ test("corrupt stored titles fail visibly without generating replacement titles",
     }
     assert.equal(complete.mock.callCount(), 0);
   } finally { await compactor.shutdown(); }
+});
+
+
+test("a stale stored title choice warns per run, preserves existing titles and recovers after saving", async (t) => {
+  const f = await fixture(t);
+  const file = path.join(f.directory, "title-settings.json");
+  await writeFile(file, JSON.stringify({ selection: { provider: f.faux.provider, model: "removed" } }));
+  const settings = await TitleSettingsStore.create(file, f.faux.modelRuntime, f.selection, f.faux.provider);
+  const warnings: unknown[] = [];
+  const compactor = createTitleCompactor({ ...f.options, selection: settings.selection, onError: (error) => warnings.push(error) });
+  t.after(() => compactor.shutdown());
+  await mkdir(path.join(f.sessionsDir, "existing"), { recursive: true });
+  await writeFile(path.join(f.sessionsDir, "existing", "title.json"), JSON.stringify({ title: "Existing title" }));
+  assert.equal(await compactor.titleFor("existing", "Task"), "Existing title");
+  for (const runId of ["first", "first", "second"]) assert.equal(await compactor.titleFor(runId, "Task"), undefined);
+  assert.equal(warnings.length, 2);
+  assert.match(String(warnings[0]), /stored title model.*Settings, Models, Titles.*removed/);
+  await settings.save({ selection: null });
+  assert.equal(await compactor.titleFor("first", "Task"), undefined);
+  assert.equal(warnings.length, 2);
 });

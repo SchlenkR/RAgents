@@ -17,7 +17,7 @@ export function titleModelSettingsFrom(value: unknown): TitleModelSettings {
   }
   const settings = value as unknown as TitleModelSettings;
   const keys = settings.models.map((model) => titleSelectionKey({ provider: model.provider, model: model.id }));
-  if (new Set(keys).size !== keys.length || (settings.selection !== null && !keys.includes(titleSelectionKey(settings.selection)))) {
+  if (new Set(keys).size !== keys.length) {
     throw new Error("The title settings do not match the available model catalog.");
   }
   return settings;
@@ -30,9 +30,11 @@ export function titleSelectionFromKey(key: string, models: TitleModelSettings["m
   return { provider: model.provider, model: model.id };
 }
 
-export function titleModelOptions(models: TitleModelSettings["models"]) {
+export function titleModelOptions(models: TitleModelSettings["models"], selection: TitleModelSelection | null = null) {
   return [
     { value: "null", label: "No automatic titles" },
+    ...(selection && !models.some((model) => model.provider === selection.provider && model.id === selection.model)
+      ? [{ value: titleSelectionKey(selection), label: `${selection.provider}/${selection.model} (unavailable)` }] : []),
     ...models.map((model) => ({ value: titleSelectionKey({ provider: model.provider, model: model.id }), label: model.label })),
   ];
 }

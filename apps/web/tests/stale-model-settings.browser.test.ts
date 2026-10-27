@@ -1,0 +1,52 @@
+import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import test from "node:test";
+import { build } from "esbuild";
+import { chromium } from "playwright-core";
+import { tailwindPlugin } from "./tailwind-plugin";
+
+test("stale title and role choices render and the settings can save all corrected roles", { skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 60_000 }, async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "ragents-stale-settings-ui-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const root = fileURLToPath(new URL("../../../", import.meta.url));
+  await build({ entryPoints: [fileURLToPath(new URL("stale-model-settings-fixture.tsx", import.meta.url))], bundle: true, platform: "browser", format: "iife", jsx: "automatic", outfile: join(directory, "fixture.js"), define: { "process.env.NODE_ENV": '"production"' }, plugins: [tailwindPlugin([`${root}apps/web/src`, `${root}apps/web/tests/stale-model-settings-fixture.tsx`])], logLevel: "silent" });
+  await writeFile(join(directory, "index.html"), '<!doctype html><html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="fixture.css"></head><body><div id="root"></div><script src="fixture.js"></script></body></html>');
+  const browser = await chromium.launch({ headless: true, executablePath: process.env.BROWSER_EXECUTABLE_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
+  t.after(() => browser.close());
+  const page = await browser.newPage();
+  page.setDefaultTimeout(8_000);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto(pathToFileURL(join(directory, "index.html")).href);
+  await page.addStyleTag({ content: "*, *::before, *::after { animation: none !important; transition: none !important; }" });
+  const title = page.getByRole("form", { name: "Model for automatic titles" });
+  const product = page.getByRole("form", { name: "Model defaults for new runs and agents" });
+  await title.getByRole("alert").waitFor();
+  assert.match(await title.getByRole("combobox", { name: "Model", exact: true }).innerText(), /test\/removed-title/);
+  await title.getByRole("combobox", { name: "Model", exact: true }).click();
+  await page.getByRole("option", { name: "No automatic titles", exact: true }).click();
+  await title.getByRole("button", { name: "Save", exact: true }).click();
+  await page.waitForFunction(() => document.body.dataset.savedTitle !== undefined);
+  assert.deepEqual(JSON.parse((await page.locator("body").getAttribute("data-saved-title"))!), { selection: null });
+  await title.getByText("Automatic titles are turned off.", { exact: true }).waitFor();
+  assert.equal(await product.getByRole("button", { name: "Save defaults", exact: true }).isDisabled(), true);
+  const coordinator = product.getByRole("group", { name: "Run coordinator", exact: true });
+  await coordinator.getByRole("combobox", { name: "Model", exact: true }).click();
+  await page.getByRole("option", { name: "Current model", exact: true }).click();
+  await coordinator.getByRole("combobox", { name: "Model", exact: true }).getByText("Current model", { exact: true }).waitFor();
+  assert.equal(await product.getByRole("button", { name: "Save defaults", exact: true }).isDisabled(), true);
+  assert.match(await product.getByRole("alert").last().innerText(), /standard/);
+  const standard = product.getByRole("group", { name: "Agents", exact: true });
+  await standard.getByRole("combobox", { name: "Reasoning", exact: true }).click();
+  await page.getByRole("option", { name: "off", exact: true }).click();
+  await product.getByRole("button", { name: "Save defaults", exact: true }).click();
+  await page.waitForFunction(() => document.body.dataset.savedDefaults !== undefined);
+  assert.deepEqual(JSON.parse((await page.locator("body").getAttribute("data-saved-defaults"))!), {
+    profiles: [{ name: "coordinator", model: "current", thinking: "off" }, { name: "standard", model: "current", thinking: "off" }],
+  });
+  assert.equal(await product.getByRole("alert").count(), 0);
+  assert.deepEqual(errors, []);
+});

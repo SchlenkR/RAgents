@@ -39,13 +39,11 @@ test("title settings use their own methods and save a selection or explicit null
   assert.deepEqual(calls[2]!.params, { value: { selection: null } });
 });
 
-test("disabled titles are valid without a model catalog while missing or inconsistent selections are rejected", () => {
+test("disabled titles and stale selections load while malformed settings are rejected", () => {
   assert.deepEqual(titleModelSettingsFrom({ selection: null, models: [] }), { selection: null, models: [] });
   assert.deepEqual(titleModelSettingsFrom(settings), settings);
   for (const invalid of [
     {}, { models: [] }, { selection: false, models: [] }, { ...settings, selection: {} },
-    { ...settings, selection: { provider: "absent", model: "model-a" } },
-    { ...settings, selection: { provider: "openrouter", model: "missing" } },
     { ...settings, models: [{ provider: "openrouter", id: "model-a", label: "" }] },
     { ...settings, models: [settings.models[0], ...settings.models] },
   ]) assert.throws(() => titleModelSettingsFrom(invalid), /invalid|model catalog/);
@@ -75,4 +73,15 @@ test("failed saves expose the API error and preserve the local selection", async
   assert.deepEqual(selection, { provider: "openrouter", model: "model-a" });
   await assert.rejects(requestTitleModelSettings({ client: clientWith(async () => new Response("Unavailable", { status: 503 })) }), /The server responded with 503/);
   await assert.rejects(requestTitleModelSettings({ client: clientWith(async (_url, init) => result(callOf(init), { models: [] })) }), /invalid/);
+});
+
+
+test("stale title settings retain their selection and offer a replacement or turning titles off", () => {
+  const selection = { provider: "removed", model: "previous" };
+  const stale = titleModelSettingsFrom({ ...settings, selection });
+  assert.deepEqual(stale.selection, selection);
+  const options = titleModelOptions(stale.models, selection);
+  assert.deepEqual(options[1], { value: titleSelectionKey(selection), label: "removed/previous (unavailable)" });
+  assert.equal(titleSelectionFromKey(options[0]!.value, stale.models), null);
+  assert.deepEqual(titleSelectionFromKey(options[2]!.value, stale.models), { provider: "openrouter", model: "model-b" });
 });
