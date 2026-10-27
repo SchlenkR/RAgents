@@ -18,7 +18,8 @@ mkdirSync(selectableDirectory);
 writeFileSync(path.join(selectableDirectory, "reader.hbs"), 'Reader-specific rules.{{#if (available "event_query")}} Use event_query for history.{{/if}}');
 for (const [key, value] of Object.entries({ ...compositionEnvironment, DATA_DIR: directory, PROCESS_SANDBOX: "off", MCP_SERVERS: "{}", ACP_AGENTS: "{}",
   SYSTEM_PROMPTS_DIR: selectableDirectory, SYSTEM_PROMPT_DEFAULT: "reader", SYSTEM_PROMPT_SHARE_DEFAULT: "1",
-  MODEL_ALIASES: JSON.stringify(coreConfig.host.MODEL_ALIASES) })) {
+  MODEL_ALIASES: JSON.stringify(coreConfig.host.MODEL_ALIASES), MODEL_PROVIDERS: JSON.stringify(coreConfig.host.MODEL_PROVIDERS),
+  OPENROUTER_API_KEY: "test-key" })) {
   if (value === undefined) delete process.env[key];
   else process.env[key] = value;
 }

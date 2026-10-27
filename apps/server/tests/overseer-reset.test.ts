@@ -1,3 +1,4 @@
+import { modelProviderEnvironment } from "./fixtures/profile-composition/profiles.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -35,6 +36,7 @@ process.env.PRODUCT_PROFILE = "core";
 process.env.PRODUCT_ID = "test";
 process.env.PRODUCT_TITLE = "Test";
 process.env.COMPACTION_MODEL = "";
+Object.assign(process.env, modelProviderEnvironment);
 process.env.ACCESS_TOKEN = "reset-test-only-token";
 const { RunSessionProvider } = await import("../src/provider.ts");
 const { registerTypeScriptFunctions } = await import("../src/ragents/typescript-tools.ts");

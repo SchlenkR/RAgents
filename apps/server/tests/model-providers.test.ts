@@ -53,7 +53,7 @@ test("per-model reasoning replay survives provider registration and the relay ca
   const models = runtimeOf();
   assert.equal(models.getModel("local", "example-model")!.reasoningReplay, "current-turn");
   assert.equal(models.getModel(ALIAS_PROVIDER, "local-model")!.reasoningReplay, "current-turn");
-  const configured = resolveAliases(modelRelayConfig.aliases(), modelRelayConfig.upstreams([]))[0]!;
+  const configured = resolveAliases(modelRelayConfig.aliases(), modelRelayConfig.upstreams())[0]!;
   assert.equal(catalogEntryOf(configured).catalog.reasoningReplay, "current-turn");
   assert.throws(() => parseModelProviders([provider({ models: [{ ...exampleModel, reasoningReplay: "none" }] })], environment), /models\[0\]\.reasoningReplay must be "all" or "current-turn"/);
 });
@@ -63,8 +63,9 @@ test("MODEL_PROVIDERS accepts OpenAI-compatible servers only with an env key and
   assert.throws(() => parseModelProviders("x", environment), /MODEL_PROVIDERS must be a list of providers/);
   assert.throws(() => parse(provider({ headers: {} })), /MODEL_PROVIDERS\[0\]\.headers is not supported/);
   assert.throws(() => parse(provider({ id: "Local" })), /\.id needs 1 to 64 lowercase letters/);
-  assert.throws(() => parse(provider({ id: "openrouter" })), /openrouter is already a provider of the host/);
-  assert.throws(() => parse(provider({ id: "relay" })), /relay is already a provider of the host/);
+  assert.equal(parse(provider({ id: "openrouter" }))[0]!.id, "openrouter");
+  assert.throws(() => parse(provider({ id: "alias" })), /alias is reserved for the host/);
+  assert.throws(() => parse(provider({ id: "relay" })), /relay is reserved for the host/);
   assert.throws(() => parse(provider({ baseUrl: "http://localhost:8000/v1/" })), /baseUrl needs an http or https address without a trailing slash/);
   assert.throws(() => parse(provider({ apiKey: "plain-key" })), /apiKey must be env\("NAME"\); a key never appears in plain text/);
   assert.throws(() => parse(provider({ apiKey: { kind: "environment", name: "UNSET_EXAMPLE_KEY" } })), /env\("UNSET_EXAMPLE_KEY"\) to an environment variable that is not set/);
@@ -150,7 +151,7 @@ test("plugins complete over a profile alias with its offered levels; the relay f
     temperature: 0, maxTokens: 64, timeoutMs: 5_000, signal: new AbortController().signal }), { kind: "text", text: "Paris" });
   assert.equal(payloads[0]!.model, "example-model");
   assert.equal(payloads[0]!.reasoning_effort, "low");
-  const [resolved] = resolveAliases(modelRelayConfig.aliases(), modelRelayConfig.upstreams([]));
+  const [resolved] = resolveAliases(modelRelayConfig.aliases(), modelRelayConfig.upstreams());
   assert.equal(resolved!.upstream.baseUrl, "http://localhost:8000/v1");
   assert.deepEqual(catalogEntryOf(resolved!).catalog.compat, { thinkingFormat: "qwen-chat-template" });
 });
@@ -243,4 +244,12 @@ test("an alias on a Mistral provider sends the mapped level as reasoning_effort 
   const usage = results[0]!.usage;
   assert.deepEqual([usage.input, usage.cacheRead, usage.output], [200, 800, 50]);
   assert.ok(Math.abs(usage.cost.total - (200 * 1.4 + 800 * 0.14 + 50 * 4.4) / 1_000_000) < 1e-12);
+});
+
+test("aliases can resolve models supplied by the relay runtime without a built-in provider", () => {
+  const configured = parseModelProviders([provider()], environment)[0]!;
+  const target = { ...configured.models[0]!, provider: "relay", id: "remote-model" };
+  const aliases = parseModelAliases([{ ...alias, model: "relay/remote-model" }]);
+  assert.equal(aliasCatalog(aliases, [target])[0]!.id, "local-model");
+  assert.throws(() => aliasCatalog(aliases, []), /remote-model.*configured provider relay; configured model ids: none/);
 });

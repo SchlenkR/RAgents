@@ -61,7 +61,7 @@ export class TitleSettingsStore {
       || !("provider" in selected) || typeof selected.provider !== "string"
       || !("model" in selected) || typeof selected.model !== "string") throw invalid("The title model choice needs provider and model.");
     if (!this.models.some((model) => model.provider === selected.provider && model.id === selected.model))
-      throw invalid(`The title model ${selected.provider}/${selected.model} is not available for selection; a text model without reasoning is required.`);
+      throw invalid(`The title model ${selected.provider}/${selected.model} is not available for selection; a text model supporting reasoning off is required; configured suitable model ids: ${this.models.filter((model) => model.provider === selected.provider).map((model) => model.id).join(", ") || "none"}.`);
     return { provider: selected.provider, model: selected.model };
   }
 }

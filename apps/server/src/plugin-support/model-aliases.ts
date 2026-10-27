@@ -1,6 +1,5 @@
 import { aliasedModel, compactionProblem, thinkingLevelsProblem, type ModelAlias as RuntimeModelAlias } from "@ragents/agent";
 import { getSupportedThinkingLevels, reasoningReplayProblem, type Api, type Model } from "@ragents/ai";
-import { getBuiltinModels, type BuiltinProvider } from "@ragents/ai/providers/all";
 import { isThinkingLevel, type ThinkingLevel } from "@ragents/engine";
 import { configuredModelProviders } from "./model-providers.js";
 import { declaredEnvironment } from "./plugin-config.js";
@@ -86,22 +85,24 @@ export const validatedAliasModel = (entry: ModelAlias, target: Model<Api>): Mode
   return offered;
 };
 
-/** The catalog of the aliases from the catalogs of their providers (MODEL_PROVIDERS, otherwise built in), as the model runtime offers them. */
-export const aliasCatalog = (aliases: readonly ModelAlias[] = configuredModelAliases()): readonly Model<Api>[] => {
+/** The aliases with the model data of their configured providers. */
+export const aliasCatalog = (
+  aliases: readonly ModelAlias[] = configuredModelAliases(),
+  models: readonly Model<Api>[] = configuredModelProviders().flatMap((provider) => provider.models),
+): readonly Model<Api>[] => {
   if (aliases.length === 0) throw new Error(`The provider ${ALIAS_PROVIDER} needs MODEL_ALIASES in the host section`);
-  const providers = configuredModelProviders();
   return aliases.map((entry) => {
-    const catalog = providers.find((provider) => provider.id === entry.upstream)?.models ?? getBuiltinModels(entry.upstream as BuiltinProvider);
+    const catalog = models.filter((model) => model.provider === entry.upstream);
     const target = catalog.find((model) => model.id === entry.model);
-    if (!target) throw new Error(`MODEL_ALIASES: the model ${entry.model} behind ${entry.alias} is missing from the catalog of ${entry.upstream}`);
+    if (!target) throw new Error(`MODEL_ALIASES: the model ${entry.model} behind ${entry.alias} is missing from configured provider ${entry.upstream}; configured model ids: ${catalog.map((model) => model.id).join(", ") || "none"}`);
     return validatedAliasModel(entry, target);
   });
 };
 
 /** The profile's aliases, checked against the catalogs of their targets including thinking level and compaction values. */
-export const validatedModelAliases = (): readonly ModelAlias[] => {
+export const validatedModelAliases = (models?: readonly Model<Api>[]): readonly ModelAlias[] => {
   const aliases = configuredModelAliases();
-  if (aliases.length > 0) aliasCatalog(aliases);
+  if (aliases.length > 0) aliasCatalog(aliases, models);
   return aliases;
 };
 

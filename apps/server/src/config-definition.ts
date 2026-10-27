@@ -57,7 +57,7 @@ export interface ProfileUser extends ProfileAnonymousUser {
 /** An entry of MODEL_ALIASES: a model under its own name with the compaction values that apply to this model. */
 export interface ProfileModelAlias {
   readonly alias: string;
-  /** The target as provider/model from a provider of MODEL_PROVIDERS or a built-in catalog. */
+  /** The target as provider/model from a provider of MODEL_PROVIDERS. */
   readonly model: string;
   readonly thinking?: ThinkingLevel;
   /** The levels the alias offers, each mapped to a level of the target; without them it offers the target's levels. */
@@ -105,7 +105,7 @@ export interface ProfileMistralProvider extends ProfileModelProviderBase {
   readonly baseUrl?: string;
 }
 
-/** An entry of MODEL_PROVIDERS: a provider of the profile whose models aliases can name as provider/model. */
+/** An entry of MODEL_PROVIDERS: a provider of the profile whose models can be selected directly or through aliases. */
 export type ProfileModelProvider = ProfileOpenAiCompatibleProvider | ProfileMistralProvider;
 
 export type ConfigValue =

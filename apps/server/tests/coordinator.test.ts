@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { Journal, Orchestration } from "@ragents/engine";
+import { Journal, Orchestration, StaticModelCatalog, type CatalogModel } from "@ragents/engine";
 import { allGrants, executionFor, testServices } from "../../../packages/ragents/tests/support.ts";
-import { isRunCoordinator } from "../src/ragents/coordinator.ts";
+import { coordinatorSelection, isRunCoordinator } from "../src/ragents/coordinator.ts";
 
 const fixture = () => {
   const services = testServices();
@@ -43,4 +43,14 @@ test("the host coordinator marker survives primary handover, forks and journal r
     replay.close();
     setup.journal.close();
   }
+});
+
+test("a stored coordinator selection keeps its provider when the profile no longer configures it", () => {
+  const modelList: CatalogModel[] = [{ driver: "agent", provider: "current", model: "shared-model", label: "shared-model", thinking: ["off"] }];
+  const catalog = Object.assign(new StaticModelCatalog(modelList, [{ name: "coordinator", description: "Coordinator", driver: "agent",
+    provider: "current", model: "shared-model", thinking: "off", turnTimeoutMs: null, isolateWorkspace: false }]), { modelList });
+  const coordinator = { handle: "coordinator", profile: "coordinator" };
+  const spawned = { provider: "removed", model: "shared-model", thinking: "off" as const };
+  assert.deepEqual(coordinatorSelection(catalog, coordinator, { model: "shared-model", thinking: "off" }, spawned), spawned);
+  assert.deepEqual(coordinatorSelection(catalog, coordinator, { model: "removed-model", thinking: "off" }, spawned), { ...spawned, model: "removed-model" });
 });

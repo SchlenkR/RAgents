@@ -1,5 +1,4 @@
 import type { RAgentsPlugin } from "@ragents/engine";
-import { modelUpstreamsToken } from "@ragents/host/plugin-support/model-upstreams.js";
 import type { PluginModule } from "@ragents/host/plugin-support/plugin-module.js";
 import { Protocol } from "@ragents/host/protocol.js";
 import { modelRelayConfig } from "./config.js";
@@ -8,9 +7,8 @@ import { createRelayRoutes, resolveAliases, type ResolvedAlias } from "./relay.j
 const modelRelayPlugin: RAgentsPlugin = {
   manifest: { id: "ragents.model-relay" },
   register: (host) => {
-    const upstreams = host.service(modelUpstreamsToken);
     let resolved: readonly ResolvedAlias[] | undefined;
-    const aliases = (): readonly ResolvedAlias[] => resolved ??= resolveAliases(modelRelayConfig.aliases(), modelRelayConfig.upstreams(upstreams()));
+    const aliases = (): readonly ResolvedAlias[] => resolved ??= resolveAliases(modelRelayConfig.aliases(), modelRelayConfig.upstreams());
     const log = new Protocol(host.storage.root("relay.log"));
     host.lifecycle({
       id: "ragents.model-relay",

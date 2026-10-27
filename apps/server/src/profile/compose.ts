@@ -2,7 +2,7 @@ import { PluginHost, type PluginWebAddresses } from "@ragents/engine";
 import { pluginToolsDirectory, prepareExecutorContribution, type LoadedExecutorContribution } from "@ragents/workspace-executor";
 import { config, HOST_SECRET_ENV_NAMES } from "../config.js";
 import { SESSION_MODE, SESSIONS_MODE } from "../layout.js";
-import { aliasCompletionModel, aliasCompletionModelToken } from "../plugin-support/model-completion.js";
+import { aliasCompletionModel, aliasCompletionModelToken, completionModelToken, runtimeCompletionModel } from "../plugin-support/model-completion.js";
 import { withFolderAssets } from "../plugin-support/plugin-folder.js";
 import type { PluginModule } from "../plugin-support/plugin-module.js";
 import { runManagementToken } from "../ragents/global-chat.js";
@@ -67,6 +67,10 @@ export const composeProfile = (options: ProfileComposition, bridges: HostBridges
   host.provideHost(runManagementToken, () => {
     if (!bridges.sessions) throw new Error("The host provides no session management");
     return bridges.sessions();
+  });
+  host.provideHost(completionModelToken, async (provider, model) => {
+    if (!bridges.modelRuntime) throw new Error("The host provides no model runtime");
+    return runtimeCompletionModel(await bridges.modelRuntime(), provider, model);
   });
   host.provideHost(aliasCompletionModelToken, (alias) => aliasCompletionModel(() => {
     if (!bridges.modelRuntime) throw new Error("The host provides no model runtime");

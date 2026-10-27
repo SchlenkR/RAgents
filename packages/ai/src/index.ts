@@ -7,7 +7,6 @@ export * from "./api/lazy.ts";
 export type { OpenRouterOptions } from "./api/ai-sdk.ts";
 export * from "./api-registry.ts";
 export * from "./auth/context.ts";
-export * from "./auth/helpers.ts";
 export * from "./auth/types.ts";
 export * from "./models.ts";
 export * from "./providers/faux.ts";

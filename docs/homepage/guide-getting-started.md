@@ -102,8 +102,8 @@ line you added to a startup file stays. Settings and runs stay in each user's da
 
 ### First start
 
-The included profiles read the OpenRouter key from the environment variable `OPENROUTER_API_KEY`;
-no `.env` file is loaded. Set it in the shell that starts RAgents or in its startup file, then
+The included profiles declare OpenRouter in `host.MODEL_PROVIDERS` and read its key through
+`apiKey: env("OPENROUTER_API_KEY")`; no `.env` file is loaded. Set it in the shell that starts RAgents or in its startup file, then
 start the `core` profile:
 
 ```sh
@@ -117,7 +117,7 @@ then serves the interface at `http://localhost:4710`. Without the variable, it s
 server starts:
 
 ```text
-.../ragents.config.core.ts: ragents.product.OPENROUTER_API_KEY refers with env("OPENROUTER_API_KEY") to an environment variable that is not set in this shell. ...
+MODEL_PROVIDERS[0].apiKey refers with env("OPENROUTER_API_KEY") to an environment variable that is not set in this shell
 Provisioning ended with code 1
 ```
 
@@ -189,36 +189,65 @@ own data directory.
 
 ## Configure model access and start
 
-The model integration uses OpenRouter. In the profile file's `ragents.product` section,
-configure `OPENROUTER_API_KEY` as a reference to your own environment variable, for example
-`env("RAGENTS_MODEL_API_KEY")`, and provide its value in your shell or service environment. The
-included `core`, `showcase`, and `developer` profiles use `env("OPENROUTER_API_KEY")` and expect
-that exact environment variable. Startup fails if it is missing. Existing environment variables
-take precedence over profile values; no `.env` file is loaded. Startup reports a missing
-referenced variable as an error. Configured models and reasoning levels must be valid in the
-available model catalog.
+All ordinary providers and models belong in `host.MODEL_PROVIDERS` in the profile file. The host
+has no built-in model catalog and never fetches model metadata. Each provider declares an `id`,
+`apiKey: env("NAME")`, its `models`, and its transport settings: an optional `sdk` (`mistral` or
+`openai-compatible`), `baseUrl` (up to `/v1`; `mistral` has a default), and optional `compat`.
+Without `sdk`, requests use the OpenRouter shape, including reasoning and optional
+`compat.openRouterRouting.zdr`. The id `openrouter` is an ordinary configured provider id;
+`alias` and `relay` are reserved.
 
-A profile can also name its models by alias: `MODEL_ALIASES` in the `host` section lists objects
-with `alias`, `model` as `provider/model`, an optional default `thinking` level, optional
-`thinkingLevels` that map the levels the alias offers onto levels of its model (for example
-`{ off: "low", low: "low", medium: "high" }` for a model that always reasons and has no `medium`),
-and the model's `compaction` values: the context size in tokens at which an agent compacts
-(`threshold`), how much recent context stays verbatim (`keepRecentTokens`), and the summary budget
-(`summaryTokens`).
-`AGENT_PROVIDER: "alias"` makes the product use them. The interface, the chat, and the journal then
-show only the alias names.
+For example, a direct model configuration is:
 
-An alias can also point to a provider of your own, such as a self-hosted server or Mistral's API.
-`MODEL_PROVIDERS` in the `host` section lists such providers with `id`, `sdk` (the AI SDK package
-that talks to it: `mistral` or `openai-compatible`), `baseUrl` (up to `/v1`; `mistral` has a
-default), `apiKey: env("...")`, optional `compat`, and their `models` (`id`, `contextWindow`,
-`maxTokens`, `reasoning`, `input`, optional `thinkingLevelMap` and `cost`); an alias then names
-`<id>/<model>`. Mistral receives the chosen level as `reasoning_effort`. For a Qwen chat template, as
-served by oMLX, set `sdk: "openai-compatible"` and `compat: { thinkingFormat: "qwen-chat-template" }`,
-so the alias's thinking levels reach the server. `cost` gives the model's prices in USD per million
-tokens, for example `{ input: 1.4, cacheRead: 0.14, output: 4.4 }`; without it, runs on that model
-show cost 0, while the token counts, including cached tokens, stay complete. An entry without `sdk`
-keeps working as before. Details and an example in `docs/spec/profiles.md`.
+```typescript
+host: {
+  MODEL_PROVIDERS: [
+    { id: "local", sdk: "openai-compatible", baseUrl: "http://localhost:8000/v1",
+      apiKey: env("LOCAL_MODEL_KEY"),
+      models: [{ id: "example-model", contextWindow: 131_072, maxTokens: 16_384,
+        reasoning: true, input: ["text"], thinkingLevelMap: { xhigh: "xhigh" } }] },
+  ],
+  COMPACTION_PROVIDER: "local",
+  COMPACTION_MODEL: "example-model",
+},
+"ragents.product": {
+  AGENT_PROVIDER: "local",
+  AGENT_MODEL: "example-model",
+  AGENT_COORDINATOR_MODEL: "example-model",
+},
+```
+
+`AGENT_PROVIDER` selects a configured provider; every role model key and `AGENT_MODELS` then
+names model ids from that provider. Without `AGENT_MODELS`, all its configured models are offered;
+with it, only the listed models are offered. `COMPACTION_PROVIDER` selects the provider for
+`COMPACTION_MODEL` and the title model selection. Both provider keys default to `openrouter`, so
+that id needs an entry unless the respective key selects another provider. A missing provider or
+unknown model aborts startup with the key and cause; unknown models also list the configured ids.
+
+To add a model, add one entry to the provider's `models` in this file. Look up its id, usable
+context window, maximum output, supported inputs, reasoning levels, and prices on the provider's
+model page or models API, then copy the values by hand. Set `contextWindow`, `maxTokens`,
+`reasoning`, `input` (including `text`), and optionally `thinkingLevelMap`, `reasoningReplay`, and
+`cost`. `thinkingLevelMap` maps supported levels to wire values; `null` removes a level. `xhigh`
+and `max` are available only when declared. Keep the usable context limit within the endpoints
+that the profile can reach. `cost` is USD per million tokens, for example
+`{ input: 1.4, cacheRead: 0.14, output: 4.4 }`; without it, cost is 0. Update `AGENT_MODELS` when it
+restricts the selection. Restart after changing the profile. The configuration contract and
+transport-specific options are in `docs/spec/profiles.md`.
+
+Provide each key in the shell or service environment named by its provider's `env(...)` reference.
+The included `core`, `showcase`, and `developer` profiles declare their own OpenRouter models and
+use `apiKey: env("OPENROUTER_API_KEY")`. That environment variable remains valid; the former
+`ragents.product.OPENROUTER_API_KEY` profile key must be removed when upgrading. Move the key
+reference into the provider entry and explicitly declare every model that the profile uses.
+Startup rejects missing referenced variables; no `.env` file is loaded. A profile remains exactly
+one file, including all model definitions.
+
+Aliases are optional. `host.MODEL_ALIASES` lists `alias`, `model` as `provider/model`, an optional
+default `thinking` level, optional `thinkingLevels` mapping offered levels onto target levels,
+and mandatory `compaction` values: `threshold`, `keepRecentTokens`, and `summaryTokens`.
+A target must name a configured model or the configured relay. `AGENT_PROVIDER: "alias"` makes
+role model keys name these aliases, and the interface, chat, and journal show their names.
 
 Alternatively, a profile can obtain its models from another RAgents server running the
 `ragents.model-relay` plugin, which offers that server's `MODEL_ALIASES` with their thinking levels

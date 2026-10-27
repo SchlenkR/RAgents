@@ -173,13 +173,29 @@ The global coordinator has its own model and reasoning selection, stored in the 
 data directory. The `coordinator` role serves as the initial default. The product default for the
 run coordinator uses `high`. Model selections that are already stored remain explicit defaults. As
 its initial default, the `relay` role uses the same configured model and the same thinking level as
-the `coordinator` role. A regression test checks both roles against the real model catalog. After
+the `coordinator` role. A regression test checks both roles against the profile's configured models. After
 that, settings and coordinator chat use the same plugin setting. Changes apply from the next turn
 without a restart and change neither the start options nor the models of other runs. The allowed
 selection comes from the configured model catalog and is checked against the model capabilities.
 
-The model provider is `AGENT_PROVIDER` in the product plugin, default `openrouter` with
-`OPENROUTER_API_KEY`. With `AGENT_PROVIDER: "relay"`, catalog and model access come from another
+The model provider is `AGENT_PROVIDER` in `ragents.product`, default `openrouter`. Every
+ordinary provider and its models come from `host.MODEL_PROVIDERS`; the host has no built-in
+providers or model catalog and never fetches model metadata. `openrouter` is an ordinary provider
+id that a profile can declare. Only `alias` and `relay` are reserved for their respective runtime
+providers. Each configured provider gets its key exclusively from its `apiKey: env("NAME")`
+reference; `ragents.product` has no `OPENROUTER_API_KEY` key.
+
+With a configured provider id, `AGENT_MODEL`, `AGENT_COORDINATOR_MODEL`, other role model keys,
+and `AGENT_MODELS` name that provider's model ids directly. Aliases are optional. Without
+`AGENT_MODELS`, the selection offers exactly the configured models of that provider; otherwise
+it offers only the listed ids. The host keys `COMPACTION_PROVIDER` (also default `openrouter`)
+and `COMPACTION_MODEL` choose the compaction model in the same way, and the title selection uses
+that provider's configured models. A missing provider is a start error naming the provider key
+and asking to declare the provider in `MODEL_PROVIDERS` or set the key. An unknown model is a
+start error naming its key, provider, and the configured model ids. Every role default must also
+belong to the offered selection.
+
+With `AGENT_PROVIDER: "relay"`, catalog and model access come from another
 RAgents server: `RELAY_URL` names its address, `RELAY_TOKEN` (secret, `env(...)`) the personal
 token of a user there. At start, the product plugin fetches `GET /relay/v1/models` and registers
 the provider `relay` through a profile contribution (`providers` in `ProfileContribution`) in the
@@ -200,16 +216,16 @@ of objects (`plugin-support/model-aliases.ts`, type `ProfileModelAlias` in
 
 ```typescript
 MODEL_ALIASES: [
-  { alias: "team-standard", model: "openrouter/qwen/qwen3.8-27b", thinking: "medium",
-    compaction: { threshold: 160_000, keepRecentTokens: 24_000, summaryTokens: 16_000 } },
-  { alias: "team-strong", model: "openrouter/z-ai/glm-5.3", thinking: "medium",
+  { alias: "team-standard", model: "local/example-model", thinking: "medium",
+    compaction: { threshold: 100_000, keepRecentTokens: 16_000, summaryTokens: 8_000 } },
+  { alias: "team-strong", model: "example-mistral/zai-glm-5-3", thinking: "medium",
     thinkingLevels: { off: "low", low: "low", medium: "high", high: "high" },
     compaction: { threshold: 400_000, keepRecentTokens: 32_000, summaryTokens: 16_000 } },
 ],
 ```
 
-`model` names the target as `provider/model`, a model of a provider from `MODEL_PROVIDERS` (below) or
-from the provider's built-in catalog;
+`model` names the target as `provider/model`, a model of a provider from `MODEL_PROVIDERS` (below)
+or the relay provider when configured;
 `thinking` is optionally the default thinking level, one of the levels the alias offers.
 `thinkingLevels` optionally maps the offered levels to levels of the target: the alias offers
 exactly its keys, in the selection, in the catalog, and through the relay, and a chosen level goes
@@ -222,10 +238,9 @@ value for `off` gets `enabled: false` instead of a level for it. Without `thinki
 alias offers the levels of its target. `compaction` is mandatory and applies to the model under
 this alias: `threshold` is the absolute token count from which compaction happens,
 `keepRecentTokens` the rest kept verbatim, `summaryTokens` the budget of the summary (procedure in
-[core.md](core.md), section Retries and compaction). The values live on the alias because the
-catalog names as context window the largest across all providers of a model; whoever compacts only
-shortly before that silently ends up, with a long context, at one of the few providers with such a
-large window. The start aborts with alias and cause if `compaction` is missing, a value is not a
+[core.md](core.md), section Retries and compaction). An alias can set a smaller usable context
+than the configured model's window, for example when an upstream routes requests to endpoints
+with different limits. The start aborts with alias and cause if `compaction` is missing, a value is not a
 positive integer, `keepRecentTokens + summaryTokens` is not below `threshold`,
 `threshold + summaryTokens` is not below the target's context window, or `summaryTokens` is above
 its output limit. A threshold that leaves less room than the largest reasoning/output reserve of
@@ -260,8 +275,8 @@ outgoing context; the journal stays unchanged. Do not enable it for Gemini, Deep
 preserved GLM thinking, or other models that require earlier reasoning. Alias settings override
 their target's setting and travel through the relay catalog. Unknown values abort startup.
 
-An alias can also point to a provider of the profile's own, a self-hosted server or a vendor API:
-`MODEL_PROVIDERS` in the `host` section is a list of providers
+`MODEL_PROVIDERS` in the `host` section declares all ordinary providers, including OpenRouter,
+a self-hosted server, or a vendor API
 (`plugin-support/model-providers.ts`, type `ProfileModelProvider` in `config-definition.ts`):
 
 ```typescript
@@ -285,7 +300,8 @@ MODEL_ALIASES: [
 ],
 ```
 
-`id` is the provider name in `provider/model` and must not be a built-in provider or `relay`.
+`id` is the provider name used directly by `AGENT_PROVIDER` and `COMPACTION_PROVIDER`, or as the
+prefix in an alias target `provider/model`. It must not be `alias` or `relay`.
 `sdk` names the AI SDK provider package that serves the provider's models, from a fixed registry in
 `packages/ai` (`MODEL_SDKS`, `createChatModel`): `mistral` uses `@ai-sdk/mistral`,
 `openai-compatible` uses `@ai-sdk/openai-compatible`; any other value is a start error that lists
@@ -322,7 +338,6 @@ Per `sdk`, a request carries only what the package and the provider accept:
   Only here `compat` also knows `openRouterRouting: { zdr: true }`, which goes out as OpenRouter's
   `provider` field and restricts every request to zero data retention endpoints; with an `sdk` it is
   a start error.
-  This route stays only until existing entries name an `sdk`.
 
 The `sdk` routes send none of OpenRouter's fields (`reasoning`, `usage`, `provider`, `plugins`,
 cache marks) and no `x-session-id` header. An unknown key, a missing or invalid value, and a
@@ -345,7 +360,7 @@ package's own schemas accept these nulls and missing tool types, and thinking co
 `reasoning_content`, `reasoning`, or thinking content parts.
 
 The preparation chat, product model catalog, and coordinator settings take the thinking levels
-from the capabilities of the respective provider model in the built-in runtime catalog, for an
+from the capabilities of the respective provider model configured in `MODEL_PROVIDERS`, for an
 alias from the levels it offers, or, for the relay, from its alias catalog. There is no blanket
 list per product. `AGENT_MODEL_REASONING` can explicitly restrict this selection; unknown models as
 well as invalid or duplicate levels are configuration errors. The server additionally checks the
@@ -353,6 +368,12 @@ entire offered catalog against the model runtime actually loaded and validates a
 defaults before use. When the model changes in the preparation chat, the configured preferred
 thinking level is used if it is available, otherwise the first offered level; the selection is
 visible before sending. Explicitly passed invalid values are rejected.
+
+Journal replay does not require a stored model selection to remain configured. If a profile
+removes its provider or model, the affected actor's next turn fails with an error naming both;
+server startup, replay, and other runs remain available. An unchanged or no longer offered
+coordinator model keeps its recorded provider; changing the profile's provider does not rebind
+that stored selection. No journal migration is performed.
 
 On a start through chat or setup, the human run participant receives the display name of the user
 signed in on the server, and the run remembers the same user as its owner. Without sign-in, the
@@ -578,13 +599,14 @@ defaults for new runs or agents.
 ## Model for automatic titles
 
 Title generation is a host service with its own model selection under Settings, Models, Titles. It
-uses the existing runtime catalog of the configured `COMPACTION_PROVIDER`, independent of
+uses the configured models of `COMPACTION_PROVIDER`, independent of
 `AGENT_MODELS` and the roles. Models with text input that support reasoning turned off are
 selectable. Title execution always sets reasoning to `off`; there is no additional thinking level
 selection.
 
 `COMPACTION_MODEL` is the default as long as `${DATA_DIR}/title-settings.json` is missing; an empty
-default disables automatic generation. If the provider offers no suitable model, the selection
+default disables automatic generation. A configured compaction provider must exist even when
+this default is empty. If the provider offers no suitable model, the selection
 stays empty: without a default, the server starts with title generation turned off and says so in
 the settings; a default without a matching model stays a start error. The bundled files for core
 and showcase use `google/gemma-4-26b-a4b-it` (Gemma 4 A4B). Gemma 4 A4B, Qwen 3.8 Flash, and

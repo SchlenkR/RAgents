@@ -1,3 +1,4 @@
+import { modelProviderEnvironment } from "./fixtures/profile-composition/profiles.ts";
 import assert from "node:assert/strict";
 import { access, mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -21,6 +22,7 @@ process.env.PRODUCT_PROFILE = "core";
 process.env.PRODUCT_ID = "test";
 process.env.PRODUCT_TITLE = "Test";
 process.env.COMPACTION_MODEL = "";
+Object.assign(process.env, modelProviderEnvironment);
 delete process.env.ACCESS_TOKEN;
 const { RunSessionProvider } = await import("../src/provider.ts");
 after(() => rm(directory, {recursive: true, force: true}));

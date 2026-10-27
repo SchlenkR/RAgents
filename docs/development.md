@@ -506,7 +506,7 @@ installation scripts and update checks),
 `scripts/run-transfer/` (`pnpm run-transfer`: move a run to another server),
 `scripts/workspace-client/` (`pnpm workspace-client`: a workstation without VS Code),
 `scripts/remote-workspace/` (`pnpm check:remote-workspace`: the workspace on another
-machine, with Docker), and `scripts/maintenance/` (model catalog, concept audit).
+machine, with Docker), and `scripts/maintenance/` (concept audit).
 
 ### Developing quassel and RAgents together
 

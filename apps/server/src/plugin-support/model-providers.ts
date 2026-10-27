@@ -1,5 +1,4 @@
 import { EXTENDED_THINKING_LEVELS, isModelSdk, MODEL_SDK_BASE_URLS, MODEL_SDKS, reasoningReplayProblem, type Api, type InputModality, type Model, type ModelSdk } from "@ragents/ai";
-import { builtinProviders } from "@ragents/ai/providers/all";
 import type { ModelProviderRegistration } from "@ragents/engine";
 import { excludeProcessEnvironment } from "@ragents/workspace-executor/src/safe-environment.ts";
 import { isEnvironmentReference } from "../config-definition.js";
@@ -162,7 +161,7 @@ const providerOf = (value: unknown, index: number, reserved: ReadonlySet<string>
   if (typeof entry.id !== "string" || !PROVIDER_ID.test(entry.id)) {
     throw new Error(`${location}.id needs 1 to 64 lowercase letters, digits, dots, underscores or hyphens`);
   }
-  if (reserved.has(entry.id)) throw new Error(`${location}.id ${entry.id} is already a provider of the host`);
+  if (reserved.has(entry.id)) throw new Error(`${location}.id ${entry.id} is reserved for the host`);
   const at = `${location} (${entry.id})`;
   const sdk = sdkOf(entry.sdk, at);
   const baseUrl = baseUrlOf(entry.baseUrl, sdk, at);
@@ -178,7 +177,7 @@ const providerOf = (value: unknown, index: number, reserved: ReadonlySet<string>
 /** MODEL_PROVIDERS: a list of providers { id, sdk?, baseUrl, apiKey: env("NAME"), compat?, models }; sdk names the AI SDK package, without it requests take the OpenRouter shape. */
 export const parseModelProviders = (entries: unknown, environment: Readonly<Record<string, string | undefined>> = process.env): readonly ModelUpstream[] => {
   if (!Array.isArray(entries)) throw new Error("MODEL_PROVIDERS must be a list of providers");
-  const reserved = new Set([...builtinProviders().map((provider) => provider.id), RELAY_PROVIDER]);
+  const reserved = new Set(["alias", RELAY_PROVIDER]);
   const providers = entries.map((entry, index) => providerOf(entry, index, reserved, environment));
   const duplicate = providers.find((entry, index) => providers.findIndex((other) => other.id === entry.id) !== index);
   if (duplicate) throw new Error(`MODEL_PROVIDERS names the provider ${duplicate.id} more than once`);

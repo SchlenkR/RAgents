@@ -134,6 +134,11 @@ export class RunSessionProvider implements ChatSessionProvider {
   }
 
   async init(): Promise<void> {
+    const models = (await this.getModelRuntime()).getModels(config.compactionProvider);
+    if (models.length === 0) throw new Error(`COMPACTION_PROVIDER: provider ${config.compactionProvider} is not configured; declare it in MODEL_PROVIDERS or set COMPACTION_PROVIDER to a configured provider`);
+    if (config.compactionModel && !models.some((model) => model.id === config.compactionModel)) {
+      throw new Error(`COMPACTION_MODEL: model ${config.compactionModel} is not configured for provider ${config.compactionProvider}; configured model ids: ${models.map((model) => model.id).join(", ")}`);
+    }
     this.titleSettings = await TitleSettingsStore.create(path.join(config.dataDir, "title-settings.json"), await this.getModelRuntime(),
       config.compactionModel ? { provider: config.compactionProvider, model: config.compactionModel } : null, config.compactionProvider);
     this.readMarkers = await RunReadMarkers.load(layout.readMarkersFile);
@@ -215,7 +220,7 @@ export class RunSessionProvider implements ChatSessionProvider {
         excludeProcessEnvironment({ apiKey: provider.config.apiKey });
         runtime.registerProvider(provider.id, provider.config);
       }
-      const aliases = validatedModelAliases();
+      const aliases = validatedModelAliases(runtime.getModels());
       if (aliases.length > 0) runtime.registerAliases(ALIAS_PROVIDER, aliases);
       return runtime;
     });

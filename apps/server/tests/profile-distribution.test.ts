@@ -27,6 +27,8 @@ const fixture = async (t: TestContext, profileBody?: string) => {
   await writeFile(profileFile, profileBody ?? `const env = (name) => ({ kind: "environment", name });
 export const config = {
   host: { PRODUCT_PROFILE: "workshop-client", PRODUCT_ID: "workshop", PRODUCT_TITLE: "Workshop", PORT: 4720, PLUGINS: ["ragents.orchestration", "../plugins/workshop.demo"],
+    MODEL_PROVIDERS: [{ id: "openrouter", baseUrl: "https://models.invalid/v1", apiKey: env("MODEL_KEY_VALUE"),
+      models: [{ id: "z-ai/glm-5.3-flash", contextWindow: 262144, maxTokens: 32768, reasoning: true, input: ["text"] }] }],
     MODEL_ALIASES: [{ alias: "workshop", model: "openrouter/z-ai/glm-5.3-flash", compaction: { threshold: 160000, keepRecentTokens: 24000, summaryTokens: 12000 } }] },
   "workshop.demo": { DEMO_ENDPOINT: "https://example.invalid", DEMO_TOKEN: env("DEMO_TOKEN_VALUE") },
 };

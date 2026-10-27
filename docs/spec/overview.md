@@ -159,7 +159,7 @@ topic introductions explain the respective building block before the technical c
 examples. The generator under `scripts/homepage/` reads neutral tools, schemas, UI contracts,
 mini-app templates, and the templates of the start page from the code. Small development examples
 explain the extension points; contract coverage and generated files are checked. Reference
-generation composes the plugins in isolation with existing public catalog models; network calls
+generation composes the plugins in isolation with explicit neutral model definitions; network calls
 and model calls are blocked during that. Private profiles, configuration values, and runtime data
 do not belong on these pages.
 

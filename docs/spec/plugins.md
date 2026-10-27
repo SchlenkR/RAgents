@@ -943,10 +943,11 @@ chat building blocks of the web half come from the host as `@schlenkr/quassel`; 
 `quassel` still works for one more release as a deprecated alias for the same module, so existing
 bundles keep loading, and a plugin should import `@schlenkr/quassel` and rebuild. The
 agent runtime behind the host (`@ragents/agent`, `@ragents/ai`) is not part of it: hooks into an
-agent's model calls come through `host.agentRuntime`, a single question to a model through
-`openRouterCompletionModel` from `@ragents/host/plugin-support/model-completion` or, for a profile
-alias over the server's model runtime, the service `aliasCompletionModelToken` from there, and the
-built-in model catalog of a provider through `builtinCatalog` from
+agent's model calls come through `host.agentRuntime`, a single question to a configured model
+through the service `completionModelToken` from `@ragents/host/plugin-support/model-completion`
+(`await host.service(completionModelToken)(provider, model)`) or, for a profile alias, the service
+`aliasCompletionModelToken` from there. Both use the server's model runtime and configured key.
+A provider's configured models come through `providerCatalog` from
 `@ragents/host/plugin-support/model-choice`. Another plugin is reachable only through its
 declared exports as `@ragents/plugins/<id>/<export>`, and only if its ID is in `requires`; plugins
 of the same repository may keep relative imports of such exports. A host module is imported
@@ -1188,20 +1189,23 @@ module at startup through `hostNames`.
    `actor-programs/client-runtime` with the web's CSS) stays in the host.
 3. The forked agent runtime (`@ragents/agent`, `@ragents/ai`) is not
    part of it. What plugins need from it gets a narrow contract in the host: the hooks into
-   an agent's model calls (`host.agentRuntime`, section Agent hooks), the built-in
-   model catalog of a provider (`builtinCatalog` from `plugin-support/model-choice`), and a
-   single model question without history and tools (`openRouterCompletionModel` and the service
-   `aliasCompletionModelToken` from `plugin-support/model-completion`;
-   `host.service(aliasCompletionModelToken)(alias)` is undefined for an unknown alias and otherwise
-   offers the alias's levels as `thinkingLevels`). Host signatures may name runtime types,
+   an agent's model calls (`host.agentRuntime`, section Agent hooks), the configured
+   models of a provider (`providerCatalog` from `plugin-support/model-choice`), and a
+   single model question without history and tools (the services `completionModelToken` and
+   `aliasCompletionModelToken` from `plugin-support/model-completion`).
+   `await host.service(completionModelToken)(provider, model)` is undefined for an unconfigured model;
+   `host.service(aliasCompletionModelToken)(alias)` is undefined for an unknown alias. Otherwise
+   each offers a `CompletionModel` with the model's `thinkingLevels`. Requests resolve the model
+   and key through the server's model runtime. Host signatures may name runtime types,
    such as a model in the catalog; plugins only pass them through.
 4. From `@ragents/workspace-executor` only the names plugins need, as for every host
    module.
 5. Entries and names without users are removed with a version jump in the cleanup that owns them.
 
-**Version contract.** `HOST_API_VERSION` is 20 for the fixed Runs home and plugin page contributions.
-Plugins built for earlier host APIs must rebuild; the former configurable home contributions and
-per-user arrangement store have no compatibility aliases. It increases with every incompatible change of a
+**Version contract.** `HOST_API_VERSION` is 21 for profile-owned model definitions and completion
+services. Plugins built for earlier host APIs must rebuild. `providerCatalog` replaces the built-in
+catalog helper, and `completionModelToken` replaces the standalone OpenRouter completion helper;
+the model upstream service is removed. It increases with every incompatible change of a
 list entry, a listed name, or a fully allowed library, not with every
 package version; whatever else a host module exports changes without a new number. The manifest names it
 in `api`; the host requires equality and otherwise aborts with a cause and the command to rebuild;
@@ -2777,7 +2781,7 @@ For selected attachments, the host queries the input capabilities of the target 
 need `image`, videos `video`, and native PDFs `file`; a conflict blocks sending in the
 composer. The server checks the same prerequisites again before accepting. Text files are
 delivered as UTF-8 text; other files require file tools at the target agent. The
-OpenRouter catalog contains the input modalities published by the provider. Videos are
+profile's `MODEL_PROVIDERS` entries declare the input modalities of each model. Videos are
 transmitted as video input, PDFs with explicitly native processing, without automatic
 OCR fallback processing. TypeScript actors receive files as referenced artifacts.
 
@@ -5652,12 +5656,11 @@ revealing provider, real model names, or keys. It offers the profile's aliases,
 mapping of the offered thinking levels, and compaction values; see [profiles.md](profiles.md)),
 the same ones under which the server's own runs
 run; without
-aliases the start aborts. Every alias must point to a provider that a product plugin provides through
-the service `modelUpstreamsToken` (`plugin-support/model-upstreams.ts`, address, key,
-catalog) or to a provider of the profile in `MODEL_PROVIDERS` (`configuredModelProviders`), and to a model from its catalog that its thinking levels and
-compaction values fit (`validatedAliasModel`); otherwise the start aborts.
-`ragents.product` provides `openrouter` as soon as `OPENROUTER_API_KEY` is set; the key
-is not declared a second time.
+aliases the start aborts. Every alias must point to a provider in the profile's
+`MODEL_PROVIDERS` (`configuredModelProviders`) and to a configured model whose thinking levels
+and compaction values fit (`validatedAliasModel`); otherwise the start aborts. The relay reads
+the address, key, and model definitions from that provider entry. The product has no separate
+OpenRouter key or upstream registration.
 
 Two delivery routes under `/relay/v1`, both with the right `models.use`:
 `GET /models` returns the aliases in the OpenAI list format with a `catalog` block per entry

@@ -1,3 +1,4 @@
+import { modelProviderEnvironment } from "./fixtures/profile-composition/profiles.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -18,6 +19,7 @@ process.env.PRODUCT_PROFILE = "core";
 process.env.PRODUCT_ID = "test";
 process.env.PRODUCT_TITLE = "Test";
 process.env.COMPACTION_MODEL = "";
+Object.assign(process.env, modelProviderEnvironment);
 delete process.env.ACCESS_TOKEN;
 const { RunSessionProvider } = await import("../src/provider.ts");
 const { layout } = await import("../src/layout.ts");

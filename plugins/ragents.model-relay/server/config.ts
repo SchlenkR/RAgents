@@ -10,6 +10,6 @@ export const relayAliases = (aliases: readonly ModelAlias[]): readonly ModelAlia
 
 export const modelRelayConfig = Object.freeze({
   aliases: () => relayAliases(configuredModelAliases()),
-  /** The profile's own providers (MODEL_PROVIDERS in the host section) next to those of the product. */
-  upstreams: (product: readonly ModelUpstream[]): readonly ModelUpstream[] => [...product, ...configuredModelProviders()],
+  /** The providers declared by the profile. */
+  upstreams: (): readonly ModelUpstream[] => configuredModelProviders(),
 });

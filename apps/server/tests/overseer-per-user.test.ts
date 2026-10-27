@@ -1,3 +1,4 @@
+import { modelProviderEnvironment } from "./fixtures/profile-composition/profiles.ts";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import type { IncomingMessage } from "node:http";
@@ -39,6 +40,7 @@ process.env.PRODUCT_PROFILE = "per-user";
 process.env.PRODUCT_ID = "test";
 process.env.PRODUCT_TITLE = "Test";
 process.env.COMPACTION_MODEL = "";
+Object.assign(process.env, modelProviderEnvironment);
 await loadConfigFile(root);
 const { RunSessionProvider } = await import("../src/provider.ts");
 

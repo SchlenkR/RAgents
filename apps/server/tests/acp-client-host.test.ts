@@ -1,3 +1,4 @@
+import { modelProviderEnvironment } from "./fixtures/profile-composition/profiles.ts";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { mkdir, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
@@ -24,7 +25,7 @@ import { askPayloadOf } from "../../../plugins/ragents.ask/ask-payload.ts";
 const directory = await mkdtemp(path.join(tmpdir(), "ragents-acp-actors-"));
 const adapter = path.resolve(import.meta.dirname, "fixtures/acp/agent.mjs");
 const environment = { DATA_DIR: path.join(directory, "data"), PRODUCT_PROFILE: "core", PRODUCT_ID: "test-acp-actors", PRODUCT_TITLE: "ACP actors",
-  PROCESS_SANDBOX: "off", COMPACTION_MODEL: "", MODEL_ALIASES: undefined, MODEL_PROVIDERS: undefined, MCP_SERVERS: undefined, ACP_AGENTS: undefined, ACCESS_TOKEN: undefined };
+  PROCESS_SANDBOX: "off", COMPACTION_MODEL: "", MODEL_ALIASES: undefined, ...modelProviderEnvironment, MCP_SERVERS: undefined, ACP_AGENTS: undefined, ACCESS_TOKEN: undefined };
 const previous = new Map(Object.keys(environment).map((key) => [key, process.env[key]]));
 for (const [key, value] of Object.entries(environment)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
 after(async () => {

@@ -1,5 +1,5 @@
 /** The number of the host API a plugin is built against; it changes with every incompatible change of a list, a listed name or a library. */
-export const HOST_API_VERSION = 20;
+export const HOST_API_VERSION = 21;
 
 /** A library the host shares whole, as its installed version exports it; host code instead names each value it offers. */
 export const LIBRARY = "library";
@@ -64,11 +64,11 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/host/plugin-support/language-server/plugin": ["createLanguageServerPlugin"],
     "@ragents/host/plugin-support/model-aliases": ["configuredModelAliases", "modelLabel", "validatedAliasModel"],
     "@ragents/host/plugin-support/model-choice": [
-      "builtinCatalog", "modelChoiceEnvDescriptors", "modelChoiceFromEnvironment", "modelThinkingOptions",
+      "providerCatalog", "modelChoiceEnvDescriptors", "modelChoiceFromEnvironment", "modelThinkingOptions",
     ],
-    "@ragents/host/plugin-support/model-completion": ["aliasCompletionModelToken", "openRouterCompletionModel"],
+    "@ragents/host/plugin-support/model-completion": ["aliasCompletionModelToken", "completionModelToken"],
     "@ragents/host/plugin-support/model-providers": ["configuredModelProviders"],
-    "@ragents/host/plugin-support/model-upstreams": ["modelUpstreamsToken"],
+    "@ragents/host/plugin-support/model-upstreams": [],
     "@ragents/host/plugin-support/plugin-config": ["declaredEnvironment"],
     "@ragents/host/plugin-support/plugin-folder": ["folderSystemPrompts", "pluginAsset", "pluginFolder"],
     "@ragents/host/plugin-support/plugin-module": [],

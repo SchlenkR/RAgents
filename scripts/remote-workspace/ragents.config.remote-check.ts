@@ -37,6 +37,7 @@ export const users = [
 
 export const config = {
   host: {
+    COMPACTION_PROVIDER: "relay",
     PRODUCT_PROFILE: "remote-check",
     PRODUCT_ID: "ragents-remote-check",
     PRODUCT_TITLE: "RAgents check run",

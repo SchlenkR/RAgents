@@ -11,6 +11,7 @@ import { buildHomepageExtensions } from "./homepage-extensions.js";
 import { buildHomepageGuide } from "./homepage-guide.js";
 import { buildHomepageLlms, markdownCode } from "./homepage-llms.js";
 import { exampleCoverage, exampleAnchor } from "./homepage-examples.js";
+import { referenceModelEnvironment } from "./homepage-model-fixture.js";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 async function loadFixtures() {
@@ -22,8 +23,7 @@ async function loadFixtures() {
     ], {
       cwd: repoRoot,
       env: { PATH: process.env.PATH, DATA_DIR: scratch, PRODUCT_PROFILE: "showcase", PRODUCT_ID: "ragents",
-        PRODUCT_TITLE: "RAgents", AGENT_MODEL: "z-ai/glm-5.3-flash", AGENT_COORDINATOR_MODEL: "z-ai/glm-5.3",
-        OPENROUTER_API_KEY: "documentation-only" },
+        PRODUCT_TITLE: "RAgents", ...referenceModelEnvironment },
       maxBuffer: 32 * 1024 * 1024,
       timeout: 60000,
     });

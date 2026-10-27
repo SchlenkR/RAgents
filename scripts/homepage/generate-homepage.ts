@@ -11,6 +11,7 @@ import { buildHomepageLlms } from "./homepage-llms.js";
 import { assertHomepageLinks, buildHomepageExport, writeHomepageExport } from "./homepage-export.js";
 import { buildHomepageGuide, guideChapterHtml, guideCss, guideIndexHtml } from "./homepage-guide.js";
 import { buildTailwind } from "../../apps/server/src/plugin-support/actor-programs/tailwind.js";
+import { referenceModelEnvironment } from "./homepage-model-fixture.js";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const escape = (value: string) => value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]!));
@@ -29,7 +30,7 @@ async function main() {
   try {
     const require = createRequire(path.join(repoRoot, "apps/server/package.json"));
     const { stdout } = await promisify(execFile)(process.execPath, ["--import", require.resolve("tsx"), path.join(repoRoot, "scripts/homepage/homepage-catalog.ts"), "--collect"], {
-      cwd: repoRoot, env: { PATH: process.env.PATH, DATA_DIR: scratch, PRODUCT_PROFILE: "showcase", PRODUCT_ID: "ragents", PRODUCT_TITLE: "RAgents", AGENT_MODEL: "z-ai/glm-5.3-flash", AGENT_COORDINATOR_MODEL: "z-ai/glm-5.3", OPENROUTER_API_KEY: "documentation-only" },
+      cwd: repoRoot, env: { PATH: process.env.PATH, DATA_DIR: scratch, PRODUCT_PROFILE: "showcase", PRODUCT_ID: "ragents", PRODUCT_TITLE: "RAgents", ...referenceModelEnvironment },
       maxBuffer: 16 * 1024 * 1024, timeout: 60000,
     });
     const catalog = JSON.parse(stdout) as HomepageCatalog;

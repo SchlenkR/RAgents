@@ -16,8 +16,10 @@ const writeProfile = (directory: string, host: Readonly<Record<string, unknown>>
   const base = { PRODUCT_PROFILE: "bind-check", PRODUCT_ID: "acme", PRODUCT_TITLE: "Acme", PLUGINS: ["ragents.orchestration", "ragents.workspace", "ragents.product"] };
   writeFileSync(file, `import { env } from "@ragents/host/config-definition.js";
 export const config = {
-  host: ${JSON.stringify({ ...base, ...host })},
-  "ragents.product": { OPENROUTER_API_KEY: env("ACME_MODEL_KEY"), AGENT_MODEL: "z-ai/glm-5.3-flash", AGENT_COORDINATOR_MODEL: "z-ai/glm-5.3-flash" },
+  host: { ...${JSON.stringify({ ...base, ...host })},
+    MODEL_PROVIDERS: [{ id: "openrouter", baseUrl: "https://models.invalid/v1", apiKey: env("ACME_MODEL_KEY"),
+      models: [{ id: "z-ai/glm-5.3-flash", contextWindow: 262144, maxTokens: 32768, reasoning: true, input: ["text"] }] }] },
+  "ragents.product": { AGENT_MODEL: "z-ai/glm-5.3-flash", AGENT_COORDINATOR_MODEL: "z-ai/glm-5.3-flash" },
 };
 `);
   return file;

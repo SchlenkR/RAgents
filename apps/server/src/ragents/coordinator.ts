@@ -21,6 +21,9 @@ export const coordinatorSelection = (
   spawned: ModelSelection,
 ): ModelSelection => {
   if (!choice.model) return spawned;
+  if (choice.model === spawned.model || !catalog.modelList.some((entry) => entry.model === choice.model)) {
+    return { ...spawned, model: choice.model, ...(isThinkingLevel(choice.thinking) ? { thinking: choice.thinking } : {}) };
+  }
   const execution = resolveExecution(catalog, {
     profile: coordinator.profile,
     model: choice.model,

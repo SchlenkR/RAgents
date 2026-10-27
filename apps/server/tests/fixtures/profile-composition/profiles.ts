@@ -18,7 +18,18 @@ export const minimalFixture: CompositionFixture = {
   plugins: ["ragents.orchestration", "ragents.workspace", "ragents.product", "ragents.documents", "ragents.ask", "ragents.todo"],
 };
 
+export const modelProviderEnvironment: Readonly<Record<string, string>> = {
+  MODEL_PROVIDERS: JSON.stringify([{ id: "openrouter", baseUrl: "https://models.invalid/v1", apiKey: { kind: "environment", name: "TEST_MODEL_KEY" },
+    models: [
+      { id: "z-ai/glm-5.3", contextWindow: 1_048_576, maxTokens: 131_072, reasoning: true, input: ["text", "image"], thinkingLevelMap: { off: null, minimal: null, medium: null } },
+      { id: "z-ai/glm-5.3-flash", contextWindow: 1_048_576, maxTokens: 131_072, reasoning: true, input: ["text"], thinkingLevelMap: { off: null, minimal: null, medium: null } },
+    ] }]),
+  TEST_MODEL_KEY: "test-key",
+  COMPACTION_PROVIDER: "openrouter",
+};
+
 export const compositionEnvironment: Readonly<Record<string, string | undefined>> = {
+  ...modelProviderEnvironment,
   PRODUCT_PROFILE: "test-composition",
   PRODUCT_ID: "test-composition",
   PRODUCT_TITLE: "Composition fixture",
@@ -30,7 +41,6 @@ export const compositionEnvironment: Readonly<Record<string, string | undefined>
   AGENT_MODELS: undefined,
   AGENT_MODEL_REASONING: undefined,
   MODEL_SELECTABLE: undefined,
-  OPENROUTER_API_KEY: "test-key",
   ACCESS_TOKEN: undefined,
   COMPACTION_MODEL: "",
   SYSTEM_PROMPT_PATH: undefined,

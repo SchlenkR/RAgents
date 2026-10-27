@@ -51,8 +51,10 @@ export const writeFiles = (folder: string, files: Readonly<Record<string, string
 /** A profile file with the neutral plugins a product needs and a model key from the environment. */
 export const profileSource = (name: string, plugins: readonly string[], extra = ""): string => `import { env } from "@ragents/host/config-definition.js";
 export const config = {
-  host: { PORT: 4790, PRODUCT_PROFILE: ${JSON.stringify(name)}, PRODUCT_ID: "acme", PRODUCT_TITLE: "Acme", PLUGINS: ${JSON.stringify(plugins)} },
-  "ragents.product": { OPENROUTER_API_KEY: env("ACME_MODEL_KEY"), AGENT_MODEL: "z-ai/glm-5.3-flash", AGENT_COORDINATOR_MODEL: "z-ai/glm-5.3-flash" },
+  host: { PORT: 4790, PRODUCT_PROFILE: ${JSON.stringify(name)}, PRODUCT_ID: "acme", PRODUCT_TITLE: "Acme", PLUGINS: ${JSON.stringify(plugins)},
+    MODEL_PROVIDERS: [{ id: "openrouter", baseUrl: "https://models.invalid/v1", apiKey: env("ACME_MODEL_KEY"),
+      models: [{ id: "z-ai/glm-5.3-flash", contextWindow: 262144, maxTokens: 32768, reasoning: true, input: ["text"] }] }] },
+  "ragents.product": { AGENT_MODEL: "z-ai/glm-5.3-flash", AGENT_COORDINATOR_MODEL: "z-ai/glm-5.3-flash" },
   ${extra}
 };
 `;

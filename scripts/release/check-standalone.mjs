@@ -169,9 +169,14 @@ export const webPlugin: WebPlugin = { id: "acme.greeting" };
 
   write("ragents.config.smoke.ts", `import { env } from "@ragents/host/config-definition.js";
 export const config = {
-  host: { PORT: 4790, PRODUCT_PROFILE: "smoke", PRODUCT_ID: "acme", PRODUCT_TITLE: "Acme", PLUGINS: ["ragents.orchestration", "ragents.workspace", "ragents.product", "./dist/plugins/acme.greeting"] },
+  host: {
+    PORT: 4790, PRODUCT_PROFILE: "smoke", PRODUCT_ID: "acme", PRODUCT_TITLE: "Acme",
+    MODEL_PROVIDERS: [{ id: "openrouter", baseUrl: "https://models.example.invalid/v1", apiKey: env("ACME_MODEL_KEY"),
+      models: [{ id: "test-model", contextWindow: 131_072, maxTokens: 16_384, reasoning: true, input: ["text"] }] }],
+    PLUGINS: ["ragents.orchestration", "ragents.workspace", "ragents.product", "./dist/plugins/acme.greeting"],
+  },
   "ragents.workspace": { PROCESS_SANDBOX: "off" },
-  "ragents.product": { OPENROUTER_API_KEY: env("ACME_MODEL_KEY"), AGENT_MODEL: "z-ai/glm-5.3-flash", AGENT_COORDINATOR_MODEL: "z-ai/glm-5.3-flash" },
+  "ragents.product": { AGENT_MODEL: "test-model", AGENT_COORDINATOR_MODEL: "test-model" },
 };
 `);
   console.log("check: process sandbox explicitly off for the isolated packaging fixture; no model or workspace-tool calls");

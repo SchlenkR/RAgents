@@ -15,7 +15,7 @@ import {
 } from "@ragents/ai";
 import { compactionProblem } from "./compaction/compaction.ts";
 
-/** A provider registered at runtime: its models and a literal API key, over the built-in provider of the same id. */
+/** A provider registered at runtime with its models and a literal API key. */
 export interface ProviderConfigInput {
 	name?: string;
 	baseUrl?: string;
@@ -42,21 +42,17 @@ export interface ProviderConfigInput {
 
 function registeredModels(
 	providerId: string,
-	models: readonly Model<Api>[],
 	config: ProviderConfigInput,
 ): Model<Api>[] {
-	if (!config.models) {
-		return config.baseUrl ? models.map((model) => ({ ...model, baseUrl: config.baseUrl! })) : [...models];
-	}
+	if (!config.models?.length) throw new Error(`Provider ${providerId}: "models" needs at least one configured model.`);
 	return config.models.map((definition) => {
-		const defaults = models.find((model) => model.id === definition.id) ?? models[0];
-		const api = definition.api ?? config.api ?? defaults?.api;
+		const api = definition.api ?? config.api;
 		if (!api) {
 			throw new Error(
 				`Provider ${providerId}, model ${definition.id}: no "api" specified. Set at provider or model level.`,
 			);
 		}
-		const baseUrl = definition.baseUrl ?? config.baseUrl ?? defaults?.baseUrl;
+		const baseUrl = definition.baseUrl ?? config.baseUrl;
 		if (!baseUrl) throw new Error(`Provider ${providerId}: "baseUrl" is required when defining custom models.`);
 		const problem = reasoningReplayProblem(definition.reasoningReplay)
 			?? (definition.compaction === undefined ? undefined : compactionProblem(definition.compaction, definition));
@@ -71,31 +67,19 @@ function registeredModels(
 	});
 }
 
-function registeredApiKeyAuth(base: Provider | undefined, apiKey: string | undefined): ApiKeyAuth | undefined {
-	const inherited = base?.auth.apiKey;
-	if (apiKey === undefined) return inherited;
+function registeredApiKeyAuth(apiKey: string): ApiKeyAuth {
 	return {
-		name: inherited?.name ?? "API key",
+		name: "API key",
 		check: async () => ({ type: "api_key", source: "configured API key" }),
-		resolve: async (input) =>
-			inherited
-				? inherited.resolve({ ...input, credential: { type: "api_key", key: apiKey } })
-				: { auth: { apiKey }, source: "configured API key" },
+		resolve: async () => ({ auth: { apiKey }, source: "configured API key" }),
 	};
 }
 
-/** Composes the built-in provider of the same id, if any, with a runtime registration. */
-export function composeModelProvider(
-	providerId: string,
-	base: Provider | undefined,
-	config: ProviderConfigInput,
-): Provider {
-	const getModels = () => registeredModels(providerId, base?.getModels() ?? [], config);
-	getModels();
-	const apiKey = registeredApiKeyAuth(base, config.apiKey);
-	if (!apiKey) throw new Error(`Provider ${providerId}: no API key configured.`);
-
-	const supportsBaseApi = (model: Model<Api>) => base?.getModels().some((entry) => entry.api === model.api) ?? false;
+/** Composes a configured provider without inherited models or credentials. */
+export function composeModelProvider(providerId: string, config: ProviderConfigInput): Provider {
+	const models = registeredModels(providerId, config);
+	if (!config.apiKey) throw new Error(`Provider ${providerId}: no API key configured.`);
+	const apiKey = registeredApiKeyAuth(config.apiKey);
 	const streamWith = (
 		model: Model<Api>,
 		context: Context,
@@ -103,11 +87,6 @@ export function composeModelProvider(
 		simple: boolean,
 	): AssistantMessageEventStream =>
 		lazyStream(model, async () => {
-			if (base && supportsBaseApi(model)) {
-				return simple
-					? base.streamSimple(model, context, options as SimpleStreamOptions)
-					: base.stream(model, context, options);
-			}
 			const api = getApiProvider(model.api);
 			if (!api) throw new Error(`No API provider registered for api: ${model.api}`);
 			return simple
@@ -117,11 +96,10 @@ export function composeModelProvider(
 
 	return {
 		id: providerId,
-		name: config.name ?? base?.name ?? providerId,
-		baseUrl: config.baseUrl ?? base?.baseUrl,
-		headers: base?.headers,
+		name: config.name ?? providerId,
+		baseUrl: config.baseUrl,
 		auth: { apiKey },
-		getModels,
+		getModels: () => models,
 		stream: (model, context, options) => streamWith(model, context, options, false),
 		streamSimple: (model, context, options) => streamWith(model, context, options, true),
 	};

@@ -562,12 +562,12 @@ positive integers, `keepRecentTokens + summaryTokens` below `threshold`,
 limit, and enough space between threshold and window for the largest reasoning/output reserve of
 its offered levels; otherwise the registration fails and with it the start, naming a valid maximum
 threshold. A model without its own values, for
-example a catalog model without an alias, has the catalog default (`catalogCompaction`):
+example a configured model without an alias, has the runtime default (`catalogCompaction`):
 `threshold` equal to `contextWindow - 16384`, `keepRecentTokens` 20000, and `summaryTokens` 13107,
-80 percent of 16384, so 8192 for the turn beginning. The catalog names as context window the
-largest across all providers of a model; the default threshold is therefore often above the window
-of most providers, and whoever does not want that gives the model its own values through an alias.
-Runtime checks also lower catalog thresholds for the selected thinking level.
+80 percent of 16384, so 8192 for the turn beginning. The profile maintains the usable context
+window of each model in `MODEL_PROVIDERS`. An alias can define a smaller threshold for an
+upstream with varying endpoint limits. Runtime checks also lower default thresholds for the
+selected thinking level.
 The configured values are in `context.compacted` (`threshold` with `source` `model` or `catalog`).
 The model of the turn is authoritative: a model change applies from the next turn, and already its
 check before the first step measures the existing context against the new model's threshold.
@@ -587,8 +587,9 @@ translates messages, reasoning metadata, and SDK streams into the existing runti
 SDK handles HTTP, provider format, and SSE processing; per request there is exactly one model step
 without tool execution by the SDK. Tool validation, tool execution, and further model steps belong
 to the agent runtime. Request and response hooks work on the actual HTTP contract, cancellation and
-timeout apply to the SDK call; transport retries are disabled by default. Model catalog, context
-limits, cache markers, and local cost calculation are preserved. For models with Anthropic cache
+timeout apply to the SDK call; transport retries are disabled by default. Model definitions and
+limits come from the profile; the adapter applies cache markers and calculates cost at the
+configured rates. For models with Anthropic cache
 (`cacheControlFormat` or `anthropic/...`), the adapter sets three cache markers as long as
 `AGENT_CACHE_RETENTION` is not `none`: on the system prompt, on the last tool, and on the last
 message of the request (`markCacheBoundary` in `packages/ai/src/api/ai-sdk-messages.ts`), namely on

@@ -103,6 +103,9 @@ test("without a configured compaction model the title stays untouched", async (t
 test("concurrent title requests share one bounded model call and publish only the persisted title", { timeout: 5_000 }, async (t) => {
   const { faux, options, sessionsDir } = await fixture(t);
   const selection = { provider: "openrouter", model: "google/gemini-3.1-flash-lite" };
+  faux.modelRuntime.registerProvider(selection.provider, { api: "openai-completions", baseUrl: "https://openrouter.ai/api/v1", apiKey: "test-key", models: [
+    { id: selection.model, name: "Concurrent title model", contextWindow: 131_072, maxTokens: 16_384, reasoning: false, input: ["text"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } },
+  ] });
   const originalModel = structuredClone(faux.modelRuntime.getModel(selection.provider, selection.model));
   const response = Promise.withResolvers<ReturnType<typeof fauxAssistantMessage>>();
   const started = Promise.withResolvers<void>();

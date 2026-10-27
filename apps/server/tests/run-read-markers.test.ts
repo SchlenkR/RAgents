@@ -1,3 +1,4 @@
+import { modelProviderEnvironment } from "./fixtures/profile-composition/profiles.ts";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -18,6 +19,7 @@ process.env.PRODUCT_PROFILE = "core";
 process.env.PRODUCT_ID = "test";
 process.env.PRODUCT_TITLE = "Test";
 process.env.COMPACTION_MODEL = "";
+Object.assign(process.env, modelProviderEnvironment);
 const { RunSessionProvider, READ_MARKER_NOTICE_INTERVAL_MS } = await import("../src/provider.ts");
 const { RunReadMarkers, READ_MARKERS_WRITE_DELAY_MS } = await import("../src/run-read-markers.ts");
 const { layout } = await import("../src/layout.ts");

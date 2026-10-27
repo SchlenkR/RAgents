@@ -1,5 +1,23 @@
 # Decisions
 
+## 2026-10-27: Models belong to profile configuration
+
+Chapters: `spec/profiles.md` (model providers, aliases, titles); `spec/plugins.md` (host API, model relay, attachments); `spec/core.md` (compaction); `spec/overview.md` (reference generation); `operations.md` (model access); `usage.md` (model selection); `development.md` (maintenance tools).
+
+**Why.** Model availability, limits, reasoning levels, inputs, and prices are configuration
+maintained by the people running a profile. A repository catalog becomes stale independently of
+the provider and prevents profiles from naming new models directly.
+
+**Decision.** Every ordinary provider and model is declared in `MODEL_PROVIDERS`, including
+OpenRouter. Roles and compaction can name configured providers and model ids directly; aliases
+remain optional. Keys come only from each provider's `apiKey: env("NAME")`. The defaults still
+select `openrouter`, which now needs an explicit provider entry; `alias` and `relay` stay reserved.
+The repository keeps the OpenRouter adapter, request formats, routing, reasoning, usage, and cost
+handling, and removes the catalog and its updater without fetching replacement metadata. The
+neutral profiles carry their own model definitions. Replay keeps existing journals available; a
+removed provider or model fails only the affected actor's next turn. Host API 21 replaces the
+built-in catalog and standalone OpenRouter completion helpers with configured-provider access.
+
 ## 2026-10-26: Chat follows quassel 0.5.6 for copying and scrolling
 
 Chapters: `spec/plugins.md` (Web as plugin host, UI library); `development.md` (Developing quassel and RAgents together).

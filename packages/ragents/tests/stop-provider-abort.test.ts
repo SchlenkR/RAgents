@@ -23,7 +23,7 @@ const REASON = "Stopped in the chat";
 
 type Transport = "OpenRouter" | "OpenAI-compatible";
 
-type Phase = "before the first byte" | "while streaming";
+type RequestTiming = "before the first byte" | "while streaming";
 
 /** One request as the provider saw it; cut means the client closed the connection before the response ended. */
 type Exchange = {
@@ -58,7 +58,7 @@ const chunk = (delta: object, finishReason: string | null = null) => `data: ${JS
 })}\n\n`;
 
 /** A streaming chat-completions endpoint: it keeps the first response open and answers every later request completely. */
-const providerEndpoint = async (t: TestContext, phase: Phase) => {
+const providerEndpoint = async (t: TestContext, timing: RequestTiming) => {
     const exchanges: Exchange[] = [];
     const received = deferred();
     const server = createServer(async (request, response) => {
@@ -80,7 +80,7 @@ const providerEndpoint = async (t: TestContext, phase: Phase) => {
             return;
         }
 
-        if (phase === "while streaming") {
+        if (timing === "while streaming") {
             response.writeHead(200, { "content-type": "text/event-stream" });
             response.write(chunk({ role: "assistant", content: PARTIAL }));
         }
@@ -108,7 +108,7 @@ const providerEndpoint = async (t: TestContext, phase: Phase) => {
     return { exchanges, received, origin: `http://127.0.0.1:${address.port}`, disconnect: () => server.closeAllConnections() };
 };
 
-/** The model runtime as the server builds it: the built-in OpenRouter provider, or a profile provider on the OpenAI-compatible API. */
+/** Explicit providers for the OpenRouter request shape and the OpenAI-compatible endpoint. */
 const modelRuntimeFor = (transport: Transport, origin: string) => {
     const model = {
         id: MODEL_ID, name: "Streaming test", api: "openai-completions" as const, reasoning: false, input: ["text" as const],
@@ -117,7 +117,7 @@ const modelRuntimeFor = (transport: Transport, origin: string) => {
     const provider = transport === "OpenRouter" ? "openrouter" : "acme";
     const modelRuntime = ModelRuntime.create();
     modelRuntime.registerProvider(provider, transport === "OpenRouter"
-        ? { apiKey: "test-only", models: [model] }
+        ? { baseUrl: "https://openrouter.ai/api/v1", apiKey: "test-only", models: [model] }
         : { baseUrl: `${origin}/v1`, apiKey: "test-only", api: "openai-completions", models: [model] });
 
     return { modelRuntime, provider };
@@ -130,9 +130,9 @@ const settle = async (scheduler: TurnScheduler) => {
 };
 
 for (const transport of ["OpenRouter", "OpenAI-compatible"] as const) {
-    for (const phase of ["before the first byte", "while streaming"] as const) {
-        test(`a stop ${phase} closes the ${transport} connection of the running model request, ends the turn as interrupted and sends nothing until a human continues`, { timeout: 15_000 }, async (t) => {
-            const endpoint = await providerEndpoint(t, phase);
+    for (const timing of ["before the first byte", "while streaming"] as const) {
+        test(`a stop ${timing} closes the ${transport} connection of the running model request, ends the turn as interrupted and sends nothing until a human continues`, { timeout: 15_000 }, async (t) => {
+            const endpoint = await providerEndpoint(t, timing);
 
             if (!endpoint) {
                 t.skip("Sandbox does not allow a local listener");
@@ -190,7 +190,7 @@ for (const transport of ["OpenRouter", "OpenAI-compatible"] as const) {
                 scheduler.start();
                 await within(endpoint.received.promise, "The model request");
 
-                if (phase === "while streaming")
+                if (timing === "while streaming")
                     await within(streamed.promise, "The first streamed text");
 
                 const first = endpoint.exchanges[0]!;
@@ -219,9 +219,9 @@ for (const transport of ["OpenRouter", "OpenAI-compatible"] as const) {
                 assert.equal(interruptions[0]!.event.commandId, `stop:interrupt:${agentId}`);
                 assert.equal(events.some((event) => event.type === "turn.finished" || event.type === "model.step.completed"), false);
                 const kept = events.flatMap((event, index) => event.type === "model.output.interrupted" ? [{ index, text: event.payload.text }] : []);
-                assert.deepEqual(kept.map((entry) => entry.text), phase === "while streaming" ? [PARTIAL] : []);
+                assert.deepEqual(kept.map((entry) => entry.text), timing === "while streaming" ? [PARTIAL] : []);
                 assert.ok(kept.every((entry) => stopped < entry.index && entry.index < interruptions[0]!.index), "the streamed text is kept between stop and interruption");
-                assert.deepEqual(deltas, phase === "while streaming" ? [PARTIAL] : []);
+                assert.deepEqual(deltas, timing === "while streaming" ? [PARTIAL] : []);
                 const view = setup.runtime.view(runId);
                 assert.deepEqual(view.turns.map((turn) => turn.status), ["interrupted"]);
                 assert.equal(view.stopped?.reason, REASON);

@@ -299,10 +299,11 @@ chat building blocks of the web half come from the host as `@schlenkr/quassel`; 
 `quassel` still works for one more release as a deprecated alias for the same module, so existing
 bundles keep loading, and a plugin should import `@schlenkr/quassel` and rebuild. The
 agent runtime behind the host (`@ragents/agent`, `@ragents/ai`) is not part of it: hooks into an
-agent's model calls come through `host.agentRuntime`, a single question to a model through
-`openRouterCompletionModel` from `@ragents/host/plugin-support/model-completion` or, for a profile
-alias over the server's model runtime, the service `aliasCompletionModelToken` from there, and the
-built-in model catalog of a provider through `builtinCatalog` from
+agent's model calls come through `host.agentRuntime`, a single question to a configured model
+through the service `completionModelToken` from `@ragents/host/plugin-support/model-completion`
+(`await host.service(completionModelToken)(provider, model)`) or, for a profile alias, the service
+`aliasCompletionModelToken` from there. Both use the server's model runtime and configured key.
+A provider's configured models come through `providerCatalog` from
 `@ragents/host/plugin-support/model-choice`. Another plugin is reachable only through its
 declared exports as `@ragents/plugins/<id>/<export>`, and only if its ID is in `requires`; plugins
 of the same repository may keep relative imports of such exports. A host module is imported

@@ -1,3 +1,4 @@
+import { modelProviderEnvironment } from "./fixtures/profile-composition/profiles.ts";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -27,7 +28,7 @@ const environment = {
   PROCESS_SANDBOX: "off",
   COMPACTION_MODEL: "",
   MODEL_ALIASES: undefined,
-  MODEL_PROVIDERS: undefined,
+  ...modelProviderEnvironment,
   MCP_SERVERS: undefined,
   ACCESS_TOKEN: undefined,
 };

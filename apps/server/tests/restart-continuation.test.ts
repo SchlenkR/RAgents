@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
 import { AgentLoopDriver, PluginHost, type MethodConnection, type TurnRequest } from "@ragents/engine";
+import { ModelRuntime } from "@ragents/agent";
+import { fauxAssistantMessage, registerFauxProvider } from "@ragents/ai";
 import { FILE_OPERATIONS, WORKSPACE_EXECUTOR_VERSION } from "@ragents/workspace-executor";
 import { deferred, executionFor, noUsage } from "../../../packages/ragents/tests/support.ts";
 import { WorkspaceClientRegistry } from "../../../plugins/ragents.workspace/server/clients.ts";
@@ -23,7 +25,7 @@ process.env.RESUME_AFTER_RESTART = "true";
 const { createEngine, SessionWorkspaces } = await import("../src/ragents/engine.ts");
 after(() => rm(directory, { recursive: true, force: true }));
 
-const open = async (runId: string, clients = new WorkspaceClientRegistry([])) => {
+const open = async (runId: string, clients = new WorkspaceClientRegistry([]), modelRuntime?: ModelRuntime) => {
   const plugins = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: directory });
   plugins.provideHost(productRuntimeToken, {
     coordinator: { handle: "primary", displayName: "Primary", profile: "unused", runTitle: "Test", ownerHandle: "owner", ownerDisplayName: "Owner" },
@@ -44,7 +46,8 @@ const open = async (runId: string, clients = new WorkspaceClientRegistry([])) =>
   plugins.provideHost(workspaceRuntimeToken, workspace);
   const workspaces = new SessionWorkspaces(() => workspace.sandbox, (id, signal) => workspace.waitUntilReady(id, signal));
   workspaces.remember(runId, directory);
-  engine = await createEngine({ plugins, workspaces, assertAvailable: () => {}, assertRunUsable: () => {} });
+  engine = await createEngine({ plugins, workspaces, modelRuntime: Promise.resolve(modelRuntime ?? ModelRuntime.create()), assertAvailable: () => {}, assertRunUsable: () => {} });
+  for (const id of engine.journal.runIds()) workspaces.remember(id, directory);
   return { engine, workspace, clients, close: async () => { await engine.shutdown(); await workspace.shutdown(); clients.shutdown(); } };
 };
 
@@ -172,4 +175,47 @@ test("workstation reconnect waits obey the existing timeout and abort cleanly", 
   abort.abort(new Error("cancelled"));
   await stopped;
   clients.shutdown();
+});
+
+test("replayed runs with a removed provider or model fail only their next turn while configured runs work", async (t) => {
+  const ids = ["removed-provider", "removed-model", "configured-model"];
+  const selections = [
+    { provider: "removed", model: "former-model" },
+    { provider: "configured", model: "former-model" },
+    { provider: "configured", model: "current-model" },
+  ];
+  const first = await open(ids[0]!);
+  const actors = ids.map((runId, index) => {
+    const run = first.engine.runtime.createRun({ commandId: `create:${runId}` }, { runId, title: "Test", ownerHandle: "owner", ownerDisplayName: "Owner" });
+    const view = first.engine.runtime.spawnAgent({ actorId: run.ownerId, commandId: "spawn" }, runId, {
+      handle: "worker", displayName: "Worker", prompt: "Answer briefly.", toolNames: [], grants: [],
+      execution: executionFor("worker", { ...selections[index]!, profile: "agent", isolateWorkspace: false }),
+    });
+    const actorId = view.actors.find((actor) => actor.kind === "agent")!.id;
+    first.engine.runtime.enqueueInput({ actorId: run.ownerId, commandId: "task" }, runId, { actorId, content: "Hello" });
+    return actorId;
+  });
+  await first.close();
+  const faux = registerFauxProvider({ models: [{ id: "current-model", reasoning: false }] });
+  t.after(() => faux.unregister());
+  faux.setResponses([fauxAssistantMessage("Hello")]);
+  const models = ModelRuntime.create();
+  models.registerProvider("configured", { apiKey: "test-key", api: faux.api, models: [{ ...faux.getModel() }] });
+  const second = await open(ids[0]!, new WorkspaceClientRegistry([]), models);
+  try {
+    second.engine.start();
+    await second.engine.scheduler.waitForIdle();
+    for (const [index, runId] of ids.entries()) {
+      const view = second.engine.runtime.view(runId);
+      assert.equal(view.actors.find((actor) => actor.id === actors[index])?.kind, "agent");
+      if (index < 2) {
+        const failed = second.engine.runtime.events(runId).find((event) => event.type === "turn.finished" && event.payload.outcome === "failed");
+        assert.ok(failed && failed.type === "turn.finished" && failed.payload.outcome === "failed");
+        assert.match(JSON.stringify(failed.payload), new RegExp(`The model ${selections[index]!.provider}/former-model is not configured`));
+      } else {
+        assert.equal(second.engine.runtime.events(runId).some((event) => event.type === "turn.finished" && event.payload.outcome === "failed"), false);
+        assert.ok(second.engine.runtime.events(runId).some((event) => event.type === "model.output.completed"));
+      }
+    }
+  } finally { await second.close(); }
 });

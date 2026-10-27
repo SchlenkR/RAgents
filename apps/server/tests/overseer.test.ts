@@ -1,3 +1,4 @@
+import { modelProviderEnvironment } from "./fixtures/profile-composition/profiles.ts";
 import { setupPackageFiles } from "./actor-programs-fixture.ts";
 import { actorProgramsToken } from "../src/plugin-support/actor-programs/service.ts";
 import { ActorProgramRuntime } from "../../../plugins/ragents.actor-programs/server/runtime.ts";
@@ -26,6 +27,7 @@ process.env.PRODUCT_PROFILE = "core";
 process.env.PRODUCT_ID = "test";
 process.env.PRODUCT_TITLE = "Test";
 process.env.COMPACTION_MODEL = "";
+Object.assign(process.env, modelProviderEnvironment);
 const { RunSessionProvider } = await import("../src/provider.ts");
 const OVERSEER_RUN_ID = coordinatorRunId(null);
 

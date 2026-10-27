@@ -1,7 +1,7 @@
 {
 	"name": "@ragents/ai",
 	"version": "0.80.10",
-	"description": "The LLM access of RAgents: OpenRouter and the AI SDK packages of profile providers over AI SDK Core, the model catalog and streaming",
+	"description": "The LLM access of RAgents: OpenRouter and the AI SDK packages of profile providers over AI SDK Core, configured models and streaming",
 	"type": "module",
 	"main": "./src/index.ts",
 	"types": "./dist/index.d.ts",

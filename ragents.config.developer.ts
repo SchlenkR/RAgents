@@ -9,6 +9,57 @@ export const anonymousUser = {
 
 export const config = {
   host: {
+    MODEL_PROVIDERS: [{
+      id: "openrouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiKey: env("OPENROUTER_API_KEY"),
+      models: [
+        {
+          id: "z-ai/glm-5.3-flash",
+          contextWindow: 1048575,
+          maxTokens: 943717,
+          reasoning: true,
+          input: ["text", "image", "video"],
+          thinkingLevelMap: {
+            off: null,
+            minimal: null,
+            low: "low",
+            medium: null,
+            high: "high",
+            xhigh: null,
+            max: "max",
+          },
+          cost: {
+            input: 0.15,
+            output: 0.5,
+            cacheRead: 0.03,
+            cacheWrite: 0,
+          },
+        },
+        {
+          id: "deepseek/deepseek-v4-flash-0731",
+          contextWindow: 1048576,
+          maxTokens: 943718,
+          reasoning: true,
+          input: ["text"],
+          thinkingLevelMap: {
+            off: "none",
+            minimal: null,
+            low: null,
+            medium: null,
+            high: "high",
+            xhigh: "xhigh",
+            max: null,
+          },
+          cost: {
+            input: 0.018,
+            output: 0.32,
+            cacheRead: 0.018,
+            cacheWrite: 0,
+          },
+        },
+      ],
+    }],
     PORT: 4715,
     PRODUCT_PROFILE: "developer",
     PRODUCT_ID: "ragents-developer",
@@ -45,7 +96,6 @@ export const config = {
 
   "ragents.product": {
     AGENT_PROVIDER: "openrouter",
-    OPENROUTER_API_KEY: env("OPENROUTER_API_KEY"),
     AGENT_MODEL: "z-ai/glm-5.3-flash",
     AGENT_COORDINATOR_MODEL: "z-ai/glm-5.3-flash",
     AGENT_COORDINATOR_THINKING: "low",

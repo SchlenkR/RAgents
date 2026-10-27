@@ -6,7 +6,6 @@ import {
 } from "@ragents/engine";
 import { modelLabel } from "@ragents/host/plugin-support/model-aliases.js";
 import type { ModelChoice } from "@ragents/host/plugin-support/model-choice.js";
-import { modelUpstreamsToken } from "@ragents/host/plugin-support/model-upstreams.js";
 import { pluginAsset } from "@ragents/host/plugin-support/plugin-folder.js";
 import type { PluginModule } from "@ragents/host/plugin-support/plugin-module.js";
 import { productStartOptions } from "@ragents/host/plugin-support/product-start-options.js";
@@ -64,9 +63,7 @@ const ragentsProductPlugin: RAgentsPlugin = {
   manifest: { id: "ragents.product" },
   register: (host) => {
     host.provide(productRuntimeToken, ragentsProductRuntime);
-    host.provide(modelUpstreamsToken, ragentsProductConfig.upstreams);
     host.config(...ragentsProductConfigDescriptors);
-    void ragentsProductConfig.modelChoice.options;
     // The model defaults are checked against the catalog; with a relay it is only available after the fetch on start.
     let store: ProductModelSettingsStore | undefined;
     const settings = (): ProductModelSettingsStore =>

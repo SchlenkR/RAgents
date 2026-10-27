@@ -24,11 +24,13 @@ import { RunChatSession } from "../src/ragents/session.ts";
 import { ACTOR_PROGRAMS_STATE_ID, resolveActorView, type ActorProgramState } from "../../../apps/server/src/plugin-support/actor-programs/contract.ts";
 import type { ActorProgramRuntime } from "../../../plugins/ragents.actor-programs/server/runtime.ts";
 import { invocationResult } from "./actor-runtime-fixture.ts";
+import { compositionEnvironment } from "./fixtures/profile-composition/profiles.ts";
 
 process.env.DATA_DIR = mkdtempSync(path.join(tmpdir(), "ragents-reference-scripts-"));
 process.env.AGENT_MODEL ??= "z-ai/glm-5.3";
 process.env.AGENT_COORDINATOR_MODEL ??= "z-ai/glm-5.3-flash";
-process.env.OPENROUTER_API_KEY ??= "test-key";
+process.env.MODEL_PROVIDERS ??= compositionEnvironment.MODEL_PROVIDERS;
+process.env.TEST_MODEL_KEY ??= compositionEnvironment.TEST_MODEL_KEY;
 process.env.PRODUCT_ID ??= "ragents";
 process.env.PRODUCT_TITLE ??= "RAgents";
 

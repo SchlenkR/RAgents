@@ -599,8 +599,8 @@ AGENT_MODEL: "z-ai/glm-5.3-flash",
 ```
 
 A product plugin can register further roles with its own keys; saved roles
-can be edited separately. The current model catalog offers `low`, `high`, and `max` for
-GLM 5.3 and GLM 5.3 Flash.
+can be edited separately. The offered models and thinking levels come from the active profile's
+model definitions. The included profiles offer `low`, `high`, and `max` for GLM 5.3 and GLM 5.3 Flash.
 Saved model settings take precedence over the profile file. Changes
 in the interface apply to newly created actors without a restart; config and run prompt changes
 require a restart and, for the new coordinator prompt, a new implementation run.

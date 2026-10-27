@@ -1,6 +1,5 @@
 import type { ModelRuntime } from "@ragents/agent";
-import { createModels, getSupportedThinkingLevels, type Api, type AssistantMessage, type Context, type Model, type SimpleStreamOptions } from "@ragents/ai";
-import { openrouterProvider } from "@ragents/ai/providers/openrouter";
+import { getSupportedThinkingLevels, type Api, type AssistantMessage, type Context, type Model, type SimpleStreamOptions } from "@ragents/ai";
 import { serviceToken, type ServiceToken, type ThinkingLevel } from "@ragents/engine";
 import { ALIAS_PROVIDER, aliasCatalog, configuredModelAliases } from "./model-aliases.js";
 
@@ -51,17 +50,20 @@ const completionModel = (id: string, model: Model<Api>, levels: Model<Api>, comp
   },
 });
 
-/** An OpenRouter model of the built-in catalog that answers over the fastest provider and never retries; the key comes from OPENROUTER_API_KEY. */
-export const openRouterCompletionModel = (id: string): CompletionModel | undefined => {
-  const models = createModels();
-  models.setProvider(openrouterProvider());
-  const selected = models.getModel("openrouter", id);
+/** A configured model over the server's runtime, including the registered provider's key. */
+export const runtimeCompletionModel = (runtime: ModelRuntime, provider: string, id: string): CompletionModel | undefined => {
+  const selected = runtime.getModel(provider, id);
   if (!selected) return undefined;
-  const model: Model<Api> = { ...selected, compat: { ...selected.compat,
-    openRouterRouting: { ...selected.compat?.openRouterRouting, sort: "latency" },
-  } };
-  return completionModel(id, model, selected, (target, context, options) => models.completeSimple(target, context, options));
+  return completionModel(id, completionRequestModel(selected), selected,
+    (model, context, options) => runtime.completeSimple(model, context, options));
 };
+
+export const completionRequestModel = (model: Model<Api>): Model<Api> =>
+  !model.sdk && new URL(model.baseUrl).hostname === "openrouter.ai" ? { ...model, compat: { ...model.compat,
+    openRouterRouting: { ...model.compat?.openRouterRouting, sort: "latency" },
+  } } : model;
+
+export const completionModelToken: ServiceToken<(provider: string, model: string) => Promise<CompletionModel | undefined>> = serviceToken("host.completion-model");
 
 /** A profile alias (MODEL_ALIASES) over the server's model runtime, with the levels the alias offers; none for an unknown alias. */
 export const aliasCompletionModel = (runtime: () => Promise<ModelRuntime>, alias: string): CompletionModel | undefined => {

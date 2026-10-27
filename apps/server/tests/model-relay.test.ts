@@ -9,7 +9,7 @@ import { ModelRuntime } from "@ragents/agent";
 import { getSupportedThinkingLevels, type Api, type Model } from "@ragents/ai";
 import { createAccessContext, PluginHost, type AccessContext } from "@ragents/engine";
 import { readBody } from "../src/plugin-support/http.ts";
-import { modelUpstreamsToken, type ModelUpstream } from "../src/plugin-support/model-upstreams.ts";
+import type { ModelUpstream } from "../src/plugin-support/model-upstreams.ts";
 import { parseModelAliases } from "../src/plugin-support/model-aliases.ts";
 import { createRelayCatalog } from "../src/plugin-support/product-relay.ts";
 import { relayAliases } from "../../../plugins/ragents.model-relay/server/config.ts";
@@ -70,10 +70,23 @@ const relayServer = async (t: TestContext, upstreamUrl: string, access: (request
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-relay-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: directory });
-  const upstream: ModelUpstream = { id: target.provider, baseUrl: `${upstreamUrl}/api/v1`, apiKey: "sk-upstream-secret", models: [target] };
-  host.register({ manifest: { id: "test.product" }, register: (registration) => registration.provide(modelUpstreamsToken, () => [upstream]) });
-  process.env.MODEL_ALIASES = JSON.stringify([aliasEntry("workshop-coordinator", `${target.provider}/${target.id}`, extra)]);
-  t.after(() => { delete process.env.MODEL_ALIASES; });
+  const environment = {
+    MODEL_PROVIDERS: JSON.stringify([{ id: target.provider, baseUrl: `${upstreamUrl}/api/v1`, apiKey: { kind: "environment", name: "TEST_RELAY_UPSTREAM_KEY" },
+      ...(target.sdk ? { sdk: target.sdk } : {}), models: [{
+        id: target.id, contextWindow: target.contextWindow, maxTokens: target.maxTokens, reasoning: target.reasoning,
+        input: target.input, thinkingLevelMap: target.thinkingLevelMap, cost: target.cost,
+      }] }]),
+    MODEL_ALIASES: JSON.stringify([aliasEntry("workshop-coordinator", `${target.provider}/${target.id}`, extra)]),
+    TEST_RELAY_UPSTREAM_KEY: "sk-upstream-secret",
+  };
+  const previous = new Map(Object.keys(environment).map((key) => [key, process.env[key]]));
+  Object.assign(process.env, environment);
+  t.after(() => {
+    for (const [key, value] of previous) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
   host.register(relayModule.create(host));
   host.seal();
   const lines: string[] = [];

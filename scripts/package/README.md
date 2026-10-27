@@ -106,8 +106,9 @@ npm install -g @schlenkr/ragents
   interface, the same for every profile, and loads the web halves of plugins from their bundles.
 - `dotnet` (.NET 10 SDK) for the C# diagnostics through Roslyn and the F# diagnostics through FSAC;
   without it TypeScript diagnostics still work.
-- Model access: either `OPENROUTER_API_KEY` in the environment, or `ragents connect <server-url>`
-  against a RAgents server that relays the models.
+- Model access: providers and models declared in the profile's `host.MODEL_PROVIDERS`, with keys
+  from their `apiKey: env("NAME")` references, or `ragents connect <server-url>` against a server
+  that relays the models. The included profiles reference `OPENROUTER_API_KEY`.
 
 ## Documentation
 

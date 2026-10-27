@@ -8,9 +8,7 @@ export type KnownApi = "openai-completions";
 
 export type Api = KnownApi | (string & {});
 
-export type KnownProvider = "openrouter";
-
-export type ProviderId = KnownProvider | string;
+export type ProviderId = string;
 
 /** An AI SDK provider package that a configured provider names; a model without one goes through the OpenRouter provider. */
 export type ModelSdk = "mistral" | "openai-compatible";

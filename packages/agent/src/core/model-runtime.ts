@@ -15,10 +15,8 @@ import {
 	type ModelCompaction,
 	type ModelThinkingLevel,
 	type MutableModels,
-	type Provider,
 	type SimpleStreamOptions,
 } from "@ragents/ai";
-import { builtinProviders } from "@ragents/ai/providers/all";
 import { compactionProblem } from "./compaction/compaction.ts";
 import { composeModelProvider, type ProviderConfigInput } from "./provider-composer.ts";
 
@@ -77,17 +75,13 @@ export function aliasedModel(providerId: string, entry: ModelAlias, target: Mode
 		...(entry.reasoningReplay === undefined ? {} : { reasoningReplay: entry.reasoningReplay }) };
 }
 
-/** The built-in providers plus the ones registered at runtime; a key comes from the registration or the environment. */
+/** The configured providers and aliases; every key comes from its provider registration. */
 export class ModelRuntime {
 	private readonly models: MutableModels = createModels();
-	private readonly builtins: ReadonlyMap<string, Provider>;
 	private readonly registrations = new Map<string, ProviderConfigInput>();
 	private aliasRegistration: AliasRegistration | undefined;
 
-	private constructor() {
-		this.builtins = new Map(builtinProviders().map((provider) => [provider.id, provider]));
-		for (const provider of this.builtins.values()) this.models.setProvider(provider);
-	}
+	private constructor() {}
 
 	static create(): ModelRuntime {
 		return new ModelRuntime();
@@ -134,7 +128,7 @@ export class ModelRuntime {
 			...this.registrations.get(providerId),
 			...Object.fromEntries(Object.entries(config).filter(([, value]) => value !== undefined)),
 		};
-		this.models.setProvider(composeModelProvider(providerId, this.builtins.get(providerId), effective));
+		this.models.setProvider(composeModelProvider(providerId, effective));
 		this.registrations.set(providerId, effective);
 	}
 

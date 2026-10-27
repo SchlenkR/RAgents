@@ -1,6 +1,7 @@
 import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import type { ModelRuntime } from "@ragents/agent";
+import { completionRequestModel } from "./plugin-support/model-completion.js";
 import type { TitleModelSelection } from "./title-settings-contract.js";
 
 const MAX_PROMPT_CHARS = 4_000;
@@ -63,9 +64,7 @@ export const createTitleCompactor = (options: TitleCompactorOptions): TitleCompa
     signal.throwIfAborted();
     const selected = runtime.getModel(selection.provider, selection.model);
     if (!selected) throw new Error(`The title model ${selection.provider}/${selection.model} is not configured.`);
-    const model = selected.provider === "openrouter" ? { ...selected, compat: { ...selected.compat,
-      openRouterRouting: { ...selected.compat?.openRouterRouting, sort: "latency" },
-    } } : selected;
+    const model = completionRequestModel(selected);
     const completed = await runtime.completeSimple(model, {
       messages: [{ role: "user", content: `${instruction}\n\n<task>\n${prompt.slice(0, MAX_PROMPT_CHARS)}\n</task>`, timestamp: Date.now() }],
     }, { maxTokens: 48, temperature: 0, maxRetries: 0,

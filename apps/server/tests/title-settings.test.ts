@@ -14,6 +14,11 @@ const fixture = async (t: TestContext) => {
   t.after(() => rm(directory, { recursive: true, force: true }));
   t.mock.method(globalThis, "fetch", () => { throw new Error("Title settings tests must not access the network"); });
   const runtime = ModelRuntime.create();
+  runtime.registerProvider("openrouter", { api: "openai-completions", baseUrl: "https://models.invalid/v1", apiKey: "test-key", models: [
+    { id: initial.model, name: "Initial title model", contextWindow: 131_072, maxTokens: 16_384, reasoning: false, input: ["text"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } },
+    { id: next.model, name: "Next title model", contextWindow: 131_072, maxTokens: 16_384, reasoning: true, input: ["text"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } },
+    { id: "z-ai/glm-5.3-flash", name: "Mandatory thinking model", contextWindow: 131_072, maxTokens: 16_384, reasoning: true, input: ["text"], thinkingLevelMap: { off: null }, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } },
+  ] });
   const file = path.join(directory, "settings.json");
   const store = await TitleSettingsStore.create(file, runtime, initial, "openrouter");
   return { directory, file, runtime, store };

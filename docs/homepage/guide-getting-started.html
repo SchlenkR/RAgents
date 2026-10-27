@@ -786,8 +786,8 @@ running hosts before switching versions and restart them afterwards.</p>
 line you added to a startup file stays. Settings and runs stay in each user&#39;s data directory,
 <code>~/.local/share/ragents</code> or <code>%LOCALAPPDATA%\ragents</code>; delete it to remove them as well.</p>
 <h3 id="first-start">First start</h3>
-<p>The included profiles read the OpenRouter key from the environment variable <code>OPENROUTER_API_KEY</code>;
-no <code>.env</code> file is loaded. Set it in the shell that starts RAgents or in its startup file, then
+<p>The included profiles declare OpenRouter in <code>host.MODEL_PROVIDERS</code> and read its key through
+<code>apiKey: env(&quot;OPENROUTER_API_KEY&quot;)</code>; no <code>.env</code> file is loaded. Set it in the shell that starts RAgents or in its startup file, then
 start the <code>core</code> profile:</p>
 <pre><code class="language-sh">export OPENROUTER_API_KEY=&lt;your-key&gt;
 ragents start core
@@ -796,7 +796,7 @@ ragents start core
 profile&#39;s tools into the user&#39;s data directory, for example <code>~/.local/share/ragents/core</code>, and
 then serves the interface at <code>http://localhost:4710</code>. Without the variable, it stops before the
 server starts:</p>
-<pre><code class="language-text">.../ragents.config.core.ts: ragents.product.OPENROUTER_API_KEY refers with env(&quot;OPENROUTER_API_KEY&quot;) to an environment variable that is not set in this shell. ...
+<pre><code class="language-text">MODEL_PROVIDERS[0].apiKey refers with env(&quot;OPENROUTER_API_KEY&quot;) to an environment variable that is not set in this shell
 Provisioning ended with code 1
 </code></pre>
 <p>The C# and F# diagnostics of <code>core</code> (<code>ragents.lsp-roslyn</code> and <code>ragents.lsp-fsharp</code>) need the
@@ -848,34 +848,58 @@ configuration; it is not a single agent task. <code>showcase</code> (<code>ragen
 same profile plus the included examples. <code>pnpm provision showcase</code> installs its tools in its
 own data directory.</p>
 <h2 id="configure-model-access-and-start">Configure model access and start</h2>
-<p>The model integration uses OpenRouter. In the profile file&#39;s <code>ragents.product</code> section,
-configure <code>OPENROUTER_API_KEY</code> as a reference to your own environment variable, for example
-<code>env(&quot;RAGENTS_MODEL_API_KEY&quot;)</code>, and provide its value in your shell or service environment. The
-included <code>core</code>, <code>showcase</code>, and <code>developer</code> profiles use <code>env(&quot;OPENROUTER_API_KEY&quot;)</code> and expect
-that exact environment variable. Startup fails if it is missing. Existing environment variables
-take precedence over profile values; no <code>.env</code> file is loaded. Startup reports a missing
-referenced variable as an error. Configured models and reasoning levels must be valid in the
-available model catalog.</p>
-<p>A profile can also name its models by alias: <code>MODEL_ALIASES</code> in the <code>host</code> section lists objects
-with <code>alias</code>, <code>model</code> as <code>provider/model</code>, an optional default <code>thinking</code> level, optional
-<code>thinkingLevels</code> that map the levels the alias offers onto levels of its model (for example
-<code>{ off: &quot;low&quot;, low: &quot;low&quot;, medium: &quot;high&quot; }</code> for a model that always reasons and has no <code>medium</code>),
-and the model&#39;s <code>compaction</code> values: the context size in tokens at which an agent compacts
-(<code>threshold</code>), how much recent context stays verbatim (<code>keepRecentTokens</code>), and the summary budget
-(<code>summaryTokens</code>).
-<code>AGENT_PROVIDER: &quot;alias&quot;</code> makes the product use them. The interface, the chat, and the journal then
-show only the alias names.</p>
-<p>An alias can also point to a provider of your own, such as a self-hosted server or Mistral&#39;s API.
-<code>MODEL_PROVIDERS</code> in the <code>host</code> section lists such providers with <code>id</code>, <code>sdk</code> (the AI SDK package
-that talks to it: <code>mistral</code> or <code>openai-compatible</code>), <code>baseUrl</code> (up to <code>/v1</code>; <code>mistral</code> has a
-default), <code>apiKey: env(&quot;...&quot;)</code>, optional <code>compat</code>, and their <code>models</code> (<code>id</code>, <code>contextWindow</code>,
-<code>maxTokens</code>, <code>reasoning</code>, <code>input</code>, optional <code>thinkingLevelMap</code> and <code>cost</code>); an alias then names
-<code>&lt;id&gt;/&lt;model&gt;</code>. Mistral receives the chosen level as <code>reasoning_effort</code>. For a Qwen chat template, as
-served by oMLX, set <code>sdk: &quot;openai-compatible&quot;</code> and <code>compat: { thinkingFormat: &quot;qwen-chat-template&quot; }</code>,
-so the alias&#39;s thinking levels reach the server. <code>cost</code> gives the model&#39;s prices in USD per million
-tokens, for example <code>{ input: 1.4, cacheRead: 0.14, output: 4.4 }</code>; without it, runs on that model
-show cost 0, while the token counts, including cached tokens, stay complete. An entry without <code>sdk</code>
-keeps working as before. Details and an example in <code>docs/spec/profiles.md</code>.</p>
+<p>All ordinary providers and models belong in <code>host.MODEL_PROVIDERS</code> in the profile file. The host
+has no built-in model catalog and never fetches model metadata. Each provider declares an <code>id</code>,
+<code>apiKey: env(&quot;NAME&quot;)</code>, its <code>models</code>, and its transport settings: an optional <code>sdk</code> (<code>mistral</code> or
+<code>openai-compatible</code>), <code>baseUrl</code> (up to <code>/v1</code>; <code>mistral</code> has a default), and optional <code>compat</code>.
+Without <code>sdk</code>, requests use the OpenRouter shape, including reasoning and optional
+<code>compat.openRouterRouting.zdr</code>. The id <code>openrouter</code> is an ordinary configured provider id;
+<code>alias</code> and <code>relay</code> are reserved.</p>
+<p>For example, a direct model configuration is:</p>
+<pre><code class="language-typescript">host: {
+  MODEL_PROVIDERS: [
+    { id: &quot;local&quot;, sdk: &quot;openai-compatible&quot;, baseUrl: &quot;http://localhost:8000/v1&quot;,
+      apiKey: env(&quot;LOCAL_MODEL_KEY&quot;),
+      models: [{ id: &quot;example-model&quot;, contextWindow: 131_072, maxTokens: 16_384,
+        reasoning: true, input: [&quot;text&quot;], thinkingLevelMap: { xhigh: &quot;xhigh&quot; } }] },
+  ],
+  COMPACTION_PROVIDER: &quot;local&quot;,
+  COMPACTION_MODEL: &quot;example-model&quot;,
+},
+&quot;ragents.product&quot;: {
+  AGENT_PROVIDER: &quot;local&quot;,
+  AGENT_MODEL: &quot;example-model&quot;,
+  AGENT_COORDINATOR_MODEL: &quot;example-model&quot;,
+},
+</code></pre>
+<p><code>AGENT_PROVIDER</code> selects a configured provider; every role model key and <code>AGENT_MODELS</code> then
+names model ids from that provider. Without <code>AGENT_MODELS</code>, all its configured models are offered;
+with it, only the listed models are offered. <code>COMPACTION_PROVIDER</code> selects the provider for
+<code>COMPACTION_MODEL</code> and the title model selection. Both provider keys default to <code>openrouter</code>, so
+that id needs an entry unless the respective key selects another provider. A missing provider or
+unknown model aborts startup with the key and cause; unknown models also list the configured ids.</p>
+<p>To add a model, add one entry to the provider&#39;s <code>models</code> in this file. Look up its id, usable
+context window, maximum output, supported inputs, reasoning levels, and prices on the provider&#39;s
+model page or models API, then copy the values by hand. Set <code>contextWindow</code>, <code>maxTokens</code>,
+<code>reasoning</code>, <code>input</code> (including <code>text</code>), and optionally <code>thinkingLevelMap</code>, <code>reasoningReplay</code>, and
+<code>cost</code>. <code>thinkingLevelMap</code> maps supported levels to wire values; <code>null</code> removes a level. <code>xhigh</code>
+and <code>max</code> are available only when declared. Keep the usable context limit within the endpoints
+that the profile can reach. <code>cost</code> is USD per million tokens, for example
+<code>{ input: 1.4, cacheRead: 0.14, output: 4.4 }</code>; without it, cost is 0. Update <code>AGENT_MODELS</code> when it
+restricts the selection. Restart after changing the profile. The configuration contract and
+transport-specific options are in <code>docs/spec/profiles.md</code>.</p>
+<p>Provide each key in the shell or service environment named by its provider&#39;s <code>env(...)</code> reference.
+The included <code>core</code>, <code>showcase</code>, and <code>developer</code> profiles declare their own OpenRouter models and
+use <code>apiKey: env(&quot;OPENROUTER_API_KEY&quot;)</code>. That environment variable remains valid; the former
+<code>ragents.product.OPENROUTER_API_KEY</code> profile key must be removed when upgrading. Move the key
+reference into the provider entry and explicitly declare every model that the profile uses.
+Startup rejects missing referenced variables; no <code>.env</code> file is loaded. A profile remains exactly
+one file, including all model definitions.</p>
+<p>Aliases are optional. <code>host.MODEL_ALIASES</code> lists <code>alias</code>, <code>model</code> as <code>provider/model</code>, an optional
+default <code>thinking</code> level, optional <code>thinkingLevels</code> mapping offered levels onto target levels,
+and mandatory <code>compaction</code> values: <code>threshold</code>, <code>keepRecentTokens</code>, and <code>summaryTokens</code>.
+A target must name a configured model or the configured relay. <code>AGENT_PROVIDER: &quot;alias&quot;</code> makes
+role model keys name these aliases, and the interface, chat, and journal show their names.</p>
 <p>Alternatively, a profile can obtain its models from another RAgents server running the
 <code>ragents.model-relay</code> plugin, which offers that server&#39;s <code>MODEL_ALIASES</code> with their thinking levels
 and compaction values: set <code>AGENT_PROVIDER: &quot;relay&quot;</code>, point <code>RELAY_URL</code> to that server, use

@@ -15,6 +15,7 @@ import { startRpcServer } from "./rpc-fixture.ts";
 import { RunChatSession } from "../src/ragents/session.ts";
 import type { Engine } from "../src/ragents/engine.ts";
 import { config as coreConfig } from "../../../ragents.config.core.ts";
+import { modelProviderRegistration, parseModelProviders } from "../src/plugin-support/model-providers.ts";
 
 const initial = { provider: "test", model: "first", thinking: "off" as const };
 const next = { provider: "test", model: "second", thinking: "high" as const };
@@ -26,12 +27,17 @@ const models: Array<CatalogModel & { input: string[] }> = [
 test("the shipped core coordinator and relay use supported model reasoning capabilities", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-overseer-core-default-"));
   const product = coreConfig["ragents.product"];
-  const environment = Object.fromEntries(Object.entries(product).filter(([key]) => key !== "OPENROUTER_API_KEY")
+  const environment = Object.fromEntries(Object.entries(product)
     .map(([key, value]) => [key, typeof value === "string" ? value : JSON.stringify(value)]));
-  const previous = new Map(Object.keys(environment).map((key) => [key, process.env[key]]));
-  Object.assign(process.env, environment);
+  const configured = { ...environment, MODEL_PROVIDERS: JSON.stringify(coreConfig.host.MODEL_PROVIDERS), OPENROUTER_API_KEY: "test-key" };
+  const previous = new Map(Object.keys(configured).map((key) => [key, process.env[key]]));
+  Object.assign(process.env, configured);
   try {
     const runtime = ModelRuntime.create();
+    for (const provider of parseModelProviders(coreConfig.host.MODEL_PROVIDERS, { OPENROUTER_API_KEY: "test-key" })) {
+      const registration = modelProviderRegistration(provider);
+      runtime.registerProvider(registration.id, registration.config);
+    }
     const model = runtime.getModel("openrouter", product.AGENT_COORDINATOR_MODEL);
     assert.ok(model, "The coordinator model is missing from the model catalog");
     const supported = getSupportedThinkingLevels(model);

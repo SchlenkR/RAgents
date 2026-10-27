@@ -1,5 +1,5 @@
 {
-  "version": 20,
+  "version": 21,
   "server": {
     "@ragents/engine": [
       "DomainError",
@@ -173,21 +173,19 @@
       "validatedAliasModel"
     ],
     "@ragents/host/plugin-support/model-choice": [
-      "builtinCatalog",
       "modelChoiceEnvDescriptors",
       "modelChoiceFromEnvironment",
-      "modelThinkingOptions"
+      "modelThinkingOptions",
+      "providerCatalog"
     ],
     "@ragents/host/plugin-support/model-completion": [
       "aliasCompletionModelToken",
-      "openRouterCompletionModel"
+      "completionModelToken"
     ],
     "@ragents/host/plugin-support/model-providers": [
       "configuredModelProviders"
     ],
-    "@ragents/host/plugin-support/model-upstreams": [
-      "modelUpstreamsToken"
-    ],
+    "@ragents/host/plugin-support/model-upstreams": [],
     "@ragents/host/plugin-support/plugin-config": [
       "declaredEnvironment"
     ],

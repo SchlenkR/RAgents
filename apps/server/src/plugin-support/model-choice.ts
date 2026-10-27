@@ -1,17 +1,18 @@
 import { getSupportedThinkingLevels, type Api, type Model } from "@ragents/ai";
-import { getBuiltinModels, type BuiltinProvider } from "@ragents/ai/providers/all";
 import { isThinkingLevel, thinkingLevels, type ThinkingLevel } from "@ragents/engine";
 import { ALIAS_PROVIDER, aliasCatalog, modelDefaultThinking } from "./model-aliases.js";
+import { configuredModelProviders } from "./model-providers.js";
 import type { DeclaredEnvironment } from "./plugin-config.js";
 
 export type ModelCatalogSource = () => readonly Model<Api>[];
 
-/** The built-in catalog of a provider; a plugin can supply its own catalog, such as that of a relay. */
-export const builtinCatalog = (provider: string): ModelCatalogSource => () => getBuiltinModels(provider as BuiltinProvider);
-
-/** The catalog the model runtime knows for a provider: the profile's aliases or the built-in one. */
-const providerCatalog = (provider: string): ModelCatalogSource =>
-  provider === ALIAS_PROVIDER ? () => aliasCatalog() : builtinCatalog(provider);
+/** The configured models of a provider or the profile's aliases. */
+export const providerCatalog = (provider: string, key = "AGENT_PROVIDER"): ModelCatalogSource => () => {
+  if (provider === ALIAS_PROVIDER) return aliasCatalog();
+  const configured = configuredModelProviders().find((entry) => entry.id === provider);
+  if (!configured) throw new Error(`${key}: provider ${provider} is not configured; declare it in MODEL_PROVIDERS or set ${key} to a configured provider`);
+  return configured.models;
+};
 
 export const modelThinkingOptions = (provider: string, model: string, catalog: ModelCatalogSource = providerCatalog(provider)): readonly ThinkingLevel[] => {
   const metadata = catalog().find((entry) => entry.id === model);
@@ -43,7 +44,6 @@ export const modelChoiceFromEnvironment = (
     selectable: boolean;
     provider: string;
     defaultModel: () => string;
-    fallback: () => readonly string[];
     catalog?: ModelCatalogSource;
   },
 ): ModelChoice => {
@@ -59,9 +59,10 @@ export const modelChoiceFromEnvironment = (
     const configured = env.list("AGENT_MODELS");
     const duplicate = configured.find((model, index) => configured.indexOf(model) !== index);
     if (duplicate) throw new Error(`AGENT_MODELS names ${duplicate} more than once`);
-    // Without AGENT_MODELS all aliases or the profile's models apply, and agent and coordinator may share the same one.
-    const fallback = defaults.provider === ALIAS_PROVIDER ? catalog().map((model) => model.id) : defaults.fallback();
-    const list = configured.length > 0 ? configured : [...new Set(fallback)];
+    const available = catalog().map((model) => model.id);
+    const unknown = configured.find((model) => !available.includes(model));
+    if (unknown) throw new Error(`AGENT_MODELS: model ${unknown} is not configured for provider ${defaults.provider}; configured model ids: ${available.join(", ")}`);
+    const list = configured.length > 0 ? configured : available;
     resolvedOptions = Object.freeze([...list]);
     return resolvedOptions;
   };
