@@ -71,6 +71,7 @@ export const config = {
       "ragents.product",
       "ragents.documents",
       "ragents.browser",
+      "ragents.brave-search",
       "ragents.mcp",
       "ragents.ask",
       "ragents.acp",

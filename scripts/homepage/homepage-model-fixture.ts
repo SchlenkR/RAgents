@@ -17,4 +17,5 @@ export const referenceModelEnvironment = {
   COMPACTION_PROVIDER: "reference",
   MODEL_PROVIDERS: JSON.stringify(providers),
   REFERENCE_MODEL_KEY: "documentation-only",
+  BRAVE_API_KEY: "documentation-only",
 } as const;

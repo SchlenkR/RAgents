@@ -1,5 +1,30 @@
 # Decisions
 
+## 2026-10-28: Agents search the web through a Brave Search plugin
+
+Chapters: `spec/plugins.md` (Web search, Open limits); `spec/profiles.md` (plugin lists); operations
+guide; homepage extensions.
+
+**Why.** An agent that needs a current fact, such as a tax rate, a release note, or a news item, had
+only the browser check, which needs Chrome on the machine of the run and a page to open. Search
+engines with an API return compact matches without a browser. Hosts that embed the engine as a
+library load no plugin bundles; they build their own tool registry and need the functions without the
+plugin host.
+
+**Decision.** `ragents.brave-search` provides `web_search` and `news_search` over the Brave Search
+API. The results carry only title, address, excerpt, date, and for news the publisher, are bounded
+in characters, never repeat the input, and state that they are untrusted content. The key is a
+declared secret referenced with `env(...)`; `core`, `showcase`, and `developer` list the plugin, and
+without a key it stays inactive with one log line, like the profile distribution without its file,
+so no neutral profile needs a key to start. Errors are typed (`BraveSearchError`) and name the cause,
+the wait of a rate limit, or the renewal of an exhausted quota; Brave signals an invalid key with
+HTTP 422, which the plugin maps to the key error. There is no automatic retry. The factory
+`braveSearchFunctions(config)` is the plugin's declared server export and imports only the engine and
+`typebox`, so a host with its own registry imports it from the package, which ships `plugins/` as
+sources. The reference generation sets a placeholder key so that the generated function catalog lists
+both functions. Queries leave the server also from Isolated runs; a per-run policy is not part of
+this decision.
+
 ## 2026-10-28: One typography base per host
 
 Chapter: `spec/plugins.md` (Web as plugin host, shared theme, VS Code shell); usage guide.

@@ -6041,6 +6041,81 @@ to a matching host if it differs. The route `GET /profile/<version>.tar.gz` (sam
 right) returns the archive; a different version is 404. The counterpart is `ragents connect`
 ([profiles.md](profiles.md), server-delivered profiles).
 
+## Web search
+
+`ragents.brave-search` gives agents `web_search` and `news_search` over the Brave Search API. It has
+no web half, no state, and no prompt chapter; the function descriptions carry the guidance, and
+nothing of it is stored in the run beyond the tool calls.
+
+Configuration lives in the plugin section, all keys are environment keys:
+
+- `BRAVE_API_KEY` (secret, so `env("NAME")` in the profile file): without it the plugin is inactive
+  and says so once in the log (`Web search: BRAVE_API_KEY is not set ...`) instead of failing the
+  start, because `core`, `showcase`, and `developer` list the plugin for everyone. The key is a
+  declared secret: model-code child processes, snippets, and workspace commands never receive it.
+- `BRAVE_SEARCH_COUNTRY` and `BRAVE_SEARCH_LANGUAGE`: default country (two letters such as `DE`, or
+  `ALL`) and content language (such as `de`, `en`, `pt-br`); without them Brave decides. A call can
+  override both.
+- `BRAVE_SEARCH_SAFESEARCH`: `off`, `moderate` (default), or `strict`.
+- `BRAVE_SEARCH_TIMEOUT_SECONDS`: positive, default 10.
+
+A wrong value stops the start with the key's name. A profile that holds the key under another
+variable name references it:
+
+```ts
+"ragents.brave-search": {
+  BRAVE_API_KEY: env("BRAVE_SEARCH_KEY"),
+  BRAVE_SEARCH_COUNTRY: "DE",
+  BRAVE_SEARCH_LANGUAGE: "de",
+},
+```
+
+**Functions.** `web_search` takes `query` (1 to 400 characters, with quotes, a minus sign, and
+`site:` as Brave reads them), `count` (1 to 20, default 8), `offset` (page 0 to 9, default 0),
+`freshness` (`day`, `week`, `month`, `year`, or a range `2026-01-01to2026-03-31`), `country`,
+`language`, and `extraSnippets`. `news_search` takes the same without `extraSnippets`. Both are native
+tools, available in every turn the plugin is active, and run one after another (a plan of one
+request per second would answer parallel calls with rate-limit errors).
+
+**Result.** `{ notice, results, hasMore?, omitted? }`. A result is `title` (at most 160
+characters), `url` (http or https only), `snippet` (at most 300), `age` (the publication day as
+`YYYY-MM-DD` when Brave knows it, otherwise its age text), for news `source` (the publisher), and
+with `extraSnippets` up to three `moreSnippets` of at most 240 characters. The call does not repeat
+its input. Everything else Brave sends (thumbnails, favicons, profiles, related queries, FAQ blocks,
+HTML highlighting) is dropped; the request asks for plain text and the plugin decodes entities and
+removes tags that remain. The serialized results stay within 8000 characters; matches that no longer
+fit are counted in `omitted`. `hasMore` is present when Brave reports a further page. `notice` states
+that the content is untrusted, as do both function descriptions: the snippets come from foreign pages
+and can contain instructions that must be read as data.
+
+**Errors** name the cause and the next step and never contain the key. The class `BraveSearchError`
+has a `kind`: `request` (invalid input, checked before any request, or an HTTP 4xx other than the
+cases below, with Brave's own detail), `key` (HTTP 401 and 403, and Brave's 422 with
+`SUBSCRIPTION_TOKEN_INVALID`), `rate-limit` and `quota` (HTTP 429; Brave names the plan's
+two windows in `X-RateLimit-*` as per-second and per-month values, and an exhausted second value or
+the body code `QUOTA_LIMITED` means quota), both with `retryAfterSeconds` from the matching reset
+value and a wait in the message, `unavailable` (HTTP 5xx), `network`, `timeout`, and `response` (an
+answer that is not the expected JSON). There is no automatic retry. A cancellation of the call
+passes through unchanged.
+
+**Use as a library.** A host that embeds the engine and builds its own tool registry imports the
+factory from the package, not from a bundle:
+
+```ts
+import { braveSearchFunctions } from "@schlenkr/ragents/plugins/ragents.brave-search/server/functions.ts";
+
+const functions = braveSearchFunctions({ apiKey, country: "DE", language: "de" });
+```
+
+The result is a list of `RunFunction` for the host's registry. The config takes `apiKey`, and
+optionally `country`, `language`, `safeSearch`, `timeoutSeconds`, `maxResultChars` (at least 500),
+and `fetch` (for tests or a proxy); an empty key or an invalid value throws when the functions are
+created. The file is the plugin's declared server export (`server/functions`), imports only
+`@ragents/engine` and `typebox`, and the package carries `plugins/` as sources (section Bundle,
+build tool, and host API), so the path exists in every installed `@schlenkr/ragents`. The tests
+`apps/server/tests/brave-search.test.ts` (fake `fetch`, profile composition) and, only with
+`BRAVE_API_KEY` set, `brave-search-live.test.ts` check the contract.
+
 ## Open limits
 
 - Global apps provide no high availability; their triggers and permissions have the limits of
@@ -6268,3 +6343,7 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   observation has returned it, even if the answer is lost with a connection that breaks at that
   moment; its actor then gets no notice. A background command on the server ends when the server
   shuts down; only those on workstations outlive a restart and are observed again.
+- Web search has no per-run policy: every agent that has `web_search` or `news_search` sends its
+  query text to Brave Search, also in a run with Isolated access. Whoever must keep a run's data
+  from leaving removes the plugin from the profile or leaves the key unset. A plan with a low request rate answers
+  quick consecutive searches with a rate-limit error that the model retries itself.

@@ -233,7 +233,7 @@ class list. There is no
 compiled catalog and no loading from a foreign source: what exists as a bundle and is listed in
 the profile can be composed, nothing more.
 
-Plugins are NOT npm packages. Currently there are 22, 16 of them with a web part. The five packages under
+Plugins are NOT npm packages. Currently there are 23, 16 of them with a web part. The five packages under
 `packages/` are libraries that plugins are built against - not plugins.
 
 Even things that seem deeply embedded are plugins: the three language servers (`ragents.lsp-roslyn`,
@@ -486,6 +486,10 @@ run only on request: `pnpm provision --workspace` once, then
 `RAGENTS_LSP_TESTS=1 PRODUCT_PROFILE=core pnpm test`; the adapters from the plugins' contributions
 find the servers in the tools folder, `ROSLYN_LANGUAGE_SERVER` and `FSHARP_LANGUAGE_SERVER`
 override it.
+
+The live test of `ragents.brave-search` (`apps/server/tests/brave-search-live.test.ts`) calls the real
+Brave Search API and runs only with the key in the environment:
+`BRAVE_API_KEY=... PRODUCT_PROFILE=core pnpm test`; without it the three cases are skipped.
 
 Checking behavior live: send a message by `POST http://localhost:<port>/rpc` with
 `{"jsonrpc":"2.0","id":1,"method":"ragents.chat.send","params":{"runId":"<uuid>","text":"..."}}`

@@ -140,9 +140,11 @@ workspace does not replace `ragents.workspace` but contributes it through `works
 
 Plugin list of `core` in order: `ragents.orchestration`, `ragents.workspace`, `ragents.compaction`, `ragents.product`,
 `ragents.overseer`, `ragents.activity`, `ragents.processes`, `ragents.documents`,
-`ragents.browser`, `ragents.mcp`, `ragents.ask`, `ragents.acp`, `ragents.todo`, `ragents.watch`,
+`ragents.browser`, `ragents.brave-search`, `ragents.mcp`, `ragents.ask`, `ragents.acp`, `ragents.todo`, `ragents.watch`,
 `ragents.actor-programs`, `ragents.global-apps`, `ragents.lsp-roslyn`, `ragents.lsp-fsharp`, `ragents.lsp-typescript`,
-`ragents.model-relay`, `ragents.profile-distribution`.
+`ragents.model-relay`, `ragents.profile-distribution`. `ragents.brave-search` is inactive until
+`BRAVE_API_KEY` is set (`plugins.md`, section Web search); its profile section is optional and absent
+from the neutral files.
 
 The `showcase` profile (product ID `ragents-showcase`, port 4713) is the same setup plus
 `ragents.reference` after `ragents.global-apps`; sign-in, models, and language servers match
@@ -154,7 +156,7 @@ examples.
 
 The `developer` profile (product ID `ragents-developer`, port 4715) is the smaller selection for
 working on a project: `ragents.orchestration`, `ragents.workspace`, `ragents.compaction`, `ragents.product`,
-`ragents.documents`, `ragents.browser`, `ragents.mcp`, `ragents.ask`, `ragents.acp`, `ragents.todo`, `ragents.watch`,
+`ragents.documents`, `ragents.browser`, `ragents.brave-search`, `ragents.mcp`, `ragents.ask`, `ragents.acp`, `ragents.todo`, `ragents.watch`,
 `ragents.actor-programs`, `ragents.overseer`, `ragents.global-apps`, `ragents.activity`, `ragents.processes`, `ragents.lsp-roslyn`,
 `ragents.lsp-fsharp`, `ragents.lsp-typescript`. `ROSLYN_SOLUTION_ON_START` is `on`, so C# diagnostics start with the run
 (one solution loads directly, several are offered as a question). It has no `users` but an

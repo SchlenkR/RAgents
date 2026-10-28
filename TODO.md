@@ -4,6 +4,7 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
+- Check live (28.10.2026): run `web_search` and `news_search` in a real run with a model (`BRAVE_API_KEY` set, `ragents start developer`) and judge the call patterns (count, freshness, follow-up searches) and result sizes; the functions are verified against the real API, not against a model.
 - Nested VS Code zoom browser fixture (28.10.2026): investigate intermittent Chrome pointer routing into the sandboxed cross-origin iframe at 90 percent zoom in `vscode-zoom-browser.test.ts`; the physical click also fails with the typography bridge removed, while local font and zoom checks pass.
 - Homepage screenshots (28.10.2026): retake the browser and VS Code screenshots with the shared typography scale; retain the current images until their replacements are ready.
 - Git configuration in isolated runs (28.10.2026): an isolated run can write `.git/config` in its root (`core.fsmonitor`, `core.hooksPath`, aliases), which Git, the VS Code Git integration, and shell prompts later execute outside the sandbox, and the write protection for `.git/hooks`, `.vscode`, `.idea`, and shell startup files follows the workstation process's working directory instead of the run root and write grants; decide whether isolated runs give up `git init`, `clone`, and `config` (Full access for those) or another mechanism protects the Git configuration, then anchor the protection at the root.

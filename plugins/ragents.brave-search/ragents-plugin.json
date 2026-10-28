@@ -1,0 +1,6 @@
+{
+  "id": "ragents.brave-search",
+  "exports": {
+    "server": ["server/functions"]
+  }
+}

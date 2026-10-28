@@ -7,7 +7,7 @@ export const showcaseFixture: CompositionFixture = {
   product: { id: "test-showcase", title: "Showcase composition fixture" },
   plugins: [
     "ragents.orchestration", "ragents.workspace", "ragents.product", "ragents.overseer",
-    "ragents.activity", "ragents.processes", "ragents.documents", "ragents.browser", "ragents.ask", "ragents.todo",
+    "ragents.activity", "ragents.processes", "ragents.documents", "ragents.browser", "ragents.brave-search", "ragents.ask", "ragents.todo",
     "ragents.watch", "ragents.actor-programs", "ragents.global-apps", "ragents.reference",
     "ragents.lsp-roslyn", "ragents.lsp-fsharp", "ragents.lsp-typescript",
   ],
@@ -51,4 +51,5 @@ export const compositionEnvironment: Readonly<Record<string, string | undefined>
   SKILLS_DIR: undefined,
   DOCUMENTS_DIR: undefined,
   BROWSER_EXECUTABLE_PATH: undefined,
+  BRAVE_API_KEY: "test-key",
 };

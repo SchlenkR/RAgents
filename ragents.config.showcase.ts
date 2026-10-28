@@ -227,6 +227,7 @@ export const config = {
       "ragents.processes",
       "ragents.documents",
       "ragents.browser",
+      "ragents.brave-search",
       "ragents.mcp",
       "ragents.ask",
       "ragents.acp",

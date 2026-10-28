@@ -501,6 +501,35 @@ own environment sets `BROWSER_CHROMIUM_SANDBOX=0`. What the agent does with the 
 where recordings are stored, and how long a check stays valid is in
 [plugins.md](spec/plugins.md) under "Browser checks".
 
+## Provide web search
+
+`ragents.brave-search` lets agents search the web and the news through the Brave Search API
+(`web_search`, `news_search`). The neutral profiles list it, and it stays inactive until the server
+finds a key: the log then says `Web search: BRAVE_API_KEY is not set` once, and agents get no search
+functions. Create a key in the Brave Search API dashboard and set it before the server starts:
+
+```sh
+export BRAVE_API_KEY=...
+```
+
+If your shell already holds the key under another name, reference it in the profile instead, together
+with the optional defaults:
+
+```ts
+"ragents.brave-search": {
+  BRAVE_API_KEY: env("BRAVE_SEARCH_KEY"),
+  BRAVE_SEARCH_COUNTRY: "DE",
+  BRAVE_SEARCH_LANGUAGE: "de",
+  BRAVE_SEARCH_SAFESEARCH: "moderate",
+},
+```
+
+The server needs no other setup, and the search runs on the server, not on a workstation. Queries
+leave the server for Brave, also from runs with Isolated access; remove the plugin from `PLUGINS`
+to prevent that. A search that fails reports the cause to the agent: a rejected key, an exhausted
+quota (with the time of renewal), a rate limit (with the wait), or a network problem. Contract and
+result are in [plugins.md](spec/plugins.md) under "Web search".
+
 <!-- guide:distributed -->
 ## Work without a checkout
 
