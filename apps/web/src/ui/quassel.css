@@ -6,6 +6,13 @@
     --qsl-color-scheme: light;
     --qsl-font: --theme(--font-sans);
     --qsl-mono: --theme(--font-mono);
+    --qsl-font-size: var(--text-base);
+    --qsl-inline-code-background: var(--inline-code);
+    --qsl-inline-code-foreground: var(--code-foreground);
+    --qsl-inline-code-edge: var(--inline-code-edge);
+    --qsl-code-background: var(--code);
+    --qsl-code-border: var(--code-border);
+    --qsl-blockquote-background: color-mix(in srgb, var(--selected) 40%, transparent);
     --qsl-radius: var(--radius);
     --qsl-background: var(--background);
     --qsl-foreground: var(--foreground);
@@ -39,31 +46,6 @@
     &::-webkit-scrollbar-track { background: transparent; }
     &::-webkit-scrollbar-thumb { border-radius: var(--spacing-scrollbar); background: var(--border-strong); }
     &::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
-}
-
-/* Rendered Markdown of an answer (the first div; attachments and actions follow it): quassel's own classes keep bold at weight 500. */
-[data-quassel] [data-message="answer"] > div:first-of-type {
-  :is(strong, b) { font-weight: 700; }
-  :is(em, i) { font-style: italic; }
-  :is(h1, h2, h3, h4, h5, h6) { color: var(--foreground); }
-  h1 { margin-block: 1.5em 0.5em; }
-  h2 { margin-block: 1.5em 0.45em; }
-  h3 { margin-block: 1.35em 0.4em; }
-  :is(h4, h5, h6) { margin-block: 1.2em 0.3em; color: var(--muted-foreground); }
-  :is(h1, h2, h3, h4, h5, h6):first-child { margin-top: 0; }
-  :is(p, ul, ol, blockquote, table) { margin-block: 0.75em; }
-  li { margin-block: 0.3em; }
-  li > :is(ul, ol) { margin-block: 0.25em 0; }
-  li > p { margin-block: 0; }
-  :not(pre) > code { padding: 0.12em 0.4em; border-radius: 0.38em; background: var(--inline-code); box-shadow: inset 0 0 0 1px var(--inline-code-edge); color: var(--code-foreground); font-size: 0.88em; }
-  pre { margin-block: 0.9em; padding: 0.85em 1.05em; border: 1px solid var(--code-border); border-radius: 0.7em; background: var(--code); font-size: 0.88em; line-height: 1.6; }
-  a { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
-  a:hover { text-decoration-thickness: 2px; }
-  blockquote { padding: 0.55em 1em; border-left: 3px solid var(--selected-border); border-radius: 0 0.5em 0.5em 0; background: color-mix(in srgb, var(--selected) 40%, transparent); color: var(--foreground); }
-  th { padding: 0.5em 0.85em; background: var(--secondary); font-weight: 700; }
-  td { padding: 0.5em 0.85em; }
-  tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--foreground) 3.5%, transparent); }
-  hr { margin-block: 1.6em; }
 }
 
 /* Arguments and result of a tool call read as code blocks, like code in an answer (the marker comes from chat/QuasselHost.tsx). */

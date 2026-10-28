@@ -3,9 +3,9 @@ import type { EntryGuideContext } from "@ragents/web/PluginRegistry";
 import { Button, Card, Input, Textarea } from "@ragents/web/ui";
 
 const formClass = "grid gap-6 mx-auto max-w-[820px] p-6 text-foreground max-sm:p-4";
-const introClass = "leading-[1.6] text-muted-foreground";
+const introClass = "text-muted-foreground";
 const fieldClass = "grid min-w-0 gap-3 [&>span]:font-semibold";
-const hintClass = "leading-[1.5] text-muted-foreground";
+const hintClass = "text-muted-foreground";
 const actionsClass = "flex flex-wrap justify-end gap-3 pt-2";
 
 export function ConversationGuide({ onCancel, onComplete }: EntryGuideContext) {
@@ -32,7 +32,7 @@ export function ConversationGuide({ onCancel, onComplete }: EntryGuideContext) {
         ].map((partner) => (
           <div className="grid gap-2 rounded-lg bg-secondary p-4" key={partner.name}>
             <strong>{partner.name}</strong>
-            <span className="text-[0.85rem] leading-[1.4] text-muted-foreground">{partner.role}</span>
+            <span className="text-base text-muted-foreground">{partner.role}</span>
           </div>
         ))}
       </div>
@@ -74,9 +74,9 @@ export function SharedBoardGuide({ onCancel, onComplete }: EntryGuideContext) {
         <aside aria-label="Collection board preview">
           <Card className="h-full gap-0 bg-secondary p-4 [overflow-wrap:anywhere]">
             <small className={hintClass}>This is how your collection starts</small>
-            <h3 className="mt-3 mb-4 text-[1.05rem]">{title.trim() || "Collection title"}</h3>
-            <ol className="list-decimal pl-6 leading-[1.6] whitespace-pre-wrap"><li>{firstEntry.trim() || "Your first entry"}</li></ol>
-            <p className="mt-6 text-[0.85rem] leading-[1.5] text-muted-foreground">The list helper adds this entry after the start. After that, both of you can add more.</p>
+            <h3 className="mt-3 mb-4 text-lg">{title.trim() || "Collection title"}</h3>
+            <ol className="list-decimal pl-6 whitespace-pre-wrap"><li>{firstEntry.trim() || "Your first entry"}</li></ol>
+            <p className="mt-6 text-base text-muted-foreground">The list helper adds this entry after the start. After that, both of you can add more.</p>
           </Card>
         </aside>
       </div>

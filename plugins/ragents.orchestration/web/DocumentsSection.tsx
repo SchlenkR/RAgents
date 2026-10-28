@@ -26,8 +26,8 @@ export function DocumentsSection({ actor, navigation, session }: CardSectionCont
           <li key={artifact.id}>
             <button className="grid w-full cursor-pointer rounded-lg border border-border-soft px-2 py-2 text-left hover:border-[color-mix(in_srgb,var(--primary)_45%,var(--border))] hover:bg-primary/6"
               onClick={() => openDocument(navigation, artifact)} type="button">
-              <strong className="whitespace-normal wrap-anywhere text-[0.74rem]" aria-label={artifact.title}>{artifact.title}</strong>
-              <small className="text-[0.64rem] text-muted-foreground">{formatBytes(artifact.size)} - {artifact.mediaType}</small>
+              <strong className="whitespace-normal wrap-anywhere text-sm" aria-label={artifact.title}>{artifact.title}</strong>
+              <small className="text-sm text-muted-foreground">{formatBytes(artifact.size)} - {artifact.mediaType}</small>
             </button>
           </li>
         ))}

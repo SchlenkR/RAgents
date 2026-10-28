@@ -11,9 +11,9 @@ interface Draft {
   readonly text: string;
 }
 
-const cardClasses = "gap-3 bg-background px-4 text-sm";
+const cardClasses = "gap-3 bg-background px-4 text-base";
 const groupClasses = "flex flex-col gap-2";
-const optionClasses = "h-auto w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm font-normal whitespace-normal";
+const optionClasses = "h-auto w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-base font-normal whitespace-normal";
 
 const answerOf = (draft: Draft): QuestionAnswer | undefined =>
   draft.text.trim() !== "" ? { text: draft.text.trim() } : draft.selected.length > 0 ? { selected: draft.selected } : undefined;
@@ -27,13 +27,13 @@ function QuestionHead({ question }: { question: AskQuestion }) {
   return (
     <div className="flex items-start gap-2">
       <Badge className="mt-px" variant="secondary">{question.header}</Badge>
-      <div className="leading-normal">{question.question}</div>
+      <div>{question.question}</div>
     </div>
   );
 }
 
 function Asker({ asker }: { asker: string | undefined }) {
-  return asker ? <div className="text-xs text-muted-foreground">{asker}</div> : null;
+  return asker ? <div className="text-sm text-muted-foreground">{asker}</div> : null;
 }
 
 /** All questions of one call in one card with a free answer per question and one submit; closed, only the record remains. */
@@ -58,14 +58,14 @@ export function QuestionCard({
           <div aria-label={question.header} className={groupClasses} key={question.question} role="group">
             <QuestionHead question={question} />
             {"answers" in record && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground" data-question="answered">
+              <div className="flex items-center gap-2 text-base text-muted-foreground" data-question="answered">
                 <CheckIcon className="flex-none text-success" size={12} />
                 {answerText(record.answers[index]!)}
               </div>
             )}
           </div>
         ))}
-        {"closed" in record && <div className="text-sm text-muted-foreground" data-question="closed">{record.closed}</div>}
+        {"closed" in record && <div className="text-base text-muted-foreground" data-question="closed">{record.closed}</div>}
       </Card>
     );
   }
@@ -129,7 +129,7 @@ export function QuestionCard({
                   )}
                   {option.label}
                 </span>
-                {option.description && <span className="text-xs text-muted-foreground">{option.description}</span>}
+                {option.description && <span className="text-muted-foreground">{option.description}</span>}
               </Button>
             );
           })}

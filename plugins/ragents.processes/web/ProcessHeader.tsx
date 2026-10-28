@@ -73,10 +73,10 @@ function ProcessRow({ runId, machine, process, state, writable, onStop }: {
       </span>
       <span className="flex max-w-full flex-wrap items-center gap-1">{ports}{stop}</span>
     </div>
-    <p className="whitespace-pre-line text-xs text-muted-foreground">{titleOf(process)}</p>
-    {machine !== "server" && process.ports.length > 0 && host.kind === "browser" && <p className="text-xs text-muted-foreground">Open these ports through the RAgents extension in VS Code on workstation {machine.label}.</p>}
-    {!writable && <p className="text-xs text-muted-foreground">Stopping requires write and inspection permission.</p>}
-    {state?.error && <p className="text-xs text-destructive" role="alert">{state.error}</p>}
+    <p className="whitespace-pre-line text-sm text-muted-foreground">{titleOf(process)}</p>
+    {machine !== "server" && process.ports.length > 0 && host.kind === "browser" && <p className="text-sm text-muted-foreground">Open these ports through the RAgents extension in VS Code on workstation {machine.label}.</p>}
+    {!writable && <p className="text-sm text-muted-foreground">Stopping requires write and inspection permission.</p>}
+    {state?.error && <p className="text-sm text-destructive" role="alert">{state.error}</p>}
   </div>;
 }
 

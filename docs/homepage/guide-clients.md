@@ -102,6 +102,22 @@ If saved widths are damaged or saving fails, an error and "Reset column widths" 
 visible. If the browser blocks storage access, the list still shows its initial widths;
 "Retry column widths" enables resizing after access returns.
 
+### Text size and zoom
+
+The browser uses a 14-pixel base. In VS Code, RAgents follows the chat font size and family;
+monospace text follows the editor font family. Changes to those VS Code settings take effect
+in open views. RAgents keeps its selected palette. Messages, questions and their options,
+actions, inputs, menus, and dialogs share the base size with line height 1.5. Labels, badges,
+timestamps, and other metadata use 85 percent of the base. Markdown has the same typography
+in answers, documents, file previews, and mini-apps.
+
+In the browser, "Zoom" under "Appearance" makes the whole interface smaller or larger: 80, 90,
+100, 110, 120, 130, or 150 percent, with 100 as the default. Text, controls, spacing, menus, and
+mini-apps scale together, immediately and without reloading. The choice is stored in this browser
+for the same server address, synchronized with other open tabs, and needs no settings permission.
+In VS Code the setting `ragents.zoom` takes its place (see "Settings and behavior of the VS Code
+extension").
+
 ## Run panel and VS Code extension
 
 The run panel is also available in the browser. `http://localhost:4710/run-panel.html?run=<id>`
@@ -545,8 +561,10 @@ in VS Code Settings. The value is a percentage from 50 to 200, with 100 as the d
 for example, `"ragents.zoom": 90` makes the whole interface 10% smaller. It applies to the home,
 Runs, plugin pages, Server, the run panel, and mini-app editor tabs, including nested mini-apps. Changes take
 effect immediately without reloading the page or losing input drafts. Regular browser pages
-are unaffected. This scales text, controls, and spacing together; it is independent of
-`editor.fontSize` and the built-in chat font settings.
+are unaffected. This scales text, controls, and spacing together. The base text size and UI font follow
+VS Code's chat font settings (13 pixels by default); monospace text follows the editor font
+family. Changing these settings updates open panels and mini-apps without reloading. The
+selected RAgents palette stays in place, and spacing keeps its own scale.
 
 If a server profile requires users, both the selected environment's sign-in action and the Server row open the
 same sign-in dialog. For a profile with `ACCESS_TOKEN`, the dialog requests that token. User name

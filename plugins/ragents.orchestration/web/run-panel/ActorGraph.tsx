@@ -8,9 +8,9 @@ import { pendingInputCount } from "./run-panel-actors";
 import { addresseeNodeContains, addresseeStatusCounts, addresseeSummaries, addresseeTree, type AddresseeGroupNode, type AddresseeStatus } from "./addressee-tree";
 import { actorGraphLayout, clampGraphPan, GRAPH_CARD_HEIGHT, GRAPH_CARD_WIDTH, graphActorState, graphColumns, graphNodeStatus, graphPannable, graphPanTo, graphViewport, type GraphSize } from "./actor-graph";
 
-const cardClass = "flex size-full min-w-0 cursor-pointer flex-col justify-center gap-1 rounded-lg border border-border bg-card text-left text-[0.72rem] leading-normal text-card-foreground shadow-xs [&>span]:shrink-0";
+const cardClass = "flex size-full min-w-0 cursor-pointer flex-col justify-center gap-1 rounded-lg border border-border bg-card text-left text-sm text-card-foreground shadow-xs [&>span]:shrink-0";
 const stackClass = "shadow-[3px_3px_0_-1px_var(--color-card),3px_3px_0_0_var(--color-border)]";
-const lineClass = "flex min-w-0 items-center gap-2 text-[0.66rem]";
+const lineClass = "flex min-w-0 items-center gap-2 text-sm";
 const iconClass: Readonly<Record<string, string>> = {
   agent: "bg-glass-agent",
   primary: "bg-glass-primary",
@@ -208,7 +208,7 @@ function ActorCard({ actor, current, onDragStart, onPick, summary, view }: {
     onClick={(event) => { if (!drag || event.detail === 0) onPick(actor); }}
     onPointerDown={drag && ((event) => { event.stopPropagation(); drag(event, `actor:${actor.id}`, () => onPick(actor), onDragStart); })}
     aria-description={`Address messages to @${actorAddress(actor)}`} type="button">
-    {script && <span aria-hidden className="absolute inset-x-0 top-0 flex h-5 items-center gap-1 border-b border-border-strong/50 bg-glass-script px-2 text-[0.58rem] font-medium text-foreground" data-actor-program-band>
+    {script && <span aria-hidden className="absolute inset-x-0 top-0 flex h-5 items-center gap-1 border-b border-border-strong/50 bg-glass-script px-2 text-sm font-medium text-foreground" data-actor-program-band>
       <CodeXmlIcon className="size-3 flex-none" />TypeScript
     </span>}
     <span className="flex min-w-0 items-center gap-2">
@@ -218,9 +218,9 @@ function ActorCard({ actor, current, onDragStart, onPick, summary, view }: {
       <span className="min-w-0 flex-1 truncate font-semibold" data-actor-name aria-label={script ? actor.displayName : undefined}>{script ? actor.displayName : `@${actorAddress(actor)}`}</span>
     </span>
     {script ? <>
-      {program && <span className="min-w-0 truncate font-mono text-[0.66rem] text-muted-foreground" data-actor-program aria-label={program.name}>{program.name}</span>}
-      <span className="min-w-0 truncate text-[0.66rem] text-muted-foreground" data-actor-description aria-label={facts}>{facts}</span>
-    </> : summary && <span className="line-clamp-3 min-w-0 text-[0.66rem] wrap-anywhere whitespace-pre-line text-muted-foreground" data-actor-description aria-label={summary}>{summary}</span>}
+      {program && <span className="min-w-0 truncate font-mono text-sm text-muted-foreground" data-actor-program aria-label={program.name}>{program.name}</span>}
+      <span className="min-w-0 truncate text-sm text-muted-foreground" data-actor-description aria-label={facts}>{facts}</span>
+    </> : summary && <span className="line-clamp-3 min-w-0 text-sm wrap-anywhere whitespace-pre-line text-muted-foreground" data-actor-description aria-label={summary}>{summary}</span>}
   </InteractiveItem>;
 }
 
@@ -234,10 +234,10 @@ function GroupCard({ node, onToggle, open, view }: { node: AddresseeGroupNode; o
     <span className="flex min-w-0 items-center gap-2">
       <span className="grid size-5 flex-none place-items-center rounded-full bg-muted text-foreground [&>svg]:size-3">{running ? <Spinner aria-hidden className="size-3" /> : <UsersIcon />}</span>
       <span className="min-w-0 flex-1 truncate font-semibold">{node.label}</span>
-      {pending > 0 && <Badge className="h-4 min-w-4 px-1 text-[0.6rem]" aria-label={waitingInputs(pending)} tone="warning">{pending}</Badge>}
+      {pending > 0 && <Badge className="h-4 min-w-4 px-1 text-sm" aria-label={waitingInputs(pending)} tone="warning">{pending}</Badge>}
       <ChevronDownIcon aria-hidden className={cn("size-3.5 flex-none text-muted-foreground transition-transform", !open && "-rotate-90")} />
     </span>
     <span className={cn(lineClass, "text-muted-foreground")}>{actors.length} actors</span>
-    <span className="min-w-0 truncate text-[0.66rem] text-muted-foreground">{counts}</span>
+    <span className="min-w-0 truncate text-sm text-muted-foreground">{counts}</span>
   </InteractiveItem>;
 }

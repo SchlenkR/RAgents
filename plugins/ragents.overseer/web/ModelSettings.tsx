@@ -14,9 +14,9 @@ export function useModelSettings(active = true) {
 
 const selectionKey = (provider: string, model: string) => JSON.stringify([provider, model]);
 
-const noteClass = "mt-2 text-[0.73rem] text-muted-foreground";
-const formNoteClass = "text-[0.8rem] leading-[1.5] text-muted-foreground";
-const errorClass = "flex flex-wrap items-center gap-2 text-[0.8rem] text-destructive";
+const noteClass = "mt-2 text-sm text-muted-foreground";
+const formNoteClass = "text-base text-muted-foreground";
+const errorClass = "flex flex-wrap items-center gap-2 text-base text-destructive";
 
 /** In the toolbar the pickers share a row with the actions; in Settings they lay out like the run defaults, with the note above full-width pickers. */
 export function ModelSettings({ active = true, compact = false, disabled = false, actions }: { active?: boolean; compact?: boolean; disabled?: boolean; actions?: ReactNode }) {

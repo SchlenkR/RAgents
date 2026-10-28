@@ -110,10 +110,10 @@ const filled = {
 
 /** What VS Code puts into every webview: its default rules in the layer vscode-default and its font settings as variables on html. */
 const asVsCodeWebview = (html: string, fontSize: string): string => html
-  .replace("<html ", `<html style="--vscode-font-size:${fontSize};--vscode-font-family:serif" `)
+  .replace("<html ", `<html style="--vscode-chat-font-size:${fontSize};--vscode-chat-font-family:Arial,sans-serif;--vscode-editor-font-family:Courier,monospace;--vscode-font-size:20px;--vscode-font-family:serif" `)
   .replace("<head>", "<head><style>@layer vscode-default{body{font-family:var(--vscode-font-family);font-size:var(--vscode-font-size);padding:0 20px}}</style>");
 
-test("panel text and spacing follow ragents.zoom alone, not VS Code's font settings, and every page starts at the same height", {
+test("panel text follows VS Code chat settings while spacing stays on a 16px root and zoom scales the viewport once", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 90_000,
 }, async () => {
   const root = fileURLToPath(new URL("../../../", import.meta.url));
@@ -141,10 +141,27 @@ test("panel text and spacing follow ragents.zoom alone, not VS Code's font setti
     const hosted = page.frameLocator("#host");
     const post = (message: unknown) => page.evaluate((data) => (document.getElementById("host") as HTMLIFrameElement).contentWindow!.postMessage(data, location.origin), message);
     const firstBlock = async () => (await hosted.locator("main > div > div > :first-child").first().boundingBox())!.y - (await hosted.locator("main").boundingBox())!.y;
-    const measured: Record<string, { heading: number; title: number; body: string; start: number; runs: number; overflow: number }> = {};
-    for (const font of ["13px", "20px"]) {
+    const measured: Record<string, { heading: number; title: number; body: string; family: string; root: string; start: number; runs: number; overflow: number }> = {};
+    for (const font of ["13px", "15px"]) {
       await page.goto(`${hull}/host?font=${font}`);
       await hosted.getByText("Night bus round").waitFor();
+      const frames = page.frames();
+      await hosted.locator("body").evaluate((element) => {
+        const input = document.createElement("input");
+        input.id = "draft";
+        input.value = "Local draft";
+        input.style.position = "absolute";
+        input.style.bottom = "0";
+        element.append(input);
+        const code = document.createElement("pre");
+        code.id = "mono";
+        code.className = "font-mono";
+        code.textContent = "const value = 1;";
+        code.style.position = "absolute";
+        code.style.bottom = "0";
+        code.style.right = "0";
+        element.append(code);
+      });
       for (const zoom of [100, 125, 200]) {
         await post({ type: "ragents.zoom", zoom });
         await page.waitForFunction((expected) => getComputedStyle((document.getElementById("host") as HTMLIFrameElement).contentDocument!.body).zoom === String(expected / 100), zoom);
@@ -152,6 +169,9 @@ test("panel text and spacing follow ragents.zoom alone, not VS Code's font setti
         const heading = (await hosted.getByRole("heading", { name: "New run", exact: true }).boundingBox())!.height;
         const title = (await hosted.getByText("Night bus round").boundingBox())!.height;
         const body = await hosted.locator("body").evaluate((element) => getComputedStyle(element).fontSize);
+        const family = await hosted.locator("body").evaluate((element) => getComputedStyle(element).fontFamily);
+        const root = await hosted.locator("html").evaluate((element) => getComputedStyle(element).fontSize);
+        assert.match(await hosted.locator("#mono").evaluate((element) => getComputedStyle(element).fontFamily), /^Courier,/);
         const overflow = await hosted.locator("main").evaluate((element) => element.scrollWidth - element.clientWidth);
         const bottom = await hosted.locator("main").evaluate((element) => ({ padding:parseFloat(getComputedStyle(element).paddingBottom),
           expected:12 * parseFloat(getComputedStyle(element).getPropertyValue("--spacing")) * parseFloat(getComputedStyle(document.documentElement).fontSize) }));
@@ -161,23 +181,53 @@ test("panel text and spacing follow ragents.zoom alone, not VS Code's font setti
         const runs = await firstBlock();
         await post({ type: "ragents.panel.state", state: filled });
         await hosted.getByText("Night bus round").waitFor();
-        measured[`${font}@${zoom}`] = { heading, title, body, start, runs, overflow };
+        measured[`${font}@${zoom}`] = { heading, title, body, family, root, start, runs, overflow };
+        assert.equal(await hosted.locator("#draft").inputValue(), "Local draft");
+        assert.deepEqual(page.frames(), frames, "Changing zoom retains the local panel frame.");
       }
+      await hosted.locator("html").evaluate((element) => {
+        const style = (element as HTMLElement).style;
+        style.setProperty("--vscode-chat-font-size", "15px");
+        style.setProperty("--vscode-chat-font-family", "Verdana,sans-serif");
+        style.setProperty("--vscode-editor-font-family", "monospace");
+      });
+      await page.waitForFunction(() => {
+        const body = (document.getElementById("host") as HTMLIFrameElement).contentDocument!.body;
+        return getComputedStyle(body).fontSize === "15px" && getComputedStyle(body).fontFamily.startsWith("Verdana,");
+      });
+      assert.equal(await hosted.locator("#mono").evaluate((element) => getComputedStyle(element).fontFamily), "monospace");
+      assert.equal(await hosted.locator("#draft").inputValue(), "Local draft");
+      assert.deepEqual(page.frames(), frames, "Changing VS Code font settings retains the local panel frame.");
+      await hosted.locator("html").evaluate((element) => {
+        const style = (element as HTMLElement).style;
+        style.removeProperty("--vscode-chat-font-size");
+        style.removeProperty("--vscode-chat-font-family");
+      });
+      await page.waitForFunction(() => {
+        const body = (document.getElementById("host") as HTMLIFrameElement).contentDocument!.body;
+        return getComputedStyle(body).fontSize === "20px" && getComputedStyle(body).fontFamily === "serif";
+      });
+      assert.equal(await hosted.locator("html").evaluate((element) => getComputedStyle(element).fontSize), "16px");
+      assert.equal(await hosted.locator("#draft").inputValue(), "Local draft");
     }
     const near = (actual: number, expected: number, label: string) => assert.ok(Math.abs(actual - expected) <= Math.max(1, expected * 0.04), `${label}: ${actual} instead of ${expected} (${JSON.stringify(measured)})`);
     const base = measured["13px@100"]!;
     for (const [key, value] of Object.entries(measured)) {
+      const font = key.split("@")[0]!;
       const zoom = Number(key.split("@")[1]) / 100;
-      assert.equal(value.body, "14px", `${key}: the theme's body rule outranks VS Code's default layer`);
-      near(value.heading, base.heading * zoom, `${key}: the home heading scales with the zoom`);
-      near(value.title, base.title * zoom, `${key}: run title scales with the zoom`);
+      const fontScale = parseFloat(font) / 13;
+      assert.equal(value.body, font, `${key}: the panel follows the chat font size`);
+      assert.match(value.family, /^Arial,/, `${key}: the panel follows the chat font family`);
+      assert.equal(value.root, "16px", `${key}: rem spacing keeps a 16px root`);
+      near(value.heading, base.heading * zoom * fontScale, `${key}: the home heading scales with the chat font and zoom`);
+      near(value.title, base.title * zoom * fontScale, `${key}: run title scales with the chat font and zoom`);
       near(value.start, base.start * zoom, `${key}: the top offset scales with the zoom`);
       near(value.runs, value.start, `${key}: both home messages start at the same height`);
       assert.ok(value.overflow <= 0, `${key}: no horizontal overflow`);
     }
     for (const zoom of [100, 125, 200]) {
-      const [small, large] = [measured[`13px@${zoom}`]!, measured[`20px@${zoom}`]!];
-      for (const name of ["heading", "title", "start", "runs"] as const) near(large[name], small[name], `${name} at ${zoom}% with VS Code's larger font`);
+      const [small, large] = [measured[`13px@${zoom}`]!, measured[`15px@${zoom}`]!];
+      for (const name of ["start", "runs"] as const) near(large[name], small[name], `${name} at ${zoom}% retains rem spacing with VS Code's larger chat font`);
     }
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }

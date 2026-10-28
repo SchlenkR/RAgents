@@ -29,9 +29,9 @@ type FolderChoice = "fresh" | "existing";
 
 const SERVER = "server";
 
-const errorClass = "text-[0.75rem] text-destructive";
+const errorClass = "text-sm text-destructive";
 
-const labelClass = "text-[0.66rem] font-medium text-muted-foreground";
+const labelClass = "text-sm font-medium text-muted-foreground";
 
 const messageOf = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
 
@@ -180,7 +180,7 @@ export function WorkspaceBindingControl({ disabled, error, machines: offeredMach
 
   return (
     <div className="flex w-full flex-col items-start gap-2">
-      <span className="text-[0.72rem] font-semibold text-muted-foreground">Workspace</span>
+      <span className="text-sm font-semibold text-muted-foreground">Workspace</span>
       <div className="flex w-full flex-wrap items-end gap-2">
         <div className="flex flex-col gap-1">
           <span className={labelClass}>Machine</span>

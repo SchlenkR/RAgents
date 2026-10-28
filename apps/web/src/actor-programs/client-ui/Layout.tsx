@@ -6,7 +6,7 @@ const gaps: Record<LayoutGap, string> = { small: "gap-2", normal: "gap-3", large
 
 export function AppLayout({ title, description, actions, children, fill = false }: AppLayoutProps) {
   const titleId = useId();
-  return <section aria-labelledby={title ? titleId : undefined} className={cn("flex min-w-0 flex-col gap-3 p-3 text-sm break-words [#root>&]:p-0", fill && "h-full min-h-0")} data-fill={fill} data-slot="app-layout">
+  return <section aria-labelledby={title ? titleId : undefined} className={cn("flex min-w-0 flex-col gap-3 p-3 text-base break-words [#root>&]:p-0", fill && "h-full min-h-0")} data-fill={fill} data-slot="app-layout">
     {(title || description) && <header className="flex min-w-0 flex-none flex-col gap-1">
       {title && <h1 className="type-title" id={titleId}>{title}</h1>}
       {description && <div className="text-muted-foreground">{description}</div>}

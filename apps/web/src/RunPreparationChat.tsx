@@ -109,11 +109,11 @@ export function RunPreparationChat({ initialPrompt, entry, registry, sessionRef 
         toolbarLeft={<ChatViewSwitches settings={chatView} />}
         toolbarRight={<StartOptionControls disabled={busy} fixed={fixed} placement="composer" registry={registry} />} />
       {conflicts.length > 0 && <div className="mt-3 flex flex-wrap items-center justify-between gap-3" data-start-option-conflicts="" role="alert">
-        <span className="text-[0.75rem] text-destructive">Before the template was opened, {conflicts.length === 1 ? "one start option was" : `${conflicts.length} start options were`} set differently than the template requires. The run cannot be created like this.</span>
+        <span className="text-sm text-destructive">Before the template was opened, {conflicts.length === 1 ? "one start option was" : `${conflicts.length} start options were`} set differently than the template requires. The run cannot be created like this.</span>
         <Button disabled={busy} size="sm" variant="outline" onClick={() => { void adoptTemplate(); }}>Apply template values</Button>
       </div>}
       <div className="my-3 flex flex-wrap items-center justify-between gap-3">
-        <span className="text-[0.75rem] text-muted-foreground">Give your go in the chat to start, or choose "Create run".</span>
+        <span className="text-sm text-muted-foreground">Give your go in the chat to start, or choose "Create run".</span>
         <Button disabled={busy || conflicts.length > 0 || (!history.length && !draft.trim() && !hasAttachments)}
           onClick={() => { void composer.current?.submit(createRun, { allowEmpty: history.length > 0 }); }}>
           {operation === "starting" ? "Creating run ..." : "Create run"}

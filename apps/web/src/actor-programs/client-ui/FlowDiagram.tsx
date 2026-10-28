@@ -17,7 +17,7 @@ interface Point { x: number; y: number }
 
 function textMeasure(): (text: string) => number {
   const canvas = typeof document === "undefined" ? undefined : document.createElement("canvas").getContext("2d");
-  if (canvas) canvas.font = `600 16px ${getComputedStyle(document.documentElement).getPropertyValue("--font-sans").trim() || "sans-serif"}`;
+  if (canvas) canvas.font = `600 ${getComputedStyle(document.body).fontSize} ${getComputedStyle(document.documentElement).getPropertyValue("--font-sans").trim() || "sans-serif"}`;
   return text => canvas ? canvas.measureText(text).width : text.length * 10;
 }
 
@@ -201,7 +201,7 @@ async function layeredLayout(cards: CardNode[], links: Link[], direction: "right
 
 const FlowDiagramRenderer = lazy(() => import("./FlowDiagramRenderer"));
 
-const flowSurface = "w-full min-w-0 overflow-hidden bg-transparent text-[16px]/[1.5] text-foreground [&>p]:p-4 [&_[role=alert]]:text-destructive data-[viewport=fit-width]:flex-none data-[viewport=fit]:h-full data-[viewport=fit]:min-h-0 data-[viewport=fit]:flex-auto";
+const flowSurface = "w-full min-w-0 overflow-hidden bg-transparent text-lg text-foreground [&>p]:p-4 [&_[role=alert]]:text-destructive data-[viewport=fit-width]:flex-none data-[viewport=fit]:h-full data-[viewport=fit]:min-h-0 data-[viewport=fit]:flex-auto";
 
 export function FlowDiagram(props: FlowDiagramProps) {
   const inputKey = JSON.stringify([props.nodes, props.edges, props.direction, props.height, props.viewport, props.detailLevel, props.layout]);

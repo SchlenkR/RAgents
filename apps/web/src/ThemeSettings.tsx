@@ -9,7 +9,7 @@ import { getThemeStore, type ResolvedTheme } from "./theme";
 import { Card, ToggleGroup, ToggleGroupItem, cn } from "./ui";
 import { getZoomStore, parseZoom, zoomSteps } from "./zoom";
 
-const noteClasses = "text-sm leading-[1.6] text-muted-foreground";
+const noteClasses = "text-base text-muted-foreground";
 const rowPanelClass = cn(settingsPanelClass, "flex-row flex-wrap items-center gap-4");
 const panelTitleClass = cn(settingsPanelTitleClass, "mb-2");
 const choiceRows = [
@@ -57,7 +57,7 @@ export function ThemeSettings() {
       {" "}Changes apply immediately and are saved {host.kind === "vscode" ? "in the VS Code settings ragents.theme, ragents.palette, ragents.codeStyle, ragents.corners and ragents.density" : "in this browser"}.
     </p>
     {!writable && <p className={noteClasses}>With your permissions, the appearance is read-only.</p>}
-    {[error, ...shapeErrors].map((message) => message && <p className="text-sm leading-[1.6] text-destructive" key={message} role="alert">{message}</p>)}
+    {[error, ...shapeErrors].map((message) => message && <p className="text-base text-destructive" key={message} role="alert">{message}</p>)}
     {host.kind === "browser" ? <ZoomSettings /> : <p className={noteClasses}>In VS Code, the setting ragents.zoom scales the interface.</p>}
   </div>;
 }
@@ -71,7 +71,7 @@ function PaletteSettings({ appearance, writable }: { appearance: ResolvedTheme; 
         <p className={noteClasses}>Colors of every surface, control and text.</p>
       </div>
       <PaletteChoices labelledBy="palette-settings-title" scheme={appearance} writable={writable} />
-      {error && <p className="text-sm leading-[1.6] text-destructive" role="alert">{error}</p>}
+      {error && <p className="text-base text-destructive" role="alert">{error}</p>}
     </Card>
   </section>;
 }
@@ -90,6 +90,6 @@ function ZoomSettings() {
         {zoomSteps.map((step) => <ToggleGroupItem key={step} value={String(step)}>{step}%</ToggleGroupItem>)}
       </ToggleGroup>
     </Card>
-    {error && <p className="text-sm leading-[1.6] text-destructive" role="alert">{error}</p>}
+    {error && <p className="text-base text-destructive" role="alert">{error}</p>}
   </section>;
 }

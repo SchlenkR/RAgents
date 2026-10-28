@@ -38,7 +38,7 @@ export function ActivityHeader({ session }: SessionHeaderContext) {
           <DetailRow key={entry.id} label={kindLabels[entry.kind]} explanation={entry.kind === "tool" ? "An agent is doing this step." : "This agent is working on a message."}>
             <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1" data-kind={entry.kind}>
               <span className="min-w-0 flex-[1_1_12rem]" data-slot="activity-name">{entry.label}</span>
-              {elapsed && <span aria-label={`Elapsed time ${elapsed}`} className="flex-none whitespace-nowrap text-xs text-muted-foreground tabular-nums" data-slot="activity-elapsed">{elapsed}</span>}
+              {elapsed && <span aria-label={`Elapsed time ${elapsed}`} className="flex-none whitespace-nowrap text-sm text-muted-foreground tabular-nums" data-slot="activity-elapsed">{elapsed}</span>}
             </div>
           </DetailRow>
         );

@@ -23,7 +23,7 @@ function FilePreview({ file }: { file: File }) {
     return () => { active = false; };
   }, [file]);
   if (preview?.file !== file) return null;
-  if (preview.error) return <p className="text-sm text-destructive" role="alert">Preview failed: {preview.error}</p>;
+  if (preview.error) return <p className="text-base text-destructive" role="alert">Preview failed: {preview.error}</p>;
   if (preview.text !== undefined) return <div className="mt-3 max-h-56 overflow-auto rounded-md bg-muted"><SourceCode content={preview.text} path={file.name} /></div>;
   if (!preview.url) return null;
   if (file.type.startsWith("image/")) return <img alt={file.name} className="mt-3 block max-h-56 max-w-full rounded-md" src={preview.url} />;
@@ -48,14 +48,14 @@ export function FilePicker({ label, files, onChange, disabled, showPreview = tru
   };
   const add = (incoming: File[]) => change(() => fileSelection(files, incoming, options));
   const fileInput = useFileInput({ disabled: blocked, onFiles: add });
-  return <section aria-busy={pending} aria-label={label} className="min-w-0 text-sm" data-slot="file-picker">
+  return <section aria-busy={pending} aria-label={label} className="min-w-0 text-base" data-slot="file-picker">
     <div className={cn("grid gap-2 rounded-lg border border-dashed bg-muted/40 p-3", fileInput.dragging && "border-primary bg-background")} {...fileInput.dropProps}>
       <Label htmlFor={id}>{label}</Label>
-      <input accept={options.accept} className="max-w-full min-w-0 text-sm file:mr-2 file:rounded-md file:border file:bg-background file:px-2 file:py-1 file:text-sm" disabled={blocked} id={id} multiple={options.multiple !== false} type="file" {...fileInput.inputProps} />
-      <p className="text-xs text-muted-foreground">Select files, drag them here, or paste while the file picker is focused.</p>
-      {options.accept && <p className="text-xs text-muted-foreground">Allowed: {options.accept}</p>}
+      <input accept={options.accept} className="max-w-full min-w-0 text-base file:mr-2 file:rounded-md file:border file:bg-background file:px-2 file:py-1 file:text-base" disabled={blocked} id={id} multiple={options.multiple !== false} type="file" {...fileInput.inputProps} />
+      <p className="text-sm text-muted-foreground">Select files, drag them here, or paste while the file picker is focused.</p>
+      {options.accept && <p className="text-sm text-muted-foreground">Allowed: {options.accept}</p>}
     </div>
-    {error && <p className="mt-2 text-sm text-destructive" role="alert">{error}</p>}
+    {error && <p className="mt-2 text-base text-destructive" role="alert">{error}</p>}
     {files.length > 0 && <ul className="mt-2 divide-y">{files.map((file, index) => <li className="py-2" key={`${file.name}:${file.size}:${file.lastModified}:${index}`}>
       <div className="flex items-start justify-between gap-3"><span className="min-w-0 break-words"><strong>{file.name}</strong> <small className="block text-muted-foreground">{new Intl.NumberFormat().format(file.size)} bytes</small></span>
         <Button aria-label={`Remove ${file.name}`} disabled={blocked} onClick={() => { void change(() => files.filter((_, position) => position !== index)); }} size="sm" variant="outline">Remove</Button></div>

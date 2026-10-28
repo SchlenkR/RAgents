@@ -96,7 +96,7 @@ export function Form({ title, fields, values, onChange, onSubmit, validate, subm
             <Field data-disabled={inactive} data-field-index={index} data-invalid={Boolean(fieldError)} key={field.id}>
               <FieldLabel htmlFor={id}>{label}</FieldLabel>
               {locked
-                ? <p className="text-sm">{field.options.find((option) => option.value === value)?.label ?? String(value ?? "")}</p>
+                ? <p className="text-base">{field.options.find((option) => option.value === value)?.label ?? String(value ?? "")}</p>
                 : <Select disabled={inactive} items={field.options} value={typeof value === "string" ? value : ""} onValueChange={(next) => { if (next !== null) change(field, next); }}>
                   <SelectTrigger aria-describedby={describedBy} aria-invalid={Boolean(fieldError)} className="w-full" id={id}><SelectValue /></SelectTrigger>
                   <SelectContent>{field.options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>

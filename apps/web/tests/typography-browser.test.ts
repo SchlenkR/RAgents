@@ -1,39 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
-import { chromium, type Locator, type Page } from "playwright-core";
+import { chromium, type FrameLocator, type Locator, type Page } from "playwright-core";
+import { frameHtml, panelHtml } from "../../vscode/src/webview-html";
 import { tailwindPlugin } from "./tailwind-plugin";
 import type {} from "./typography-fixture";
 
-const defaultHeadings = [
-  { size: 1.5, lineHeight: 1.3 },
-  { size: 1.25, lineHeight: 1.35 },
-  { size: 1.1, lineHeight: 1.4 },
-  { size: 0.8, lineHeight: 1.5 },
-  { size: 0.8, lineHeight: 1.5 },
-  { size: 0.8, lineHeight: 1.5 },
-];
-const changedHeadings = [
-  { size: 1.75, lineHeight: 1.2 },
-  { size: 1.4, lineHeight: 1.4 },
-  { size: 1.2, lineHeight: 1.6 },
-  { size: 0.9, lineHeight: 1.8 },
-  { size: 0.9, lineHeight: 1.8 },
-  { size: 0.9, lineHeight: 1.8 },
-];
-const chatHeadingSizes = [1.2, 1.1, 1.1, 1, 1, 1];
-
 const buildFixture = async (directory: string) => {
-  const source = fileURLToPath(new URL("../src/", import.meta.url));
-  const fixtures = fileURLToPath(new URL("./", import.meta.url));
+  const root = fileURLToPath(new URL("../../../", import.meta.url));
   await build({
-    entryPoints: [join(fixtures, "typography-fixture.tsx")], bundle: true, platform: "browser", format: "iife", jsx: "automatic",
-    outfile: join(directory, "fixture.js"), define: { "process.env.NODE_ENV": '"production"' },
-    plugins: [tailwindPlugin([source, fixtures])], logLevel: "silent",
+    entryPoints: [join(root, "apps/web/tests/typography-fixture.tsx")], bundle: true, platform: "browser", format: "iife", jsx: "automatic",
+    outfile: join(directory, "fixture.js"), define: { "process.env.NODE_ENV": '\"production\"' },
+    plugins: [tailwindPlugin([`${root}apps/web/src`, `${root}plugins/ragents.ask/web`, `${root}plugins/ragents.documents/web`, `${root}plugins/ragents.workspace/web`, `${root}apps/web/tests`])], logLevel: "silent",
   });
   await writeFile(join(directory, "index.html"), '<!doctype html><html><head><meta charset="utf-8"><title>Reading examples</title><link rel="stylesheet" href="fixture.css"></head><body><div id="root"></div><script src="fixture.js"></script></body></html>');
   return pathToFileURL(join(directory, "index.html")).href;
@@ -41,10 +23,7 @@ const buildFixture = async (directory: string) => {
 
 const typography = (element: Locator) => element.evaluate((node) => {
   const style = getComputedStyle(node);
-  return {
-    fontSize: parseFloat(style.fontSize), lineHeight: parseFloat(style.lineHeight), fontFamily: style.fontFamily,
-    fontWeight: style.fontWeight, letterSpacing: style.letterSpacing,
-  };
+  return { fontSize: parseFloat(style.fontSize), lineHeight: parseFloat(style.lineHeight), fontFamily: style.fontFamily };
 });
 const near = (actual: number, expected: number, label: string) => assert.ok(Math.abs(actual - expected) < 0.04,
   `${label}: expected ${expected}px, got ${actual}px.`);
@@ -53,125 +32,152 @@ const settle = (page: Page) => page.evaluate(async () => {
     .map((animation) => animation.finished.catch(() => undefined)));
 });
 
-const assertReadingRoles = async (page: Page, documentFontSize: number, documentLineHeight: number, label: string) => {
-  const chat = page.getByRole("region", { name: "Chat", exact: true });
-  const document = page.getByRole("article", { name: "Document", exact: true });
-  const roles = [
-    { fontSize: 13, lineHeight: 1.5, readers: [
-      chat.getByText("Chat reading paragraph.", { exact: true }), chat.getByText("Chat list item.", { exact: true }),
-      chat.getByText("Chat quotation.", { exact: true }), chat.getByText("User reading paragraph.", { exact: true }),
-      chat.getByText("Bubble reading paragraph.", { exact: true }), chat.getByRole("textbox", { name: "Write a message ...", exact: true }),
-    ] },
-    { fontSize: documentFontSize, lineHeight: documentLineHeight, readers: [
-      document.getByText("Document reading paragraph.", { exact: true }), document.getByText("Document list item.", { exact: true }),
-      document.getByText("Document quotation.", { exact: true }),
-    ] },
+async function assertScale(scope: Page | FrameLocator, base: number, family: string, mono: string) {
+  await scope.locator("html").evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    await Promise.all(document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+      .map((animation) => animation.finished.catch(() => undefined)));
+  });
+  const chat = scope.getByRole("region", { name: "Chat", exact: true });
+  const documentView = scope.getByRole("article", { name: "Document", exact: true });
+  const files = scope.getByRole("region", { name: "File preview", exact: true });
+  const body = [
+    chat.getByText("Please review the changes.", { exact: true }),
+    chat.getByText("A shared document uses readable paragraphs, a list and code.", { exact: true }),
+    chat.getByText("Review the current changes.", { exact: true }),
+    chat.getByText("Which review period applies?", { exact: true }),
+    chat.getByRole("button", { name: "3 days Review this week", exact: true }),
+    chat.getByRole("button", { name: "14 days Review after the next update", exact: true }),
+    chat.getByText("Approve the review", { exact: true }),
+    chat.getByRole("textbox", { name: "Write a message ...", exact: true }),
+    documentView.getByText("A shared document uses readable paragraphs, a list and code.", { exact: true }),
+    files.getByText("A shared document uses readable paragraphs, a list and code.", { exact: true }),
   ];
-  for (const { readers, fontSize, lineHeight } of roles) {
-    const styles = await Promise.all(readers.map(typography));
-    for (const [index, style] of styles.entries()) {
-      near(style.fontSize, fontSize, `${label}, reading consumer ${index + 1} font`);
-      near(style.lineHeight, fontSize * lineHeight, `${label}, reading consumer ${index + 1} line height`);
-      assert.equal(style.fontFamily, styles[0].fontFamily, `${label} uses the shared reading font.`);
+  const small = [
+    chat.locator("[data-step]").filter({ hasText: "Inspect files" }).last(),
+    chat.locator("time").first(), chat.getByText("New turn", { exact: true }),
+    scope.locator("header [data-slot=badge]").filter({ hasText: /^Ready$/ }),
+  ];
+  for (const [factor, lineHeight, elements] of [[1, 1.5, body], [0.85, 1.4, small]] as const) {
+    for (const element of elements) {
+      const actual = await typography(element);
+      const label = await element.innerText();
+      near(actual.fontSize, base * factor, `${label}, font`);
+      near(actual.lineHeight, base * factor * lineHeight, `${label}, line height`);
+      assert.equal(actual.fontFamily, family, `${label}, UI family`);
     }
   }
-};
-
-const assertHeadingRoles = async (page: Page, fontSize: number, headings: readonly { size: number; lineHeight: number }[], label: string) => {
-  const chat = page.getByRole("region", { name: "Chat", exact: true });
-  const document = page.getByRole("article", { name: "Document", exact: true });
-  for (const [index, role] of headings.entries()) {
-    const level = index + 1;
-    const [chatStyle, documentStyle] = await Promise.all([
-      typography(chat.getByRole("heading", { level, name: `Chat heading ${level}`, exact: true })),
-      typography(document.getByRole("heading", { level, name: `Document heading ${level}`, exact: true })),
-    ]);
-    near(chatStyle.fontSize, 13 * chatHeadingSizes[index], `${label}, chat H${level} font`);
-    near(chatStyle.lineHeight, 13 * chatHeadingSizes[index] * 1.5, `${label}, chat H${level} line height`);
-    near(documentStyle.fontSize, fontSize * role.size, `${label}, document H${level} font`);
-    near(documentStyle.lineHeight, fontSize * role.size * role.lineHeight, `${label}, document H${level} line height`);
-    assert.equal(chatStyle.fontFamily, documentStyle.fontFamily, `${label}, H${level} uses the host font.`);
+  const title = await typography(scope.locator("[data-header-title]"));
+  near(title.fontSize, base * 1.15, "Run title, font");
+  near(title.lineHeight, base * 1.15 * 1.3, "Run title, line height");
+  assert.equal(title.fontFamily, family);
+  for (const section of [chat, documentView, files]) {
+    for (const [level, factor, lineHeight] of [[1, 1.3, 1.25], [2, 1.15, 1.3], [3, 1.05, 1.35], [4, 1, 1.4]] as const) {
+      const actual = await typography(section.getByRole("heading", { level }));
+      near(actual.fontSize, base * factor, `H${level}, font`);
+      near(actual.lineHeight, base * factor * lineHeight, `H${level}, line height`);
+      assert.equal(actual.fontFamily, family);
+    }
+    for (const code of [section.locator("p code"), section.locator("pre code")]) {
+      const actual = await typography(code);
+      near(actual.fontSize, base * 0.9, "Code, font");
+      near(actual.lineHeight, base * 0.9 * 1.5, "Code, line height");
+      assert.equal(actual.fontFamily, mono, "Code, monospace family");
+    }
   }
-  for (const name of ["User heading 1", "Bubble heading 1"]) {
-    const style = await typography(chat.getByRole("heading", { level: 1, name, exact: true }));
-    near(style.fontSize, 13 * chatHeadingSizes[0], `${label}, ${name} font`);
-    near(style.lineHeight, 13 * chatHeadingSizes[0] * 1.5, `${label}, ${name} line height`);
-  }
-};
+  await scope.getByRole("button", { name: "Reading menu", exact: true }).click();
+  const menu = scope.getByRole("menuitem", { name: "Open notes", exact: true });
+  const style = await typography(menu);
+  near(style.fontSize, base, "Menu item, font");
+  near(style.lineHeight, base * 1.5, "Menu item, line height");
+  assert.equal(style.fontFamily, family);
+  await menu.click();
+}
 
-const controlRoles = async (page: Page) => {
-  const controls = page.getByRole("region", { name: "Controls and metadata", exact: true });
-  return Promise.all([
-    typography(controls.getByRole("button", { name: "Example action", exact: true })),
-    typography(controls.getByText("Body control text.", { exact: true })),
-    typography(controls.getByText("Metadata text.", { exact: true })),
-    typography(page.getByRole("region", { name: "Chat", exact: true }).getByRole("button", { name: "Send", exact: true })),
-    typography(page.getByRole("region", { name: "Chat", exact: true }).locator("time").first()),
-  ]);
-};
-
-test("chat keeps library typography while document reading tokens leave controls and metadata unchanged", {
+test("one host base reaches chat, question and action cards, menus, documents and file previews, including live VS Code font changes", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 120_000,
 }, async (context) => {
-  const directory = await mkdtemp(join(tmpdir(), "ragents-typography-"));
+  const directory = await mkdtemp(join(tmpdir(), "ragents-type-scale-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
-  const url = await buildFixture(directory);
-  const screenshots = join(tmpdir(), "ragents-browser-shots");
-  await mkdir(screenshots, { recursive: true });
-  const browser = await chromium.launch({ headless: true, ignoreDefaultArgs: ["--hide-scrollbars"], executablePath: process.env.BROWSER_EXECUTABLE_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
+  await buildFixture(directory);
+  const [html, script, css] = await Promise.all(["index.html", "fixture.js", "fixture.css"].map((file) => readFile(join(directory, file), "utf8")));
+  const browser = await chromium.launch({ headless: true, executablePath: process.env.BROWSER_EXECUTABLE_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
   context.after(() => browser.close());
-  const errors: string[] = [];
-  for (const host of ["browser", "vscode"]) for (const theme of ["light", "dark"]) for (const rootSize of [16, 20]) {
-    const page = await browser.newPage({ viewport: { width: 1440, height: 1200 }, reducedMotion: "reduce" });
+  const shots = process.env.RAGENTS_TYPOGRAPHY_SCREENSHOTS ?? join(tmpdir(), "ragents-browser-shots");
+  await mkdir(shots, { recursive: true });
+  for (const host of ["browser", "vscode", "local"] as const) {
+    const browserContext = await browser.newContext({ viewport: { width: 1440, height: 1200 }, reducedMotion: "reduce" });
+    await browserContext.addInitScript("window.acquireVsCodeApi = () => ({ postMessage() {} });");
+    const errors: string[] = [];
+    await browserContext.route("http://**/*", async (route) => {
+      const request = route.request();
+      const url = new URL(request.url());
+      if (url.pathname === "/fixture.js") return route.fulfill({ contentType: "text/javascript", body: script });
+      if (url.pathname === "/fixture.css") return route.fulfill({ contentType: "text/css", body: css });
+      if (url.pathname === "/rpc/stream") return;
+      if (url.pathname === "/rpc") {
+        const packet = request.postDataJSON() as { id: number; method: string; params: { root: string } };
+        const root = packet.params.root;
+        const markdown = "# Review notes\n\nA shared document uses readable paragraphs, a list and code.\n\n- Review the current changes.\n- Record the result.\n\nUse `readFile` to inspect a file.\n\n~~~ts\nconst result = readFile(\"notes.md\");\n~~~\n\n## Next actions\n\n### Details\n\n#### Context\n\n> Keep the report concise.";
+        const result = packet.method === "ragents.workspace.browse.list"
+          ? { root, location: "/home/user/project", path: "", entries: [{ name: "notes.md", kind: "file", size: markdown.length, modifiedAt: "2026-10-28T10:00:00Z" }], truncated: false }
+          : packet.method === "ragents.workspace.browse.preview" ? { root, path: "notes.md", size: markdown.length, previewable: true, content: markdown }
+            : {};
+        return route.fulfill({ contentType: "application/json", body: JSON.stringify({ jsonrpc: "2.0", id: packet.id, result }) });
+      }
+      if (url.pathname === "/shell" || url.pathname === "/local") {
+        const shell = (url.pathname === "/local"
+          ? panelHtml({ nonce: "typography", title: "Reading examples", state: { theme: "light", page: "connections", connections: [], profileSuggestions: [] }, scriptUri: "http://webview.test/fixture.js", styleUri: "http://webview.test/fixture.css", cspSource: "http://webview.test" })
+          : frameHtml({ serverUrl: "http://typography.test", query: { host: "vscode", element: "scale" }, nonce: "typography", title: "Reading examples" }))
+          .replace("<html ", '<html style="--vscode-chat-font-size:13px;--vscode-chat-font-family:Georgia;--vscode-editor-font-family:Courier New;--vscode-font-size:19px;--vscode-font-family:serif" ');
+        return route.fulfill({ contentType: "text/html", body: shell.replace("default-src 'none';", "default-src 'none'; connect-src http://webview.test;") });
+      }
+      return route.fulfill({ contentType: "text/html", body: html });
+    });
+    const page = await browserContext.newPage();
     page.setDefaultTimeout(8000);
     page.on("pageerror", (error) => errors.push(error.message));
-    try {
-      await page.goto(`${url}?host=${host}`);
-      await page.getByRole("textbox", { name: "Write a message ...", exact: true }).waitFor();
-      await page.evaluate(({ rootSize, theme }) => {
-        document.documentElement.style.fontSize = `${rootSize}px`;
-        document.documentElement.dataset.theme = theme;
-      }, { rootSize, theme });
-      await settle(page);
-      assert.equal(await page.evaluate(() => document.documentElement.dataset.host), host);
-      const label = `${host}, ${theme}, root ${rootSize}px`;
-      await assertReadingRoles(page, rootSize * 0.8, 1.6, label);
-      await assertHeadingRoles(page, rootSize * 0.8, defaultHeadings, label);
-      const times = await page.locator("[data-quassel-transcript] time").evaluateAll((elements) => elements.map((element) => ({
-        text: element.textContent, nowrap: getComputedStyle(element).whiteSpace === "nowrap", fits: element.scrollWidth <= element.clientWidth })));
-      assert.ok(times.length > 0 && times.every((time) => time.nowrap && time.fits), `${label}: timestamps stay on one line: ${JSON.stringify(times)}`);
-      const unchanged = await controlRoles(page);
-      near(unchanged[0].fontSize, rootSize * 0.78, `${label}, button font`);
-      near(unchanged[1].fontSize, rootSize * 0.8, `${label}, body control font`);
-      near(unchanged[2].fontSize, rootSize * 0.72, `${label}, metadata font`);
-      near(unchanged[4].fontSize, 13 * 0.88, `${label}, timestamp font`);
-      near(unchanged[1].lineHeight, rootSize * 0.8 * 1.55, `${label}, body control line height`);
-      near(unchanged[2].lineHeight, rootSize * 0.72 * 1.5, `${label}, metadata line height`);
-      await page.locator("[data-quassel-transcript]").hover();
-      await page.mouse.wheel(0, -100_000);
-      await page.waitForFunction(() => document.querySelector<HTMLElement>("[data-quassel-transcript]")!.scrollTop === 0);
-      await page.screenshot({ path: join(screenshots, `typography-${host}-${theme}-${rootSize}.png`) });
-
+    await page.goto(host === "browser" ? "http://typography.test/index.html?scale" : host === "local" ? "http://webview.test/local?host=vscode&scale" : "http://webview.test/shell");
+    const scope = host === "vscode" ? page.frameLocator("#frame") : page;
+    const files = scope.getByRole("region", { name: "File preview", exact: true });
+    await files.getByRole("button", { name: /notes.md/ }).click();
+    await files.getByText("A shared document uses readable paragraphs, a list and code.", { exact: true }).waitFor();
+    const family = host !== "browser" ? "Georgia" : await scope.locator("body").evaluate((element) => getComputedStyle(element).fontFamily);
+    const mono = host !== "browser" ? '\"Courier New\"' : await scope.locator("html").evaluate((element) => {
+      const probe = document.createElement("code");
+      probe.className = "font-mono";
+      element.append(probe);
+      const family = getComputedStyle(probe).fontFamily;
+      probe.remove();
+      return family;
+    });
+    await assertScale(scope, host === "browser" ? 14 : 13, family, mono);
+    await scope.locator("[data-quassel-transcript]").evaluate((element) => { element.scrollTop = 0; });
+    await settle(page);
+    await page.screenshot({ path: join(shots, `after-${host}-${host === "browser" ? 14 : 13}-chat-document.png`) });
+    if (host !== "browser") {
+      const draft = scope.getByRole("textbox", { name: "Write a message ...", exact: true });
+      await draft.fill("Draft survives font changes");
+      const frames = page.frames();
       await page.evaluate(() => {
-        document.documentElement.style.setProperty("--text-prose", "1rem");
-        document.documentElement.style.setProperty("--text-prose--line-height", "1.8");
+        document.documentElement.style.setProperty("--vscode-chat-font-size", "15px");
+        document.documentElement.style.setProperty("--vscode-chat-font-family", "Arial");
+        document.documentElement.style.setProperty("--vscode-editor-font-family", "monospace");
       });
-      await assertReadingRoles(page, rootSize, 1.8, `${label}, changed reading token`);
-      await assertHeadingRoles(page, rootSize, defaultHeadings, `${label}, changed reading token`);
-      assert.deepEqual(await controlRoles(page), unchanged, `${label}: a reading token change leaves controls and metadata unchanged.`);
-
-      await page.evaluate((headings) => {
-        for (const [index, role] of headings.slice(0, 4).entries()) {
-          document.documentElement.style.setProperty(`--text-prose-h${index + 1}`, `${role.size}em`);
-          document.documentElement.style.setProperty(`--text-prose-h${index + 1}--line-height`, String(role.lineHeight));
-        }
-      }, changedHeadings);
-      await assertHeadingRoles(page, rootSize, changedHeadings, `${label}, changed heading tokens`);
-      await assertReadingRoles(page, rootSize, 1.8, `${label}, changed heading tokens`);
-      assert.deepEqual(await controlRoles(page), unchanged, `${label}: heading token changes leave controls and metadata unchanged.`);
-    } finally { await page.close(); }
+      await page.frames().find((frame) => host === "local" ? frame.parentFrame() === null : frame.parentFrame() !== null)!.waitForFunction(() => parseFloat(getComputedStyle(document.body).fontSize) === 15);
+      await scope.locator("html").evaluate(async () => {
+        await Promise.all(document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+          .map((animation) => animation.finished.catch(() => undefined)));
+      });
+      await assertScale(scope, 15, "Arial", "monospace");
+      assert.equal(await draft.inputValue(), "Draft survives font changes");
+      assert.deepEqual(page.frames(), frames, "Changing font size retains the open frame.");
+      await page.screenshot({ path: join(shots, `after-${host}-15-chat-document.png`) });
+    }
+    assert.deepEqual(errors, []);
+    await browserContext.close();
   }
-  assert.deepEqual(errors, []);
 });
 
 test("chat transcripts reserve a narrow visible scrollbar and keep wheel, track, thumb, and jump-to-end scrolling usable", {

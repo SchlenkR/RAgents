@@ -25,7 +25,7 @@ function StatusIcon({ status, className }: { status: keyof typeof statusLabels; 
 }
 
 function Card({ data }: NodeProps<CardNode>) {
-  return <div className={cn(cardStatusTones, "pointer-events-auto h-full overflow-hidden rounded-[12px] border border-[color-mix(in_srgb,var(--flow-status)_60%,var(--border))] bg-card text-[16px]/[24px] shadow-[0_3px_9px_#49384e20] data-[running=true]:animate-ring-pulse data-[running=true]:motion-reduce:animate-none")}
+  return <div className={cn(cardStatusTones, "pointer-events-auto h-full overflow-hidden rounded-[12px] border border-[color-mix(in_srgb,var(--flow-status)_60%,var(--border))] bg-card text-base shadow-[0_3px_9px_#49384e20] data-[running=true]:animate-ring-pulse data-[running=true]:motion-reduce:animate-none")}
     data-status={data.status ?? "pending"} data-kind={data.kind} data-detail-level={data.detailLevel} data-running={data.status === "active" && data.running === true}>
     <Handle type="target" position={data.direction === "right" ? Position.Left : Position.Top} />
     <div className="relative rounded-t-[11px] bg-[color-mix(in_srgb,var(--flow-status)_12%,var(--card))] px-[17px] py-[15px] in-data-[detail-level=summary]:py-[10px]">
@@ -49,7 +49,7 @@ function Route({ id, data, label, markerEnd }: EdgeProps<RouteEdge>) {
   return <><BaseEdge className={data.status ? edgeClasses[data.status] : undefined} data-status={data.status} id={id} path={data.path} markerEnd={markerEnd} label={data.rotated ? undefined : label} labelX={data.x} labelY={data.y} />
     {data.rotated && label && <g data-kind="return" transform={`translate(${data.x} ${data.y}) rotate(-90)`}>
       <rect className="fill-background" x={-(data.labelWidth ?? 0) / 2 - 4} y={-12} width={(data.labelWidth ?? 0) + 8} height={24} rx={4} />
-      <text className="fill-foreground text-[16px]" textAnchor="middle" dominantBaseline="central">{label}</text>
+      <text className="fill-foreground text-base" textAnchor="middle" dominantBaseline="central">{label}</text>
     </g>}
   </>;
 

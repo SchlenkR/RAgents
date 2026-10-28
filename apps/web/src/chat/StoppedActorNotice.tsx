@@ -22,7 +22,7 @@ export function StoppedActorNotice({ actor, runId, className, toolbar }: { actor
       setBusy(false);
     }
   };
-  return <div className={cn("flex min-w-0 flex-col gap-2 rounded-[var(--qsl-input-card-radius,var(--radius-xl))] border border-border-strong bg-background px-3 py-2 text-[0.8rem]", className)}
+  return <div className={cn("flex min-w-0 flex-col gap-2 rounded-[var(--qsl-input-card-radius,var(--radius-xl))] border border-border-strong bg-background px-3 py-2 text-base", className)}
     data-slot="stopped-actor">
     <div className="flex min-w-0 items-center gap-2">
       <p className="min-w-0 flex-1 [overflow-wrap:anywhere]" role="status">
@@ -32,8 +32,8 @@ export function StoppedActorNotice({ actor, runId, className, toolbar }: { actor
         Restart
       </Button>}
     </div>
-    {!restartable && <p className="text-[0.7rem] text-muted-foreground">It accepts no messages until someone with operator rights restarts it.</p>}
-    {error && <p className="text-[0.7rem] text-destructive" role="alert">{error}</p>}
+    {!restartable && <p className="text-sm text-muted-foreground">It accepts no messages until someone with operator rights restarts it.</p>}
+    {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
     {toolbar && <div className="flex min-w-0 flex-wrap items-center gap-2">{toolbar}</div>}
   </div>;
 }

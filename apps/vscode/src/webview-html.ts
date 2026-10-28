@@ -24,6 +24,36 @@ window.addEventListener("message", (event) => {
 });
 </script>`;
 
+const typographyHtml = (nonce: string): string => `<style nonce="${nonce}">
+html{--host-font-size:var(--vscode-chat-font-size,var(--vscode-font-size,13px));--host-font-family:var(--vscode-chat-font-family,var(--vscode-font-family,sans-serif));--host-mono-family:var(--vscode-editor-font-family,monospace)}
+</style><script nonce="${nonce}">
+(() => {
+  const send = () => {
+    const frame = document.getElementById("frame");
+    if (!frame?.contentWindow) return;
+    const style = getComputedStyle(document.documentElement);
+    frame.contentWindow.postMessage({ type: "ragents.typography",
+      fontSize: style.getPropertyValue("--host-font-size").trim(),
+      fontFamily: style.getPropertyValue("--host-font-family").trim(),
+      monoFamily: style.getPropertyValue("--host-mono-family").trim()
+    }, new URL(frame.src).origin);
+  };
+  window.addEventListener("message", (event) => {
+    const frame = document.getElementById("frame");
+    if (event.data?.type === "ragents.typography.request" && event.source === frame?.contentWindow && event.origin === new URL(frame.src).origin) send();
+  });
+  window.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("frame")?.addEventListener("load", send);
+    const observer = new MutationObserver(send);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "class"] });
+    observer.observe(document.body, { attributes: true, attributeFilter: ["style", "class"] });
+    observer.observe(document.head, { childList: true, subtree: true, characterData: true });
+    window.addEventListener("pagehide", () => observer.disconnect(), { once: true });
+    send();
+  }, { once: true });
+})();
+</script>`;
+
 /** Shown instead of the view when a setting prevents it from rendering; the view is rebuilt once the setting is fixed. */
 export const errorHtml = ({ nonce, title, message }: { nonce: string; title: string; message: string }): string => `<!DOCTYPE html>
 <html>
@@ -57,6 +87,7 @@ export const frameHtml = ({ serverUrl, query, nonce, title, zoom = 100 }: FrameO
 <title>${escapeHtml(title)}</title>
 <style nonce="${nonce}">html,body{background:transparent}iframe{display:block;height:100%;width:100%;border:0}</style>
 ${zoomHtml(nonce, zoom)}
+${typographyHtml(nonce)}
 </head>
 <body>
 <iframe id="frame" src="${escapeHtml(url)}" allow="clipboard-read; clipboard-write" title="${escapeHtml(title)}"></iframe>
@@ -87,6 +118,7 @@ ${zoomHtml(nonce, zoom)}
   window.addEventListener("message", (event) => {
     if (event.source === frame.contentWindow) {
       if (event.origin !== origin) return;
+      if (event.data?.type === "ragents.typography.request") return;
       if (event.data && event.data.type === "clipboardRead") readClipboard(event.data.id);
       else if (event.data && event.data.type === "keyboardEvent") {
         if (isKeyboardMessage(event.data)) window.dispatchEvent(new KeyboardEvent(event.data.event.type, { ...event.data.event, bubbles: true, cancelable: true }));
@@ -115,7 +147,7 @@ export interface PanelPageOptions {
 
 /** Connection management stays local even when no server can deliver its interface. */
 export const panelHtml = ({ nonce, title, state, scriptUri, styleUri, cspSource, zoom = 100 }: PanelPageOptions): string => `<!DOCTYPE html>
-<html lang="en" data-theme="${state.theme}"${looksAttributes(state.looks)}>
+<html lang="en" data-host="vscode" data-theme="${state.theme}"${looksAttributes(state.looks)}>
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src ${cspSource} 'unsafe-inline'; font-src ${cspSource}; img-src ${cspSource} data:;">
@@ -123,6 +155,7 @@ export const panelHtml = ({ nonce, title, state, scriptUri, styleUri, cspSource,
 <title>${escapeHtml(title)}</title>
 <link rel="stylesheet" href="${styleUri}">
 ${zoomHtml(nonce, zoom)}
+${typographyHtml(nonce)}
 </head>
 <body>
 <div id="root"></div>

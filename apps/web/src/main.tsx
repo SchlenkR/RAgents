@@ -15,7 +15,7 @@ import { PageOpenerProvider } from "./page-opener";
 import { initializeAppearance } from "./appearance";
 import { bindHostAppearance } from "./run-panel/host-appearance";
 import { createEditorSystemScheme, initializeTheme } from "./theme";
-import { initializeZoom } from "./zoom";
+import { bindHostTypography, initializeZoom } from "./zoom";
 import { installHostModules } from "./host-modules";
 import { RenderBoundary } from "./RenderBoundary";
 
@@ -30,6 +30,8 @@ try {
   if (location.access !== undefined) installAccessToken(location.access);
   const host = createRunPanelHost(location.host, window);
   if (location.host === "vscode") {
+    const disposeTypography = bindHostTypography(window);
+    import.meta.hot?.dispose(disposeTypography);
     const disposeInput = installRunPanelInputBridge(window);
     import.meta.hot?.dispose(disposeInput);
   }
@@ -57,8 +59,8 @@ try {
   );
 } catch (cause) {
   reactRoot.render(<AccessScreen>
-    <h1 className="my-3 text-[1.5rem]">The RAgents panel could not be loaded</h1>
-    <p className="mb-6 leading-normal" role="alert">{cause instanceof Error ? cause.message : String(cause)}</p>
+    <h1 className="my-3 text-xl">The RAgents panel could not be loaded</h1>
+    <p className="mb-6" role="alert">{cause instanceof Error ? cause.message : String(cause)}</p>
     <Button onClick={() => window.location.reload()} variant="outline">Reload</Button>
   </AccessScreen>);
 }

@@ -5,11 +5,6 @@
 @import "./quassel.css";
 
 @layer base {
-    /* Base size of the interface in the browser; VS Code keeps its own size and ragents.zoom. */
-    html:not([data-host="vscode"]) {
-        font-size: 110%;
-    }
-
     html, body, #root {
         height: 100%;
     }

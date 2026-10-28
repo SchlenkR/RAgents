@@ -18,6 +18,6 @@ export const materialCardClass = (tone: MaterialTone, className?: string) =>
 /** Header of a material card: the same front, a touch darker, rounded at the top. */
 export const materialHeadClass = "relative flex items-center gap-2 rounded-t-[15.5px] bg-[color-mix(in_srgb,var(--material-face)_96%,black)] px-3 py-2";
 
-export const materialTitleClass = "min-w-0 truncate p-0 text-[17px] font-[730] leading-[1.3] tracking-[-.5px]";
+export const materialTitleClass = "min-w-0 truncate p-0 text-lg font-[730] ";
 
 export const materialIconClass = "grid size-8 flex-none place-items-center rounded-[11px] border border-[#5146578a] bg-white/9 text-foreground shadow-glass-icon";

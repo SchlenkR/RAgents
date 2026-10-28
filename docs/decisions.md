@@ -1,5 +1,24 @@
 # Decisions
 
+## 2026-10-28: One typography base per host
+
+Chapter: `spec/plugins.md` (Web as plugin host, shared theme, VS Code shell); usage guide.
+
+**Why.** Host controls, chat, and document Markdown had independent sizes and line heights.
+Changing the browser root resized the host but left the chat unchanged, while VS Code ignored
+its native chat font settings.
+
+**Decision.** A 14-pixel browser base and the VS Code chat base drive one shared text scale.
+Body text uses the base, metadata uses 85 percent, and host headings derive from the base.
+quassel 0.6 supplies the same Markdown scope in answers, documents, previews, and mini-apps.
+The VS Code shell sends its font values to open frames and mini-apps as they change; colors
+remain RAgents palettes. Spacing keeps a 16-pixel root, and both zoom controls remain at
+100 percent by default. A source check prevents independent typography values from returning.
+The additional optional frame messages preserve extension interface 3, and no exported host
+names change, so the host API number stays unchanged. Plugins outside this repository lose
+`text-xs`, the larger Tailwind sizes, `leading-*`, `tracking-*` and `type-prose`, and move to the
+scale.
+
 ## 2026-10-28: Isolated workstations inherit an allowlist of environment variables
 
 Chapter: `spec/plugins.md` (Workspace, sandbox tools, and processes: environment bases); operations

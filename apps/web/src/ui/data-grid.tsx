@@ -244,7 +244,7 @@ function GridLayout<T>({ stored, onRetry, columns, rows, rowKey, grouping, ...pr
   const error = stored.error ?? writeError;
   const bounded = props.height !== undefined;
   return <div data-slot="data-grid-root" className={cn("min-w-0 w-full", bounded && "overflow-auto rounded-xl border border-border", props.className)} style={{ height: props.height }} ref={root}>
-    {error && <div role="alert" className="flex items-center gap-2 text-sm text-destructive">
+    {error && <div role="alert" className="flex items-center gap-2 text-base text-destructive">
       <span>{error}</span><Button variant="link" size="sm" onClick={() => {
         if (onRetry) { onRetry(); return; }
         try { gridWidthSetting.save(gridWidthsKey(props.id), { widths: {} }); setWriteError(undefined); }
@@ -275,9 +275,9 @@ function GridLayout<T>({ stored, onRetry, columns, rows, rowKey, grouping, ...pr
             tabIndex={items.some((entry) => visible[entry.index].id === focusedId) ? visible[item.index].id === focusedId ? 0 : -1 : item.index === items[0]?.index ? 0 : -1}
             onFocus={() => setFocusedId(visible[item.index].id)} onNavigate={focusRow} />)}
         </div>
-        {visible.length === 0 && <p className="px-(--grid-cell-x) py-4 text-sm text-muted-foreground">{props.loading ? "Loading ..." : props.emptyText ?? "No entries."}</p>}
+        {visible.length === 0 && <p className="px-(--grid-cell-x) py-4 text-base text-muted-foreground">{props.loading ? "Loading ..." : props.emptyText ?? "No entries."}</p>}
       </div>
-      {props.footer && <div data-slot="data-grid-footer" className="-mt-px border-t border-border px-(--grid-cell-x) py-3 text-sm text-muted-foreground">{props.footer}</div>}
+      {props.footer && <div data-slot="data-grid-footer" className="-mt-px border-t border-border px-(--grid-cell-x) py-3 text-base text-muted-foreground">{props.footer}</div>}
     </div>
   </div>;
 }
@@ -329,7 +329,7 @@ function GridRow<T>({ row, index, columns, template, virtualizer, start, selecta
   const expandable = !grouped && renderDetail !== undefined;
   return <div role="row" data-slot="data-grid-row" data-index={index} data-row-id={row.id} aria-rowindex={index + 2} aria-selected={!grouped && selectable ? row.getIsSelected() : undefined} aria-expanded={grouped ? row.getIsExpanded() : expandable ? detail != null : undefined}
     ref={virtualizer.measureElement} tabIndex={tabIndex} onFocus={onFocus}
-    className={cn(tableRowMin, "absolute top-0 left-0 grid min-h-(--grid-row-min) w-full text-sm", grouped ? groupRowStyle : tableRowStyle, (grouped || onRowClick) && "cursor-pointer", detail != null && "z-10 has-[[data-slot=data-grid-detail]:hover]:bg-transparent")}
+    className={cn(tableRowMin, "absolute top-0 left-0 grid min-h-(--grid-row-min) w-full text-base", grouped ? groupRowStyle : tableRowStyle, (grouped || onRowClick) && "cursor-pointer", detail != null && "z-10 has-[[data-slot=data-grid-detail]:hover]:bg-transparent")}
     style={{ gridTemplateColumns: template, transform: `translateY(${start}px)` }}
     onClick={(event) => { if (!interactive(event.target)) { if (grouped) row.toggleExpanded(); else onRowClick?.(row.original); } }}
     onDoubleClick={(event) => { if (!grouped && !interactive(event.target)) onOpen?.(row.original); }}

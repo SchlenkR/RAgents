@@ -29,18 +29,18 @@ export function ContextUsageControl({ usage, error }: { usage: ContextUsage | nu
         <PopoverDescription>{current ? `${percentage}% of the context window` : error ? "Context usage unavailable" : "Loading context usage ..."}</PopoverDescription>
       </PopoverHeader>
       {current && <>
-        <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-sm">
+        <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-base">
           <dt className="text-muted-foreground">{current.estimated ? "Used (estimated)" : "Used"}</dt><dd className="text-right font-mono tabular-nums">{tokenCount.format(current.tokens)}</dd>
           <dt className="text-muted-foreground">Context window</dt><dd className="text-right font-mono tabular-nums">{tokenCount.format(current.contextWindow)}</dd>
           <dt className="text-muted-foreground">Compaction above</dt><dd className="text-right font-mono tabular-nums">{tokenCount.format(current.compactionThreshold)}</dd>
         </dl>
-        <p className={cn("border-t border-border pt-3 text-xs", nearCompaction ? "text-warning" : "text-muted-foreground")}>
+        <p className={cn("border-t border-border pt-3 text-sm", nearCompaction ? "text-warning" : "text-muted-foreground")}>
           {current.tokens > current.compactionThreshold ? "Compaction threshold reached."
             : `${tokenCount.format(remaining!)} tokens until the compaction threshold.`}
         </p>
-        <p className="text-xs text-muted-foreground">Tokens in the active context. Limits of the selected model apply from the next turn.</p>
+        <p className="text-sm text-muted-foreground">Tokens in the active context. Limits of the selected model apply from the next turn.</p>
       </>}
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-base text-destructive">{error}</p>}
     </PopoverContent>
   </Popover>;
 }

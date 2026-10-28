@@ -15,7 +15,7 @@ const time = (at: string | null): string => at === null ? "None" : new Date(at).
 
 export function GlobalAppError({ problem, onRetry, details }: { problem: string; onRetry: () => void; details: { label: string; act: () => void } | null }) {
   return <div className="grid min-w-0 gap-3">
-    <p role="alert" className="break-words text-sm text-destructive">{problem}</p>
+    <p role="alert" className="break-words text-base text-destructive">{problem}</p>
     <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={onRetry}>Retry</Button>{details && <Button size="sm" variant="ghost" onClick={details.act}>{details.label}</Button>}</div>
   </div>;
 }
@@ -35,7 +35,7 @@ function GlobalView({ actorId, runId, view, revision, onFailure }: { actorId: st
     const started = await api.invoke(runId, appId, appRevision, actionId, requestId, input);
     return started;
   }, [runId]);
-  if (!app) return <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner />Loading app...</p>;
+  if (!app) return <p role="status" className="flex items-center gap-2 text-base text-muted-foreground"><Spinner />Loading app...</p>;
   return <div className="flex h-80 min-w-0 flex-col @min-[48rem]/global-app:h-96"><ActorViewFrame api={api} app={app} invoke={invoke} runId={runId} onFailure={onFailure} /></div>;
 }
 
@@ -65,7 +65,7 @@ export function GlobalAppCard({ app, runId, revision }: { app: GlobalAppSummary;
         <Badge tone={app.status === "blocked" ? "danger" : app.status === "running" ? "info" : "neutral"}>{app.status}</Badge>
         <Button size="xs" variant="ghost" onClick={openDetails}>Open details</Button>
       </div>
-      <p className="break-words text-sm text-muted-foreground">{app.description}</p>
+      <p className="break-words text-base text-muted-foreground">{app.description}</p>
       {problem ? <GlobalAppError problem={problem} details={opened} onRetry={() => {
         if (app.problem && writable && app.input) void act(() => rpc.call(actorProgramContracts.pause, { ...program, paused: app.paused }));
         else if (failedRun && writable && app.input) void act(() => rpc.call(actorProgramContracts.trigger, program));
@@ -75,7 +75,7 @@ export function GlobalAppCard({ app, runId, revision }: { app: GlobalAppSummary;
         {app.views.length > 1 && <ChoiceSelect label="View" value={view.id} onValueChange={setSelected} options={app.views.map((entry) => ({ value: entry.id, label: entry.title }))} />}
         <GlobalView key={`${view.id}:${generation}`} actorId={app.actorId} runId={runId} view={view} revision={revision} onFailure={failed} />
       </RenderBoundary> : null}
-      <dl className="grid gap-1 text-xs text-muted-foreground"><div><dt>Last run</dt><dd>{time(app.lastRunAt)}</dd></div><div><dt>Next run</dt><dd>{time(app.nextRunAt)}</dd></div><div><dt>Last result</dt><dd className="break-words">{app.lastResult ? `${app.lastResult.outcome}: ${app.lastResult.summary}` : "No runs yet."}</dd></div></dl>
+      <dl className="grid gap-1 text-sm text-muted-foreground"><div><dt>Last run</dt><dd>{time(app.lastRunAt)}</dd></div><div><dt>Next run</dt><dd>{time(app.nextRunAt)}</dd></div><div><dt>Last result</dt><dd className="break-words">{app.lastResult ? `${app.lastResult.outcome}: ${app.lastResult.summary}` : "No runs yet."}</dd></div></dl>
       {writable && app.input && <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="outline" disabled={pending || ["running", "queued", "blocked"].includes(app.status)} onClick={() => { void act(() => rpc.call(actorProgramContracts.trigger, program)); }}>{pending && <Spinner />}Run now</Button>
         <Button size="sm" variant="outline" disabled={pending} onClick={() => { void act(() => rpc.call(actorProgramContracts.pause, { ...program, paused: !app.paused })); }}>{app.paused ? "Resume" : "Pause"}</Button>

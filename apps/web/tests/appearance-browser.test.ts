@@ -36,7 +36,7 @@ test("the palette, color scheme, corners, inline code and table spacing switch l
   await page.getByRole("radio", { name: /Schichtwerk/ }).first().waitFor();
   assert.deepEqual(await documentData(), { theme: "dark", palette: "schichtwerk", codeStyle: "tint", corners: "round", density: "comfortable" });
   const comfortable = (await page.locator("#cell").boundingBox())!.height;
-  assert.match(await style("#inline", "box-shadow"), /^rgba\(0, 0, 0, 0\) 0px 0px 0px 1px inset$/, "tinted inline code has no edge");
+  assert.match(await style("#inline code", "box-shadow"), /^rgba\(0, 0, 0, 0\) 0px 0px 0px 1px inset$/, "tinted inline code has no edge");
 
   await page.getByRole("radio", { name: /Midnight/ }).first().click();
   await page.getByRole("button", { name: "Tight", exact: true }).first().click();
@@ -45,7 +45,7 @@ test("the palette, color scheme, corners, inline code and table spacing switch l
   await page.getByRole("button", { name: "Light", exact: true }).first().click();
   assert.deepEqual(await documentData(), { theme: "light", palette: "midnight", codeStyle: "outlined", corners: "tight", density: "spacious" });
   assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--radius")), "0.375rem");
-  assert.doesNotMatch(await style("#inline", "box-shadow"), /^rgba\(0, 0, 0, 0\)/, "outlined inline code draws an edge");
+  assert.doesNotMatch(await style("#inline code", "box-shadow"), /^rgba\(0, 0, 0, 0\)/, "outlined inline code draws an edge");
   assert.ok((await page.locator("#cell").boundingBox())!.height > comfortable, "spacious rows are taller");
   assert.equal(await pressed("Tight"), "true");
 

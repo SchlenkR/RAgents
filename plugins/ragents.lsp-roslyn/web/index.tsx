@@ -3,5 +3,5 @@ import { languageServerWebPlugin } from "@ragents/web/language-server/language-s
 export const webPlugin = languageServerWebPlugin("ragents.lsp-roslyn", LanguageIcon);
 
 function LanguageIcon() {
-  return <span aria-hidden="true" className="font-mono text-[12px] font-bold">C#</span>;
+  return <span aria-hidden="true" className="font-mono text-sm font-bold">C#</span>;
 }

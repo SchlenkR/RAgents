@@ -7,7 +7,7 @@ const MAX_ITEMS = 12;
 const markerOf = (todo: TodoItem) => todo.status === "in_progress" ? "active" : todo.status;
 const textOf = (todo: TodoItem) => todo.status === "in_progress" ? todo.activeForm : todo.content;
 
-const markerClass = "grid size-[15px] mt-px place-items-center rounded-full border-[1.5px] border-foreground/55 text-[0px] not-italic"
+const markerClass = "grid size-[15px] mt-px place-items-center rounded-full border-[1.5px] border-foreground/55 text-sm not-italic"
   + " in-data-[status=active]:border-primary in-data-[status=active]:bg-[color-mix(in_srgb,var(--primary)_14%,var(--card))]"
   + " in-data-[status=completed]:border-success in-data-[status=completed]:bg-success";
 
@@ -27,14 +27,14 @@ export function TodoSection({ actor, session }: CardSectionContext) {
       </SectionLabel>
       <ul className="grid list-none">
         {todos.slice(0, MAX_ITEMS).map((todo, index) => (
-          <li className="grid grid-cols-[15px_minmax(0,1fr)] items-start gap-2 border-t border-border-soft py-2 text-[0.74rem] leading-[1.35] first:border-t-0 first:pt-0 last:pb-0"
+          <li className="grid grid-cols-[15px_minmax(0,1fr)] items-start gap-2 border-t border-border-soft py-2 text-sm first:border-t-0 first:pt-0 last:pb-0"
             data-status={markerOf(todo)} key={`${index}:${todo.content}`}>
             <i aria-hidden className={markerClass}>{todo.status === "completed" && <IconCheck />}</i>
             <span className="overflow-hidden text-ellipsis in-data-[status=completed]:opacity-75" aria-label={todo.content}>{textOf(todo)}</span>
           </li>
         ))}
       </ul>
-      {todos.length > MAX_ITEMS && <small className="pl-0.5 text-xs text-muted-foreground">+{todos.length - MAX_ITEMS} more</small>}
+      {todos.length > MAX_ITEMS && <small className="pl-0.5 text-sm text-muted-foreground">+{todos.length - MAX_ITEMS} more</small>}
     </section>
   );
 }

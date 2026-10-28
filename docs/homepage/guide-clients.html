@@ -638,9 +638,14 @@
 }
 :root, :host {
   --spacing: 0.235rem;
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --text-base: var(--host-font-size, 14px);
+  --text-base--line-height: 1.5;
+  --text-sm: calc(var(--text-base) * 0.85);
+  --text-sm--line-height: 1.4;
+  --font-sans: var(--host-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
 }
 :root {
+  --control-line-height: calc(var(--text-base) * var(--text-base--line-height));
   --chat-max-width: 900px;
   --radius: 0.5rem;
   --grid-cell-x: calc(var(--spacing) * 3);
@@ -677,12 +682,19 @@
   color-scheme: dark;
 }
 @layer base {
+  html {
+    font-size: 16px;
+  }
   body {
     background: var(--app);
     color: var(--foreground);
     font-family: var(--font-sans);
-    font-size: 0.875rem;
-    line-height: 1.5;
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+  }
+  small, sub, sup {
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
   }
   html[data-mini-app-frame] {
     --diff-surface: var(--card);
@@ -690,6 +702,17 @@
   html[data-mini-app-frame] body {
     background: var(--card);
   }
+}
+.diff {
+  font-size: var(--text-base);
+}
+.diff-line, .diff-decoration {
+  line-height: var(--text-base--line-height);
+}
+.react-flow__edge-text {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--text-base--line-height);
 }
 
 
@@ -805,6 +828,19 @@ width (Shift makes larger steps), Home sets the minimum, and Enter or End fits t
 If saved widths are damaged or saving fails, an error and &quot;Reset column widths&quot; remain
 visible. If the browser blocks storage access, the list still shows its initial widths;
 &quot;Retry column widths&quot; enables resizing after access returns.</p>
+<h3 id="text-size-and-zoom">Text size and zoom</h3>
+<p>The browser uses a 14-pixel base. In VS Code, RAgents follows the chat font size and family;
+monospace text follows the editor font family. Changes to those VS Code settings take effect
+in open views. RAgents keeps its selected palette. Messages, questions and their options,
+actions, inputs, menus, and dialogs share the base size with line height 1.5. Labels, badges,
+timestamps, and other metadata use 85 percent of the base. Markdown has the same typography
+in answers, documents, file previews, and mini-apps.</p>
+<p>In the browser, &quot;Zoom&quot; under &quot;Appearance&quot; makes the whole interface smaller or larger: 80, 90,
+100, 110, 120, 130, or 150 percent, with 100 as the default. Text, controls, spacing, menus, and
+mini-apps scale together, immediately and without reloading. The choice is stored in this browser
+for the same server address, synchronized with other open tabs, and needs no settings permission.
+In VS Code the setting <code>ragents.zoom</code> takes its place (see &quot;Settings and behavior of the VS Code
+extension&quot;).</p>
 <h2 id="run-panel-and-vs-code-extension">Run panel and VS Code extension</h2>
 <p>The run panel is also available in the browser. <code>http://localhost:4710/run-panel.html?run=&lt;id&gt;</code>
 shows chat with an addressee selector, mini-app tabs, and the inspection bar on the right.
@@ -1210,8 +1246,10 @@ in VS Code Settings. The value is a percentage from 50 to 200, with 100 as the d
 for example, <code>&quot;ragents.zoom&quot;: 90</code> makes the whole interface 10% smaller. It applies to the home,
 Runs, plugin pages, Server, the run panel, and mini-app editor tabs, including nested mini-apps. Changes take
 effect immediately without reloading the page or losing input drafts. Regular browser pages
-are unaffected. This scales text, controls, and spacing together; it is independent of
-<code>editor.fontSize</code> and the built-in chat font settings.</p>
+are unaffected. This scales text, controls, and spacing together. The base text size and UI font follow
+VS Code&#39;s chat font settings (13 pixels by default); monospace text follows the editor font
+family. Changing these settings updates open panels and mini-apps without reloading. The
+selected RAgents palette stays in place, and spacing keeps its own scale.</p>
 <p>If a server profile requires users, both the selected environment&#39;s sign-in action and the Server row open the
 same sign-in dialog. For a profile with <code>ACCESS_TOKEN</code>, the dialog requests that token. User name
 and password are stored per server address in VS Code SecretStorage and reused silently next

@@ -3,5 +3,5 @@ import { languageServerWebPlugin } from "@ragents/web/language-server/language-s
 export const webPlugin = languageServerWebPlugin("ragents.lsp-typescript", LanguageIcon);
 
 function LanguageIcon() {
-  return <span aria-hidden="true" className="font-mono text-[12px] font-bold">TS</span>;
+  return <span aria-hidden="true" className="font-mono text-sm font-bold">TS</span>;
 }

@@ -1,4 +1,19 @@
 import { subscribeStorageChanges } from "./lib/local-storage-setting";
+import { isHostRunPanelMessage } from "./run-panel/host-contract";
+
+export function bindHostTypography(browser: Window) {
+  const receive = (event: MessageEvent) => {
+    if (event.source !== browser.parent || !isHostRunPanelMessage(event.data) || event.data.type !== "ragents.typography") return;
+    const { fontSize, fontFamily, monoFamily } = event.data;
+    const style = browser.document.documentElement.style;
+    style.setProperty("--host-font-size", fontSize);
+    style.setProperty("--host-font-family", fontFamily);
+    style.setProperty("--host-mono-family", monoFamily);
+  };
+  browser.addEventListener("message", receive);
+  if (browser.parent !== browser) browser.parent.postMessage({ type: "ragents.typography.request" }, "*");
+  return () => browser.removeEventListener("message", receive);
+}
 
 export const ZOOM_STORAGE_KEY = "ragents.zoom";
 export const zoomSteps = [80, 90, 100, 110, 120, 130, 150] as const;

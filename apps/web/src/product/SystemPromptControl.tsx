@@ -44,7 +44,7 @@ const valueFrom = (value: unknown, optionId: string): SystemPromptValue => {
 
 const messageOf = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
 
-const errorClass = "text-[0.75rem] text-destructive";
+const errorClass = "text-sm text-destructive";
 
 const parse = (option: StartOptionControlContext["option"]) => {
   try {
@@ -66,7 +66,7 @@ export function SystemPromptControl({ disabled, error, option, setValue }: Start
 
   return (
     <div className="flex flex-col items-start gap-2">
-      <span className="text-[0.72rem] font-semibold text-muted-foreground">System prompts</span>
+      <span className="text-sm font-semibold text-muted-foreground">System prompts</span>
       <div className="flex min-w-0 flex-col items-start gap-2">
         <ToggleGroup aria-label="System prompts" disabled={disabled} multiple size="sm" value={value.promptIds}
           onValueChange={(next) => { void setValue({ promptIds: presentation.options.map((entry) => entry.id).filter((id) => next.includes(id)), shareWithAgents: value.shareWithAgents }); }}>
@@ -82,12 +82,12 @@ export function SystemPromptControl({ disabled, error, option, setValue }: Start
         {presentation.options.length > 0 && <Button aria-expanded={preview} onClick={() => setPreview((current) => !current)} size="sm" variant="ghost">{preview ? "Hide prompt text" : "Show prompt text"}</Button>}
         {preview && <div className="flex max-h-80 min-w-0 flex-col gap-3 overflow-y-auto">
           {presentation.options.map((entry) => <div key={entry.id}>
-            <strong className="text-sm">{entry.label}</strong>
-            <p className="whitespace-pre-wrap text-sm [overflow-wrap:anywhere]">{entry.text}</p>
+            <strong className="text-base">{entry.label}</strong>
+            <p className="whitespace-pre-wrap text-base [overflow-wrap:anywhere]">{entry.text}</p>
           </div>)}
         </div>}
       </div>
-      <label className="flex max-w-[34rem] cursor-pointer items-start gap-2 text-sm">
+      <label className="flex max-w-[34rem] cursor-pointer items-start gap-2 text-base">
         <Checkbox
           checked={value.shareWithAgents}
           className="mt-0.5"
@@ -96,7 +96,7 @@ export function SystemPromptControl({ disabled, error, option, setValue }: Start
         />
         <span>
           Also pass on to the agents
-          <span className="block text-[0.72rem] text-muted-foreground">
+          <span className="block text-sm text-muted-foreground">
             {value.shareWithAgents
               ? "Spawned agents get the prompts as well. Plain LLMs with tools: [] are excluded."
               : "The prompts apply only to the coordinator."}

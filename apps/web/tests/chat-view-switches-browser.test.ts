@@ -45,7 +45,7 @@ const expectSwitch = async (chat: Locator, messages: Locator = chat) => {
     fontSize: parseFloat(getComputedStyle(element).fontSize),
     position: element.parentElement?.getAttribute("data-timestamp-position"),
   }));
-  assert.ok(Math.abs(timestampStyle.fontSize - 13 * 0.88) < 0.04, "Every chat uses the library timestamp scale.");
+  assert.ok(Math.abs(timestampStyle.fontSize - 14 * 0.85) < 0.04, "Every chat uses the host's fixed small size.");
   assert.equal(timestampStyle.position, "aside");
   await chat.getByRole("button", { name: hideLabel, exact: true }).click();
   await chat.getByRole("button", { name: showLabel, exact: true }).waitFor();

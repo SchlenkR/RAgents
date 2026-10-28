@@ -67,11 +67,11 @@ export function AccessRequestView({ action, session }: ActionViewContext) {
       setPending(false);
     }
   };
-  return <Card aria-label="Access request" className="min-w-0 gap-3 bg-background px-4 text-sm [overflow-wrap:anywhere]" role="group" size="sm">
+  return <Card aria-label="Access request" className="min-w-0 gap-3 bg-background px-4 text-base [overflow-wrap:anywhere]" role="group" size="sm">
     <strong>Access request</strong>
     <p>{request.reason}</p>
     <dl className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2">
-      <dt className="text-muted-foreground">Path</dt><dd className="min-w-0 font-mono text-xs">{request.path}</dd>
+      <dt className="text-muted-foreground">Path</dt><dd className="min-w-0 font-mono text-sm">{request.path}</dd>
       <dt className="text-muted-foreground">Access</dt><dd>{request.access === "write" ? "Read and write" : "Read only"}</dd>
     </dl>
     {open ? <>
@@ -80,9 +80,9 @@ export function AccessRequestView({ action, session }: ActionViewContext) {
         {request.file && <Button disabled={disabled} onClick={() => { void answer("allow-folder"); }} size="sm" variant="outline">Allow folder</Button>}
         <Button disabled={disabled} onClick={() => { void answer("deny"); }} size="sm" variant="outline">Deny</Button>
       </div>
-      {disabledReason && <p className="text-xs text-muted-foreground">{disabledReason}</p>}
-      {!session.connected && <p className="text-xs text-muted-foreground">Reconnect to answer this request.</p>}
+      {disabledReason && <p className="text-sm text-muted-foreground">{disabledReason}</p>}
+      {!session.connected && <p className="text-sm text-muted-foreground">Reconnect to answer this request.</p>}
     </> : <p className="text-muted-foreground" role="status">{outcome}</p>}
-    {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
+    {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
   </Card>;
 }

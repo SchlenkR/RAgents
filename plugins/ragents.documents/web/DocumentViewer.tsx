@@ -28,10 +28,10 @@ import { baseAddressOf, documentUrlResolver, htmlWithBase, type DocumentBase } f
 export type DocumentFormat = "markdown" | "text" | "html" | "image" | "binary";
 
 const copyClass = "grid min-w-0 gap-px";
-const titleClass = "whitespace-normal wrap-anywhere text-[0.82rem] font-semibold";
-const metaClass = "text-[0.68rem] text-muted-foreground tabular-nums";
+const titleClass = "whitespace-normal wrap-anywhere text-base font-semibold";
+const metaClass = "text-sm text-muted-foreground tabular-nums";
 const sourceClass = "min-w-0 p-0 whitespace-pre-wrap break-words";
-const groupBadgeClass = "flex size-7 items-center justify-center rounded-[9px] text-[0.62rem] font-bold tracking-[0.02em]";
+const groupBadgeClass = "flex size-7 items-center justify-center rounded-[9px] text-sm font-bold ";
 
 export interface RunDocument {
   id: string;
@@ -158,15 +158,15 @@ export function DocumentToolCall({ active, document, onOpen, status }: DocumentT
         <IconDocument size={22} />
       </span>
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-[0.62rem] font-semibold tracking-[0.05em] text-primary uppercase group-aria-pressed/call:text-selected-foreground">Document</span>
-        <strong className="whitespace-normal wrap-anywhere text-[0.84rem] leading-[1.35]" aria-label={document.title}>{document.title}</strong>
-        <span className="text-[0.7rem] leading-[1.35] text-muted-foreground">
+        <span className="text-sm font-semibold text-primary uppercase group-aria-pressed/call:text-selected-foreground">Document</span>
+        <strong className="whitespace-normal wrap-anywhere text-base" aria-label={document.title}>{document.title}</strong>
+        <span className="text-sm text-muted-foreground">
           {document.content === undefined
             ? formatLabels[document.format]
             : `${formatLabels[document.format]}, ${lineCount.toLocaleString()} ${lineCount === 1 ? "line" : "lines"}`}
         </span>
       </span>
-      <span className="flex items-center gap-1 text-[0.7rem] font-semibold text-primary group-aria-pressed/call:text-selected-foreground group-data-[status=error]/call:text-destructive">
+      <span className="flex items-center gap-1 text-sm font-semibold text-primary group-aria-pressed/call:text-selected-foreground group-data-[status=error]/call:text-destructive">
         <span className="max-[620px]:sr-only">{statusLabel}</span>
         {status === "running" ? <Spinner className="size-3" /> : status === "error" ? <IconError /> : <IconOpen />}
       </span>
@@ -192,7 +192,7 @@ const keepUrl = (url: string): string => url;
 
 function ContentLoading() {
   return (
-    <div className="flex items-center justify-center gap-3 p-8 text-[0.76rem] text-muted-foreground">
+    <div className="flex items-center justify-center gap-3 p-8 text-sm text-muted-foreground">
       <Spinner className="size-3" />
       <span>Loading</span>
     </div>
@@ -268,7 +268,7 @@ function DocumentContent({ document, loaded }: { document: RunDocument; loaded: 
     return <SourceCode className={sourceClass} content={loaded.text} path={document.title} />;
   }
   // quassel resolves an address only when its Markdown mounts, so a changed grant mounts it again.
-  return <ImagePreviewGroup><QuasselProvider resolveUrl={resolveUrl}><div className="type-prose"><Markdown key={grants?.revision} text={loaded.text} /></div></QuasselProvider></ImagePreviewGroup>;
+  return <ImagePreviewGroup><QuasselProvider resolveUrl={resolveUrl}><div><Markdown key={grants?.revision} text={loaded.text} /></div></QuasselProvider></ImagePreviewGroup>;
 }
 
 function DocumentReload({ document, pending, reload }: { document: RunDocument; pending: boolean; reload: () => void }) {
@@ -382,10 +382,10 @@ export function DocumentPanel({ activeId, sections, truncated, onSelect }: Docum
                 <span aria-hidden className={`flex text-muted-foreground transition-transform duration-150${open ? " rotate-90" : ""}`}>
                   <IconChevron />
                 </span>
-                {section.kind === "store" && <span aria-hidden className={`${groupBadgeClass} bg-[color-mix(in_srgb,var(--foreground)_8%,var(--background))] text-[0.85rem] text-foreground`}>#</span>}
+                {section.kind === "store" && <span aria-hidden className={`${groupBadgeClass} bg-[color-mix(in_srgb,var(--foreground)_8%,var(--background))] text-base text-foreground`}>#</span>}
                 {section.kind === "results" && <span aria-hidden className={`${groupBadgeClass} bg-[color-mix(in_srgb,var(--primary)_16%,var(--background))] text-primary`}><IconResult /></span>}
                 {section.kind === "chat" && <span aria-hidden className={`${groupBadgeClass} bg-[color-mix(in_srgb,var(--foreground)_9%,var(--background))] text-muted-foreground`}><IconChat /></span>}
-                <span className="whitespace-normal wrap-anywhere text-sm font-semibold" aria-label={section.label}>{section.label}</span>
+                <span className="whitespace-normal wrap-anywhere text-base font-semibold" aria-label={section.label}>{section.label}</span>
                 <Badge className="tabular-nums" variant="secondary">{section.documents.length}</Badge>
               </button>
               {open && (
@@ -400,7 +400,7 @@ export function DocumentPanel({ activeId, sections, truncated, onSelect }: Docum
                         >
                           <span className="flex text-primary"><IconDocument size={18} /></span>
                           <span className="grid min-w-0 gap-0.5">
-                            <strong className="whitespace-normal wrap-anywhere text-[0.79rem] font-semibold" aria-label={document.title}>{document.title}</strong>
+                            <strong className="whitespace-normal wrap-anywhere text-base font-semibold" aria-label={document.title}>{document.title}</strong>
                             <small className={metaClass}>
                               {[
                                 formatLabels[document.format],
@@ -420,7 +420,7 @@ export function DocumentPanel({ activeId, sections, truncated, onSelect }: Docum
             </section>
           );
         })}
-        {truncated && <p className="text-[0.72rem] text-muted-foreground">The store contains more files than are shown here.</p>}
+        {truncated && <p className="text-sm text-muted-foreground">The store contains more files than are shown here.</p>}
       </div>
     );
   }

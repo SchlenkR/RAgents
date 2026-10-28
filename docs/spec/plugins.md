@@ -2392,23 +2392,37 @@ Surfaces rise `app`, `shell`, `background`, `card`, `secondary`; floating panels
 tokens `--grid-cell-x` and `--grid-cell-y` set the padding of table and grid cells per table spacing, header cells included; rows keep a minimum height derived from them. The
 `selected:` variant covers pressed, selected, current, and checked states only; an expanded disclosure is not selected. The `open:`
 variant covers the native open states and the trigger of an open popup (`data-popup-open`, or `aria-haspopup` with `aria-expanded`).
-The text roles are utilities there too: `type-title` (page title), `type-label` (uppercase
-section label), `type-item` (item title), `type-body` (descriptions, notices, empty states),
-`type-meta` (time, address, route, counts), and `type-caption` (uppercase category and kind).
-Each sets size in `rem`, line height, weight, and letter spacing; `leading-*`, `font-*`, and
-`tracking-*` still override them. They are called `type-*` because `cn` takes every unknown
-`text-<name>` for a text color and drops it next to `text-muted-foreground` or `text-destructive`.
-Text on Runs, plugin pages, Server, in their dialogs, on the template tiles, and in the run header uses
-these roles; controls such as buttons, inputs, and dialog titles keep the library's size scale.
-`type-prose` is the common reading role for rendered Markdown, including Topic, documents in
-the panel and dialog, Markdown previews in Files and Settings, and the mini-app building blocks
-`Markdown` and `DocumentViewer`: its size and line height come from `--text-prose` (0.8rem, the size of
-`type-body`) and `--text-prose--line-height` (1.6), so reading text does not stand above the
-rest of the interface. Document headings use the shared `--text-prose-h1` through `--text-prose-h4`
-scale relative to this reading role. Chat messages and composers use quassel's 13-pixel root at line height 1.5,
-and chat headings keep the library's own size scale. Changes to the document reading tokens do not resize the chat.
-Controls, item titles, and metadata retain their own roles. `type-prose` also styles lists,
-tables with a muted first column, code, quotes, and framed images.
+Typography has one host-selected base in `theme.css`: 14 pixels in the browser and the
+VS Code chat size in the editor (13 pixels by default). The root stays at 16 pixels, so
+`rem` spacing does not change with the text size. UI and monospace font families are also
+shared tokens. The Tailwind text utilities and semantic roles use this scale:
+
+| Content                                                           | Utility     | Size relative to base | Line height |
+| ----------------------------------------------------------------- | ----------- | --------------------- | ----------- |
+| Messages, cards, options, inputs, menus, dialogs, content         | `text-base` | 1                     | 1.5         |
+| Rows of tool calls, timestamps, notices, badges, labels, metadata | `text-sm`   | 0.85                  | 1.4         |
+| Smaller heading                                                   | `text-lg`   | 1.15                  | 1.3         |
+| Page title                                                        | `text-xl`   | 1.3                   | 1.25        |
+
+`type-title` uses the page title; `type-item` and `type-body` use body text; `type-label`,
+`type-meta`, and `type-caption` use small text. Label and caption roles remain uppercase
+and semibold. These names survive alongside text color utilities, which `cn` otherwise treats as
+conflicting with an unknown `text-<name>`. Controls use body text regardless of their height; each height has a minimum of one body line
+plus its two border pixels so larger host fonts keep equal, unclipped controls.
+There are no independent size, line-height, or letter-spacing utilities: Tailwind's other size
+utilities (`text-xs`, `text-2xl` and larger) and the `leading-*` and `tracking-*` scales produce no
+styles, so a plugin built for an earlier host shows such text at the inherited size until it moves
+to the scale. The source check
+`apps/web/tests/typography-scale.test.ts`, included in `pnpm check`, rejects arbitrary text
+sizes, leading and tracking overrides, inline typography styles, and typography declarations
+outside the token file.
+
+Answers, documents, file previews, Settings previews, and mini-app Markdown all render through
+quassel's `Markdown` component and its own scope. There is no separate `type-prose` or `.prose`
+stylesheet. quassel 0.6 fixes Markdown h1/h2/h3 at 1.3/1.15/1.05 of the base, with line heights
+1.25/1.3/1.35; h4-h6 use the base with line height 1.4. Inline code and code blocks use 0.9 of
+the surrounding text size, with inherited line height; code inside a block inherits without
+another reduction. Paragraphs, lists, and tables use the body scale everywhere.
 `tailwind.css` is the host entry point with preflight; `frame.css` the entry point of the mini-app frames.
 The frame puts preflight in a lower base sublayer and restores semantic HTML defaults with
 zero-specificity `:where(...)` selectors: shared heading roles, related block spacing (2 units),
@@ -2424,12 +2438,17 @@ heading that repeats the app or tab title. No additional layout component is nee
 Both include `quassel.css` after the host's utilities: the precompiled stylesheet
 of the chat building blocks `@schlenkr/quassel/chat.css` (classes with prefix `qsl:`, variables `--qsl-*`) and the
 mapping of host colors, fonts, radii, shadows, and `--qsl-color-scheme` to the tokens from `theme.css`.
-Chat typography and spacing keep quassel's defaults instead of mapping them to the host's text or spacing scale.
-The library derives text sizes from its 13-pixel root (`--qsl-base`); an embedding can set
-`--qsl-font-size: 1em` to inherit the surrounding text size instead. Because quassel's classes come after the host's,
-they win at equal specificity, also against the base classes of the slots; a class
-that the host passes through `className` to a quassel building block and that collides there with a class of its own
-therefore needs `!` (such as `min-h-16!` in the global coordinator).
+The only typography inputs passed to quassel are `--qsl-font`, `--qsl-mono`, and
+`--qsl-font-size`, bound to the host's UI family, monospace family, and base size. The library
+keeps its fixed derived scale; spacing keeps quassel's defaults. Markdown colors are mapped
+without repeating its styling rules: `--qsl-inline-code-background` uses `--inline-code`,
+`--qsl-inline-code-foreground` uses `--code-foreground`, `--qsl-inline-code-edge` uses
+`--inline-code-edge`, `--qsl-code-background` uses `--code`, and `--qsl-code-border` uses
+`--code-border`. `--qsl-blockquote-background` mixes 40 percent `--selected` with transparent.
+The Outlined code style therefore retains its inline edge. Because quassel's classes come
+after the host's, they win at equal specificity, also against the base classes of the slots;
+a conflicting layout class passed through `className` needs `!` (such as `min-h-16!` in the
+global coordinator).
 The web receives a single stylesheet from the server (`/ragents.css`,
 `apps/server/src/web-stylesheet.ts`): `@tailwindcss/node` compiles `tailwind.css` for the
 candidates from the sources under `apps/web/src` and from `web/classes.json` of every web bundle of the
@@ -2596,19 +2615,19 @@ The presentation options are props of the shared building blocks (`ChatPanel`, `
 `ChatInputToolbar`); they create no settings interface and no new stored
 preferences:
 
-- `appearance` sets font size, line height, message spacing, spacing of dense steps, tool text scale
-  (`toolFontScale`), the gap between grouped tool rows (`toolGroupGap`), and vertical padding of compact tool rows
-  (`toolRowPadding`). Defaults are 13-pixel text, line height 1.5, message spacing 10 pixels, dense spacing
-  3 pixels, tool text at 88 percent, grouped row gaps of 1 pixel, and compact tool row padding of 1 pixel.
-  Numbers for font size and spacing are pixels; line height and text scale are factors. `ChatPanel` passes
-  these values on to history and input together; `ChatMessages` can receive them directly when used on its own.
+- `appearance` sets message spacing, spacing of dense tool calls, the gap between grouped tool rows
+  (`toolGroupGap`), and vertical padding of compact tool rows (`toolRowPadding`). Defaults are
+  message spacing 10 pixels, dense spacing 3 pixels, grouped row gaps 1 pixel, and compact tool row
+  padding 1 pixel. Numeric spacing values are pixels. `ChatPanel` passes these values on to
+  history and input together; `ChatMessages` also accepts them on its own. Typography comes
+  only from the shared host base and quassel's fixed scale.
 - `timestampOptions` determines `time`, `date-time`, or `relative`, language, time zone, optional day
-  separators, and `position`: `aside` by default, or `above` the message. Timestamps use the tool text size
-  (88 percent by default); `fontScale` can override it. Relative times update every 15 seconds. Day boundaries
-  follow the configured time zone, also split step groups, and are independent of timestamp position. Missing
-  or invalid message data create neither separators nor invalid date displays. The default remains local time
-  in the format HH:MM. Aside timestamps align with the first text line, also for step groups and multi-line
-  messages with different paddings.
+  separators, and `position`: `aside` by default, or `above` the message. Timestamps use the small
+  text scale. Relative times update every 15 seconds. Day boundaries follow the configured time
+  zone, also split tool groups, and are independent of timestamp position. Missing or invalid
+  message data create neither separators nor invalid date displays. The default remains local
+  time in the format HH:MM. Aside timestamps align with the first text line, also for tool groups
+  and multi-line messages with different paddings.
 - `codeBlockOptions` controls wrapping, maximum height, and an optional copy button for
   Markdown code blocks. Inline code stays unchanged; copying takes the code content
   without controls. The default remains horizontal overflow without a copy button.
@@ -3464,19 +3483,26 @@ instead of the form, the request to the host (`AccessGate` with its own `Login`)
 ancestors, besides their own origin, the VS Code webviews (`https://*.vscode-cdn.net`,
 `vscode-file:`, `vscode-webview:`).
 
-The VS Code shell scales its whole interface with `ragents.zoom` (50 to 200 percent,
-default 100), independently of the window zoom and the font size settings of VS Code.
-The scaling applies once at the outermost shell, also for nested mini-apps. The home,
-Runs, plugin pages, Servers, run panel, and mini-app editor tabs take over changes through a host message
-without reloading and keep their state. Normal browser pages stay unchanged; they have their own zoom
-under Settings, Appearance. A value
-outside the limits is an error: every view shows the message instead of its content and rebuilds
-itself as soon as the setting is valid again. The shell sets `zoom: var(--ragents-zoom)` on its
-`body` and no font size; text roles and spacing are `rem` against the webview's unchanged 16-pixel
-root, and the theme's body rule in the layer `base` outranks the rules VS Code injects in the layer
-`vscode-default`, so `--vscode-font-size` and the editor fonts change nothing. Text, controls, and
-spacing therefore scale together and only with the window zoom and `ragents.zoom`
-(`apps/vscode/tests/webview-html.test.ts`, `apps/web/tests/vscode-zoom-browser.test.ts`).
+The VS Code shell reads `--vscode-chat-font-size` and `--vscode-chat-font-family`, falling back
+to `--vscode-font-size` and `--vscode-font-family`, then 13 pixels and sans-serif. Monospace
+text uses `--vscode-editor-font-family`, falling back to monospace. RAgents keeps its own
+palettes. `apps/vscode/src/webview-html.ts` binds these values to `--host-font-size`,
+`--host-font-family`, and `--host-mono-family` for the local panel. For server frames, it sends
+`ragents.typography` after loading and on `ragents.typography.request`; a mutation observer
+follows changes to the injected VS Code values while the view is open. The shared run panel
+installs `bindHostTypography` from `apps/web/src/zoom.ts` at startup to apply the values.
+Mini-apps receive the same typography in the existing ready and theme messages of their
+private bridge, including later changes. No view reload is required.
+
+`ragents.zoom` scales the whole interface from 50 to 200 percent, default 100, independently
+of VS Code's window zoom and its font settings. Scaling applies once at the outermost shell,
+also for nested mini-apps. Home, Runs, plugin pages, Servers, run panel, and mini-app editor
+tabs keep their state when the setting changes. A value outside the limits shows an error
+in every view until it is valid again. The shell sets `zoom: var(--ragents-zoom)` on `body`;
+text derives from the chat base while spacing remains `rem` against the unchanged 16-pixel
+root. Browser pages retain their own Zoom control under Settings, Appearance
+(`apps/vscode/tests/webview-html.test.ts`, `apps/web/tests/vscode-zoom-browser.test.ts`,
+`apps/web/tests/typography-browser.test.ts`).
 
 The VS Code extension under `apps/vscode` is such a host, and for several servers
 at once: every configured **server** (a RAgents server by address or a local profile) has
@@ -3576,7 +3602,8 @@ bundle or adds plugin knowledge to the core. The test
 turns every deviation red and names it. Whoever gets there decides whether an older extension or
 an older server breaks with the change, raises `EXTENSION_API_VERSION` if so, and then runs the
 update; a compatible change, such as an added optional field or a comment in a listed file, keeps
-the number. A second test bundles the extension and checks that the list names exactly the
+the number. The optional typography messages are ignored by older counterparts, so they keep
+interface 3. A second test bundles the extension and checks that the list names exactly the
 contracts its sources pass to `rpc.call`, `rpc.subscribe`, and `rpc.handle`. The extension shows
 no notice while both numbers are equal, whatever the release versions; a server without
 `extensionApi` predates the check and is a warning, a different number an error, and the lower
@@ -4846,8 +4873,8 @@ succeeds. Manual "Refresh files", reconnecting, and returning to a visible page 
 both; the 30-second directory check remains. Out-of-order reads cannot replace a newer selection,
 and errors show their cause without clearing a loaded preview.
 
-Markdown files (`.md`, `.markdown`, case-insensitive) open with quassel's `Markdown` inside
-`type-prose`. The preview header offers "Rendered" and "Source"; the choice defaults to
+Markdown files (`.md`, `.markdown`, case-insensitive) open with quassel's `Markdown` and its
+shared typography scope. The preview header offers "Rendered" and "Source"; the choice defaults to
 "Rendered" and stays with the browser panel across files and roots for its session. Other files,
 including HTML, use the source preview. The Markdown provider keeps link and image addresses
 as written.

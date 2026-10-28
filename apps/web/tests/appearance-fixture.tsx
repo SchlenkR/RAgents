@@ -1,3 +1,4 @@
+import { Markdown } from "@schlenkr/quassel";
 import { createRoot } from "react-dom/client";
 import { AppearanceQuickSwitch } from "../src/AppearanceControls";
 import { ThemeSettings } from "../src/ThemeSettings";
@@ -18,7 +19,7 @@ initializeZoom(window);
 bindHostAppearance({ host, location, theme: getThemeStore(), editor });
 createRoot(document.getElementById("root")!).render(<RunPanelHostProvider value={host}>
   <header className="flex h-14 items-center justify-end px-4"><AppearanceQuickSwitch /></header>
-  <div className="px-4" data-quassel><div data-message="answer"><div><p>Text with <code id="inline">inline code</code> in it.</p></div></div></div>
+  <div className="px-4" id="inline"><Markdown text="Text with `inline code` in it." /></div>
   <div className="px-4"><div id="cell" style={{ paddingBlock: "var(--grid-cell-y)" }}>Cell</div></div>
   <ThemeSettings />
 </RunPanelHostProvider>);

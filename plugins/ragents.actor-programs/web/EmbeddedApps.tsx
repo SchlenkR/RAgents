@@ -62,11 +62,11 @@ export function ActorProgramSurfaceElement({ definition, session }: SurfaceEleme
     />
   ) : error ? (
     <div className="m-auto grid max-w-[60ch] justify-items-start gap-3 p-4">
-      <p className="text-[0.7rem] text-destructive" role="alert">{error}</p>
+      <p className="text-sm text-destructive" role="alert">{error}</p>
       <Button onClick={() => void refresh()} variant="outline">Retry</Button>
     </div>
   ) : (
-    <div className="flex flex-1 items-center justify-center gap-2 text-[0.7rem] text-muted-foreground">
+    <div className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">
       <Spinner aria-hidden aria-label={undefined} role={undefined} />
       <span>Loading actor view</span>
     </div>

@@ -29,7 +29,7 @@ function ChatMessages(props: ComponentProps<typeof QuasselChatMessages>) {
 }
 
 function Markdown(props: ComponentProps<typeof QuasselMarkdown>) {
-  return <QuasselHost><div className="type-prose" data-slot="markdown"><QuasselMarkdown {...props} /></div></QuasselHost>;
+  return <QuasselHost><div data-slot="markdown"><QuasselMarkdown {...props} /></div></QuasselHost>;
 }
 
 function ChatInput({ onSend, placeholder, ...props }: ChatInputProps) {
@@ -43,8 +43,8 @@ function ChatView({ title, showInput = true, onSend, placeholder, rows = 2, maxR
   className, error, disabled, attachmentCapabilities, attachmentCapabilitiesError, ...messages }: ControlledChatProps & { error?: string; disabled?: boolean }) {
   return (
     <section aria-label={title ?? "Chat"} className={cn(chatDisplay, "[&_[data-chat=composer]]:px-3 [&_[data-chat=composer]]:pb-3", className)} data-slot="chat">
-      {title && <h2 className="px-4 pt-3 pb-1 text-[14px] font-semibold">{title}</h2>}
-      {error && <p className="px-4 py-3 text-[13px] text-destructive" role="alert">{error}</p>}
+      {title && <h2 className="px-4 pt-3 pb-1 text-base font-semibold">{title}</h2>}
+      {error && <p className="px-4 py-3 text-base text-destructive" role="alert">{error}</p>}
       <QuasselHost><ChatPanel className="flex-1" composer={showInput && onSend ? <ChatInput
         attachmentCapabilities={attachmentCapabilities}
         attachmentCapabilitiesError={attachmentCapabilitiesError}
@@ -71,7 +71,7 @@ function ActorChat({ actor, ...props }: ActorChatProps) {
     attachmentCapabilities={snapshot?.attachmentCapabilities}
     attachmentCapabilitiesError={snapshot?.attachmentCapabilitiesError}
     disabled={snapshot === undefined || snapshot.error !== undefined || snapshot.readOnly === true}
-    emptyState={props.emptyState ?? (snapshot === undefined ? <p className="px-4 py-3 text-[13px] text-muted-foreground">Loading conversation...</p> : undefined)}
+    emptyState={props.emptyState ?? (snapshot === undefined ? <p className="px-4 py-3 text-base text-muted-foreground">Loading conversation...</p> : undefined)}
     error={snapshot?.error}
     messages={snapshot?.messages ?? emptyMessages}
     owner={props.owner === undefined ? snapshot?.owner : props.owner}

@@ -32,7 +32,7 @@ function StopRunButton({ runId }: { runId: string }) {
     <Button disabled={busy} onClick={() => void stop()} size="sm" variant="destructive">
       <StopGlyph data-icon="inline-start" />Stop run
     </Button>
-    <span className="text-xs text-muted-foreground">Stops all work and background commands in this run.</span>
-    {error && <span className="w-full text-xs text-destructive [overflow-wrap:anywhere]" role="alert">{error}</span>}
+    <span className="text-sm text-muted-foreground">Stops all work and background commands in this run.</span>
+    {error && <span className="w-full text-sm text-destructive [overflow-wrap:anywhere]" role="alert">{error}</span>}
   </div>;
 }

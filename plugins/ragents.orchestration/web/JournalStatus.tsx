@@ -68,13 +68,13 @@ export function JournalStatus({ session, dockActive }: SessionHeaderContext & { 
         {filtered.length > limit && <Button onClick={() => setLimit((value) => value + 100)} size="sm" variant="outline">Show more events</Button>}
       </div>
   </>;
-  if (dockActive !== undefined) return <div className="flex min-h-0 flex-1 flex-col text-[0.76rem]">{content}</div>;
+  if (dockActive !== undefined) return <div className="flex min-h-0 flex-1 flex-col text-sm">{content}</div>;
   return <div className="flex h-full min-w-0 items-stretch">
     <InteractiveItem aria-controls={panelId} aria-expanded={open} aria-haspopup="dialog" className={statusControlClass} onClick={() => setOpen((value) => !value)} ref={buttonRef} type="button">
       Journal
     </InteractiveItem>
     <Popover open={open} onOpenChange={(next) => { if (!next) close(); }}>
-      <PopoverContent align="start" anchor={buttonRef} aria-label="Journal of the run" className="flex min-h-0 min-w-0 flex-col gap-0 overflow-hidden p-0 text-[0.76rem]" collisionPadding={8} id={panelId}
+      <PopoverContent align="start" anchor={buttonRef} aria-label="Journal of the run" className="flex min-h-0 min-w-0 flex-col gap-0 overflow-hidden p-0 text-sm" collisionPadding={8} id={panelId}
         initialFocus={searchRef} role="region" side="top" style={{ width: "min(900px, var(--available-width))", height: "min(480px, var(--available-height))" }}>
         {content}
       </PopoverContent>
@@ -85,7 +85,7 @@ export function JournalStatus({ session, dockActive }: SessionHeaderContext & { 
 function JournalEntry({ actor, event }: { actor: string | undefined; event: JournalEvent }) {
   const [expanded, setExpanded] = useState(false);
   return <details className="border-b border-border-soft" onToggle={(toggle) => setExpanded(toggle.currentTarget.open)}>
-    <InteractiveItem aria-expanded={expanded} className="grid cursor-pointer grid-cols-[32px_minmax(130px,1fr)_minmax(70px,140px)_auto] items-baseline gap-2 px-0.5 py-2 text-[0.68rem] max-[550px]:grid-cols-[24px_minmax(0,1fr)_auto] max-[550px]:gap-x-2 max-[550px]:gap-y-1" render={<summary />}>
+    <InteractiveItem aria-expanded={expanded} className="grid cursor-pointer grid-cols-[32px_minmax(130px,1fr)_minmax(70px,140px)_auto] items-baseline gap-2 px-0.5 py-2 text-sm max-[550px]:grid-cols-[24px_minmax(0,1fr)_auto] max-[550px]:gap-x-2 max-[550px]:gap-y-1" render={<summary />}>
       <span className="text-muted-foreground tabular-nums">{event.sequence}</span>
       <span className="font-mono [overflow-wrap:anywhere]">{event.type}</span>
       <span className="truncate max-[550px]:col-start-2 max-[550px]:row-start-2" aria-label={event.actorId}>{actor ? `@${actor}` : event.actorId}</span>

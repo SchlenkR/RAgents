@@ -26,8 +26,8 @@ export function DiffCode({ content, emptyText = "No textual diff available.", la
 
   if (!entries.some((entry) => entry.file.hunks.length > 0 || noteOf(entry))) {
     return content
-      ? <pre className="m-0 min-h-full min-w-max bg-transparent px-3 py-3 font-mono text-[length:calc(var(--text-sm)*0.95)] leading-[1.55] text-foreground [tab-size:4]">{content}</pre>
-      : <Empty className="min-h-[100px] p-4 text-sm text-muted-foreground">{emptyText}</Empty>;
+      ? <pre className="m-0 min-h-full min-w-max bg-transparent px-3 py-3 font-mono text-base text-foreground [tab-size:4]">{content}</pre>
+      : <Empty className="min-h-[100px] p-4 text-base text-muted-foreground">{emptyText}</Empty>;
   }
 
   return (
@@ -88,8 +88,8 @@ function DiffFile({ emptyText, entry, language, path, showName }: DiffFileProps)
             </div>
           )
         : showName
-          ? <p className="m-0 px-3 py-3 text-sm text-muted-foreground">{note ?? emptyText}</p>
-          : <Empty className="min-h-[100px] p-4 text-sm text-muted-foreground">{note ?? emptyText}</Empty>}
+          ? <p className="m-0 px-3 py-3 text-base text-muted-foreground">{note ?? emptyText}</p>
+          : <Empty className="min-h-[100px] p-4 text-base text-muted-foreground">{note ?? emptyText}</Empty>}
     </section>
   );
 }
@@ -102,7 +102,7 @@ function FileHeader({ entry }: { entry: DiffEntry }) {
   const removed = changes.filter(isDelete).length;
   return (
     <div className="sticky top-0 z-[2] flex min-h-9 min-w-0 items-center gap-3 border-y border-border bg-secondary px-3 py-2" data-status={status}>
-      <span aria-label={statusLabels[status]} className={`inline-flex size-[1.2rem] shrink-0 items-center justify-center rounded-sm font-mono text-[0.74rem] font-bold ${statusClasses[status]}`} role="img" aria-description={statusLabels[status]}>{status}</span>
+      <span aria-label={statusLabels[status]} className={`inline-flex size-[1.2rem] shrink-0 items-center justify-center rounded-sm font-mono text-sm font-bold ${statusClasses[status]}`} role="img" aria-description={statusLabels[status]}>{status}</span>
       {status === "R" && (
         <>
           <FilePath muted path={file.oldPath} />
@@ -112,7 +112,7 @@ function FileHeader({ entry }: { entry: DiffEntry }) {
       )}
       <FilePath path={pathOf(file)} />
       {(added > 0 || removed > 0) && (
-        <span className="ml-auto flex shrink-0 gap-2 pl-2 text-sm font-medium tabular-nums">
+        <span className="ml-auto flex shrink-0 gap-2 pl-2 text-base font-medium tabular-nums">
           {added > 0 && <span className="text-success">+{added}</span>}
           {removed > 0 && <span className="text-destructive">-{removed}</span>}
         </span>
@@ -124,7 +124,7 @@ function FileHeader({ entry }: { entry: DiffEntry }) {
 function FilePath({ muted = false, path }: { muted?: boolean; path: string }) {
   const slash = path.lastIndexOf("/") + 1;
   return (
-    <span className="flex min-w-0 font-mono text-[0.8rem]" aria-label={path}>
+    <span className="flex min-w-0 font-mono text-base" aria-label={path}>
       <span className="truncate text-muted-foreground">{path.slice(0, slash)}</span>
       <span className={muted ? "max-w-full shrink-0 truncate text-muted-foreground" : "max-w-full shrink-0 truncate font-semibold text-foreground"}>{path.slice(slash)}</span>
     </span>

@@ -40,7 +40,7 @@ export function ActorChat({ actor, view, presentation, display = presentation, p
     return true;
   }, [inspect, onNavigate]);
   return <>
-    {historyError && <p className="my-2 text-[0.72rem] text-destructive" role="alert">{historyError}</p>}
+    {historyError && <p className="my-2 text-sm text-destructive" role="alert">{historyError}</p>}
     <ChatMessages
     className={className}
     horizontalPadding={presentation === "inspector" && display !== "panel" ? 8 : undefined}

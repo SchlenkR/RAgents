@@ -65,7 +65,7 @@ export function AskActionView({ action, session, text }: ActionViewContext) {
         questions={shown.questions}
         record={shown.record}
       />
-      {error && <p className="text-[0.7rem] text-destructive" role="alert">{error}</p>}
+      {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
     </>
   );
 }

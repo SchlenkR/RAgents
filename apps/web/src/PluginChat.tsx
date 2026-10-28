@@ -494,8 +494,8 @@ function ChatSurface({
         : partner.kind === "stopped" ? <div className="[--qsl-input-card-radius:var(--radius-lg)]"><StoppedActorNotice actor={partner.actor} runId={session.session.id} toolbar={<>{options.toolbarLeft}<ChatViewSwitches settings={chatView} /></>} /></div>
         : <div className="[--qsl-input-card-radius:var(--radius-lg)]">
           <StoppedRunNotice runId={session.session.id} view={session.runView} />
-          {sendError && <p className="text-[0.8rem] text-destructive" role="alert">{sendError}</p>}
-          <StartOptionPresetErrors className="text-[0.8rem] text-destructive" />
+          {sendError && <p className="text-base text-destructive" role="alert">{sendError}</p>}
+          <StartOptionPresetErrors className="text-base text-destructive" />
           <ChatInputToolbar
             {...attachments}
             autoFocus={autoFocus}

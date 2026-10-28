@@ -86,7 +86,7 @@ const errorsOf = (snapshot: LanguageServerSnapshot | undefined): number =>
     .filter((entry) => entry.severity === "error").length;
 
 const compactEmpty = "h-auto min-h-30 flex-none";
-const severityClass = "text-[0.64rem] uppercase tracking-[0.04em]"
+const severityClass = "text-sm uppercase "
   + " in-data-[severity=error]:text-destructive in-data-[severity=warning]:text-warning"
   + " in-data-[severity=information]:text-primary in-data-[severity=hint]:text-primary";
 
@@ -216,7 +216,7 @@ function SolutionSelect({ choice, snapshot }: { choice: SolutionChoice; snapshot
   const { solutions } = choice;
   if (!solutions || !snapshot) return null;
   if (solutions.solutions.length === 0) {
-    return <p className="border-t border-border-soft px-3 py-2 text-xs text-muted-foreground">No solution in the workspace.</p>;
+    return <p className="border-t border-border-soft px-3 py-2 text-sm text-muted-foreground">No solution in the workspace.</p>;
   }
   const openRoots = new Set(snapshot.instances.map((instance) => instance.root));
   const items = [
@@ -231,7 +231,7 @@ function SolutionSelect({ choice, snapshot }: { choice: SolutionChoice; snapshot
 
   return (
     <div className="flex items-center gap-2 border-t border-border-soft px-3 py-2">
-      <span className="flex-none text-xs text-muted-foreground">Solution</span>
+      <span className="flex-none text-sm text-muted-foreground">Solution</span>
       <Select
         disabled={!choice.writable || choice.switching}
         items={items}
@@ -261,8 +261,8 @@ function LanguageServerInstanceView({ instance }: { instance: LanguageServerInst
   return (
     <section className="border-b border-border-soft last:border-b-0">
       <div className="flex items-baseline gap-2 px-3 pt-2 pb-1">
-        <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[0.66rem] text-muted-foreground" aria-label={instance.root}>{instance.root}</span>
-        <span className="flex-none text-[0.64rem] uppercase tracking-[0.04em] text-muted-foreground">{stateLabel(instance.state)}</span>
+        <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-sm text-muted-foreground" aria-label={instance.root}>{instance.root}</span>
+        <span className="flex-none text-sm uppercase text-muted-foreground">{stateLabel(instance.state)}</span>
       </div>
       {instance.state === "opening" && (
         <Empty className={compactEmpty} role="status">
@@ -291,18 +291,18 @@ function LanguageServerInstanceView({ instance }: { instance: LanguageServerInst
       )}
       {rows.length > 0 && (
         <>
-          <div className="border-y border-border-soft px-3 py-2 text-xs text-muted-foreground">
+          <div className="border-y border-border-soft px-3 py-2 text-sm text-muted-foreground">
             {`${countLabel(errors, "error", "errors")}, ${countLabel(warnings, "warning", "warnings")} in ${countLabel(files.length, "file", "files")}`}
           </div>
           <div className="px-2 pt-1 pb-3">
             {rows.map((row, index) => (
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-0.5 border-b border-border-soft px-2 py-2 text-[0.7rem]"
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-0.5 border-b border-border-soft px-2 py-2 text-sm"
                 data-severity={row.entry.severity} key={`${row.file}:${row.entry.line}:${row.entry.character}:${index}`}>
                 <span className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-muted-foreground">{`${row.file}:${row.entry.line}`}</span>
                 <span className={severityClass}>
                   {row.entry.code ? `${severityLabels[row.entry.severity]} ${row.entry.code}` : severityLabels[row.entry.severity]}
                 </span>
-                <span className="col-span-full leading-[1.4] text-foreground">{row.entry.message}</span>
+                <span className="col-span-full text-foreground">{row.entry.message}</span>
               </div>
             ))}
           </div>
@@ -326,8 +326,8 @@ export function LanguageServerPanelView({ settings, snapshot, error, pending, on
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex items-center gap-2 px-3 py-2">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="text-[0.8rem] font-medium text-foreground">{settings.label}</span>
-          <span className="text-xs text-muted-foreground">{headerLabel(snapshot)}</span>
+          <span className="text-base font-medium text-foreground">{settings.label}</span>
+          <span className="text-sm text-muted-foreground">{headerLabel(snapshot)}</span>
         </div>
         <Button aria-label="Refresh diagnostics" onClick={onRefresh} size="icon" aria-description="Refresh" variant="ghost">
           <IconRefresh className={pending ? "animate-spin" : undefined} />

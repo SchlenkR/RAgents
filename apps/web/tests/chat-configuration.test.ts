@@ -127,10 +127,9 @@ test("bubble options expose alignment, width and resolved sender labels", () => 
   assert.match(html, /Helper/);
 });
 
-test("chat typography keeps numeric line height unitless and numeric gaps in pixels", () => {
-  const html = render({ appearance: { fontSize: 18, lineHeight: 1.8, messageGap: 24, denseMessageGap: "0.75rem" } });
-  assert.match(html, /--qsl-chat-font-size:18px/);
-  assert.match(html, /--qsl-chat-line-height:1.8(?:;|")/);
+test("chat spacing keeps numeric gaps in pixels and CSS lengths unchanged", () => {
+  const html = render({ appearance: { messageGap: 24, denseMessageGap: "0.75rem" } });
+  assert.doesNotMatch(html, /--qsl-chat-font-size|--qsl-chat-line-height/);
   assert.match(html, /--qsl-chat-message-gap:24px/);
   assert.match(html, /--qsl-chat-dense-message-gap:0.75rem/);
 });

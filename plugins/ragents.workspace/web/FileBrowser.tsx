@@ -20,7 +20,7 @@ import { fileIconFor, fileToneClass } from "./file-icons";
 import { SourceCode } from "@ragents/web/SourceCode";
 import { Markdown, QuasselProvider } from "@schlenkr/quassel";
 
-const rowClass = "h-auto w-full justify-start gap-2 rounded-none py-1 pr-3 pl-(--row-indent) text-[0.78rem] font-normal";
+const rowClass = "h-auto w-full justify-start gap-2 rounded-none py-1 pr-3 pl-(--row-indent) text-base font-normal";
 const previewSourceClass = "min-w-0 px-3 pt-0 pb-3 whitespace-pre-wrap break-words";
 const indent = (depth: number) => ({ "--row-indent": `${8 + depth * 12}px` }) as CSSProperties;
 const keepUrl = (url: string): string => url;
@@ -231,14 +231,14 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
                 </span>
                 <Icon aria-hidden className={`flex-none ${fileToneClass[tone]}`} size={14} strokeWidth={1.7} />
                 <span className="min-w-0 flex-1 whitespace-normal wrap-anywhere text-left font-mono">{entry.name}</span>
-                {entry.kind === "file" && <span className="flex-none text-[0.64rem] text-muted-foreground tabular-nums">{sizeLabel(entry.size)}</span>}
+                {entry.kind === "file" && <span className="flex-none text-sm text-muted-foreground tabular-nums">{sizeLabel(entry.size)}</span>}
               </Button>
               {entry.kind === "directory" && open && renderLevel(full, depth + 1)}
             </div>
           );
         })}
         {listing.truncated && (
-          <div className="py-1 pr-3 pl-(--row-indent) text-[0.64rem] text-muted-foreground" style={indent(depth)}>
+          <div className="py-1 pr-3 pl-(--row-indent) text-sm text-muted-foreground" style={indent(depth)}>
             Further entries are not listed.
           </div>
         )}
@@ -274,11 +274,11 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
         </div>
       </header>
       {error && (
-        <Alert className="shrink-0 rounded-none border-x-0 border-t-0 border-b-border-soft bg-destructive/8 px-3 py-2 text-[0.68rem]" variant="destructive">
+        <Alert className="shrink-0 rounded-none border-x-0 border-t-0 border-b-border-soft bg-destructive/8 px-3 py-2 text-sm" variant="destructive">
           {error}
         </Alert>
       )}
-      {rootListing && <div className="whitespace-normal wrap-anywhere px-3 pt-0.5 pb-2 font-mono text-[0.66rem] text-muted-foreground" aria-label={rootListing.location}>{rootListing.location}</div>}
+      {rootListing && <div className="whitespace-normal wrap-anywhere px-3 pt-0.5 pb-2 font-mono text-sm text-muted-foreground" aria-label={rootListing.location}>{rootListing.location}</div>}
       {rootListing && rootListing.entries.length === 0 && (
         <Empty className="min-h-30 flex-none gap-2 p-6">
           <EmptyHeader>
@@ -292,7 +292,7 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
       {selected && (
         <div className="flex min-h-0 flex-1 flex-col border-t border-border-soft">
           <header className="flex items-center justify-between gap-2 px-3 py-2">
-            <span className="whitespace-normal wrap-anywhere font-mono text-[0.66rem] text-muted-foreground" aria-label={selected}>{selected}</span>
+            <span className="whitespace-normal wrap-anywhere font-mono text-sm text-muted-foreground" aria-label={selected}>{selected}</span>
             {/\.(md|markdown)$/i.test(selected) && (
               <ToggleGroup aria-label="Markdown view" size="sm" value={[markdownView]} onValueChange={([value]) => { if (value) setMarkdownView(value); }}>
                 <ToggleGroupItem value="rendered">Rendered</ToggleGroupItem>
@@ -300,12 +300,12 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
               </ToggleGroup>
             )}
           </header>
-          {previewPending && preview === undefined && <div className="px-3 pb-2 text-[0.68rem] text-muted-foreground" role="status">Loading preview...</div>}
-          {preview && !preview.previewable && <div className="px-3 pb-2 text-[0.68rem] text-muted-foreground">{preview.reason}</div>}
+          {previewPending && preview === undefined && <div className="px-3 pb-2 text-sm text-muted-foreground" role="status">Loading preview...</div>}
+          {preview && !preview.previewable && <div className="px-3 pb-2 text-sm text-muted-foreground">{preview.reason}</div>}
           {preview && preview.previewable && (
             <div className="min-h-0 flex-1 overflow-auto">
               {/\.(md|markdown)$/i.test(selected) && markdownView === "rendered"
-                ? <QuasselProvider resolveUrl={keepUrl}><div className="type-prose px-3 pb-3"><Markdown text={preview.content} /></div></QuasselProvider>
+                ? <QuasselProvider resolveUrl={keepUrl}><div className="px-3 pb-3"><Markdown text={preview.content} /></div></QuasselProvider>
                 : <SourceCode className={previewSourceClass} content={preview.content} path={selected} />}
             </div>
           )}

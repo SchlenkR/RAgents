@@ -102,7 +102,7 @@ export function ConnectionDialog({ state, connection, onClose, send }: {
         : <div className="grid gap-2">
           <Label htmlFor="connection-profile-file">Profile file</Label>
           <div className="flex items-center gap-2">
-            <Input aria-label="Profile file" className="min-w-0 flex-1 font-mono text-xs" id="connection-profile-file" onChange={(event) => setProfileFile(event.target.value)} placeholder="~/repos/RAgents/ragents.config.core.ts" aria-description={profileFile} value={profileFile} />
+            <Input aria-label="Profile file" className="min-w-0 flex-1 font-mono text-sm" id="connection-profile-file" onChange={(event) => setProfileFile(event.target.value)} placeholder="~/repos/RAgents/ragents.config.core.ts" aria-description={profileFile} value={profileFile} />
             <Button className="flex-none" onClick={() => send({ action: "pickProfile" })} size="sm" type="button" variant="secondary"><FolderOpenIcon data-icon="inline-start" />Choose file ...</Button>
           </div>
           {state.profileSuggestions.length > 0 && <>

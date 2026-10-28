@@ -53,8 +53,8 @@ function PaletteChoice({ compact, description, label, palette, scheme }: { compa
       </span>
     </span>
     <span>
-      <span className="block text-sm font-semibold text-foreground">{label}</span>
-      {!compact && <span className="block text-xs text-muted-foreground">{description}</span>}
+      <span className="block text-base font-semibold text-foreground">{label}</span>
+      {!compact && <span className="block text-sm text-muted-foreground">{description}</span>}
     </span>
   </Radio.Root>;
 }

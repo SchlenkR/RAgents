@@ -22,6 +22,9 @@ import { initializeZoom } from "./apps/web/src/zoom";
 import "./apps/web/src/ui/tailwind.css";
 initializeTheme(window);
 initializeAppearance(window);
+document.documentElement.style.setProperty("--host-font-size", "13px");
+document.documentElement.style.setProperty("--host-font-family", "Arial, sans-serif");
+document.documentElement.style.setProperty("--host-mono-family", '"Courier New", monospace');
 const zoom = initializeZoom(window);
 window.frameZoomFixture = { setZoom: value => zoom.setZoom(value) };
 const session = { session: { id: "zoom-test", title: "Zoom test", updatedAt: 0 }, connected: true,
@@ -38,7 +41,7 @@ createRoot(document.getElementById("root")).render(<DockToolsContext.Provider va
 </DockToolsContext.Provider>);
 `;
 
-test("installed mini-apps keep native scrolling and their connected document through zoom, resize and Activity", {
+test("installed mini-apps inherit live host typography and keep their connected document through zoom, resize and Activity", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 120_000,
 }, async (context) => {
   const directory = await mkdtemp(join(tmpdir(), "ragents-mini-app-zoom-"));
@@ -56,7 +59,7 @@ test("installed mini-apps keep native scrolling and their connected document thr
     styles: `${frameStyles}\n#neutral-content{height:4000px;width:2000px}\n::-webkit-scrollbar{width:16px;height:16px}::-webkit-scrollbar-track{background:#555}::-webkit-scrollbar-thumb{background:#aaa;border-radius:8px}`,
     clientJavaScript: `
       window.documentIdentity = Math.random();
-      document.getElementById("root").innerHTML = '<input aria-label="Frame draft"><button>Bridge echo</button><p role="status"></p><div id="neutral-content">Long neutral content</div>';
+      document.getElementById("root").innerHTML = '<input aria-label="Frame draft"><button>Bridge echo</button><p role="status"></p><p id="frame-body">Host body text</p><small id="frame-meta" class="text-sm">Host metadata</small><code id="frame-code" class="font-mono">let value = 1;</code><div id="neutral-content">Long neutral content</div>';
       document.querySelector("button").onclick = async () => document.querySelector('[role="status"]').textContent = await globalThis.__ragentsAppContext.capabilities.call("echo", "Bridge connected");
     `,
     platformVersion: 2,
@@ -89,6 +92,36 @@ test("installed mini-apps keep native scrolling and their connected document thr
       await frame.getByRole("textbox", { name: "Frame draft" }).fill("Keep this draft");
       const identity = await frame.evaluate(() => Reflect.get(window, "documentIdentity"));
       const initialLoads = loads;
+      const assertTypography = async (size: number, family: string, mono: string) => {
+        await frame.waitForFunction(({ size, family, mono }) => {
+          const body = getComputedStyle(document.getElementById("frame-body")!);
+          const code = getComputedStyle(document.getElementById("frame-code")!);
+          return parseFloat(body.fontSize) === size && body.fontFamily.includes(family) && code.fontFamily.includes(mono);
+        }, { size, family, mono });
+        const [body, meta, code] = await frame.locator("#frame-body, #frame-meta, #frame-code").evaluateAll((elements) => elements.map((element) => {
+          const style = getComputedStyle(element);
+          return { size: parseFloat(style.fontSize), height: parseFloat(style.lineHeight), family: style.fontFamily };
+        }));
+        const near = (actual: number, expected: number) => assert.ok(Math.abs(actual - expected) < 0.04, `${engine}: ${actual}px instead of ${expected}px`);
+        near(body!.size, size);
+        near(body!.height, size * 1.5);
+        near(meta!.size, size * 0.85);
+        near(meta!.height, size * 0.85 * 1.4);
+        near(code!.size, size);
+        near(code!.height, size * 1.5);
+        assert.equal(meta!.family, body!.family);
+        assert.equal(await frame.locator("html").evaluate((element) => getComputedStyle(element).fontSize), "16px", "host typography preserves the spacing root");
+        assert.equal(await frame.getByRole("textbox", { name: "Frame draft" }).inputValue(), "Keep this draft");
+        assert.equal(await frame.evaluate(() => Reflect.get(window, "documentIdentity")), identity);
+        assert.equal(loads, initialLoads, "typography changes retain the connected app document");
+      };
+      await assertTypography(13, "Arial", "Courier New");
+      await page.evaluate(() => {
+        document.documentElement.style.setProperty("--host-font-size", "15px");
+        document.documentElement.style.setProperty("--host-font-family", "Georgia, serif");
+        document.documentElement.style.setProperty("--host-mono-family", "Menlo, monospace");
+      });
+      await assertTypography(15, "Georgia", "Menlo");
       const box = async (locator: Locator) => { const value = await locator.boundingBox(); assert.ok(value); return value; };
       const assertSizing = async () => {
         await page.waitForFunction(() => {
@@ -151,9 +184,15 @@ test("installed mini-apps keep native scrolling and their connected document thr
       await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 1);
       await page.getByRole("tab", { name: "Chat", exact: true }).click();
       await iframe.waitFor({ state: "hidden" });
+      await page.evaluate(() => {
+        document.documentElement.style.setProperty("--host-font-size", "14px");
+        document.documentElement.style.setProperty("--host-font-family", "Verdana, sans-serif");
+        document.documentElement.style.setProperty("--host-mono-family", "Monaco, monospace");
+      });
       await page.evaluate(() => Reflect.get(window, "frameZoomFixture").setZoom(110));
       await page.getByRole("tab", { name: "Notes", exact: true }).click();
       await iframe.waitFor({ state: "visible" });
+      await assertTypography(14, "Verdana", "Monaco");
       await assertSizing();
       assert.equal(await frame.getByRole("textbox", { name: "Frame draft" }).inputValue(), "Keep this draft");
       assert.equal(await frame.evaluate(() => Reflect.get(window, "documentIdentity")), identity);

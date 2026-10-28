@@ -43,7 +43,7 @@ export function AccessControl({ option, disabled, error, setValue }: StartOption
   const reasonId = useId();
   const isolationId = useId();
   const parsed = parse(option);
-  if ("message" in parsed) return <span className="text-xs text-destructive" role="alert">{parsed.message}</span>;
+  if ("message" in parsed) return <span className="text-sm text-destructive" role="alert">{parsed.message}</span>;
   const { level, presentation } = parsed;
   const reason = presentation.fullAccessDisabledReason;
   const isolation = level === "isolated" && presentation.machine === "workstation" && presentation.commandIsolation !== "isolated"
@@ -60,9 +60,9 @@ export function AccessControl({ option, disabled, error, setValue }: StartOption
         {items.map((item) => <SelectItem disabled={item.disabled} key={item.value} value={item.value}>{item.label}</SelectItem>)}
       </SelectContent>
     </Select>
-    {reason && <span className="max-w-64 text-xs text-muted-foreground" id={reasonId}>{reason}</span>}
-    {isolation && <span className="max-w-64 text-xs text-muted-foreground" id={isolationId}>{isolation}</span>}
-    {error && <span className="text-xs text-destructive" role="alert">{error}</span>}
+    {reason && <span className="max-w-64 text-sm text-muted-foreground" id={reasonId}>{reason}</span>}
+    {isolation && <span className="max-w-64 text-sm text-muted-foreground" id={isolationId}>{isolation}</span>}
+    {error && <span className="text-sm text-destructive" role="alert">{error}</span>}
   </div>;
 }
 

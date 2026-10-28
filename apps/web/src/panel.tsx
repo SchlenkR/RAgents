@@ -5,6 +5,7 @@ import { PanelPage } from "./panel/PanelPage";
 import { isPanelStateMessage, type PanelAction, type PanelState } from "./panel/contract";
 import { applyAppearance, initializeAppearance } from "./appearance";
 import { initializeTheme } from "./theme";
+import { bindHostTypography } from "./zoom";
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
 
@@ -15,6 +16,8 @@ if (!root || !embedded?.textContent) throw new Error("Root element or embedded s
 const vscode = acquireVsCodeApi();
 const initial = JSON.parse(embedded.textContent) as PanelState;
 document.documentElement.dataset.host = "vscode";
+const disposeTypography = bindHostTypography(window);
+import.meta.hot?.dispose(disposeTypography);
 const theme = initializeTheme(window);
 initializeAppearance(window);
 

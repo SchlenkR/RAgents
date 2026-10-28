@@ -48,33 +48,33 @@ interface FlowInspectorProps {
 
 const inspectorClass = "flex h-full min-h-0 flex-col bg-inherit";
 
-const headClass = "flex flex-shrink-0 items-start gap-3 border-b border-border-soft px-workspace-inset pt-3 pb-2 [&_h2]:text-[0.95rem] [&_h2]:leading-[1.3]";
+const headClass = "flex flex-shrink-0 items-start gap-3 border-b border-border-soft px-workspace-inset pt-3 pb-2 [&_h2]:text-lg";
 
-const subtitleClass = "block truncate text-[0.72rem] text-muted-foreground";
+const subtitleClass = "block truncate text-sm text-muted-foreground";
 
-const statusClass = "flex flex-shrink-0 flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-border-soft px-workspace-inset py-2 text-[0.72rem] text-muted-foreground";
+const statusClass = "flex flex-shrink-0 flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-border-soft px-workspace-inset py-2 text-sm text-muted-foreground";
 
 const scrollClass = "min-h-0 flex-1 overflow-y-auto px-workspace-inset py-3";
 
-const sectionClass = "mb-4 [&>h3]:mb-2 [&>h3]:text-[0.72rem] [&>h3]:font-semibold [&>h3]:tracking-[0.05em] [&>h3]:uppercase [&>h3]:text-muted-foreground";
+const sectionClass = "mb-4 [&>h3]:mb-2 [&>h3]:text-sm [&>h3]:font-semibold [&>h3]:uppercase [&>h3]:text-muted-foreground";
 
 const rowsClass = "flex flex-col gap-1 py-2";
 
-const rowClass = "flex cursor-pointer items-center gap-2 rounded-lg border border-border-soft px-2 py-2 text-left hover:border-[color-mix(in_srgb,var(--primary)_45%,var(--border))] hover:bg-primary/6 [&_strong]:truncate [&_strong]:text-[0.76rem] [&_small]:text-[0.66rem] [&_small]:text-muted-foreground";
+const rowClass = "flex cursor-pointer items-center gap-2 rounded-lg border border-border-soft px-2 py-2 text-left hover:border-[color-mix(in_srgb,var(--primary)_45%,var(--border))] hover:bg-primary/6 [&_strong]:truncate [&_strong]:text-sm [&_small]:text-sm [&_small]:text-muted-foreground";
 
 const rowCopyClass = "flex min-w-0 flex-1 flex-col";
 
-const mutedClass = "text-[0.74rem] text-muted-foreground";
+const mutedClass = "text-sm text-muted-foreground";
 
-const errorClass = "my-2 text-[0.72rem] text-destructive";
+const errorClass = "my-2 text-sm text-destructive";
 
-const propertiesClass = "my-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[0.74rem] [&_dt]:text-muted-foreground [&_dd]:[overflow-wrap:anywhere]";
+const propertiesClass = "my-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm [&_dt]:text-muted-foreground [&_dd]:[overflow-wrap:anywhere]";
 
-const textBlockClass = "my-2 rounded-lg bg-foreground/4 p-2 text-[0.72rem] whitespace-pre-wrap [overflow-wrap:anywhere]";
+const textBlockClass = "my-2 rounded-lg bg-foreground/4 p-2 text-sm whitespace-pre-wrap [overflow-wrap:anywhere]";
 
-const linkClass = "cursor-pointer text-[0.74rem] text-primary underline";
+const linkClass = "cursor-pointer text-sm text-primary underline";
 
-const pillClass = "h-auto rounded-full bg-foreground/8 px-2 py-0.5 text-[0.66rem] font-semibold text-muted-foreground";
+const pillClass = "h-auto rounded-full bg-foreground/8 px-2 py-0.5 text-sm font-semibold text-muted-foreground";
 
 const pillToneClass: Readonly<Record<string, string>> = {
   running: "bg-accent text-primary",
@@ -250,7 +250,7 @@ function SectionTabs({ sections, children, toolbar }: { sections: SectionTab[]; 
             value: section.id, label: section.count === undefined ? section.label : `${section.label} (${section.count})`, icon: section.icon, id: `${id}-${section.id}-tab`,
           }))]} />
       </div>
-      {open && <TabsContent className="min-h-0 flex-1 overflow-y-auto border-b border-border-soft px-workspace-inset py-2 text-[0.76rem]" id={`${id}-details`} tabIndex={0} value={open.id}>{open.content}</TabsContent>}
+      {open && <TabsContent className="min-h-0 flex-1 overflow-y-auto border-b border-border-soft px-workspace-inset py-2 text-sm" id={`${id}-details`} tabIndex={0} value={open.id}>{open.content}</TabsContent>}
       <TabsContent className="flex min-h-0 flex-1 flex-col" id={`${id}-chat`} keepMounted value="chat">{children}</TabsContent>
     </OverflowTabs>
   );
@@ -267,7 +267,7 @@ function CapabilityList({ grants }: { grants: RunCapabilityGrant[] }) {
           grant.usable === false ? "pass on only" : undefined,
         ].filter(Boolean).join(", ");
         return (
-          <span className="rounded-full border border-border-soft px-2 py-0.5 text-[0.68rem] [&>small]:text-muted-foreground" key={`${grant.capability}-${position}`} aria-description={scope}>
+          <span className="rounded-full border border-border-soft px-2 py-0.5 text-sm [&>small]:text-muted-foreground" key={`${grant.capability}-${position}`} aria-description={scope}>
             {grant.capability}<small> ({scope})</small>
             {suffix && <small> {suffix}</small>}
           </span>
@@ -277,7 +277,7 @@ function CapabilityList({ grants }: { grants: RunCapabilityGrant[] }) {
   );
 }
 
-const actionClass = "my-2 rounded-lg border border-[color-mix(in_srgb,var(--primary)_35%,var(--border))] bg-primary/5 px-3 py-2 [&>p]:my-1 [&>p]:text-[0.72rem] [&>p]:text-muted-foreground";
+const actionClass = "text-base my-2 rounded-lg border border-[color-mix(in_srgb,var(--primary)_35%,var(--border))] bg-primary/5 px-3 py-2 [&>p]:my-1 [&>p]:text-muted-foreground";
 
 function ActionCard({ action, runId, onError }: { action: RunAction; runId: string; onError: (message: string) => void }) {
   const writable = useAccess().can("runs.write");
@@ -300,10 +300,10 @@ function ActionCard({ action, runId, onError }: { action: RunAction; runId: stri
     <div className={actionClass}>
       <strong>{action.title}</strong>
       {action.description && <p>{action.description}</p>}
-      {action.owner && <p>waiting for input - {action.owner}</p>}
+      {action.owner && <p className="text-sm">waiting for input - {action.owner}</p>}
       {action.input && (
         <Input
-          className="my-2 text-[0.76rem]"
+          className="my-2"
           disabled={!writable}
           onChange={(event) => setResponse(event.target.value)}
           placeholder={action.input.placeholder ?? action.input.label}
@@ -511,7 +511,7 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
       {error && <p className={errorClass}>{error}</p>}
       <SectionTabs sections={inspect ? sections : []} toolbar={<>
         <BackButton canGoBack={props.canGoBack} onBack={props.onBack} />
-        <span className="max-w-28 flex-none truncate text-xs font-semibold" aria-label={`${actor.displayName} @${actorAddress(actor)}${inspect && actor.createdBy ? ` - created by ${actorLabel(index, actor.createdBy)}` : ""}`}>{actor.displayName}</span>
+        <span className="max-w-28 flex-none truncate text-sm font-semibold" aria-label={`${actor.displayName} @${actorAddress(actor)}${inspect && actor.createdBy ? ` - created by ${actorLabel(index, actor.createdBy)}` : ""}`}>{actor.displayName}</span>
         {active && writable && (
           <Button
             className="flex-shrink-0"
@@ -563,7 +563,7 @@ function DetailHeader({ eyebrow, title, subtitle, ...props }: {
   return (
     <header className={headClass}>
       <BackButton canGoBack={props.canGoBack} onBack={props.onBack} />
-      <div className="min-w-0 flex-1"><p className="mb-0.5 text-[0.66rem] font-semibold tracking-[0.08em] uppercase text-muted-foreground">{eyebrow}</p><h2>{title}</h2><span className={subtitleClass}>{subtitle}</span></div>
+      <div className="min-w-0 flex-1"><p className="mb-0.5 text-sm font-semibold uppercase text-muted-foreground">{eyebrow}</p><h2>{title}</h2><span className={subtitleClass}>{subtitle}</span></div>
     </header>
   );
 }
@@ -848,7 +848,7 @@ function ArtifactDiff({ artifact, index }: { artifact: RunArtifact; index: RunIn
   if (rows === "too large") return <p className={mutedClass}>Too large for the line comparison (more than {DIFF_LINE_LIMIT} lines).</p>;
   if (rows.every((entry) => entry.kind === "same")) return <p className={mutedClass}>Both versions have the same text.</p>;
   const marks = { same: " ", added: "+", removed: "-" };
-  return <pre className="my-2 overflow-x-auto rounded-lg bg-foreground/4 p-2 text-[0.7rem] [&>span]:block [&>span]:whitespace-pre [&>span[data-diff=added]]:bg-success-soft [&>span[data-diff=removed]]:bg-destructive-soft">{rows.map((entry, position) => <span data-diff={entry.kind} key={position}>{marks[entry.kind]} {entry.text}{"\n"}</span>)}</pre>;
+  return <pre className="my-2 overflow-x-auto rounded-lg bg-foreground/4 p-2 text-sm [&>span]:block [&>span]:whitespace-pre [&>span[data-diff=added]]:bg-success-soft [&>span[data-diff=removed]]:bg-destructive-soft">{rows.map((entry, position) => <span data-diff={entry.kind} key={position}>{marks[entry.kind]} {entry.text}{"\n"}</span>)}</pre>;
 }
 
 function ArtifactView({ artifact, index, ...props }: FlowInspectorProps & { artifact: RunArtifact; index: RunIndex }) {
@@ -860,7 +860,7 @@ function ArtifactView({ artifact, index, ...props }: FlowInspectorProps & { arti
       <header className={headClass}>
         <BackButton canGoBack={props.canGoBack} onBack={props.onBack} />
         <div className="min-w-0 flex-1">
-          <p className="mb-0.5 text-[0.66rem] font-semibold tracking-[0.08em] uppercase text-muted-foreground">Artifact</p>
+          <p className="mb-0.5 text-sm font-semibold uppercase text-muted-foreground">Artifact</p>
           <h2>{artifact.title}</h2>
           <span className={subtitleClass}>by {actorLabel(index, artifact.createdBy)} - {formatBytes(artifact.size)} - {artifact.mediaType}</span>
         </div>

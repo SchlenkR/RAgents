@@ -24,7 +24,7 @@ const widthSetting = createLocalStorageSetting<WidthSetting>({
 
 export const tableRowMin = "[--grid-row-min:calc(var(--spacing)_*_5.5_+_var(--grid-cell-y)_*_2_+_1px)]";
 
-export const tableHeadStyle = "px-(--grid-cell-x) py-(--grid-cell-y) text-[0.71rem] leading-snug font-semibold text-muted-foreground aria-[sort=ascending]:text-foreground aria-[sort=descending]:text-foreground"
+export const tableHeadStyle = "px-(--grid-cell-x) py-(--grid-cell-y) text-sm font-semibold text-muted-foreground aria-[sort=ascending]:text-foreground aria-[sort=descending]:text-foreground"
 
 export const tableRowStyle = "border-b border-border outline-none hover:bg-hover/50 hover:text-hover-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset selected:bg-selected selected:text-selected-foreground selected:shadow-[inset_0_0_0_1px_var(--selected-border)] selected:hover:bg-selected-hover selected:hover:text-selected-foreground aria-disabled:pointer-events-none aria-disabled:opacity-50"
 
@@ -89,7 +89,7 @@ function TableLayout({ id, columns, style, stored, onRetry, ref, ...props }: Res
   }
   const error = stored.error ?? writeError
   return <ResizeContext value={{ columns, widths, preview, save, table, disabled: Boolean(stored.error) }}>
-    {error && <div className="flex items-center gap-2 text-sm text-destructive" role="alert">
+    {error && <div className="flex items-center gap-2 text-base text-destructive" role="alert">
       <span>{error}</span>
       <Button type="button" size="sm" variant="link" onClick={() => {
         if (onRetry) { onRetry(); return }
@@ -112,7 +112,7 @@ function TableSurface({ className, ...props }: React.ComponentProps<"table">) {
     >
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom text-sm tabular-nums", className)}
+        className={cn("w-full caption-bottom text-base tabular-nums", className)}
         {...props}
       />
     </div>

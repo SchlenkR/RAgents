@@ -109,9 +109,9 @@ export function ListDetail({ label, items, selectedId, onSelect, disabled = fals
     <div className="grid min-h-0 min-w-0 flex-auto grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] grid-rows-[minmax(0,1fr)] gap-6 @max-[900px]/list-detail:grid-cols-[minmax(0,1fr)] @max-[900px]/list-detail:gap-0">
       <div aria-label={label} className={cn(paneClasses, focusRing, "pt-0.5 pr-2 pb-3 @max-[900px]/list-detail:group-data-[detail=true]/list-detail:hidden")}
         ref={listRef} role="region" tabIndex={-1}>
-        {items.length === 0 ? <div className="p-6 text-[0.8rem] leading-relaxed text-muted-foreground">{emptyState ?? <p>No entries available.</p>}</div>
+        {items.length === 0 ? <div className="p-6 text-base text-muted-foreground">{emptyState ?? <p>No entries available.</p>}</div>
           : [...groups].map(([group, entries], groupIndex) => <section aria-labelledby={group ? `${prefix}-group-${groupIndex}` : undefined} className="not-first:mt-4" key={group}>
-            {group && <h3 className="mx-2 mb-2 flex items-center gap-3 text-[0.71rem] font-semibold tracking-[0.02em] text-muted-foreground" id={`${prefix}-group-${groupIndex}`}>
+            {group && <h3 className="mx-2 mb-2 flex items-center gap-3 text-sm font-semibold text-muted-foreground" id={`${prefix}-group-${groupIndex}`}>
               {group}<span className="font-normal tabular-nums" aria-label={`${entries.length} entries`}>{entries.length}</span>
             </h3>}
             <ul className="grid grid-cols-[minmax(0,1fr)] gap-1 *:min-w-0">
@@ -120,10 +120,10 @@ export function ListDetail({ label, items, selectedId, onSelect, disabled = fals
                   className={itemClasses} data-tone={item.tone ?? "neutral"} disabled={disabled}
                   onClick={() => choose(item.id)} ref={(element) => { if (element) buttons.current.set(item.id, element); else buttons.current.delete(item.id); }} type="button">
                   {item.icon !== undefined && <span className="flex h-9 w-8 flex-none items-center justify-center rounded-sm border border-border-soft bg-(--tone-soft) text-(--tone) data-[tone=accent]:border-l-[3px] data-[tone=accent]:[border-left-color:var(--tone)] data-[tone=purple]:rounded-[10px_10px_10px_3px]" aria-hidden="true" data-tone={item.tone ?? "neutral"}>{item.icon}</span>}
-                  <span className="flex min-w-0 flex-1 flex-col gap-1"><span className="text-[0.77rem] font-semibold leading-snug [overflow-wrap:anywhere] group-aria-pressed/item:font-bold">{item.title}</span>
-                    {item.description && <span className="overflow-hidden text-[0.71rem] leading-[1.45] text-ellipsis whitespace-nowrap text-muted-foreground">{item.description}</span>}
+                  <span className="flex min-w-0 flex-1 flex-col gap-1"><span className="text-base font-semibold [overflow-wrap:anywhere] group-aria-pressed/item:font-bold">{item.title}</span>
+                    {item.description && <span className="overflow-hidden text-base text-ellipsis whitespace-nowrap text-muted-foreground">{item.description}</span>}
                   </span>
-                  {item.meta !== undefined && <span className="max-w-[30%] flex-none text-[0.68rem] leading-snug text-muted-foreground tabular-nums [overflow-wrap:anywhere] @max-[900px]/list-detail:max-w-[24%]">{item.meta}</span>}
+                  {item.meta !== undefined && <span className="max-w-[30%] flex-none text-sm text-muted-foreground tabular-nums [overflow-wrap:anywhere] @max-[900px]/list-detail:max-w-[24%]">{item.meta}</span>}
                   <ChevronDownIcon className="flex-none -rotate-90 text-muted-foreground" size={14} />
                 </button>
               </li>)}
@@ -138,9 +138,9 @@ export function ListDetail({ label, items, selectedId, onSelect, disabled = fals
         {selected ? <>
           <div className="hidden flex-none border-b border-border-soft px-4 py-3 @max-[900px]/list-detail:flex"><Button aria-label="Back to selection" shape="round" onClick={returnToList} size="icon" variant="outline"><ArrowLeftIcon /></Button></div>
           {detailHeader !== undefined && <header className="flex-none border-b border-border-soft bg-(--tone-soft) px-6 py-6 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 @max-[900px]/list-detail:p-4">{detailHeader}</header>}
-          <div aria-label={`${detailLabel}: content`} className={cn(paneClasses, focusRing, "flex-1 px-6 py-6 text-[0.8rem] leading-[1.7] [overflow-wrap:anywhere] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 @max-[900px]/list-detail:p-4")} role="region" tabIndex={0}>{children}</div>
+          <div aria-label={`${detailLabel}: content`} className={cn(paneClasses, focusRing, "flex-1 px-6 py-6 text-base [overflow-wrap:anywhere] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 @max-[900px]/list-detail:p-4")} role="region" tabIndex={0}>{children}</div>
           {detailFooter !== undefined && <footer className="flex flex-none flex-wrap items-center gap-3 border-t border-border-soft px-6 py-4 @max-[900px]/list-detail:px-4 @max-[900px]/list-detail:py-4">{detailFooter}</footer>}
-        </> : <div className="p-6 text-[0.8rem] leading-relaxed text-muted-foreground"><p>{items.length ? "Choose an entry to see the details." : "No selection available."}</p></div>}
+        </> : <div className="p-6 text-base text-muted-foreground"><p>{items.length ? "Choose an entry to see the details." : "No selection available."}</p></div>}
       </section>
     </div>
   </section>;

@@ -6,7 +6,7 @@ import { requestTitleModelSettings, titleModelOptions, titleModelSettingsChanged
 
 type LoadState = { status: "loading" } | { status: "failed"; error: string } | { status: "ready"; settings: Settings };
 const messageOf = (cause: unknown) => cause instanceof Error ? cause.message : String(cause);
-const noteClasses = "text-[0.76rem] leading-[1.5] text-muted-foreground";
+const noteClasses = "text-sm text-muted-foreground";
 const controlClasses = "w-[min(100%,420px)] min-w-0";
 
 export function TitleModelSettings() {
@@ -74,7 +74,7 @@ export function TitleModelSettings() {
   }}>
     <p className={noteClasses}>Condenses the first task into a short title line. Applies to the next automatically generated titles.</p>
     {settings.models.length === 0 && draft === null && <p className={noteClasses}>The provider offers no model for titles; automatic titles stay off.</p>}
-    {unavailable && <p className="text-[0.76rem] text-destructive" role="alert">The stored title model is no longer configured. Choose another model or turn automatic titles off, then save. Until then, titles stay as they are.</p>}
+    {unavailable && <p className="text-sm text-destructive" role="alert">The stored title model is no longer configured. Choose another model or turn automatic titles off, then save. Until then, titles stay as they are.</p>}
     {!writable && <p className={noteClasses}>You have read access to these settings.</p>}
     <Select disabled={!writable || pending} items={options} value={titleSelectionKey(draft)} onValueChange={(key) => {
       if (key === null || key === titleSelectionKey(draft)) return;
@@ -94,6 +94,6 @@ export function TitleModelSettings() {
       }}>Discard changes</Button>}
       <span className={`${noteClasses} empty:hidden`} role="status">{notice ?? (dirty ? "Unsaved changes" : "")}</span>
     </div>
-    {error && <p className="text-[0.76rem] text-destructive" role="alert">{error}</p>}
+    {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
   </form>;
 }

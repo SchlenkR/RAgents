@@ -31,7 +31,7 @@ export const appDisplaySurfaceElements = (session: SessionContext): readonly Sur
 
 function Notice({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return <div className="m-auto grid max-w-[60ch] justify-items-start gap-3 p-4" role="status">
-    <p className="text-sm text-muted-foreground">{message}</p>
+    <p className="text-base text-muted-foreground">{message}</p>
     {onRetry && <Button onClick={onRetry} size="sm" variant="outline">Retry</Button>}
   </div>;
 }
@@ -53,17 +53,17 @@ export function AppDisplayView({ api, title, snapshot, error, onRetry, onRemove,
 }) {
   const from = snapshot?.from ?? null;
   const body = error !== undefined ? <Notice message={`The display cannot be loaded: ${error}`} onRetry={onRetry} />
-    : snapshot === undefined ? <div className="flex flex-1 items-center justify-center gap-2 text-[0.7rem] text-muted-foreground"><Spinner aria-hidden aria-label={undefined} role={undefined} /><span>Loading app</span></div>
+    : snapshot === undefined ? <div className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground"><Spinner aria-hidden aria-label={undefined} role={undefined} /><span>Loading app</span></div>
       : snapshot.status === "ready" ? <RenderBoundary resetKeys={[snapshot.runId, snapshot.app.id, snapshot.app.revision]} title="The app could not be displayed"
         fallback={(cause, retry) => <Notice message={cause.message} onRetry={retry} />}><DisplayFrame api={api} snapshot={snapshot} /></RenderBoundary>
         : <Notice message={snapshot.message} onRetry={snapshot.status === "failed" ? onRetry : undefined} />;
   return <article aria-label={title} className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden">
-    <div className="flex flex-none items-center gap-2 border-b border-border-soft px-workspace-inset py-1 text-xs text-muted-foreground" data-slot="app-display-source">
+    <div className="flex flex-none items-center gap-2 border-b border-border-soft px-workspace-inset py-1 text-sm text-muted-foreground" data-slot="app-display-source">
       <Badge tone="neutral">Read-only</Badge>
       <span className="min-w-0 flex-1 whitespace-normal wrap-anywhere" aria-label={from ?? undefined}>{from ? `From ${from}` : "An app from elsewhere"}</span>
       {onRemove && <Button aria-label="Remove display" disabled={removal.pending} onClick={onRemove} size="xs" aria-description="Remove this display from the run" variant="ghost">{removal.pending && <Spinner />}Remove</Button>}
     </div>
-    {removal.error && <p className="flex-none px-workspace-inset py-1 text-xs text-destructive" role="alert">{removal.error}</p>}
+    {removal.error && <p className="flex-none px-workspace-inset py-1 text-sm text-destructive" role="alert">{removal.error}</p>}
     {body}
   </article>;
 }
@@ -145,9 +145,9 @@ export function AppDisplayPicker({ session, onClose }: SurfaceElementAdditionCon
         <DialogDescription>A read-only window of an app that lives elsewhere. It always shows the app's current state and runs nothing.</DialogDescription>
       </DialogHeader>
       <DialogBody className="grid gap-3">
-        {error !== undefined && <div className="grid justify-items-start gap-2"><p className="text-sm text-destructive" role="alert">{error}</p>
+        {error !== undefined && <div className="grid justify-items-start gap-2"><p className="text-base text-destructive" role="alert">{error}</p>
           {groups === undefined && <Button onClick={() => { setError(undefined); setAttempt((value) => value + 1); }} size="sm" variant="outline">Retry</Button>}</div>}
-        {groups === undefined ? error === undefined && <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status"><Spinner />Loading apps...</p>
+        {groups === undefined ? error === undefined && <p className="flex items-center gap-2 text-base text-muted-foreground" role="status"><Spinner />Loading apps...</p>
           : <AppDisplayChoices groups={groups} onChoose={choose} pending={pending} />}
       </DialogBody>
     </DialogContent>

@@ -39,7 +39,7 @@ const modelLabel = (provider: string, model: string) => provider ? `${provider}/
 
 const messageOf = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
 
-const errorClass = "text-[0.75rem] text-destructive";
+const errorClass = "text-sm text-destructive";
 
 export function ModelControl({ disabled, error, option, setValue }: StartOptionControlContext) {
   const parsed = useMemo(() => {

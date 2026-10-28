@@ -12,8 +12,8 @@ const taskTones: Record<keyof typeof taskLabels, BadgeTone> = { pending: "info",
 
 export function TaskProgress({ title = "Tasks", tasks, showProgress = true }: TaskProgressProps) {
   const completed = tasks.filter((task) => task.status === "done" || task.status === "skipped").length;
-  return <section aria-label={title} className="min-w-0 text-sm" data-slot="task-progress">
-    <h3 className="mb-2 text-[15px] font-semibold">{title}</h3>
+  return <section aria-label={title} className="min-w-0 text-base" data-slot="task-progress">
+    <h3 className="mb-2 text-lg font-semibold">{title}</h3>
     {showProgress && tasks.length > 0 && <div className="mb-2 flex flex-wrap items-center gap-2 text-muted-foreground">
       <Progress aria-label={title} className="min-w-20 flex-1" max={tasks.length} value={completed} />
       <span>{completed} of {tasks.length} completed</span>
@@ -27,17 +27,17 @@ export function TaskProgress({ title = "Tasks", tasks, showProgress = true }: Ta
 }
 
 export function DocumentViewer({ title, content, format = "text", language, filename }: DocumentViewerProps) {
-  return <section aria-label={title ?? filename ?? "Document"} className="min-w-0 text-sm" data-slot="document-viewer">
-    {(title || filename) && <h3 className="mb-2 text-[15px] font-semibold">{title ?? filename}</h3>}
-    {format === "markdown" ? <QuasselHost><div className="type-prose"><Markdown text={content} /></div></QuasselHost>
+  return <section aria-label={title ?? filename ?? "Document"} className="min-w-0 text-base" data-slot="document-viewer">
+    {(title || filename) && <h3 className="mb-2 text-lg font-semibold">{title ?? filename}</h3>}
+    {format === "markdown" ? <QuasselHost><div><Markdown text={content} /></div></QuasselHost>
       : format === "code" ? <div className={`max-w-full overflow-auto rounded-lg border border-border bg-background ${codeScrollbarClass}`}><SourceCode content={content} language={language} path={filename ?? ""} /></div>
         : <pre className="m-0 font-[inherit] break-words whitespace-pre-wrap">{content}</pre>}
   </section>;
 }
 
 export function DiffViewer({ title = "Changes", patch, emptyText = "No changes.", language, filename }: DiffViewerProps) {
-  return <section aria-label={title} className="min-w-0 text-sm" data-slot="diff-viewer">
-    <h3 className="mb-2 text-[15px] font-semibold">{title}</h3>
+  return <section aria-label={title} className="min-w-0 text-base" data-slot="diff-viewer">
+    <h3 className="mb-2 text-lg font-semibold">{title}</h3>
     {!patch ? <p>{emptyText}</p> : <div className="max-w-full overflow-auto rounded-lg border border-border bg-background"><DiffCode content={patch} emptyText={emptyText} language={language} path={filename} /></div>}
   </section>;
 }

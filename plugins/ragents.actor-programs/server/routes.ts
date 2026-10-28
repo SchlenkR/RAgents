@@ -19,12 +19,19 @@ const escapeForwarder = `
 
 const themeReceiver = `
   const hostLookPattern = /^[a-z][a-z0-9-]{0,31}$/;
-  const applyHostTheme = (theme, palette, looks) => {
+  const applyHostTheme = (theme, palette, looks, typography) => {
     if (theme !== "light" && theme !== "dark") throw new Error("The host theme must be light or dark.");
     if (palette !== undefined && (typeof palette !== "string" || !hostLookPattern.test(palette))) throw new Error("The host palette must be a short lowercase id.");
     if (looks !== undefined && (typeof looks !== "object" || looks === null)) throw new Error("The host looks must be an object.");
     const checked = ["codeStyle", "corners", "density"].filter((name) => looks?.[name] !== undefined);
     for (const name of checked) if (typeof looks[name] !== "string" || !hostLookPattern.test(looks[name])) throw new Error("The host look " + name + " must be a short lowercase id.");
+    if (typography !== undefined) {
+      if (typeof typography.size !== "string" || !/^\\d+(\\.\\d+)?px$/.test(typography.size) || parseFloat(typography.size) <= 0
+        || typeof typography.family !== "string" || !typography.family.trim() || typeof typography.mono !== "string" || !typography.mono.trim()) throw new Error("The host typography must contain a positive pixel size and font families.");
+      document.documentElement.style.setProperty("--host-font-size", typography.size);
+      document.documentElement.style.setProperty("--host-font-family", typography.family);
+      document.documentElement.style.setProperty("--host-mono-family", typography.mono);
+    }
     document.documentElement.dataset.theme = theme;
     if (palette !== undefined) document.documentElement.dataset.palette = palette;
     for (const name of checked) document.documentElement.dataset[name] = looks[name];
@@ -84,7 +91,7 @@ globalThis.__ragentsAppContext = (() => {
   port.onmessage = ({ data }) => {
     if (data?.version !== 1) return;
     if (data.type === "ragents.app.ready") {
-      applyHostTheme(data.theme, data.palette, data.looks);
+      applyHostTheme(data.theme, data.palette, data.looks, data.typography);
       if (data.hostInput === true) {
         const disposeInput = ragentsInputBridge.installFrameInputBridge(window, port);
         window.addEventListener("pagehide", disposeInput, { once: true });
@@ -95,7 +102,7 @@ globalThis.__ragentsAppContext = (() => {
       readyResolve();
       port.postMessage({ type: "ragents.app.connected", version: 1 });
     } else if (data.type === "ragents.app.theme") {
-      applyHostTheme(data.theme, data.palette, data.looks);
+      applyHostTheme(data.theme, data.palette, data.looks, data.typography);
     } else if (data.type === "ragents.app.state") {
       currentState = stateValue(data.state);
       const waiter = data.requestId ? pending.get(data.requestId) : undefined;

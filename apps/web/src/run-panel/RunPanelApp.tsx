@@ -455,8 +455,8 @@ function ElementPage({ elementId, registry, runId }: { elementId: string; regist
 export function HostLogin() {
   const host = useRunPanelHost();
   return <AccessScreen>
-    <h1 className="my-3 text-[1.5rem]">Sign-in required</h1>
-    <p className="mb-6 leading-normal text-muted-foreground">Sign-in goes through VS Code. The panel then reloads.</p>
+    <h1 className="my-3 text-xl">Sign-in required</h1>
+    <p className="mb-6 text-muted-foreground">Sign-in goes through VS Code. The panel then reloads.</p>
     <Button className="w-full" onClick={() => host.requestLogin()}>Sign in with VS Code</Button>
   </AccessScreen>;
 }

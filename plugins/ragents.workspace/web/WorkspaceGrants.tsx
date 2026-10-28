@@ -27,8 +27,8 @@ export function WorkspaceGrants({ session }: Pick<SessionHeaderContext, "session
   return <DetailRow label="Grants">
     <ul aria-label="Granted paths" className="flex min-w-0 flex-col gap-2">
       {grants.map((grant) => <li className="flex min-w-0 flex-col gap-1" key={`${grant.access}:${grant.path}`}>
-        <span className="font-mono text-xs">{grant.path}</span>
-        <span className="text-xs text-muted-foreground">{grant.access === "write" ? "Read and write" : "Read only"}</span>
+        <span className="font-mono text-sm">{grant.path}</span>
+        <span className="text-sm text-muted-foreground">{grant.access === "write" ? "Read and write" : "Read only"}</span>
       </li>)}
     </ul>
   </DetailRow>;

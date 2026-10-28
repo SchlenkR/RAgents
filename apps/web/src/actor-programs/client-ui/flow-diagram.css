@@ -13,10 +13,6 @@
     --xy-controls-button-border-color: var(--border);
 }
 
-.react-flow__edge-text {
-    font: 16px var(--font-sans);
-}
-
 .react-flow__handle {
     opacity: 0;
     pointer-events: none;

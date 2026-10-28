@@ -3,12 +3,19 @@ import { useEffect, useState } from "react";
 import { ChatInputToolbar, ChatMessages, ChatPanel, type Message } from "@schlenkr/quassel";
 import { QuasselHost } from "../src/chat/QuasselHost";
 import { RunPanelHostProvider, type RunPanelHost } from "../src/run-panel/host";
-import { Button } from "../src/ui";
+import { Badge, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../src/ui";
+import { QuestionCard } from "../../../plugins/ragents.ask/web/QuestionCard";
+import { DocumentPanel } from "../../../plugins/ragents.documents/web/DocumentViewer";
+import { FileBrowserPanel } from "../../../plugins/ragents.workspace/web/FileBrowser";
+import { PluginRegistry, type SessionContext } from "../src/PluginRegistry";
+import { RunPanelHeader } from "../src/run-panel/RunPanelHeader";
+import { bindHostTypography } from "../src/zoom";
 import "../src/ui/tailwind.css";
 
 const requestedHost = new URLSearchParams(location.search).get("host") ?? "browser";
 if (requestedHost !== "browser" && requestedHost !== "vscode") throw new Error("Unknown fixture host.");
 document.documentElement.dataset.host = requestedHost;
+if (requestedHost === "vscode") bindHostTypography(window);
 
 const host: RunPanelHost = {
   kind: requestedHost,
@@ -76,4 +83,47 @@ function Examples() {
 </QuasselHost></RunPanelHostProvider>;
 }
 
-createRoot(document.getElementById("root")!).render(<Examples />);
+const markdown = "# Review notes\n\nA shared document uses readable paragraphs, a list and code.\n\n- Review the current changes.\n- Record the result.\n\nUse `readFile` to inspect a file.\n\n~~~ts\nconst result = readFile(\"notes.md\");\n~~~\n\n## Next actions\n\n### Details\n\n#### Context\n\n> Keep the report concise.";
+const scaleMessages: Message[] = [
+  { key: "request", role: "user", text: "Please review the changes.", closed: true, at: "2026-10-28T10:00:00Z" },
+  { key: "answer", role: "assistant", text: markdown, closed: true, at: "2026-10-28T10:01:00Z" },
+  { key: "inspect", role: "tool", text: "Inspect files", closed: true, tool: { id: "inspect", name: "inspect_files", arguments: "{}", result: "Ready" } },
+  { key: "notice", role: "system", text: "New turn", closed: true },
+  { key: "action", role: "action", text: "Approve the review", closed: true, action: { actionId: "review", owner: "example", payload: null } },
+];
+const registry = new PluginRegistry({ brand: { title: "Examples" }, product: { id: "examples", title: "Examples" }, startEntries: [], plugins: [] }, new Map());
+const session: SessionContext = {
+  connected: true, pluginEvents: [], runView: undefined, running: false, messages: [],
+  session: { id: "reading", title: "Review conversation", updatedAt: 0 },
+  send: async () => {}, start: async () => {},
+};
+const navigation = { activeTabId: "", openTab() {}, revealEntity: () => false, selectionFor: () => undefined };
+
+function ScaleExamples() {
+  return <RunPanelHostProvider value={host}><QuasselHost><main className="grid h-full min-h-0 grid-cols-2 grid-rows-[auto_minmax(0,1fr)] gap-4 p-4">
+    <header className="col-span-2 flex items-center gap-4">
+      <RunPanelHeader attention={undefined} contributions={[]} navigation={navigation} registry={registry} runError={undefined} session={session} working={false} />
+      <Badge>Ready</Badge>
+      <DropdownMenu><DropdownMenuTrigger render={<Button variant="outline" />}>Reading menu</DropdownMenuTrigger>
+        <DropdownMenuContent><DropdownMenuItem>Open notes</DropdownMenuItem></DropdownMenuContent>
+      </DropdownMenu>
+    </header>
+    <section aria-label="Chat" className="flex min-h-0 min-w-0 flex-col gap-4">
+      <div className="min-h-0 flex-1"><ChatPanel composer={<ChatInputToolbar initialValue="A composer uses the same reading size." onSend={() => {}} />}>
+        <ChatMessages detailMode="full" messages={scaleMessages} owner="guide" showTimestamps />
+      </ChatPanel></div>
+      <QuestionCard questions={[{ header: "Period", question: "Which review period applies?", multiSelect: false,
+        options: [{ label: "3 days", description: "Review this week" }, { label: "14 days", description: "Review after the next update" }] }]} onAnswer={() => {}} />
+    </section>
+    <div className="grid min-h-0 min-w-0 grid-rows-2 gap-4">
+      <article aria-label="Document" className="min-h-0 min-w-0 overflow-auto rounded-lg border border-border bg-card p-4">
+        <DocumentPanel activeId="notes" onSelect={() => {}} truncated={false} sections={[{ id: "notes", label: "Notes", kind: "chat", documents: [{ id: "notes", title: "notes.md", format: "markdown", content: markdown }] }]} />
+      </article>
+      <section aria-label="File preview" className="min-h-0 min-w-0 overflow-hidden rounded-lg border border-border bg-card">
+        <FileBrowserPanel active navigation={navigation} selection={undefined} session={session} />
+      </section>
+    </div>
+  </main></QuasselHost></RunPanelHostProvider>;
+}
+
+createRoot(document.getElementById("root")!).render((new URLSearchParams(location.search).has("scale") || new URLSearchParams(location.search).get("element") === "scale") ? <ScaleExamples /> : <Examples />);

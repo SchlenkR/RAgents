@@ -68,7 +68,7 @@ function ComboboxContent({ className, children, searchable = true, emptyText = "
         {searchable && <div className="shrink-0 border-b border-border p-2">
           <ComboboxPrimitive.Input aria-label="Filter options" placeholder="Filter options ..." ref={input} render={<Input size="sm" />} />
         </div>}
-        <ComboboxPrimitive.Empty className="px-2.5 text-sm text-muted-foreground not-empty:py-2" role="status">{emptyText}</ComboboxPrimitive.Empty>
+        <ComboboxPrimitive.Empty className="px-2.5 text-base text-muted-foreground not-empty:py-2" role="status">{emptyText}</ComboboxPrimitive.Empty>
         <ComboboxPrimitive.List ref={list} className="min-h-0 overflow-y-auto overscroll-contain p-1">{children}</ComboboxPrimitive.List>
         {footer}
       </ComboboxPrimitive.Popup>

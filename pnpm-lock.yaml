@@ -36,8 +36,8 @@ importers:
         specifier: workspace:*
         version: link:packages/workspace-executor
       '@schlenkr/quassel':
-        specifier: 0.5.6
-        version: 0.5.6(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.6.0
+        version: 0.6.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@tailwindcss/node':
         specifier: ^4.3.3
         version: 4.3.3
@@ -139,8 +139,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/workspace-executor
       '@schlenkr/quassel':
-        specifier: 0.5.6
-        version: 0.5.6(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.6.0
+        version: 0.6.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       handlebars:
         specifier: ^4.7.9
         version: 4.7.9
@@ -188,8 +188,8 @@ importers:
         specifier: ^1.8.0
         version: 1.8.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@schlenkr/quassel':
-        specifier: 0.5.6
-        version: 0.5.6(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.6.0
+        version: 0.6.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@tanstack/react-table':
         specifier: ^8.21.3
         version: 8.21.3(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -1135,8 +1135,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@schlenkr/quassel@0.5.6':
-    resolution: {integrity: sha512-psXTkmIVLHqm5hhkzaBhSiiXCYnEXyIoXy0d44NeriiITueSg2FcnFjnZxh5RDs+iTu256I0p+S1LI77Nj7QNA==}
+  '@schlenkr/quassel@0.6.0':
+    resolution: {integrity: sha512-+ekq817LKuGm2/GkPOQL953oT55lZccft1LUtB21bjTNhbqVSNhyHk2yUCRQ/L3jsaM/xFt6oI7Yn7BR5IXTZA==}
     peerDependencies:
       react: ^18 || ^19
       react-dom: ^18 || ^19
@@ -3489,7 +3489,7 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.62.4':
     optional: true
 
-  '@schlenkr/quassel@0.5.6(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+  '@schlenkr/quassel@0.6.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@base-ui/react': 1.9.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       class-variance-authority: 0.7.1

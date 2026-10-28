@@ -40,7 +40,7 @@ export const RUN_TOOLS_TAB_ID = "ragents.actor-programs.tools";
 
 const entryIconClass = "flex size-[34px] items-center justify-center rounded-[10px] bg-[color-mix(in_srgb,var(--primary)_12%,var(--background))] text-primary";
 const headClass = "grid flex-none grid-cols-[auto_minmax(0,1fr)] items-center gap-3 border-b border-border-soft px-workspace-inset py-2";
-const sectionLabelClass = "mb-2 text-[0.66rem] tracking-[0.075em] text-muted-foreground uppercase";
+const sectionLabelClass = "mb-2 text-sm text-muted-foreground uppercase";
 
 const ACTIVE_STATUSES = new Set(["queued", "running"]);
 const POLL_INTERVAL = 700;
@@ -241,18 +241,18 @@ export function HostConfirmation({ action, session }: { action: RunAction; sessi
   return (
     <section aria-label="Host confirmation" className="grid flex-none gap-2 border-b border-border-soft bg-warning-soft px-workspace-inset py-3" data-slot="host-confirmation">
       <header className="grid gap-0.5">
-        <strong className="text-[0.72rem] text-foreground">Confirmation in the host</strong>
-        <span className="text-xs text-muted-foreground">The app cannot answer this decision itself.</span>
+        <strong className="text-sm text-foreground">Confirmation in the host</strong>
+        <span className="text-sm text-muted-foreground">The app cannot answer this decision itself.</span>
       </header>
       {busy
-        ? <p className="text-xs text-muted-foreground">Processing answer</p>
+        ? <p className="text-sm text-muted-foreground">Processing answer</p>
         : (
           <QuestionCard
             onAnswer={access.can("runs.write") ? (answers) => void answer(answers) : undefined}
             questions={askPayloadOf(action.payload).questions}
           />
         )}
-      {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
+      {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
     </section>
   );
 }
@@ -267,7 +267,7 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
 
   if (!listing && !error) {
     return (
-      <div className="flex h-full items-center justify-center gap-3 text-sm text-muted-foreground">
+      <div className="flex h-full items-center justify-center gap-3 text-base text-muted-foreground">
         <Spinner aria-hidden aria-label={undefined} role={undefined} />
         <span>Loading functions</span>
       </div>
@@ -311,22 +311,22 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
             <ArrowLeftIcon />
           </Button>
           <span className="grid min-w-0 gap-px">
-            <strong className="whitespace-normal wrap-anywhere text-[0.82rem] font-semibold" aria-label={selected.name}>{selected.name}</strong>
-            <small className="truncate text-xs text-muted-foreground">Function of @{selected.actorHandle}</small>
+            <strong className="whitespace-normal wrap-anywhere text-base font-semibold" aria-label={selected.name}>{selected.name}</strong>
+            <small className="truncate text-sm text-muted-foreground">Function of @{selected.actorHandle}</small>
           </span>
         </header>
         <div className="flex min-h-0 flex-col gap-6 overflow-y-auto px-workspace-inset pt-4 pb-6">
           <div className="grid grid-cols-[42px_minmax(0,1fr)] items-start gap-3">
             <span className={cn(entryIconClass, "size-[42px] bg-accent")}><IconTools size={22} /></span>
             <div>
-              <h2 className="text-[1.05rem] text-foreground">{selected.name}</h2>
-              <p className="mt-1 text-[0.74rem] leading-[1.45] text-muted-foreground">{selected.description}</p>
+              <h2 className="text-lg text-foreground">{selected.name}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{selected.description}</p>
             </div>
           </div>
           <section>
             <h3 className={sectionLabelClass}>Available to</h3>
             <div className="flex flex-wrap gap-2">
-              {selected.targets.map((target) => <span className="rounded-full bg-primary/9 px-2 py-1 text-xs text-foreground" key={target.actorId}>{targetLabel(target)}</span>)}
+              {selected.targets.map((target) => <span className="rounded-full bg-primary/9 px-2 py-1 text-sm text-foreground" key={target.actorId}>{targetLabel(target)}</span>)}
             </div>
           </section>
           <section>
@@ -338,8 +338,8 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
             {[{ label: "Program", value: selected.moduleId },
               { label: "Source hash", value: selected.sourceHash }].map((fact) => (
               <div className="grid gap-1 rounded-lg bg-foreground/4 px-3 py-2" key={fact.label}>
-                <dt className="text-[0.61rem] text-muted-foreground uppercase">{fact.label}</dt>
-                <dd className="whitespace-normal wrap-anywhere font-mono text-xs text-foreground">{fact.value}</dd>
+                <dt className="text-sm text-muted-foreground uppercase">{fact.label}</dt>
+                <dd className="whitespace-normal wrap-anywhere font-mono text-sm text-foreground">{fact.value}</dd>
               </div>
             ))}
           </dl>
@@ -371,8 +371,8 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
         >
           <span className={entryIconClass}><IconTools size={20} /></span>
           <span className="grid min-w-0 gap-0.5">
-            <strong className="truncate text-[0.8rem] font-semibold">{tool.name}</strong>
-            <small className="truncate text-[0.69rem] text-muted-foreground">{tool.description}</small>
+            <strong className="truncate text-base font-semibold">{tool.name}</strong>
+            <small className="truncate text-sm text-muted-foreground">{tool.description}</small>
           </span>
           <Badge className="max-w-[132px] truncate @max-[470px]:hidden" variant="secondary">
             {tool.targets.length} {tool.targets.length === 1 ? "agent" : "agents"}

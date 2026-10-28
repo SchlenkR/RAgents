@@ -56,6 +56,7 @@ export type ServiceTunnelResult = { path: string } | null;
 /** Messages from the panel to its host. */
 export type RunPanelHostMessage =
   | { type: "ready" }
+  | { type: "ragents.typography.request" }
   | { type: "runChanged"; runId: string | null }
   | { type: "pageChanged"; page: "start" | "runs" }
   | { type: "newRun"; entryId?: string }
@@ -106,6 +107,7 @@ export function isRunPanelKeyboardMessage(value: unknown): value is RunPanelKeyb
 
 /** Messages from the host to the panel. */
 export type HostRunPanelMessage =
+  | ({ type: "ragents.typography" } & Record<"fontSize" | "fontFamily" | "monoFamily", string>)
   /** startOptions restore the presets of a new run that a reloaded frame has not started yet. */
   | { type: "selectRun"; runId: string | null; startOptions?: Record<string, unknown> }
   | { type: "showPage"; page: "start" | "runs"; notice?: string }
@@ -129,6 +131,7 @@ export const isRunPanelHostMessage = (value: unknown): value is RunPanelHostMess
   if (!isObject(value)) return false;
   switch (value.type) {
     case "ready":
+    case "ragents.typography.request":
     case "login":
     case "logout":
       return true;
@@ -165,6 +168,9 @@ export const isClipboardRunPanelMessage = (value: unknown): value is ClipboardRu
 export const isHostRunPanelMessage = (value: unknown): value is HostRunPanelMessage => {
   if (!isObject(value)) return false;
   switch (value.type) {
+    case "ragents.typography":
+      return typeof value.fontSize === "string" && /^\d+(\.\d+)?px$/.test(value.fontSize) && parseFloat(value.fontSize) > 0
+        && isText(value.fontFamily) && isText(value.monoFamily);
     case "selectRun":
       return (value.runId === null || isText(value.runId)) && isStartOptions(value.startOptions);
     case "showPage":

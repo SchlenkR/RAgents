@@ -12,7 +12,7 @@ import { actorAddress, type RunActor, type RunView } from "@ragents/web/run-view
 
 const controlsClass = "flex flex-shrink-0 items-center gap-2 border-t border-border-soft px-workspace-inset pt-2 pb-3";
 
-const noteClass = "mt-2 text-[0.7rem] text-muted-foreground";
+const noteClass = "mt-2 text-sm text-muted-foreground";
 
 export function ActorChatControls({ actor, autoFocus, onAutoFocusSettled, view, composerVisible = true, presentation = "inspector", display = presentation, running = false, toolbarLeft, toolbarRight }: {
   actor: RunActor;
@@ -60,7 +60,7 @@ export function ActorChatControls({ actor, autoFocus, onAutoFocusSettled, view, 
       toolbarLeft={<>
         {toolbarLeft}
         {switches}
-        {presentation === "inspector" && <span className="truncate text-[0.7rem] text-muted-foreground">to @{actorAddress(actor)}</span>}
+        {presentation === "inspector" && <span className="truncate text-sm text-muted-foreground">to @{actorAddress(actor)}</span>}
       </>}
       toolbarRight={<><ChatContextUsage runId={view.id} actor={actor.id} revision={JSON.stringify(actor.execution?.driver.config)} />{toolbarRight}</>}
     />

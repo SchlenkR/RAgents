@@ -20,8 +20,8 @@ import { overseerChatDisplayPolicy, overseerChatStorageKeyPrefix } from "./chat-
 const toolbarClass = "flex flex-none items-center gap-1";
 // Framed like an input field, also when the header collapses it to its icon.
 const triggerClass = "justify-start border-border-strong bg-background font-normal text-muted-foreground icon-only:border data-[working=true]:animate-working-pulse data-[working=true]:border-primary motion-reduce:data-[working=true]:animate-none";
-const noteClass = "text-[0.8rem] text-muted-foreground";
-const errorClass = "text-[0.8rem] text-destructive";
+const noteClass = "text-base text-muted-foreground";
+const errorClass = "text-base text-destructive";
 const codeBlocks = { wrap: true } as const;
 
 /** Every user has their own coordinator; only the server knows its id. */
@@ -44,7 +44,7 @@ function OverseerToolbar(context: OverviewPanelContext) {
   const coordinator = useCoordinator();
   if (!coordinator.runId) {
     return <div className={toolbarClass} data-slot="overseer-toolbar" role="status">
-      {coordinator.error && <span className="text-[0.7rem] font-bold text-destructive" aria-description={coordinator.error} aria-label={coordinator.error}>!</span>}
+      {coordinator.error && <span className="text-sm font-bold text-destructive" aria-description={coordinator.error} aria-label={coordinator.error}>!</span>}
     </div>;
   }
   return <ChatStepsProvider policy={overseerChatDisplayPolicy} storageKeyPrefix={overseerChatStorageKeyPrefix}>
@@ -131,7 +131,7 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
                 <DialogDescription>History and model context are deleted. Running answers are stopped.</DialogDescription>
               </DialogHeader>
               <p>Your runs and the model choice are kept.</p>
-              {error && <p className="text-[0.8rem] text-destructive" role="alert">{error}</p>}
+              {error && <p className="text-base text-destructive" role="alert">{error}</p>}
               <DialogFooter>
                 <Button ref={cancelReset} disabled={resetting} onClick={() => setConfirmReset(false)} variant="outline">Cancel</Button>
                 <Button disabled={resetting} onClick={() => { void reset(); }} variant="destructive">
@@ -171,7 +171,7 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
     </HeaderDropdown>
     <span className="flex min-w-0 flex-none items-center justify-end gap-2 empty:hidden" role="status" aria-live="polite">
       {chat.running && <span className="sr-only">Working</span>}
-      {problem && <span className="text-[0.7rem] font-bold text-destructive" aria-description={problem} aria-label={problem}>!</span>}
+      {problem && <span className="text-sm font-bold text-destructive" aria-description={problem} aria-label={problem}>!</span>}
     </span>
   </div>;
 }

@@ -75,6 +75,15 @@ const useSustained = (active: boolean, delayMs: number): boolean => {
 
 const invocationSignature = (invocation: RunAppInvocation): string => JSON.stringify(invocation);
 
+const hostTypography = () => {
+  const style = getComputedStyle(document.body);
+  return {
+    size: style.fontSize,
+    family: style.fontFamily,
+    mono: style.getPropertyValue("--font-mono").trim(),
+  };
+};
+
 export function ActorViewFrame({
   api,
   app,
@@ -334,6 +343,7 @@ export function ActorViewFrame({
       theme: themeRef.current,
       palette: paletteRef.current,
       looks: looksRef.current,
+      typography: hostTypography(),
       hostInput: hostInputEnabled(window),
       app: {
         id: installedApp.id,
@@ -463,7 +473,11 @@ export function ActorViewFrame({
 
   useEffect(() => {
     if (!bridgeReady) return;
-    portRef.current?.postMessage({ type: RUN_APP_THEME, version: RUN_APP_BRIDGE_VERSION, theme, palette, looks });
+    const send = () => portRef.current?.postMessage({ type: RUN_APP_THEME, version: RUN_APP_BRIDGE_VERSION, theme, palette, looks, typography: hostTypography() });
+    send();
+    const observer = new MutationObserver(send);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
+    return () => observer.disconnect();
   }, [bridgeReady, looks, palette, theme]);
 
   useEffect(() => {
@@ -530,7 +544,7 @@ export function ActorViewFrame({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div aria-live="polite" role="status"
-        className={`order-1 grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 overflow-hidden px-workspace-inset text-xs text-muted-foreground ${visibleStatus ? "min-h-7 flex-none py-1" : "h-0 flex-none"}`}>
+        className={`order-1 grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 overflow-hidden px-workspace-inset text-sm text-muted-foreground ${visibleStatus ? "min-h-7 flex-none py-1" : "h-0 flex-none"}`}>
         {visibleStatus && <>
           <Badge tone={visibleStatus.tone === "error" ? "danger" : visibleStatus.tone === "confirm" ? "warning" : "neutral"}>{visibleStatus.title}</Badge>
           <span className="whitespace-normal wrap-anywhere" aria-label={visibleStatus.detail}>{visibleStatus.detail}</span>
@@ -546,7 +560,7 @@ export function ActorViewFrame({
           aria-label={app.title}
         />
         <div aria-live="polite" role="status" className="pointer-events-none absolute right-2 bottom-2 left-2 flex justify-end">
-          {showRunning && running && <span className="flex max-w-full items-center gap-2 rounded-full border border-border-soft bg-background/90 py-0.5 pr-3 pl-1 text-xs text-muted-foreground shadow-sm">
+          {showRunning && running && <span className="flex max-w-full items-center gap-2 rounded-full border border-border-soft bg-background/90 py-0.5 pr-3 pl-1 text-sm text-muted-foreground shadow-sm">
             <Badge tone="active">{running.title}</Badge>
             <span className="whitespace-normal wrap-anywhere" aria-label={running.detail}>{running.detail}</span>
           </span>}

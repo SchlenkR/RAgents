@@ -5,7 +5,7 @@ import { actorProgramContracts, type ActorProgramStatus } from "@ragents/host/pl
 import { globalAppsContracts, type GlobalAppSummary } from "../contract";
 
 const errorText = (error: unknown): string => error instanceof Error ? error.message : String(error);
-const jsonClass = "max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-3 text-xs";
+const jsonClass = "max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-3 text-sm";
 
 export function GlobalAppDetails({ app, runId, revision, writable, onClose }: { app: GlobalAppSummary; runId: string; revision: number; writable: boolean; onClose: () => void }) {
   const [details, setDetails] = useState<ActorProgramStatus>();
@@ -31,14 +31,14 @@ export function GlobalAppDetails({ app, runId, revision, writable, onClose }: { 
       <DialogBody className="min-w-0 space-y-4">
         {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
         {!details ? !error && <p role="status" className="flex items-center gap-2"><Spinner />Loading details...</p> : <>
-          <p className="text-sm text-muted-foreground">Triggers: {JSON.stringify(details.triggers)}. Timeout: {details.triggers.timeoutSeconds ?? 30} seconds.</p>
-          {details.sandbox === "process" && <p className="text-sm text-muted-foreground">Process protection is active. File and HTTP permissions are enforced through server capabilities.</p>}
+          <p className="text-base text-muted-foreground">Triggers: {JSON.stringify(details.triggers)}. Timeout: {details.triggers.timeoutSeconds ?? 30} seconds.</p>
+          {details.sandbox === "process" && <p className="text-base text-muted-foreground">Process protection is active. File and HTTP permissions are enforced through server capabilities.</p>}
           {details.sandbox === "disabled" && <Alert variant="destructive"><AlertDescription>Process protection is disabled. Direct file and network access by this script is unrestricted.</AlertDescription></Alert>}
-          <div><h3 className="mb-2 text-sm font-medium">Permissions</h3><pre className={jsonClass}>{JSON.stringify(details.permissions, null, 2)}</pre></div>
-          <div><h3 className="mb-2 text-sm font-medium">State</h3><pre className={jsonClass}>{JSON.stringify(details.state, null, 2)}</pre></div>
-          <div><h3 className="mb-2 text-sm font-medium">Log</h3>
-            {details.log.length ? <ol className="max-h-80 space-y-2 overflow-auto rounded-md bg-muted p-3 font-mono text-xs">{details.log.map((line, index) => <li key={`${line.at}:${index}`} className="whitespace-pre-wrap break-all"><span className="text-muted-foreground">{line.at} {line.level}: </span>{line.text}</li>)}</ol> : <p className="text-sm text-muted-foreground">No log yet.</p>}
-            {details.droppedLogLines > 0 && <p className="mt-2 text-xs text-muted-foreground">{details.droppedLogLines} earlier log lines omitted.</p>}
+          <div><h3 className="mb-2 text-base font-medium">Permissions</h3><pre className={jsonClass}>{JSON.stringify(details.permissions, null, 2)}</pre></div>
+          <div><h3 className="mb-2 text-base font-medium">State</h3><pre className={jsonClass}>{JSON.stringify(details.state, null, 2)}</pre></div>
+          <div><h3 className="mb-2 text-base font-medium">Log</h3>
+            {details.log.length ? <ol className="max-h-80 space-y-2 overflow-auto rounded-md bg-muted p-3 font-mono text-sm">{details.log.map((line, index) => <li key={`${line.at}:${index}`} className="whitespace-pre-wrap break-all"><span className="text-muted-foreground">{line.at} {line.level}: </span>{line.text}</li>)}</ol> : <p className="text-base text-muted-foreground">No log yet.</p>}
+            {details.droppedLogLines > 0 && <p className="mt-2 text-sm text-muted-foreground">{details.droppedLogLines} earlier log lines omitted.</p>}
           </div>
         </>}
       </DialogBody>

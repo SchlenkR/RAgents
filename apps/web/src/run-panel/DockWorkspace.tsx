@@ -349,14 +349,14 @@ export function DockWorkspace({ additions = [], apps, chat, chatIcon = <UsersIco
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-app" data-docking="workspace">
     {actionsContainer ? createPortal(actions, actionsContainer) : actions}
     {addition.dialog}
-    {error && <p className="p-2 text-xs text-destructive" role="alert">{error}</p>}
+    {error && <p className="p-2 text-sm text-destructive" role="alert">{error}</p>}
     <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden" ref={container}>
       {geometry.groups.map(({ group, rect }) => <div className="contents" key={group.id}>
         <div aria-hidden data-dock-card={group.id} className={cn(cardClass, "z-0", areaFocused(group.id) ? "border-primary/70" : "border-border")} style={rect} />
         <div aria-label="Area tabs" className={areaHeaderClass} data-dock-group={group.id} role="tablist" style={headerRect(rect)} onFocusCapture={() => { if (state.focused !== group.id || state.side.focused) update((current) => ({ ...current, focused: group.id, side: { ...current.side, focused: false } })); }}>
           {group.tabs.map((id) => <div className={cn(tabClass, id === group.active && (areaFocused(group.id) ? "bg-selected text-selected-foreground hover:bg-selected-hover" : group.tabs.length > 1 && "bg-band"))} key={id} role="presentation">
             {id === (group.active ?? group.tabs[0]) && <Button aria-label={`Move ${title(id)}`} className={cn(gripClass, "flex-none touch-none cursor-grab hover:bg-transparent active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, [id])} size="icon-xs" aria-description="Drag this window" variant="ghost"><DockGrip /></Button>}
-            <InteractiveItem id={`dock-tab-${encodeURIComponent(id)}`} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={title(id)} aria-selected={id === group.active} className="flex h-7 min-w-0 flex-1 touch-none cursor-grab items-center gap-2 border-0 px-2 text-left text-xs text-muted-foreground hover:bg-transparent hover:text-foreground selected:border-0 selected:bg-transparent selected:text-selected-foreground selected:hover:bg-transparent [&>svg]:size-4 [&>svg]:shrink-0"
+            <InteractiveItem id={`dock-tab-${encodeURIComponent(id)}`} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={title(id)} aria-selected={id === group.active} className="flex h-7 min-w-0 flex-1 touch-none cursor-grab items-center gap-2 border-0 px-2 text-left text-sm text-muted-foreground hover:bg-transparent hover:text-foreground selected:border-0 selected:bg-transparent selected:text-selected-foreground selected:hover:bg-transparent [&>svg]:size-4 [&>svg]:shrink-0"
               onClick={(event) => { if (event.detail === 0) select(id); }} onKeyDown={(event) => selectFromKeyboard(event, group, id)}
               onPointerDown={(event) => startDrag(event, [id], () => select(id))} role="tab" tabIndex={id === group.active ? 0 : -1} aria-description={title(id)} type="button">{icon(id)}<span className="truncate">{title(id)}</span></InteractiveItem>
             {id === group.active && <>
@@ -366,10 +366,10 @@ export function DockWorkspace({ additions = [], apps, chat, chatIcon = <UsersIco
             </>}
             <Button aria-label={`Close ${title(id)}`} className="flex-none" onClick={() => close([id])} size="icon-xs" variant="ghost"><XIcon /></Button>
           </div>)}
-          {group.tabs.length === 0 && <span className="min-w-0 flex-1 truncate px-1 text-xs text-muted-foreground">Empty area</span>}
+          {group.tabs.length === 0 && <span className="min-w-0 flex-1 truncate px-1 text-sm text-muted-foreground">Empty area</span>}
           {group.tabs.length === 0 && dockGroups(state.root).length > 1 && <Button aria-label="Close area" onClick={() => close(dockGroups(reconciled.root).find((entry) => entry.id === group.id)?.tabs ?? [], group.id)} size="icon-xs" variant="ghost"><XIcon /></Button>}
         </div>
-        {group.tabs.length === 0 && <div className="absolute flex flex-col items-center justify-center gap-2 rounded-b-lg border border-dashed border-border p-2 text-center text-xs text-muted-foreground" data-dock-empty={group.id} style={{ ...contentRect(rect), left: rect.left + 7, top: rect.top + DOCK_HEADER_HEIGHT + 7, width: Math.max(0, rect.width - 14), height: Math.max(0, rect.height - DOCK_HEADER_HEIGHT - 14) }}>
+        {group.tabs.length === 0 && <div className="absolute flex flex-col items-center justify-center gap-2 rounded-b-lg border border-dashed border-border p-2 text-center text-sm text-muted-foreground" data-dock-empty={group.id} style={{ ...contentRect(rect), left: rect.left + 7, top: rect.top + DOCK_HEADER_HEIGHT + 7, width: Math.max(0, rect.width - 14), height: Math.max(0, rect.height - DOCK_HEADER_HEIGHT - 14) }}>
           <span>Drop a window here</span>
         </div>}
       </div>)}
@@ -389,14 +389,14 @@ export function DockWorkspace({ additions = [], apps, chat, chatIcon = <UsersIco
         }} ><DockGrip horizontal={split.axis === "vertical"} /></div>)}
       {panel("chat", chat)}
       {panels.filter(({ id }) => catalog.includes(viewPanelId(id)) && (visited.includes(viewPanelId(id)) || visible.includes(viewPanelId(id)))).map(({ id, content }) => panel(viewPanelId(id), content))}
-      {emptyPanes.map((id) => panel(id, <p className="m-2 flex flex-1 items-center justify-center rounded-md border border-dashed border-border p-2 text-center text-xs text-muted-foreground">Drag an app or actor here</p>))}
+      {emptyPanes.map((id) => panel(id, <p className="m-2 flex flex-1 items-center justify-center rounded-md border border-dashed border-border p-2 text-center text-sm text-muted-foreground">Drag an app or actor here</p>))}
       {apps.filter((app) => visited.includes(appPanelId(app.layoutKey)) || visible.includes(appPanelId(app.layoutKey))).map((app) => panel(appPanelId(app.layoutKey), <RunAppView app={app} key={app.definition.id} navigation={navigation} session={session} />))}
       {tabs.map((tab) => [tab, workspaceTabPanelId(tab)] as const).filter(([, id]) => visited.includes(id) || visible.includes(id)).map(([tab, id]) => panel(id, <WorkspaceTabPanel Panel={tab.Panel} active={visible.includes(id)} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />))}
       {sideVisible && <>
         <div aria-hidden data-dock-frame className={cn(cardClass, "z-30 shadow-pop ring-1 ring-foreground/10", state.side.focused ? "border-primary/70" : "border-border")} style={sideRect} />
         <div aria-label="Sidebar" className={cn(areaHeaderClass, "z-40 items-center")} data-dock-sidebar="flyout" style={headerRect(sideRect)} onFocusCapture={() => { if (!state.side.focused) update((current) => ({ ...current, side: { ...current.side, focused: true } })); }} onPointerDownCapture={pressSide} onPointerEnter={holdSide} onPointerLeave={leaveSide}>
           <Button aria-label="Move sidebar window" className={cn(gripClass, "touch-none cursor-grab active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, [sideTab!])} size="icon-xs" variant="ghost"><DockGrip /></Button>
-          <span className="min-w-0 flex-1 truncate px-1 text-xs font-semibold" id={`dock-side-${encodeURIComponent(sideTab!)}`}>{title(sideTab!)}</span>
+          <span className="min-w-0 flex-1 truncate px-1 text-sm font-semibold" id={`dock-side-${encodeURIComponent(sideTab!)}`}>{title(sideTab!)}</span>
           {toolHeader(sideTab)}
           <Button aria-label="Move into layout" aria-description="Move into layout" onClick={() => update((current) => transitionDockSide(current, { type: "layout", placement, newId }))} size="icon-xs" variant="ghost"><PanelRightCloseIcon /></Button>
           <Button aria-label="Close sidebar" onClick={hideSide} size="icon-xs" variant="ghost"><XIcon /></Button>
@@ -431,7 +431,7 @@ export function DockWorkspace({ additions = [], apps, chat, chatIcon = <UsersIco
           const selected = JSON.stringify(guide.target) === JSON.stringify(hit.target);
           return <div aria-label={guide.label} className={cn("absolute grid place-items-center rounded border border-border-strong bg-popover text-foreground shadow-pop", selected && "border-primary bg-primary text-primary-foreground")} data-dock-guide={guide.target.kind === "bar" ? "bar" : `${guide.target.kind}-${guide.target.side}`} key={index} style={guide.rect}><Icon className="size-4" /></div>;
         })}
-        {drag.slot === undefined && <span className="absolute max-w-60 truncate rounded bg-primary px-2 py-1 text-xs text-primary-foreground" style={{ left: drag.point.x + 14, top: drag.point.y + 14 }}>{drag.ids.map(title).join(", ")}</span>}
+        {drag.slot === undefined && <span className="absolute max-w-60 truncate rounded bg-primary px-2 py-1 text-sm text-primary-foreground" style={{ left: drag.point.x + 14, top: drag.point.y + 14 }}>{drag.ids.map(title).join(", ")}</span>}
       </div>}
     </div>
   </div>;

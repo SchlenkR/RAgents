@@ -247,11 +247,11 @@ const ChoiceControl = ({ disabled, error, option, setValue }: StartOptionControl
       return { message: messageOf(cause) };
     }
   }, [option]);
-  if ("message" in parsed) return <p className="text-[0.75rem] text-destructive" role="alert">{parsed.message}</p>;
+  if ("message" in parsed) return <p className="text-sm text-destructive" role="alert">{parsed.message}</p>;
   return (
     <div className="flex flex-col items-start gap-2">
       <ChoiceSelect label={parsed.presentation.label} disabled={disabled} size="sm" options={parsed.presentation.options} value={parsed.value} onValueChange={(value) => { void setValue(value); }} />
-      {error && <p className="text-[0.75rem] text-destructive" role="alert">{error}</p>}
+      {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
     </div>
   );
 };
@@ -262,7 +262,7 @@ function FixedStartOption({ conflict, machines, option, registry }: { conflict: 
   const Control = registry.startOptions.get(option.id)?.Control ?? ChoiceControl;
   return <span className="contents" data-start-option-fixed={option.id}>
     <Control disabled error={conflict ? "A different value is chosen; the template sets this one." : undefined} machines={machines} option={option} setValue={unchangeable} />
-    <span className="text-xs text-muted-foreground">Set by the template.</span>
+    <span className="text-sm text-muted-foreground">Set by the template.</span>
   </span>;
 }
 
@@ -282,7 +282,7 @@ export function StartOptionControls({ disabled, registry, placement = "page", fi
   const conflicts = new Set(conflictingStartOptions(here, fixed).map((option) => option.id));
   return (
     <>
-      {placement === "page" && loadError && <p className="text-[0.75rem] text-destructive" role="alert">{loadError}</p>}
+      {placement === "page" && loadError && <p className="text-sm text-destructive" role="alert">{loadError}</p>}
       {shownStartOptions(here, fixed).map(({ option, fixed: isFixed }) => {
         if (isFixed) return <FixedStartOption conflict={conflicts.has(option.id)} key={option.id} machines={machines} option={option} registry={registry} />;
         const Control = registry.startOptions.get(option.id)?.Control ?? ChoiceControl;

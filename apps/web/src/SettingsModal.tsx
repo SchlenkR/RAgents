@@ -58,29 +58,29 @@ const capabilities = contributionFilters.filter(
   (option): option is { id: ContributionKind; label: string } => option.id !== "all",
 );
 
-const sectionCopyClass = "-mt-1 mb-0.5 text-[0.72rem] leading-normal text-muted-foreground";
+const sectionCopyClass = "-mt-1 mb-0.5 text-base text-muted-foreground";
 const settingsPanelsClass = "grid gap-4";
-const navigationItemClass = "flex min-h-[37px] w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-[0.75rem] max-md:w-auto max-md:min-h-8 max-md:flex-none max-md:whitespace-nowrap";
+const navigationItemClass = "flex min-h-[37px] w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-base max-md:w-auto max-md:min-h-8 max-md:flex-none max-md:whitespace-nowrap";
 const navigationItemActiveClass = "font-semibold";
 const navigationItemQuietClass = "text-muted-foreground";
-const navigationCountClass = "min-w-5 flex-shrink-0 rounded-full bg-current/11 px-2 py-px text-center text-[0.63rem] tabular-nums";
-const loadStateClass = "flex min-h-full items-center justify-center gap-2 p-8 text-[0.78rem] text-muted-foreground";
+const navigationCountClass = "min-w-5 flex-shrink-0 rounded-full bg-current/11 px-2 py-px text-center text-sm tabular-nums";
+const loadStateClass = "flex min-h-full items-center justify-center gap-2 p-8 text-sm text-muted-foreground";
 const ownerLinkClass = `flex w-full min-w-0 cursor-pointer items-center justify-between gap-3 rounded-md text-left font-semibold text-foreground [overflow-wrap:anywhere] hover:text-primary ${focusRing}`;
-const ownerLinkNoteClass = "flex-shrink-0 text-[0.7rem] font-normal text-primary";
+const ownerLinkNoteClass = "flex-shrink-0 text-sm font-normal text-primary";
 const cardListClass = "grid gap-2";
 const cardClass = "min-w-0 rounded-xl border border-border bg-background/76 px-4 py-3";
 const cardHeaderClass = "flex items-start justify-between gap-3";
 const cardCopyClass = "grid min-w-0 flex-1 gap-0.5";
-const cardTitleClass = "truncate text-[0.78rem] text-foreground";
-const cardNoteClass = "truncate text-[0.64rem] text-muted-foreground";
-const cardCopyTextClass = "my-2 text-[0.7rem] leading-normal text-muted-foreground";
+const cardTitleClass = "truncate text-base text-foreground";
+const cardNoteClass = "truncate text-sm text-muted-foreground";
+const cardCopyTextClass = "my-2 text-base text-muted-foreground";
 const insetClass = "rounded-lg border border-border bg-background/68";
 const statusListClass = "flex flex-wrap justify-end gap-1";
 const disclosureClass = "overflow-hidden rounded-xl border border-border bg-background/76";
 const summaryClass = `flex cursor-pointer list-none items-center justify-between gap-3 rounded-[inherit] px-3 py-3 text-foreground [&::-webkit-details-marker]:hidden ${focusRing} focus-visible:ring-inset`;
-const preClass = "m-0 overflow-auto bg-foreground/4 font-mono text-[0.7rem] leading-[1.55] whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]";
+const preClass = "m-0 overflow-auto bg-foreground/4 font-mono text-sm whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]";
 const preFrameClass = "rounded-lg border border-code-border";
-const valueLabelClass = "text-[0.67rem] font-medium text-muted-foreground";
+const valueLabelClass = "text-sm font-medium text-muted-foreground";
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -196,7 +196,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
         <span className="flex size-[34px] items-center justify-center rounded-[10px] bg-[color-mix(in_srgb,var(--primary)_12%,var(--background))] text-primary"><SettingsIcon size={18} /></span>
         <span className="grid min-w-0 gap-px">
           <DialogTitle render={<strong />}>Settings</DialogTitle>
-          <span className="truncate text-[0.7rem] text-muted-foreground max-[520px]:hidden">Adjust models and appearance</span>
+          <span className="truncate text-sm text-muted-foreground max-[520px]:hidden">Adjust models and appearance</span>
         </span>
         <Button aria-label="Close" shape="round" onClick={onClose} ref={closeRef} size="icon" variant="outline">
           <XIcon />
@@ -212,7 +212,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
           <ToggleGroupItem value="capability">By capability</ToggleGroupItem>
         </ToggleGroup>
       </div>}
-      <TabsContent className={cn("grid min-h-0 flex-1 text-[length:inherit]", catalogVisible ? "grid-cols-[230px_minmax(0,1fr)] max-[900px]:grid-cols-[190px_minmax(0,1fr)] max-md:grid-cols-[minmax(0,1fr)] max-md:grid-rows-[auto_minmax(0,1fr)]" : "grid-cols-[minmax(0,1fr)]")} value={activeArea}>
+      <TabsContent className={cn("grid min-h-0 flex-1 text-base", catalogVisible ? "grid-cols-[230px_minmax(0,1fr)] max-[900px]:grid-cols-[190px_minmax(0,1fr)] max-md:grid-cols-[minmax(0,1fr)] max-md:grid-rows-[auto_minmax(0,1fr)]" : "grid-cols-[minmax(0,1fr)]")} value={activeArea}>
         {catalogVisible && <nav aria-label="Browse plugins" className="flex min-w-0 flex-col gap-1 overflow-y-auto border-r border-border bg-background/72 px-3 py-4 max-md:flex-row max-md:overflow-x-auto max-md:border-r-0 max-md:border-b max-md:border-border max-md:p-2" ref={navigationRef}>
           {axis === "plugin" && filtered.map((group) => {
             const count = countContributions(group);
@@ -265,7 +265,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
               <div className={settingsPanelsClass}><PluginSettings contributions={appearanceSettings} panel /></div>
             </div>}
           </div>}
-          {(catalogVisible || selection.kind === "runtime") && settings !== null && state.status !== "ready" && <p className="border-b border-border px-4 py-3 text-[0.72rem] text-muted-foreground" role={state.status === "failed" ? "alert" : "status"}>
+          {(catalogVisible || selection.kind === "runtime") && settings !== null && state.status !== "ready" && <p className="border-b border-border px-4 py-3 text-sm text-muted-foreground" role={state.status === "failed" ? "alert" : "status"}>
             {state.status === "loading" ? "Refreshing catalog ..." : <>Could not refresh the catalog: {state.error} <Button onClick={() => setReload((value) => value + 1)} size="sm" variant="outline">Reload</Button></>}
           </p>}
           {(catalogVisible || selection.kind === "runtime") && settings === null && state.status === "loading" && (
@@ -277,7 +277,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
           {(catalogVisible || selection.kind === "runtime") && settings === null && state.status === "failed" && (
             <div className={cn(loadStateClass, "flex-col text-center text-destructive")} role="alert">
               <CircleAlertIcon size={14} />
-              <strong className="text-[0.86rem] text-foreground">Catalog unreachable</strong>
+              <strong className="text-base text-foreground">Catalog unreachable</strong>
               <span className="max-w-[560px]">{state.error}</span>
               <Button className="mt-2" onClick={() => setReload((value) => value + 1)} size="sm" variant="outline">Reload</Button>
             </div>
@@ -287,7 +287,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
             <ul aria-label="Installed plugins" className="grid rounded-xl border border-border bg-background/76 p-2">
               {groups.map((group) => <li className="border-t border-border first:border-t-0" key={group.id}>
                 <InteractiveItem className="flex w-full min-w-0 items-center gap-3 rounded-md px-3 py-2 text-left" onClick={() => openPlugin(group.id)}>
-                  <span className="min-w-0 flex-1 truncate text-[0.78rem] font-semibold text-foreground">{group.id}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{group.id}</span>
                   <Badge tone="neutral">{counted(countContributions(group), "contribution")}</Badge>
                   <ChevronRightIcon aria-hidden className="size-3.5 flex-none text-muted-foreground" />
                 </InteractiveItem>
@@ -333,7 +333,7 @@ function ContributionFilterBar({ filter, onFilter, onQuery, query, showKinds }: 
     <div className="sticky top-0 z-[2] grid gap-3 border-b border-border bg-app px-[clamp(20px,calc(var(--ragents-viewport-width,100vw)*0.04),46px)] py-3 max-md:px-4">
       {showKinds && <ChoiceSelect label="Contribution kinds" size="sm" value={filter} onValueChange={onFilter} options={contributionFilters.map((option) => ({ value: option.id, label: option.label }))} />}
       <div className="grid gap-2">
-        <label className="text-[0.67rem] font-medium text-muted-foreground" htmlFor={searchId}>Search contributions</label>
+        <label className="text-sm font-medium text-muted-foreground" htmlFor={searchId}>Search contributions</label>
         <SearchInput
           id={searchId}
           onValueChange={onQuery}
@@ -565,7 +565,7 @@ function PluginPage({ group, settings, onOpenPlugin }: {
                   ))}
                 </span>
                 <span className="grid min-w-0 gap-1">
-                  {skill.paths.map((path) => <code className="whitespace-normal wrap-anywhere font-mono text-[0.66rem] text-muted-foreground" key={path} aria-label={path}>{path}</code>)}
+                  {skill.paths.map((path) => <code className="whitespace-normal wrap-anywhere font-mono text-sm text-muted-foreground" key={path} aria-label={path}>{path}</code>)}
                 </span>
                 <span aria-hidden className="absolute top-1/2 right-3 flex -translate-y-1/2 text-muted-foreground group-hover:text-primary group-focus-visible:text-primary"><ChevronRightIcon size={13} /></span>
               </button>
@@ -618,7 +618,7 @@ function PluginPage({ group, settings, onOpenPlugin }: {
               {group.web.contributions.map((contribution) => (
                 <article className={cn(insetClass, "grid min-w-0 gap-2 px-3 py-3")} key={contribution.kind}>
                   <header className="flex items-center justify-between gap-3">
-                    <strong className="text-[0.73rem] text-foreground">{contribution.kind}</strong>
+                    <strong className="text-sm text-foreground">{contribution.kind}</strong>
                     <Badge tone="neutral">{contribution.count}</Badge>
                   </header>
                   {contribution.details.length > 0 && (
@@ -670,7 +670,7 @@ function SkillDetail({ onBack, skill }: { onBack: () => void; skill: SettingsSki
         <Button aria-label="Back to contributions" shape="round" onClick={onBack} size="icon" variant="outline"><ArrowLeftIcon /></Button>
         <span className="grid gap-1">
           <h2 className={settingsPageTitleClass}>{skill.id}</h2>
-          <p className="text-[0.73rem] text-muted-foreground">{skill.owner}{files.length > 0 && ` / ${files.length} ${files.length === 1 ? "file" : "files"}`}</p>
+          <p className="text-sm text-muted-foreground">{skill.owner}{files.length > 0 && ` / ${files.length} ${files.length === 1 ? "file" : "files"}`}</p>
         </span>
       </header>
       <SettingsSection title="Availability">
@@ -688,7 +688,7 @@ function SkillDetail({ onBack, skill }: { onBack: () => void; skill: SettingsSki
       {state.status === "failed" && (
         <div className={cn(loadStateClass, "flex-col text-center text-destructive")} role="alert">
           <CircleAlertIcon size={14} />
-          <strong className="text-[0.86rem] text-foreground">Skill not readable</strong>
+          <strong className="text-base text-foreground">Skill not readable</strong>
           <span className="max-w-[560px]">{state.error}</span>
         </div>
       )}
@@ -709,7 +709,7 @@ function SkillDocument({ file }: { file: SettingsSkillFile }) {
       <header className="flex items-center justify-between gap-3 border-b border-border px-3 py-3">
         <span className={cardCopyClass}>
           <strong className={cardTitleClass}>{file.path}</strong>
-          <small className="text-[0.63rem] text-muted-foreground">{formatBytes(file.bytes)}</small>
+          <small className="text-sm text-muted-foreground">{formatBytes(file.bytes)}</small>
         </span>
         {file.content !== null && <CopyButton label={`Copy ${file.path}`} text={skillFileText(file)} />}
       </header>
@@ -727,7 +727,7 @@ function SkillDocument({ file }: { file: SettingsSkillFile }) {
       {file.content === null
         ? <SettingsEmpty className="m-3">This file cannot be shown as text.</SettingsEmpty>
         : file.path.toLowerCase().endsWith(".md")
-          ? <div className="px-4 pt-4 pb-4 type-prose"><Markdown text={file.content} /></div>
+          ? <div className="px-4 pt-4 pb-4"><Markdown text={file.content} /></div>
           : <div className="overflow-auto"><SourceCode className="px-4 pt-4 pb-4" content={file.content} path={file.path} /></div>}
     </article>
   );
@@ -736,9 +736,9 @@ function SkillDocument({ file }: { file: SettingsSkillFile }) {
 function ModelCard({ model }: { model: SettingsModel }) {
   return (
     <article className={cn(cardClass, "grid gap-1 px-4 py-3")}>
-      <strong className="truncate text-[0.79rem]">{model.label}</strong>
-      <span className="truncate text-[0.67rem] text-muted-foreground">{model.provider} / {model.model}</span>
-      <small className="truncate text-[0.67rem] text-muted-foreground">Driver: {model.driver}</small>
+      <strong className="truncate text-base">{model.label}</strong>
+      <span className="truncate text-sm text-muted-foreground">{model.provider} / {model.model}</span>
+      <small className="truncate text-sm text-muted-foreground">Driver: {model.driver}</small>
     </article>
   );
 }
@@ -761,7 +761,7 @@ function ProfileCard({ profile }: { profile: SettingsProfile }) {
         </span>
       </header>
       <p className={cardCopyTextClass}>{profile.description}</p>
-      <footer className="flex flex-wrap gap-x-3 gap-y-2 text-[0.64rem] text-muted-foreground">
+      <footer className="flex flex-wrap gap-x-3 gap-y-2 text-sm text-muted-foreground">
         <span>{profile.turnTimeoutMs === null || profile.turnTimeoutMs === 0 ? "No turn inactivity limit" : `Turn inactivity limit ${formatDuration(profile.turnTimeoutMs)}`}</span>
         <span>{profile.isolateWorkspace ? "Own agent workspace" : "Shared run workspace"}</span>
       </footer>
@@ -810,8 +810,8 @@ function ToolCard({ tool }: { tool: SettingsTool }) {
       <dl className="grid grid-cols-2 gap-2 max-md:grid-cols-1">
         {[["Owner", tool.owner], ["Source", tool.source], ["Scope", toolScopeLabel(tool.scope)], ["Availability", tool.availabilityDetail]].map(([label, value]) => (
           <div className={cn(insetClass, "grid min-w-0 gap-0.5 px-2 py-2")} key={label}>
-            <dt className="text-[0.61rem] text-muted-foreground">{label}</dt>
-            <dd className="min-w-0 text-[0.68rem] text-foreground [overflow-wrap:anywhere]">{value}</dd>
+            <dt className="text-sm text-muted-foreground">{label}</dt>
+            <dd className="min-w-0 text-sm text-foreground [overflow-wrap:anywhere]">{value}</dd>
           </div>
         ))}
       </dl>
@@ -835,7 +835,7 @@ function SettingsSection({ children, count, panel, title }: { children: ReactNod
   const body = (
     <>
       <header className="flex min-h-6 items-center gap-2">
-        <h3 className={panel ? settingsPanelTitleClass : "text-[0.79rem] font-bold tracking-[0.015em] text-foreground"}>{title}</h3>
+        <h3 className={panel ? settingsPanelTitleClass : "text-base font-bold text-foreground"}>{title}</h3>
         {count !== undefined && <Badge tone="neutral">{count}</Badge>}
       </header>
       {children}
@@ -848,9 +848,9 @@ function SettingsSection({ children, count, panel, title }: { children: ReactNod
 function SettingsFact({ detail, label, value }: { detail: string; label: string; value: string }) {
   return (
     <article className="grid min-w-0 gap-1 rounded-xl border border-border bg-background/78 px-4 py-3">
-      <span className="text-[0.62rem] text-muted-foreground uppercase">{label}</span>
-      <strong className="truncate text-[0.91rem] text-foreground">{value}</strong>
-      <small className="truncate text-[0.66rem] text-muted-foreground">{detail}</small>
+      <span className="text-sm text-muted-foreground uppercase">{label}</span>
+      <strong className="truncate text-lg text-foreground">{value}</strong>
+      <small className="truncate text-sm text-muted-foreground">{detail}</small>
     </article>
   );
 }
@@ -859,7 +859,7 @@ function SettingsValue({ copy = false, label, value }: { copy?: boolean; label: 
   return (
     <div className={cn(insetClass, "grid min-h-[38px] grid-cols-[12rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 max-[520px]:grid-cols-[minmax(0,1fr)_auto]")}>
       <span className={cn(valueLabelClass, "max-[520px]:col-span-full")}>{label}</span>
-      <code className="min-w-0 whitespace-normal wrap-anywhere font-mono text-[0.7rem] text-foreground" aria-label={value}>{value}</code>
+      <code className="min-w-0 whitespace-normal wrap-anywhere font-mono text-sm text-foreground" aria-label={value}>{value}</code>
       {copy && <CopyButton label={`Copy ${label}`} text={value} />}
     </div>
   );
@@ -912,11 +912,11 @@ function StatusBadge({ active, label }: { active: boolean; label: string }) {
 }
 
 function SettingsNote({ children }: { children: ReactNode }) {
-  return <p className="flex items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--primary)_22%,var(--border))] bg-primary/6 px-3 py-3 text-[0.71rem] leading-normal text-muted-foreground [&>svg]:mt-px [&>svg]:flex-shrink-0 [&>svg]:text-primary"><InfoIcon size={15} />{children}</p>;
+  return <p className="flex items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--primary)_22%,var(--border))] bg-primary/6 px-3 py-3 text-sm text-muted-foreground [&>svg]:mt-px [&>svg]:flex-shrink-0 [&>svg]:text-primary"><InfoIcon size={15} />{children}</p>;
 }
 
 function SettingsEmpty({ children, className }: { children: ReactNode; className?: string }) {
-  return <p className={cn("rounded-lg border border-dashed border-border p-4 text-center text-[0.72rem] text-muted-foreground", className)}>{children}</p>;
+  return <p className={cn("rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-foreground", className)}>{children}</p>;
 }
 
 const modelKey = (model: SettingsModel) => `${model.driver}/${model.provider ?? ""}/${model.model ?? ""}`;

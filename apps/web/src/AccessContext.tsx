@@ -8,7 +8,7 @@ import { Button, Card, cn, Input } from "./ui";
 const screenClasses = "grid min-h-[var(--ragents-viewport-height,100dvh)] place-items-center p-6";
 const cardWidthClasses = "w-[min(100%,380px)]";
 const cardClasses = "gap-0 p-8 shadow-pop max-sm:p-6";
-const fieldClasses = "mb-4 grid gap-2 text-[0.85rem] font-semibold";
+const fieldClasses = "mb-4 grid gap-2 text-base font-semibold";
 
 interface AccessValue extends UserAccess {
   logout: () => Promise<void>;
@@ -81,9 +81,9 @@ export function AccessGate({ children, Login: LoginComponent = Login }: PropsWit
   }, []);
   const access = useMemo(() => ({ ...createAccessContext(snapshot ?? { enabled: true, user: null }), logout }), [snapshot, logout]);
   if (!snapshot) return <AccessScreen>
-    <h1 className="my-3 text-[1.5rem]">RAgents</h1>
-    {error ? <><p className="mb-6 leading-normal" role="alert">{error}</p><Button variant="outline" onClick={() => setRetry((value) => value + 1)}>Reload</Button></>
-      : <p className="mb-6 leading-normal" role="status">Checking sign-in ...</p>}
+    <h1 className="my-3 text-xl">RAgents</h1>
+    {error ? <><p className="mb-6" role="alert">{error}</p><Button variant="outline" onClick={() => setRetry((value) => value + 1)}>Reload</Button></>
+      : <p className="mb-6" role="status">Checking sign-in ...</p>}
   </AccessScreen>;
   return <AccessContext.Provider value={access}>
     {snapshot.enabled && !snapshot.user ? <LoginComponent onLogin={setSnapshot} /> : children}
@@ -113,9 +113,9 @@ function Login({ onLogin }: LoginProps) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }).finally(() => setPending(false));
   }}><Card className={cardClasses}>
-    <span className="text-sm font-semibold text-muted-foreground">RAgents</span>
-    <h1 className="my-3 text-[1.5rem]">Sign in</h1>
-    <p className="mb-6 leading-normal text-muted-foreground">Sign in with your user account for this workshop.</p>
+    <span className="text-base font-semibold text-muted-foreground">RAgents</span>
+    <h1 className="my-3 text-xl">Sign in</h1>
+    <p className="mb-6 text-muted-foreground">Sign in with your user account for this workshop.</p>
     <label className={fieldClasses}>User<Input autoComplete="username" autoFocus disabled={pending} name="username" onChange={(event) => setId(event.target.value)} required value={id} /></label>
     <label className={fieldClasses}>Password<Input autoComplete="current-password" disabled={pending} name="password" onChange={(event) => setPassword(event.target.value)} required type="password" value={password} /></label>
     {error && <p className="mb-6 text-destructive" role="alert">{error}</p>}
@@ -128,7 +128,7 @@ export function UserMenu() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
   if (!access.enabled || !access.user) return null;
-  return <div className="flex flex-none items-stretch text-sm">
+  return <div className="flex flex-none items-stretch text-base">
     <ToolbarItem as="button" aria-label={`Sign out ${access.user.label}`} className="max-w-[160px] max-sm:max-w-[100px]" disabled={pending} aria-description={access.user.id} type="button" onClick={() => {
       setPending(true); setError(undefined);
       void access.logout().catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause))).finally(() => setPending(false));

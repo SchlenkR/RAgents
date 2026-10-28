@@ -21,18 +21,12 @@
   --diff-number-width: calc(var(--diff-digits) * 1ch + 1.8ch);
   --diff-sign-width: 2.6ch;
   table-layout: auto;
-  font-size: calc(var(--text-sm) * 0.95);
 }
 
 .diff-code::selection,
 .diff-code ::selection {
   background-color: var(--diff-selection-background-color);
   color: var(--diff-selection-text-color);
-}
-
-.diff-line,
-.diff-decoration {
-  line-height: 1.55;
 }
 
 .diff-gutter-col {

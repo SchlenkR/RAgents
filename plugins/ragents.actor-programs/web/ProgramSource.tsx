@@ -45,15 +45,15 @@ export function ProgramSource({ api, moduleId, runId, revision, expandedByDefaul
 
   return (
     <section className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)] justify-items-start gap-2">
-      <h3 className="text-xs font-semibold text-muted-foreground">Source code</h3>
+      <h3 className="text-sm font-semibold text-muted-foreground">Source code</h3>
       {!expanded && (
         <Button onClick={() => setExpanded(true)} size="sm" variant="outline">Show source code</Button>
       )}
       {expanded && (
         <>
-          <p className="text-[0.67rem] text-muted-foreground">Source of the installed build</p>
+          <p className="text-sm text-muted-foreground">Source of the installed build</p>
           {state.kind === "loading" && (
-            <p className="flex items-center gap-2 text-[0.72rem] text-muted-foreground">
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <Spinner aria-hidden aria-label={undefined} role={undefined} />
               <span>Loading source code</span>
             </p>
@@ -63,7 +63,7 @@ export function ProgramSource({ api, moduleId, runId, revision, expandedByDefaul
             <div className="flex flex-wrap gap-2">
               {state.files.map((file) => (
                 <button
-                  className={cn("max-w-full cursor-pointer rounded-lg border border-border-soft bg-background/70 px-2 py-1 text-left font-mono text-[0.66rem] text-muted-foreground [overflow-wrap:anywhere]",
+                  className={cn("max-w-full cursor-pointer rounded-lg border border-border-soft bg-background/70 px-2 py-1 text-left font-mono text-sm text-muted-foreground [overflow-wrap:anywhere]",
                     file.path === active?.path && "border-[color-mix(in_srgb,var(--primary)_48%,var(--border))] bg-primary/9 text-foreground")}
                   key={file.path}
                   onClick={() => setActivePath(file.path)}

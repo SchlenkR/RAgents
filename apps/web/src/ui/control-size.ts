@@ -1,10 +1,10 @@
 export type ControlSize = "xs" | "sm" | "default" | "lg";
 
 export const controlMetrics = {
-  xs: "[--control-height:var(--spacing-control-xs)] [--control-line-height:1rem] text-xs leading-(--control-line-height)",
-  sm: "[--control-height:var(--spacing-control-sm)] [--control-line-height:1rem] text-[0.8rem] leading-(--control-line-height)",
-  default: "[--control-height:var(--spacing-control-default)] [--control-line-height:1.25rem] text-sm leading-(--control-line-height)",
-  lg: "[--control-height:var(--spacing-control-lg)] [--control-line-height:1.25rem] text-sm leading-(--control-line-height)",
+  xs: "[--control-height:var(--spacing-control-xs)] text-base",
+  sm: "[--control-height:var(--spacing-control-sm)] text-base",
+  default: "[--control-height:var(--spacing-control-default)] text-base",
+  lg: "[--control-height:var(--spacing-control-lg)] text-base",
 } satisfies Record<ControlSize, string>;
 
 export const controlRadius = {

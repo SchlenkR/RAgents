@@ -104,7 +104,7 @@ test("chat replay appears atomically and keeps a reader's history and scroll pos
       await send(page, [reset, history[0], end]);
       const transcript = page.getByRole("region", { name: "Chat history" });
       await transcript.hover();
-      await page.mouse.wheel(0, -100);
+      await transcript.evaluate((element) => element.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: -100 })));
       await send(page, history.slice(1));
       assert.ok(await transcript.evaluate((element) => element.scrollTop > 0 && element.scrollHeight - element.clientHeight - element.scrollTop <= 1));
     } finally { await page.close(); }

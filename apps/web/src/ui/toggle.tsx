@@ -5,7 +5,7 @@ import { iconOnlyStyle, interactionStyle, outlinedControl } from "./interaction"
 import { controlSizes } from "./control-size"
 
 const toggleVariants = cva(
-  interactionStyle + " " + iconOnlyStyle + " group/toggle border border-transparent inline-flex items-center justify-center gap-1 rounded-lg text-sm font-medium whitespace-nowrap transition-all outline-none disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  interactionStyle + " " + iconOnlyStyle + " group/toggle border border-transparent inline-flex items-center justify-center gap-1 rounded-lg text-base font-medium whitespace-nowrap transition-all outline-none disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {

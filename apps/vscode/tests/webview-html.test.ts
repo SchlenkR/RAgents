@@ -51,7 +51,7 @@ test("clipboard replies restore frame focus before returning text, including an 
         replies.push(message);
       } },
     };
-    const browser = { origin: "vscode-webview://test", addEventListener(_type: string, listener: (event: unknown) => void) { listeners.push(listener); } };
+    const browser = { origin: "vscode-webview://test", addEventListener(type: string, listener: (event: unknown) => void) { if (type === "message") listeners.push(listener); } };
     const document = {
       getElementById: () => frame,
       createElement: () => field,
@@ -93,7 +93,7 @@ test("a server Start frame relays page and new-run actions only to its selected 
     const outgoing: unknown[] = [];
     const incoming: unknown[] = [];
     const frame = { contentWindow: { postMessage(message: unknown, target: string) { outgoing.push({ message, target }); } } };
-    const browser = { origin: "vscode-webview://test", addEventListener(_type: string, listener: (event: unknown) => void) { listeners.push(listener); } };
+    const browser = { origin: "vscode-webview://test", addEventListener(type: string, listener: (event: unknown) => void) { if (type === "message") listeners.push(listener); } };
     for (const script of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)) {
       runInNewContext(script[1], { window: browser, document: { getElementById: () => frame }, acquireVsCodeApi: () => ({ postMessage(message: unknown) { incoming.push(message); } }) });
     }
@@ -188,9 +188,9 @@ test("connection management loads the built web page from the extension and embe
     profileSuggestions: [],
   };
   const html = panelHtml({ nonce: "n0nce", title: "RAgents", state, scriptUri: "https://file+.vscode-resource/dist/webview/panel.js", styleUri: "https://file+.vscode-resource/dist/webview/panel.css", cspSource: "https://file+.vscode-resource" });
-  assert.match(html, /<html lang="en" data-theme="dark">/);
+  assert.match(html, /<html lang="en" data-host="vscode" data-theme="dark">/);
   assert.match(panelHtml({ nonce: "n0nce", title: "RAgents", state: { ...state, looks: { palette: "midnight", codeStyle: "outlined", corners: "tight", density: "spacious" } }, scriptUri: "s", styleUri: "c", cspSource: "x" }),
-    /<html lang="en" data-theme="dark" data-palette="midnight" data-code-style="outlined" data-corners="tight" data-density="spacious">/);
+    /<html lang="en" data-host="vscode" data-theme="dark" data-palette="midnight" data-code-style="outlined" data-corners="tight" data-density="spacious">/);
   assert.match(html, /script-src 'nonce-n0nce'/);
   assert.match(html, /style-src https:\/\/file\+\.vscode-resource/);
   assert.match(html, /<link rel="stylesheet" href="https:\/\/file\+\.vscode-resource\/dist\/webview\/panel\.css">/);
@@ -210,14 +210,17 @@ test("zoom is applied only by the outer hull and validates the initial setting",
   assert.throws(() => frameHtml({ ...options, zoom: 0 }), /ragents\.zoom/);
 });
 
-test("both hulls scale only by zoom and leave the font size to the theme's rem scale", () => {
+test("both hulls keep zoom separate from host typography and rem spacing", () => {
   const state = { theme: "dark" as const, page: "connections" as const, connections: [], profileSuggestions: [] };
   const panel = panelHtml({ nonce: "zoom", title: "RAgents", state, zoom: 90, scriptUri: "https://file+.vscode-resource/panel.js", styleUri: "https://file+.vscode-resource/panel.css", cspSource: "https://file+.vscode-resource" });
   const frame = frameHtml({ serverUrl: "http://localhost:4710", query: { host: "vscode" }, nonce: "zoom", title: "RAgents", zoom: 90 });
   for (const html of [panel, frame]) {
     assert.match(html, /html\{--ragents-zoom:0\.9;/);
     assert.match(html, /body\{zoom:var\(--ragents-zoom\);/);
-    assert.doesNotMatch(html, /font-size|--vscode-font/, "a root or body font size would rescale every rem of the pages a second time");
+    assert.match(html, /--host-font-size:var\(--vscode-chat-font-size,var\(--vscode-font-size,13px\)\)/);
+    assert.match(html, /--host-font-family:var\(--vscode-chat-font-family,var\(--vscode-font-family,sans-serif\)\)/);
+    assert.match(html, /--host-mono-family:var\(--vscode-editor-font-family,monospace\)/);
+    assert.doesNotMatch(html, /[;{]font-size:/, "the hull binds typography tokens without changing the rem root");
   }
 });
 

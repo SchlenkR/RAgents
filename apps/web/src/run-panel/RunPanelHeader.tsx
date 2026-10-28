@@ -45,7 +45,7 @@ export function RunPanelHeader({ actionsRef, attention, contributions, navigatio
   const windows = <div className="min-w-0 max-w-full empty:hidden" ref={actionsRef} />;
   return <div className={header ? "flex min-w-0 max-w-full items-center" : "flex min-w-0 flex-1 flex-wrap items-center gap-1 py-1"}>
     <HeaderDropdown label="Run details" onOpenChange={setOpen} open={open} trigger={<InteractiveItem aria-description="Show run details" aria-label={title} className={titleClass} type="button">
-      <strong className="min-w-0 truncate type-item" data-header-title>{title}</strong>
+      <strong className="min-w-0 truncate text-lg font-semibold" data-header-title>{title}</strong>
       {working && <span aria-label="Processing" className="size-1.5 flex-none rounded-full bg-active animate-fade-pulse motion-reduce:animate-none" role="status" />}
       {runError && <span className="flex flex-none items-center gap-1 type-meta font-medium text-destructive [&>svg]:size-3.5"><UnplugIcon aria-hidden /><HeaderLabel collapse="status">Run unreachable</HeaderLabel></span>}
       {attention && <Badge className={statusBadgeClass} role="status" tone="warning"><BellIcon aria-hidden /><HeaderLabel collapse="status">{attention.label}</HeaderLabel></Badge>}

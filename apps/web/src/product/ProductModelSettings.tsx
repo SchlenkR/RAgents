@@ -18,7 +18,7 @@ type LoadState = { status: "loading" } | { status: "failed"; error: string }
   | { status: "ready"; settings: Settings };
 const messageOf = (cause: unknown) => cause instanceof Error ? cause.message : String(cause);
 
-const noteClass = "text-[0.8rem] leading-[1.5] text-muted-foreground";
+const noteClass = "text-base text-muted-foreground";
 
 export function ProductModelSettings({ pluginId }: { pluginId: string }) {
   const access = useAccess();
@@ -98,9 +98,9 @@ export function ProductModelSettings({ pluginId }: { pluginId: string }) {
           ...metadata?.thinking.map((thinking) => ({ value: thinking, label: thinkingLabel(thinking) })) ?? [],
         ];
         return <fieldset className="min-w-0 border-t border-border pt-4 first:border-t-0 first:pt-0" key={profile.name} disabled={!writable || pending}>
-          <legend className="float-left w-full text-[0.9rem] font-semibold">{label.title}</legend>
-          <p className="clear-both mt-0.5 mb-3 text-[0.8rem] text-muted-foreground">{label.description}</p>
-          {unavailable.some((entry) => entry.name === profile.name) && <p className="mb-3 text-[0.8rem] text-destructive" role="alert">The choice {profile.provider}/{value.model} with thinking level {value.thinking} is no longer configured for {profile.name}. Choose an offered model and reasoning level.</p>}
+          <legend className="float-left w-full text-lg font-semibold">{label.title}</legend>
+          <p className="clear-both mt-0.5 mb-3 text-base text-muted-foreground">{label.description}</p>
+          {unavailable.some((entry) => entry.name === profile.name) && <p className="mb-3 text-base text-destructive" role="alert">The choice {profile.provider}/{value.model} with thinking level {value.thinking} is no longer configured for {profile.name}. Choose an offered model and reasoning level.</p>}
           <ModelPickers appearance="form" disabled={!writable || pending} model={value.model} models={modelOptions}
             onModel={(model) => {
               const next = settings.models.find((entry) => entry.id === model && entry.provider === profile.provider);
@@ -117,7 +117,7 @@ export function ProductModelSettings({ pluginId }: { pluginId: string }) {
         </fieldset>;
       })}
     </div>
-    {unavailable.length > 0 && <p className="text-[0.8rem] text-destructive" role="alert">Choose a valid model and reasoning level for every affected role before saving: {unavailable.map((profile) => profile.name).join(", ")}.</p>}
+    {unavailable.length > 0 && <p className="text-base text-destructive" role="alert">Choose a valid model and reasoning level for every affected role before saving: {unavailable.map((profile) => profile.name).join(", ")}.</p>}
     <div className="flex flex-wrap items-center gap-3">
       <Button type="submit" disabled={!writable || pending || !dirty || unavailable.length > 0}>{pending ? "Saving ..." : "Save defaults"}</Button>
       {dirty && <Button disabled={pending} variant="outline" onClick={() => {
