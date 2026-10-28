@@ -77,6 +77,7 @@ export const config = {
       "ragents.todo",
       "ragents.watch",
       "ragents.actor-programs",
+      "ragents.overseer",
       "ragents.global-apps",
       "ragents.activity",
       "ragents.processes",

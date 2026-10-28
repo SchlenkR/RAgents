@@ -155,8 +155,8 @@ examples.
 The `developer` profile (product ID `ragents-developer`, port 4715) is the smaller selection for
 working on a project: `ragents.orchestration`, `ragents.workspace`, `ragents.compaction`, `ragents.product`,
 `ragents.documents`, `ragents.browser`, `ragents.mcp`, `ragents.ask`, `ragents.acp`, `ragents.todo`, `ragents.watch`,
-`ragents.actor-programs`, `ragents.global-apps`, `ragents.activity`, `ragents.processes`, `ragents.lsp-roslyn`, `ragents.lsp-fsharp`,
-`ragents.lsp-typescript`. `ROSLYN_SOLUTION_ON_START` is `on`, so C# diagnostics start with the run
+`ragents.actor-programs`, `ragents.overseer`, `ragents.global-apps`, `ragents.activity`, `ragents.processes`, `ragents.lsp-roslyn`,
+`ragents.lsp-fsharp`, `ragents.lsp-typescript`. `ROSLYN_SOLUTION_ON_START` is `on`, so C# diagnostics start with the run
 (one solution loads directly, several are offered as a question). It has no `users` but an
 `anonymousUser` with all permissions, because it runs on your own machine, and gets its models
 through OpenRouter from `OPENROUTER_API_KEY`. It is the default profile of the agent subcommands
