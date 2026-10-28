@@ -1,8 +1,9 @@
 import { statSync } from "node:fs";
 import path from "node:path";
 import { Type } from "typebox";
-import { DomainError, type AccessContext, type JsonValue, type RunListDetail, type RunState, type StartOptionContribution } from "@ragents/engine";
+import { DomainError, type AccessContext, type JsonValue, type RunListDetail, type RunState, type StartOptionContribution, type StartOptionContext } from "@ragents/engine";
 import type { ShellTools } from "@ragents/workspace-executor";
+import { accessDescription } from "./security.js";
 import { shellPlatformChapter } from "./shell-platform.js";
 import { storedStartOption } from "@ragents/host/ragents/start-option-state.js";
 import type { WorkspaceResolver } from "@ragents/host/ragents/workspace-runtime.js";
@@ -97,14 +98,20 @@ export const executorShellChapter = (
   owner: string | null,
   binding: WorkspaceBinding,
   serverTools: ShellTools,
+  level: "isolated" | "full" = "isolated",
 ): string => {
   const { machine } = binding;
-  if (machine === "server") return shellPlatformChapter(process.platform, serverTools);
-  const client = registry.info(owner, machine.client);
-  return client
+  const client = machine === "server" ? undefined : registry.info(owner, machine.client);
+  const access = `
+
+## Run access
+
+${accessDescription(level, machine !== "server", client?.platform)}`;
+  if (machine === "server") return shellPlatformChapter(process.platform, serverTools) + access;
+  return (client
     ? shellPlatformChapter(client.platform as NodeJS.Platform, { ripgrep: client.ripgrep })
     : `## Shell platform\n\nThe workstation ${machine.label} that holds this project is not registered right now, `
-      + "so the platform of its shell is unknown; the workspace tools fail until it connects again.";
+      + "so the platform of its shell is unknown; the workspace tools fail until it connects again.") + access;
 };
 
 /** Where the root of a run is, in words: on a workstation with its label, otherwise the path itself. */
@@ -163,13 +170,16 @@ export const workspaceBindingOption = (
   registry: WorkspaceClientRegistry,
   contribution: () => WorkspaceResolver | undefined,
   accessFor: (userId: string | null) => AccessContext,
+  validateAccess?: (binding: WorkspaceBinding, context: StartOptionContext) => void,
 ): StartOptionContribution => ({
   id: WORKSPACE_BINDING_OPTION_ID,
   schema: bindingSchema,
   selectable: () => true,
   defaultValue: () => freshServerBinding(),
-  accept: (value, { runId, userId }) => {
+  accept: (value, context) => {
+    const { runId, userId } = context;
     if (!isWorkspaceBinding(value)) throw new DomainError("workspace-binding-invalid", "The workspace binding has no valid format.", 400);
+    validateAccess?.(value, context);
     const labels = freshLabels(contribution());
     const { machine, folder } = value;
     if (machine === "server") {

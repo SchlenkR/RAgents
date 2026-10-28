@@ -6,8 +6,15 @@ export {
   type BrowserNetworkPolicy,
   type SandboxHomeEnvironment,
   type WorkspaceProcessContext,
+  type WorkspaceAccess,
 } from "./context.js";
 export { WorkspaceOperationError } from "./errors.js";
+export { ruleAllowsPath, type WorkspaceAccessRule } from "./access-rule.js";
+export { createUnrestrictedNetworkSandbox } from "./os-process-sandbox.js";
+export { prepareGrantedWritePaths } from "./granted-write-paths.js";
+export { workstationAccessRule, prepareWorkstationFolders, workstationCacheEnvironment } from "./workstation-rule.js";
+export { assertNarrowWorkspaceGrant, validateWorkspaceGrants, type WorkspaceGrant, type WorkspaceGrantPolicy } from "./grants.js";
+export { ACCESS_OPERATIONS, accessModule, type WorkspaceAccessInspection } from "./access.js";
 export {
   WORKSPACE_EXECUTOR_VERSION,
   WorkspaceOperationExecutor,
@@ -109,7 +116,7 @@ export { ProcessScanner, type WorkspaceProcessSnapshot } from "./processes/scann
 export { labelOf, runProcessesFrom } from "./processes/snapshot.js";
 export { RunProcessTerminator } from "./processes/terminator.js";
 export { RUN_MARKER_ENV } from "./run-marker.js";
-export { editorFreeEnvironment, inheritedProcessEnvironment, safeProcessEnvironment } from "./safe-environment.js";
+export { editorFreeEnvironment, inheritedProcessEnvironment, isolatedWorkstationEnvironment, safeProcessEnvironment, secretFreeProcessEnvironment, withoutProcessStartupHooks } from "./safe-environment.js";
 export { bashLaunch, ripgrepAvailable, type BashLaunch, type BashPrograms } from "./bash-launch.js";
 export { createSandboxTools, sandboxToolsModule, withAnnotation, type SeenFile } from "./sandbox-tools.js";
 export { type SessionIdent } from "./session-ident.js";

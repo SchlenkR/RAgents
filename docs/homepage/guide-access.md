@@ -82,10 +82,13 @@ journals, source code, tools, and general technical views. Language-server views
 phases appear only as empty progress markers while arguments, source, results, and reasoning are
 removed on the server.
 
-Server-side execution is always sandboxed for nonadministrators. Administrators can select
-"Sandbox protection" before starting a run, and the server can require it for everyone.
+Every run starts with "Isolated", including runs owned by administrators. Only the owner can
+change the composer control to "Full access". For a workspace on the server, this requires `*`
+and is forbidden by `ragents.workspace.PROCESS_SANDBOX: "on"`. For a workstation workspace,
+the owner can choose it with any server permissions, but that machine must confirm locally.
+A run with full access is `ownerOnly`; sharing never permits changing its access.
 Only administrators can bind an existing server folder; other users work in a new folder
-per run or on their own workstation. Sharing does not change the owner's execution policy.
+per run or on their own workstation.
 
 ## Function selection and actor grants
 

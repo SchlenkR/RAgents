@@ -4,12 +4,14 @@ import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-import { createAccessContext, DomainError, MethodContributionRegistry, RPC_ERROR_CODES, RpcError, StartOptionContributionRegistry, type MethodConnection, type PluginHost } from "@ragents/engine";
+import { createAccessContext, DomainError, Journal, MethodContributionRegistry, Orchestration, RPC_ERROR_CODES, RpcError, StartOptionContributionRegistry, type MethodConnection, type PluginHost } from "@ragents/engine";
 import { RUN_MARKER_ENV, WORKSPACE_EXECUTOR_VERSION } from "@ragents/workspace-executor";
 import { RpcClient } from "../../web/src/rpc/client.ts";
-import { WORKSPACE_BINDING_OPTION_ID, workspaceClientContracts, workspaceContracts } from "../../../plugins/ragents.workspace/contract.ts";
+import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_CLIENT_DELETE_OPERATION, WORKSPACE_CLIENT_STOP_OPERATION, workspaceClientContracts, workspaceContracts } from "../../../plugins/ragents.workspace/contract.ts";
 import { workspaceBindingOption } from "../../../plugins/ragents.workspace/server/binding.ts";
 import { assertMayRegister, clientMethods, WorkspaceClientRegistry, type WorkstationSignIn } from "../../../plugins/ragents.workspace/server/clients.ts";
+import { RunWorkspaceRuntime } from "../../../plugins/ragents.workspace/server/runtime.ts";
+import { testServices } from "../../../packages/ragents/tests/support.ts";
 import { coreContracts } from "../src/api/contracts.ts";
 import { coreMethods } from "../src/api/core-methods.ts";
 import { productStartOptions } from "../src/plugin-support/product-start-options.ts";
@@ -160,11 +162,12 @@ test("the server runs the executor of the registered workstation over its connec
   await until(() => client.status.kind === "connected");
 
   const backgroundTasks = [{ runId: "run-1", taskId: "b0a1b2c", startedBy: "agent-1" }];
+  const confirmedRuns = ["run-1"];
   const registered = await client.call(workspaceContracts.clients.register, {
-    id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [], backgroundTasks,
+    id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [], backgroundTasks, confirmedRuns,
   });
   assert.deepEqual(registered, { ...description(), id: CLIENT });
-  assert.deepEqual(signIns, [{ owner: null, client: registered, backgroundTasks }], "the sign-in hands the named background commands to the plugin");
+  assert.deepEqual(signIns, [{ owner: null, client: registered, backgroundTasks, confirmedRuns }], "the sign-in hands background commands and locally confirmed runs to the plugin");
   assert.deepEqual(await client.call(workspaceContracts.clients.list, {}), [registered]);
 
   const executor = registry.executorFor(null, CLIENT, "Laptop", "/home/example/project");
@@ -209,7 +212,7 @@ test("the server runs the executor of the registered workstation over its connec
 test("a registration without an event stream is refused", async (t) => {
   const { client } = await fixture(t);
   await assert.rejects(client.call(workspaceContracts.clients.register, {
-    id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [], backgroundTasks: [],
+    id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [], backgroundTasks: [], confirmedRuns: [],
   }), (error: unknown) => error instanceof RpcError && error.domainCode === "stream-required" && error.status === 409);
 });
 
@@ -223,12 +226,17 @@ test("an older or newer workstation learns both executor versions and what to up
   await assert.rejects(client.call(workspaceContracts.clients.register, { id: CLIENT, ...olderDescription, executor: "5" }), versionRefusal(
     `The workstation Laptop brings executor 5, the server requires ${WORKSPACE_EXECUTOR_VERSION}. `
       + "Update the RAgents extension in VS Code or the package @schlenkr/ragents on the workstation."));
+  await assert.rejects(client.call(workspaceContracts.clients.register, {
+    id: CLIENT, ...description(), executor: "19", contributions: [], backgroundTasks: [], confirmedRuns: [],
+  }), versionRefusal(
+    `The workstation Laptop brings executor 19, the server requires ${WORKSPACE_EXECUTOR_VERSION}. `
+      + "Update the RAgents extension in VS Code or the package @schlenkr/ragents on the workstation."));
   const newerExecutor = String(Number(WORKSPACE_EXECUTOR_VERSION) + 1);
   const newer = { id: CLIENT, ...description(), shell: "zsh", executor: newerExecutor };
   await assert.rejects(client.call(workspaceContracts.clients.register, newer), versionRefusal(
     `The workstation Laptop brings executor ${newerExecutor}, the server requires ${WORKSPACE_EXECUTOR_VERSION}. `
       + "Update the server to the workstation's version."));
-  await assert.rejects(client.call(workspaceContracts.clients.register, { id: CLIENT, ...olderDescription, executor: WORKSPACE_EXECUTOR_VERSION, contributions: [], backgroundTasks: [] }), (error: unknown) =>
+  await assert.rejects(client.call(workspaceContracts.clients.register, { id: CLIENT, ...olderDescription, executor: WORKSPACE_EXECUTOR_VERSION, contributions: [], backgroundTasks: [], confirmedRuns: [] }), (error: unknown) =>
     error instanceof RpcError && error.code === RPC_ERROR_CODES.invalidParams
     && error.message === "Invalid input for ragents.workspace.clients.register: params is missing required field ripgrep");
   assert.deepEqual(await client.call(workspaceContracts.clients.list, {}), []);
@@ -497,7 +505,7 @@ const workstation = async (t: TestContext, url: string, hang: readonly string[] 
   }));
   t.after(() => client.close());
   await until(() => client.status.kind === "connected");
-  await client.call(workspaceContracts.clients.register, { id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [], backgroundTasks: [] });
+  await client.call(workspaceContracts.clients.register, { id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [], backgroundTasks: [], confirmedRuns: [] });
   return { client, operations };
 };
 
@@ -548,7 +556,7 @@ test("without user sign-in the server accepts a workstation only over a loopback
   t.after(client.handle(workspaceClientContracts.execute, () => ({ value: null })));
   t.after(() => client.close());
   await until(() => client.status.kind === "connected");
-  const register = () => client.call(workspaceContracts.clients.register, { id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [], backgroundTasks: [] });
+  const register = () => client.call(workspaceContracts.clients.register, { id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [], backgroundTasks: [], confirmedRuns: [] });
   await assert.rejects(register(), (error: unknown) =>
     error instanceof RpcError && error.domainCode === "workspace-client-login-required" && error.status === 403 && /loopback/.test(error.message));
   assert.deepEqual(registry.list(null), []);
@@ -564,6 +572,71 @@ test("without user sign-in the server accepts a workstation only over a loopback
   t.after(nearby.handle(workspaceClientContracts.execute, () => ({ value: null })));
   t.after(() => nearby.close());
   await until(() => nearby.status.kind === "connected");
-  await nearby.call(workspaceContracts.clients.register, { id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [], backgroundTasks: [] });
+  await nearby.call(workspaceContracts.clients.register, { id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [], backgroundTasks: [], confirmedRuns: [] });
   assert.deepEqual(registry.list(null).map((entry) => entry.id), [CLIENT]);
+});
+
+test("deleting a run during its pending stop delivers deletion after the stop and before new work", async (t) => {
+  const { registry, client } = await fixture(t);
+  t.after(() => registry.shutdown());
+  const operations: string[] = [];
+  let release: (() => void) | undefined;
+  const stopped = new Promise<{ value: null }>((resolve) => { release = () => resolve({ value: null }); });
+  t.after(client.handle(workspaceClientContracts.execute, (input) => {
+    operations.push(input.operation);
+    return input.operation === WORKSPACE_CLIENT_STOP_OPERATION ? stopped : { value: null };
+  }));
+  await until(() => client.status.kind === "connected");
+  await client.call(workspaceContracts.clients.register, {
+    id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [], backgroundTasks: [], confirmedRuns: [],
+  });
+  const executor = registry.executorFor(null, CLIENT, "Laptop", "/home/user/project");
+  const stopping = executor.stopRun("run-1");
+  await until(() => operations.length === 1);
+  assert.deepEqual(operations, [WORKSPACE_CLIENT_STOP_OPERATION]);
+  const deleting = registry.deleteRun(null, CLIENT, "run-1", "/home/user/project");
+  const reading = executor.execute("run-1", "read", { file_path: "file.txt" });
+  assert.deepEqual(operations, [WORKSPACE_CLIENT_STOP_OPERATION]);
+  release!();
+  await Promise.all([stopping, deleting, reading]);
+  assert.deepEqual(operations, [WORKSPACE_CLIENT_STOP_OPERATION, WORKSPACE_CLIENT_DELETE_OPERATION, "read"]);
+  assert.deepEqual(registry.pendingStops(null, CLIENT), []);
+});
+
+test("a workstation's durable confirmations reconcile deleted runs after a fresh server registry", async (t) => {
+  const directory = await mkdtemp(path.join(tmpdir(), "ragents-consent-reconcile-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const registry = new WorkspaceClientRegistry([]);
+  const deleted: string[] = [];
+  t.mock.method(registry, "deleteRun", async (owner: string | null, client: string, runId: string) => {
+    assert.equal(owner, "alice");
+    assert.equal(client, CLIENT);
+    deleted.push(runId);
+  });
+  const runtime = new RunWorkspaceRuntime({
+    globalDirectory: directory,
+    sessionDirectory: (runId, ...segments) => path.join(directory, runId, ...segments),
+    storageRootFor: (runId) => path.join(directory, runId),
+    sessionsDirectoryPattern: path.join(directory, "{runId}"),
+    sessionWorkspaceFor: async () => { throw new Error("No workspace should be opened for consent cleanup"); },
+    skillPaths: async () => [],
+    resolver: () => undefined,
+    runState: (runId) => {
+      if (runId === "locked") throw new DomainError("journal-locked", "The journal cannot be read.", 409);
+      return runId === "existing" ? { ownerUserId: "alice", pluginStates: new Map() } : null;
+    },
+    administratorFor: () => false,
+    storeBinding: () => { throw new Error("Consent cleanup must not change a binding"); },
+    clients: registry,
+    contributions: [],
+  });
+  t.after(() => runtime.shutdown());
+  const services = testServices();
+  const journal = new Journal(":memory:", services);
+  t.after(() => journal.close());
+  const orchestration = new Orchestration(journal, services);
+  runtime.resumeBackgroundTasks(orchestration, {
+    owner: "alice", client: { id: CLIENT, ...description() }, backgroundTasks: [], confirmedRuns: ["deleted", "existing", "locked"],
+  });
+  assert.deepEqual(deleted, ["deleted"], "only a positively absent run loses its local confirmation, even without background commands");
 });

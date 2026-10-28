@@ -13,6 +13,7 @@ import {
   StaticModelCatalog,
   type AgentProfile,
   type CatalogModel,
+  type JsonValue,
   type PublicStartEntry,
   type StartOptionContribution,
 } from "@ragents/engine";
@@ -27,8 +28,8 @@ import {
   storedStartOption,
   systemPromptStartOptionId,
 } from "../src/ragents/start-option-state.ts";
-import { WORKSPACE_SANDBOX_OPTION_ID } from "../../../plugins/ragents.workspace/contract.ts";
-import { sandboxStartOption, securityPolicyFor } from "../../../plugins/ragents.workspace/server/security.ts";
+import { WORKSPACE_ACCESS_OPTION_ID, WORKSPACE_BINDING_OPTION_ID } from "../../../plugins/ragents.workspace/contract.ts";
+import { accessDescription, accessNoteContribution, accessStartOption, securityPolicyFor } from "../../../plugins/ragents.workspace/server/security.ts";
 
 const modelChoice = (selectable = true): ModelChoice => ({
   options: ["fast", "deep"],
@@ -307,7 +308,7 @@ test("every start option sees the user who acts: listing, choosing and the defau
     assert.deepEqual(seen, [
       "test.chosen default alice", "test.chosen describe alice", "test.default default alice", "test.default describe alice",
       "test.chosen accept bob", "test.chosen describe bob",
-      "test.default default carol",
+      "test.default default carol", "test.chosen accept carol",
     ]);
     assert.equal(storedStartOption(journal.stateOf("options-user"), "test.chosen"), "chosen-value");
   } finally {
@@ -324,112 +325,244 @@ const recordedSource = (seen: string[]): StartOptionContribution => ({
 
 const alice = { id: "alice", label: "Alice" };
 
-const sandboxAccessFor = (userId: string | null) => createAccessContext({
+const accessFor = (userId: string | null) => createAccessContext({
   enabled: true,
   user: userId === null ? null : { id: userId, label: userId, rights: userId === "admin" ? ["*"] : ["runs.read", "runs.write", "runs.create"] },
 });
 
-const sandboxFixture = (runId: string, force: boolean) => {
-  const setup = fixture(runId, []);
-  setup.startOptions.register("ragents.workspace", [sandboxStartOption(force, sandboxAccessFor, (id) => setup.journal.stateOf(id))]);
+const workstationBinding = { machine: { client: "client-one", label: "Development" }, folder: { path: "/home/user/project" } };
+
+const accessFixture = (runId: string, force: boolean, changed?: (runId: string) => Promise<void>, entries: readonly PublicStartEntry[] = []) => {
+  const setup = fixture(runId, [], entries);
+  setup.startOptions.register("ragents.workspace", [{
+    id: WORKSPACE_BINDING_OPTION_ID,
+    schema: Type.Any(),
+    selectable: () => true,
+    defaultValue: () => ({ machine: "server", folder: "fresh" }),
+    accept: (value) => value,
+    describe: () => ({}),
+  }, accessStartOption(force, accessFor, (id) => setup.journal.stateOf(id), changed)]);
   return setup;
 };
 
-test("a non-administrator cannot choose an unrestricted run and the sandbox choice locks at start", async () => {
-  const runId = "sandbox-employee";
-  const { journal, session } = sandboxFixture(runId, false);
-  try {
-    const option = session.startOptions("alice")[0];
-    assert.equal(option.value, true);
-    assert.deepEqual(option.presentation, { kind: "process-sandbox", forced: true });
-    await assert.rejects(session.selectStartOption(WORKSPACE_SANDBOX_OPTION_ID, false, "alice"),
-      (error: unknown) => error instanceof DomainError && error.code === "workspace-sandbox-required" && error.status === 403);
-    await session.selectStartOption(WORKSPACE_SANDBOX_OPTION_ID, true, "alice");
-    await session.send("Start", undefined, undefined, alice);
-    await session.settle();
-    assert.equal(storedStartOption(journal.stateOf(runId), WORKSPACE_SANDBOX_OPTION_ID), true);
-    assert.equal(session.startOptions("admin")[0].locked, true);
-    await assert.rejects(session.selectStartOption(WORKSPACE_SANDBOX_OPTION_ID, false, "admin"),
-      (error: unknown) => error instanceof DomainError && error.code === "option-locked" && error.status === 409);
-  } finally { journal.close(); }
+const accessOptionOf = (session: RunChatSession, userId: string) => session.startOptions(userId)
+  .find((option) => option.id === WORKSPACE_ACCESS_OPTION_ID)!;
+
+test("every owner defaults to isolated and only an administrator may request full server access", async () => {
+  for (const force of [false, true]) {
+    for (const owner of [alice, { id: "admin", label: "Administrator" }]) {
+      const runId = `access-server-${owner.id}-${force}`;
+      const { journal, session } = accessFixture(runId, force);
+      try {
+        assert.equal(accessOptionOf(session, owner.id).value, "isolated");
+        const allowed = owner.id === "admin" && !force;
+        assert.deepEqual(accessOptionOf(session, owner.id).presentation, {
+          kind: "workspace-access", machine: "server", commandIsolation: "isolated",
+          fullAccessDisabledReason: force ? "The server requires isolated access (PROCESS_SANDBOX=on)."
+            : allowed ? null : "Full access on the server requires administrator permissions.",
+        });
+        if (allowed) {
+          await session.selectStartOption(WORKSPACE_ACCESS_OPTION_ID, "full", owner.id);
+        } else {
+          await assert.rejects(session.selectStartOption(WORKSPACE_ACCESS_OPTION_ID, "full", owner.id),
+            (error: unknown) => error instanceof DomainError && error.code === "workspace-access-forbidden" && error.status === 403);
+        }
+        await session.send("Start", undefined, undefined, owner);
+        await session.settle();
+        assert.equal(storedStartOption(journal.stateOf(runId), WORKSPACE_ACCESS_OPTION_ID), allowed ? "full" : "isolated");
+        assert.deepEqual(securityPolicyFor(force, accessFor(owner.id), journal.stateOf(runId)), {
+          level: allowed ? "full" : "isolated", restricted: !allowed,
+        });
+        assert.equal(accessOptionOf(session, owner.id).locked, false);
+      } finally { journal.close(); }
+    }
+  }
 });
 
-test("an administrator may choose restriction before start unless the server forces it", async () => {
+test("a workstation owner may request full access regardless of server permissions and forced server isolation", async () => {
   for (const force of [false, true]) {
-    const runId = `sandbox-admin-${force}`;
-    const { journal, session } = sandboxFixture(runId, force);
+    const runId = `access-workstation-${force}`;
+    const { journal, session, startOptions } = accessFixture(runId, force);
     try {
-      assert.equal(session.startOptions("admin")[0].value, force);
-      assert.deepEqual(session.startOptions("admin")[0].presentation, { kind: "process-sandbox", forced: force });
-      if (force) {
-        await assert.rejects(session.selectStartOption(WORKSPACE_SANDBOX_OPTION_ID, false, "admin"),
-          (error: unknown) => error instanceof DomainError && error.code === "workspace-sandbox-required");
-      } else {
-        await session.selectStartOption(WORKSPACE_SANDBOX_OPTION_ID, true, "admin");
-        assert.equal(session.startOptions("admin")[0].value, true);
-        await session.selectStartOption(WORKSPACE_SANDBOX_OPTION_ID, false, "admin");
-      }
-      await session.send("Start", undefined, undefined, { id: "admin", label: "Administrator" });
+      await session.selectStartOption(WORKSPACE_BINDING_OPTION_ID, workstationBinding, "alice");
+      assert.deepEqual(accessOptionOf(session, "alice").presentation, {
+        kind: "workspace-access", machine: "workstation", commandIsolation: "unknown", fullAccessDisabledReason: null,
+      });
+      await session.selectStartOption(WORKSPACE_ACCESS_OPTION_ID, "full", "alice");
+      await session.send("Start", undefined, undefined, alice);
       await session.settle();
-      const state = journal.stateOf(runId);
-      assert.equal(state?.ownerUserId, "admin");
-      assert.equal(storedStartOption(state, WORKSPACE_SANDBOX_OPTION_ID), force);
-      assert.equal(securityPolicyFor(force, sandboxAccessFor(state!.ownerUserId), state).restricted, force);
+      assert.deepEqual(securityPolicyFor(force, accessFor("alice"), journal.stateOf(runId)), { level: "full", restricted: false });
+      assert.equal(startOptions.entry(WORKSPACE_ACCESS_OPTION_ID)?.option.ownerOnly?.("full"), true);
+      assert.equal(startOptions.entry(WORKSPACE_ACCESS_OPTION_ID)?.option.ownerOnly?.("isolated"), false);
     } finally { journal.close(); }
   }
 });
 
-test("a manipulated stored choice or an administrator's message cannot lower an employee run's policy", async () => {
-  const runId = "sandbox-owned";
-  const { journal, runtime, session } = sandboxFixture(runId, false);
+test("only the owner can change access of a shared run, even an administrator cannot change it", async () => {
+  const runId = "access-owner";
+  const { journal, session } = accessFixture(runId, false);
   try {
+    await session.selectStartOption(WORKSPACE_BINDING_OPTION_ID, workstationBinding, "alice");
     await session.send("Start", undefined, undefined, alice);
     await session.settle();
-    runtime.replacePluginState({ actorId: runtime.state(runId).ownerId, commandId: "stored-sandbox-false" }, runId, {
-      pluginId: WORKSPACE_SANDBOX_OPTION_ID, scope: { kind: "run" }, state: false,
-    });
-    await session.send("Continue", undefined, undefined, { id: "admin", label: "Administrator" });
-    await session.settle();
-    const state = journal.stateOf(runId)!;
-    assert.equal(state.ownerUserId, "alice");
-    assert.equal(storedStartOption(state, WORKSPACE_SANDBOX_OPTION_ID), false);
-    assert.equal(securityPolicyFor(false, sandboxAccessFor(state.ownerUserId), state).restricted, true);
-    for (const [index, invalid] of ["false", 0, null, {}, []].entries()) {
-      runtime.replacePluginState({ actorId: state.ownerId, commandId: `stored-sandbox-invalid-${index}` }, runId, {
-        pluginId: WORKSPACE_SANDBOX_OPTION_ID, scope: { kind: "run" }, state: invalid,
-      });
-      assert.throws(() => securityPolicyFor(false, sandboxAccessFor("admin"), journal.stateOf(runId)),
-        (error: unknown) => error instanceof DomainError && error.code === "workspace-sandbox-invalid" && error.status === 409);
+    for (const value of ["isolated", "full"]) {
+      for (const viewer of ["bob", "admin"]) {
+        assert.deepEqual(accessOptionOf(session, viewer).presentation, {
+          kind: "workspace-access", machine: "workstation", commandIsolation: "unknown", fullAccessDisabledReason: "Only the run's owner may change its access.",
+        });
+        await assert.rejects(session.selectStartOption(WORKSPACE_ACCESS_OPTION_ID, value, viewer),
+          (error: unknown) => error instanceof DomainError && error.code === "workspace-access-owner" && error.status === 403);
+      }
     }
+    assert.equal(storedStartOption(journal.stateOf(runId), WORKSPACE_ACCESS_OPTION_ID), "isolated");
+    await session.selectStartOption(WORKSPACE_ACCESS_OPTION_ID, "full", "alice");
+    assert.equal(storedStartOption(journal.stateOf(runId), WORKSPACE_ACCESS_OPTION_ID), "full");
   } finally { journal.close(); }
 });
 
-test("a started run's sandbox presentation follows its owner for old and imported state, including to an administrator viewer", async () => {
-  for (const ownerUserId of ["alice", "admin"]) {
-    for (const choice of [undefined, false]) {
-      const runId = `sandbox-view-${ownerUserId}-${choice === undefined ? "missing" : "false"}`;
-      const { journal, runtime, session } = sandboxFixture(runId, false);
-      try {
-        runtime.createRun({ commandId: "restore" }, {
-          runId, title: "Restored fixture", ownerHandle: "owner", ownerDisplayName: "Owner", ownerUserId,
-          initialPluginStates: choice === undefined ? [] : [{ pluginId: WORKSPACE_SANDBOX_OPTION_ID, state: choice }],
+test("access chosen for a workstation is revalidated if the binding changes to the server before start", async () => {
+  const runId = "access-binding-change";
+  const { journal, session } = accessFixture(runId, false);
+  try {
+    await session.selectStartOption(WORKSPACE_BINDING_OPTION_ID, workstationBinding, "alice");
+    await session.selectStartOption(WORKSPACE_ACCESS_OPTION_ID, "full", "alice");
+    await session.selectStartOption(WORKSPACE_BINDING_OPTION_ID, { machine: "server", folder: "fresh" }, "alice");
+    await assert.rejects(session.send("Start", undefined, undefined, alice), (error: unknown) =>
+      error instanceof DomainError && error.code === "workspace-access-forbidden" && /Isolated|workstation/.test(error.message));
+    await session.settle();
+    assert.equal(journal.stateOf(runId), null);
+    await session.selectStartOption(WORKSPACE_ACCESS_OPTION_ID, "isolated", "alice");
+    await session.send("Start", undefined, undefined, alice);
+    await session.settle();
+    assert.equal(storedStartOption(journal.stateOf(runId), WORKSPACE_ACCESS_OPTION_ID), "isolated");
+  } finally { journal.close(); }
+});
+
+test("a fixed workstation binding validates full access against the complete candidate values", async () => {
+  const runId = "access-fixed-binding";
+  const entry: PublicStartEntry = {
+    id: "test.workstation", owner: "test.plugin", action: "skill", skill: "demo", category: "Examples",
+    title: "Local work", description: "Works on the workstation.", prompt: "Go",
+    fixedStartOptions: { [WORKSPACE_ACCESS_OPTION_ID]: "full", [WORKSPACE_BINDING_OPTION_ID]: workstationBinding },
+  };
+  const setup = accessFixture(runId, true, undefined, [entry]);
+  try {
+    await setup.session.send("Start", undefined, undefined, alice, entry.id);
+    await setup.session.settle();
+    assert.equal(storedStartOption(setup.journal.stateOf(runId), WORKSPACE_ACCESS_OPTION_ID), "full");
+    assert.deepEqual(storedStartOption(setup.journal.stateOf(runId), WORKSPACE_BINDING_OPTION_ID), workstationBinding);
+  } finally { setup.journal.close(); }
+});
+
+test("missing access is isolated for restored runs and invalid stored access fails clearly", () => {
+  for (const ownerUserId of ["alice", "admin", null]) {
+    const runId = `access-restored-${ownerUserId ?? "unknown"}`;
+    const { journal, runtime, session } = accessFixture(runId, false);
+    try {
+      runtime.createRun({ commandId: "restore" }, {
+        runId, title: "Restored fixture", ownerHandle: "owner", ownerDisplayName: "Owner", ...(ownerUserId === null ? {} : { ownerUserId }),
+      });
+      assert.deepEqual(securityPolicyFor(false, accessFor(ownerUserId), journal.stateOf(runId)), { level: "isolated", restricted: true });
+      assert.equal(accessOptionOf(session, "admin").value, "isolated");
+      for (const [index, invalid] of [false, true, "false", 0, null, {}, []].entries()) {
+        runtime.replacePluginState({ actorId: runtime.state(runId).ownerId, commandId: `stored-access-invalid-${index}` }, runId, {
+          pluginId: WORKSPACE_ACCESS_OPTION_ID, scope: { kind: "run" }, state: invalid,
         });
-        const forced = ownerUserId === "alice";
-        for (const viewer of ["admin", "alice"]) {
-          const option = session.startOptions(viewer).find((entry) => entry.id === WORKSPACE_SANDBOX_OPTION_ID)!;
-          assert.equal(option.locked, true);
-          assert.equal(option.value, choice ?? forced);
-          assert.deepEqual(option.presentation, { kind: "process-sandbox", forced });
-          assert.equal((option.presentation as { forced: boolean }).forced || option.value === true,
-            securityPolicyFor(false, sandboxAccessFor(ownerUserId), journal.stateOf(runId)).restricted);
-        }
-        await assert.rejects(session.selectStartOption(WORKSPACE_SANDBOX_OPTION_ID, false, "admin"), (error: unknown) =>
-          error instanceof DomainError && error.code === "option-locked" && error.status === 409);
-      } finally {
-        journal.close();
+        assert.throws(() => securityPolicyFor(false, accessFor(ownerUserId), journal.stateOf(runId)),
+          (error: unknown) => error instanceof DomainError && error.code === "workspace-access-invalid" && error.status === 409);
       }
-    }
+    } finally { journal.close(); }
   }
+});
+
+test("a changed access value is stored before its awaited cleanup hook and an unchanged choice writes nothing", async () => {
+  const runId = "access-cleanup";
+  const calls: string[] = [];
+  const releases: (() => void)[] = [];
+  const completed: string[] = [];
+  const cleanup = new Promise<void>((resolve) => { releases.push(resolve); });
+  const setup = accessFixture(runId, false, async (id) => {
+    calls.push(`${id}:${storedStartOption(setup.journal.stateOf(id), WORKSPACE_ACCESS_OPTION_ID)}`);
+    await cleanup;
+    calls.push("cleaned");
+  });
+  try {
+    await setup.session.send("Start", undefined, undefined, { id: "admin", label: "Administrator" });
+    await setup.session.settle();
+    const selected = setup.session.selectStartOption(WORKSPACE_ACCESS_OPTION_ID, "full", "admin").then(() => { completed.push("selected"); });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.deepEqual(calls, [`${runId}:full`]);
+    assert.deepEqual(completed, []);
+    releases[0]!();
+    await selected;
+    assert.deepEqual(completed, ["selected"]);
+    assert.deepEqual(calls, [`${runId}:full`, "cleaned"]);
+    const revision = setup.runtime.state(runId).revision;
+    await setup.session.selectStartOption(WORKSPACE_ACCESS_OPTION_ID, "full", "admin");
+    assert.equal(setup.runtime.state(runId).revision, revision);
+    await setup.session.selectStartOption(WORKSPACE_ACCESS_OPTION_ID, "isolated", "admin");
+    assert.equal(calls.at(-2), `${runId}:isolated`);
+    assert.equal(calls.at(-1), "cleaned");
+  } finally { setup.journal.close(); }
+});
+
+test("an access cleanup failure keeps the isolated value and retry awaits cleanup without another journal change", async () => {
+  const runId = "access-cleanup-retry";
+  const cleanup: string[] = [];
+  const setup = accessFixture(runId, false, async (id) => {
+    if (storedStartOption(setup.journal.stateOf(id), WORKSPACE_ACCESS_OPTION_ID) !== "isolated") return;
+    cleanup.push(id);
+    if (cleanup.length === 1) throw new Error("Cleanup failed");
+    await Promise.resolve();
+    cleanup.push("finished");
+  });
+  try {
+    await setup.session.send("Start", undefined, undefined, { id: "admin", label: "Administrator" });
+    await setup.session.settle();
+    await setup.session.selectStartOption(WORKSPACE_ACCESS_OPTION_ID, "full", "admin");
+    await assert.rejects(setup.session.selectStartOption(WORKSPACE_ACCESS_OPTION_ID, "isolated", "admin"), /Cleanup failed/);
+    assert.equal(storedStartOption(setup.journal.stateOf(runId), WORKSPACE_ACCESS_OPTION_ID), "isolated");
+    const revision = setup.runtime.state(runId).revision;
+    await setup.session.selectStartOption(WORKSPACE_ACCESS_OPTION_ID, "isolated", "admin");
+    assert.equal(setup.runtime.state(runId).revision, revision);
+    assert.deepEqual(cleanup, [runId, runId, "finished"]);
+  } finally { setup.journal.close(); }
+});
+
+test("the access note appears once after a change and keeps its delivery marker across a fresh hook", async () => {
+  const runId = "access-note";
+  const { journal, runtime, session } = accessFixture(runId, false);
+  const kept: JsonValue[] = [];
+  const agent = { runId, agentId: "coordinator", audience: "coordinator" as const, workspace: "/unused" };
+  const hook = () => accessNoteContribution((id) => journal.stateOf(id), (id) => runtime.events(id)
+    .filter((event) => (event.type === "plugin.state-replaced" || event.type === "plugin.state-patched")
+      && event.payload.pluginId === WORKSPACE_ACCESS_OPTION_ID).at(-1)?.sequence ?? 0).beforeModelCall!;
+  const call = () => ({ signal: undefined, modelReadsImages: false, kept: kept.at(-1), keep: (value: JsonValue) => { kept.push(value); } });
+  try {
+    await session.send("Start", undefined, undefined, { id: "admin", label: "Administrator" });
+    await session.settle();
+    assert.equal(await hook()(agent, call()), undefined);
+    await session.selectStartOption(WORKSPACE_ACCESS_OPTION_ID, "full", "admin");
+    assert.match((await hook()(agent, call()))!, /Run access changed.*Full access on the server/);
+    assert.equal(await hook()(agent, call()), undefined);
+    await session.selectStartOption(WORKSPACE_ACCESS_OPTION_ID, "isolated", "admin");
+    assert.match((await hook()(agent, call()))!, /Run access changed.*Isolated access on the server/);
+    assert.equal(await hook()(agent, call()), undefined);
+    await session.selectStartOption(WORKSPACE_ACCESS_OPTION_ID, "full", "admin");
+    await session.selectStartOption(WORKSPACE_ACCESS_OPTION_ID, "isolated", "admin");
+    assert.match((await hook()(agent, call()))!, /Run access changed.*Isolated access on the server/);
+  } finally { journal.close(); }
+});
+
+test("access descriptions name the machine's actual file, command and environment limits", () => {
+  assert.match(accessDescription("isolated", true), /read and write rule/);
+  assert.match(accessDescription("isolated", true, "darwin"), /Secrets are removed/);
+  for (const platform of ["darwin", "linux"]) assert.match(accessDescription("isolated", true, platform), /Commands are isolated by the workstation OS sandbox/);
+  assert.match(accessDescription("isolated", true, "win32"), /Commands are not isolated on this machine/);
+  assert.match(accessDescription("isolated", true), /platform is unavailable/);
+  assert.match(accessDescription("full", true), /including secrets.*local confirmation/);
+  assert.match(accessDescription("isolated", false), /server process sandbox.*safe environment allowlist/);
+  assert.match(accessDescription("full", false), /every path.*safe allowlist/);
 });
 
 const cloningSkill: PublicStartEntry = {
@@ -545,4 +678,21 @@ test("a message names only a skill template, and a started run keeps its value a
     await reopened.session.drain();
     reopened.journal.close();
   }
+});
+
+test("the access presentation describes the bound workstation platform for its owner", () => {
+  const runId = "platform-access";
+  const { journal } = fixture(runId, []);
+  try {
+    for (const [platform, isolation] of [["darwin", "isolated"], ["linux", "isolated"], ["win32", "unsupported"], [undefined, "unknown"]] as const) {
+      const option = accessStartOption(false, accessFor, (id) => journal.stateOf(id), undefined, (binding, owner) => {
+        assert.deepEqual(binding, workstationBinding);
+        assert.equal(owner, "alice");
+        return platform;
+      });
+      assert.deepEqual(option.describe("isolated", { runId, userId: "alice", values: { [WORKSPACE_BINDING_OPTION_ID]: workstationBinding } }), {
+        kind: "workspace-access", machine: "workstation", commandIsolation: isolation, fullAccessDisabledReason: null,
+      });
+    }
+  } finally { journal.close(); }
 });

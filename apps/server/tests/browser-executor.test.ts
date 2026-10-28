@@ -15,7 +15,7 @@ import {
   type BrowserStep,
 } from "../../../plugins/ragents.browser/executor/contract.ts";
 import { browserModule, type BrowserModuleOptions } from "../../../plugins/ragents.browser/executor/module.ts";
-import { browserLocator } from "../../../plugins/ragents.browser/executor/pages.ts";
+import { BrowserPages, browserLocator } from "../../../plugins/ragents.browser/executor/pages.ts";
 import { browserExecutable, hostPlaywright } from "../../../plugins/ragents.browser/executor/playwright.ts";
 import { stubBrowser, type StubDocument } from "./browser-stub.ts";
 
@@ -168,9 +168,11 @@ test("close, run stop and shutdown end the browser; after the shutdown none star
 
 test("abort and stop during the launch close the browser without opening a page", async () => {
   let launches = 0;
+  const started = Promise.withResolvers<void>();
   let finishLaunch!: (browser: Browser) => void;
   const executor = executorWith({ launch: () => {
     launches += 1;
+    started.resolve();
     return new Promise((resolve) => { finishLaunch = resolve; });
   } });
   const aborted = new AbortController();
@@ -179,7 +181,8 @@ test("abort and stop during the launch close the browser without opening a page"
   assert.equal(launches, 0);
 
   const opened = executor.execute("one", BROWSER_OPERATIONS.navigate, { url: "http://localhost/", viewport });
-  const rejected = assert.rejects(opened, /browser was closed/);
+  const rejected = assert.rejects(opened, /browser was closed|ended with its run/);
+  await started.promise;
   assert.equal(launches, 1);
   let closed = 0;
   let contexts = 0;
@@ -391,4 +394,52 @@ test("actions return bounded snapshots and explicit reads retain the full struct
     assert.ok(result.snapshot.split("\n").every((line) => line.length <= 300));
   }
   assert.equal((await run(BROWSER_OPERATIONS.snapshot)).snapshot, opened.snapshot);
+});
+
+
+test("browser shutdown waits for an already closing browser and closes it once", async () => {
+  const stub = stubBrowser(site);
+  let release!: () => void;
+  let entered!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const started = new Promise<void>((resolve) => { entered = resolve; });
+  let calls = 0;
+  const pages = new BrowserPages({ timeoutMs: 500, checkTimeoutMs: 50, launch: async (runId) => {
+    const browser = await stub.launch(runId);
+    const close = browser.close.bind(browser);
+    browser.close = async () => { calls++; entered(); await gate; await close(); };
+    return browser;
+  } });
+  await pages.navigate("own", "http://localhost/", viewport);
+  const closing = pages.close("own");
+  await started;
+  let stopped = false;
+  const shutdown = pages.shutdown().then(() => { stopped = true; });
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(stopped, false);
+  assert.equal(calls, 1);
+  release();
+  await Promise.all([closing, shutdown]);
+  assert.equal(stopped, true);
+  assert.equal(calls, 1);
+});
+
+test("a failed browser close keeps its session for cleanup retry and blocks a replacement", async () => {
+  const stub = stubBrowser(site);
+  let fail = true;
+  let calls = 0;
+  const pages = new BrowserPages({ timeoutMs: 500, checkTimeoutMs: 50, launch: async (runId) => {
+    const browser = await stub.launch(runId);
+    const close = browser.close.bind(browser);
+    browser.close = async () => { calls++; if (fail) throw new Error("Browser cleanup failed"); await close(); };
+    return browser;
+  } });
+  await pages.navigate("own", "http://localhost/", viewport);
+  await assert.rejects(pages.close("own"), /Browser cleanup failed/);
+  await assert.rejects(pages.navigate("own", "http://localhost/", viewport), /previous browser has not been cleaned up/);
+  fail = false;
+  await pages.close("own");
+  assert.equal(calls, 2);
+  assert.equal(stub.log.launches, 1);
+  await pages.shutdown();
 });

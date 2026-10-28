@@ -106,8 +106,8 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     ],
     "@ragents/workflow": ["defineWorkflow", "workflowInstructions"],
     "@ragents/workspace-executor": [
-      "BYTE_OPERATIONS", "COMMAND_OPERATIONS", "FILE_BYTES_LIMIT", "FILE_COUNT_LIMIT", "FILE_OPERATIONS", "PROCESS_OPERATIONS", "RUN_FOLDER_OPERATIONS", "RUN_MARKER_ENV", "TUNNEL_PING_INTERVAL_MS", "WORKSPACE_EXECUTOR_VERSION",
-      "allowedWorkspacePath", "bytesOf", "containsWorkspacePath", "languageServerOpenOperation", "languageServerSolutionsOperation", "listDirectory", "readTextFile", "resolvedWorkspacePath", "ripgrepAvailable", "runManagedProcess", "safeProcessEnvironment", "sandboxRunEnvironment", "sandboxedLaunch",
+      "ACCESS_OPERATIONS", "BYTE_OPERATIONS", "COMMAND_OPERATIONS", "FILE_BYTES_LIMIT", "FILE_COUNT_LIMIT", "FILE_OPERATIONS", "PROCESS_OPERATIONS", "RUN_FOLDER_OPERATIONS", "RUN_MARKER_ENV", "TUNNEL_PING_INTERVAL_MS", "WORKSPACE_EXECUTOR_VERSION",
+      "allowedWorkspacePath", "assertNarrowWorkspaceGrant", "bytesOf", "containsWorkspacePath", "languageServerOpenOperation", "languageServerSolutionsOperation", "listDirectory", "readTextFile", "resolvedWorkspacePath", "ripgrepAvailable", "runManagedProcess", "safeProcessEnvironment", "sandboxRunEnvironment", "sandboxedLaunch",
       "shellPlatformText", "startManagedService", "tunnelCloseReason", "watchDirectory",
     ],
     "@ragents/workspace-executor/src/git-config-environment": ["withGitConfigPairs"],

@@ -11,7 +11,7 @@ const sessionsFile = path.join(process.cwd(), ".fixture-acp-sessions.json");
 const sessions = new Map(JSON.parse(await readFile(sessionsFile, "utf8").catch((cause) => { if (cause.code === "ENOENT") return "[]"; throw cause; })));
 const turns = new Map();
 const totals = new Map();
-await log({ type: "start", pid: process.pid, marker: process.env.RAGENTS_RUN_ID, cwd: process.cwd(), extra: process.env.ACP_FIXTURE_EXTRA });
+await log({ type: "start", pid: process.pid, marker: process.env.RAGENTS_RUN_ID, cwd: process.cwd(), extra: process.env.ACP_FIXTURE_EXTRA, developer: process.env.ACP_FIXTURE_DEVELOPER });
 
 const stream = ndJsonStream(Writable.toWeb(process.stdout), Readable.toWeb(process.stdin));
 const connection = new AgentSideConnection((client) => ({

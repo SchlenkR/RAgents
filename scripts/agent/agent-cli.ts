@@ -12,7 +12,7 @@ import type { Action, RunShareAccess, RunSharing, RunView, Turn, TurnToolCall } 
 import { runContracts } from "../../packages/ragents/src/http/contracts.ts";
 import { RpcError } from "../../packages/ragents/src/rpc/protocol.ts";
 import { askPayloadOf, ASK_PLUGIN_ID } from "../../plugins/ragents.ask/ask-payload.ts";
-import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_CLIENT_ID_PATTERN, type WorkspaceBindingPresentation } from "../../plugins/ragents.workspace/contract.ts";
+import { WORKSPACE_ACCESS_OPTION_ID, WORKSPACE_BINDING_OPTION_ID, WORKSPACE_CLIENT_ID_PATTERN, type WorkspaceBindingPresentation } from "../../plugins/ragents.workspace/contract.ts";
 import { interruptPrimaryTurn, stopWholeRun } from "./turn-control.ts";
 import { DEFAULT_PROFILE, HEALTH_TIMEOUT_MS, LOGIN_REQUIRED, addressOf, defaultProfile, delay, ensureHost, healthy, hostClient as client, loadProfile, note, withLoginHint } from "./host.ts";
 export { addressOf, defaultProfile, loadProfile, LOGIN_REQUIRED, withLoginHint } from "./host.ts";
@@ -25,7 +25,7 @@ export const usage = (): string => `Usage: ragents <command> [arguments]
 
   acp [--profile <p>] [--data-dir <folder>]
       Serve Agent Client Protocol v1 over stdio for an editor. Logs go to stderr.
-  run [<folder>] "<task>" [--profile <p>] [--entry <template>] [--parameters <json>] [--workstation <id>] [--json]
+  run [<folder>] "<task>" [--profile <p>] [--entry <template>] [--parameters <json>] [--workstation <id>] [--access <isolated|full>] [--json]
       [--share <user>[:read|:write]]... [--share-all <read|write>]
       Starts the profile's host if none is running, creates a run with a path binding to the
       folder, sends the task and waits until the turn ends. A single value is always the task:
@@ -37,7 +37,8 @@ export const usage = (): string => `Usage: ragents <command> [arguments]
       with a user of the profile (repeatable, read without a level), --share-all with every
       user; a refusal aborts before the task is sent. --parameters (needs --entry) is the JSON
       object of the template's parameters by name; the host refuses missing, unknown or wrongly
-      typed ones before the run changes.
+      typed ones before the run changes. Access defaults to isolated; --access full requests
+      full access under the server's permissions and the workstation's local confirmation.
   send <run> "<text>" [--profile <p>] [--json]
       Follow-up message in the same run, same waiting. In a stopped run it continues the run: the
       primary actor gets what waited together with the text in one turn.
@@ -80,7 +81,7 @@ start <profile> starts it with the UI.`;
 type ScriptParameterValues = Readonly<Record<string, unknown>>;
 
 export type AgentCommand =
-  | { readonly kind: "run"; readonly profile: string; readonly folder: string | undefined; readonly text: string; readonly entry: string | undefined; readonly json: boolean; readonly parameters?: ScriptParameterValues; readonly workstation?: string; readonly sharing?: RunSharing }
+  | { readonly kind: "run"; readonly profile: string; readonly folder: string | undefined; readonly text: string; readonly entry: string | undefined; readonly json: boolean; readonly parameters?: ScriptParameterValues; readonly workstation?: string; readonly sharing?: RunSharing; readonly access?: "isolated" | "full" }
   | { readonly kind: "send"; readonly profile: string; readonly runId: string; readonly text: string; readonly json: boolean }
   | { readonly kind: "journal"; readonly profile: string; readonly runId: string; readonly json: boolean; readonly tools: boolean }
   | { readonly kind: "stop-turn"; readonly profile: string; readonly runId: string }
@@ -93,6 +94,7 @@ interface Flags {
   readonly profile: string;
   readonly entry: string | undefined;
   readonly workstation: string | undefined;
+  readonly access: string | undefined;
   readonly parameters: string | undefined;
   readonly shares: readonly string[];
   readonly shareAll: string | undefined;
@@ -105,7 +107,7 @@ interface Flags {
   readonly positional: readonly string[];
 }
 
-const VALUE_FLAGS = new Set(["--profile", "--entry", "--workstation", "--parameters", "--share", "--share-all", "--all"]);
+const VALUE_FLAGS = new Set(["--profile", "--entry", "--workstation", "--access", "--parameters", "--share", "--share-all", "--all"]);
 
 const scan = (argv: readonly string[], allowed: readonly string[]): Flags => {
   const positional: string[] = [];
@@ -133,6 +135,7 @@ const scan = (argv: readonly string[], allowed: readonly string[]): Flags => {
     profile: values.get("--profile") ?? defaultProfile(),
     entry: values.get("--entry"),
     workstation: values.get("--workstation"),
+    access: values.get("--access"),
     parameters: values.get("--parameters"),
     shares,
     shareAll: values.get("--share-all"),
@@ -165,7 +168,7 @@ const sharingOf = (specs: readonly string[], everyone: string | undefined, flag:
 export const parseArguments = (argv: readonly string[]): AgentCommand => {
   const [command, ...rest] = argv;
   if (command === "run") {
-    const flags = scan(rest, ["--profile", "--entry", "--parameters", "--workstation", "--json", "--share", "--share-all"]);
+    const flags = scan(rest, ["--profile", "--entry", "--parameters", "--workstation", "--access", "--json", "--share", "--share-all"]);
     if (flags.positional.length > 2) throw new Error(`run takes at most two values, not ${flags.positional.length}.`);
     const [folder, text] = flags.positional.length === 2 ? flags.positional : [undefined, flags.positional[0]];
     if (!text) throw new Error(`run needs "<task>", optionally preceded by <folder>.\n\n${usage()}`);
@@ -175,10 +178,12 @@ export const parseArguments = (argv: readonly string[]): AgentCommand => {
       throw new Error(`Invalid workstation id: ${flags.workstation} (8 to 64 characters from letters, digits, _ and -).`);
     }
     if (flags.parameters !== undefined && flags.entry === undefined) throw new Error("--parameters needs --entry, the template it starts.");
+    if (flags.access !== undefined && flags.access !== "isolated" && flags.access !== "full") throw new Error(`--access takes isolated or full, not ${flags.access}.`);
     const shared = flags.shares.length > 0 || flags.shareAll !== undefined;
     return { kind: "run", profile: flags.profile, folder, text, entry: flags.entry, json: flags.json,
       ...(flags.parameters !== undefined ? { parameters: parsedParameters(flags.parameters) } : {}),
       ...(flags.workstation ? { workstation: flags.workstation } : {}),
+      ...(flags.access ? { access: flags.access } : {}),
       ...(shared ? { sharing: sharingOf(flags.shares, flags.shareAll, "--share-all") } : {}) };
   }
   if (command === "send") {
@@ -479,6 +484,18 @@ const bindFolder = async (rpc: RpcClient, runId: string, folder: string, command
   }
 };
 
+const chooseAccess = async (rpc: RpcClient, runId: string, command: Extract<AgentCommand, { kind: "run" }>): Promise<void> => {
+  if (command.access === undefined) return;
+  if (command.folder === undefined && command.entry) {
+    const { startEntries } = await withLoginHint(() => rpc.call(coreContracts.plugins.bootstrap, {}));
+    const entry = startEntries.find((candidate) => candidate.id === command.entry);
+    if (!entry) throw new Error(`The template ${command.entry} does not exist in this profile, or it is not enabled for your user.`);
+    const binding = entry.fixedStartOptions?.[WORKSPACE_BINDING_OPTION_ID];
+    if (binding !== undefined) await withLoginHint(() => rpc.call(coreContracts.startOptions.select, { runId, optionId: WORKSPACE_BINDING_OPTION_ID, value: binding }));
+  }
+  await withLoginHint(() => rpc.call(coreContracts.startOptions.select, { runId, optionId: WORKSPACE_ACCESS_OPTION_ID, value: command.access }));
+};
+
 const runCommand = async (command: Extract<AgentCommand, { kind: "run" }>, write: LineWriter): Promise<number> => {
   const folder = command.folder === undefined || (command.workstation && path.win32.isAbsolute(command.folder))
     ? command.folder : path.resolve(callerDirectory(), command.folder);
@@ -489,6 +506,7 @@ const runCommand = async (command: Extract<AgentCommand, { kind: "run" }>, write
   const runId = randomUUID();
   if (folder !== undefined) await bindFolder(rpc, runId, folder, command, target.profile, baseUrl);
   else note(`== Run ${runId} (${baseUrl}) without a folder; the binding comes from ${command.entry ? `the template ${command.entry} or ` : ""}the default of the profile ${target.profile}.`);
+  await chooseAccess(rpc, runId, command);
   const sharing = command.sharing;
   if (sharing) {
     const shared = await withLoginHint(() => rpc.call(coreContracts.runs.share, { runId, sharing }));

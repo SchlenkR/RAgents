@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
-import { realpath } from "node:fs/promises";
+import { realpath, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, delimiter, dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import {
   EXECUTOR_CONTRIBUTION_FILE,
@@ -12,11 +12,22 @@ import {
   pluginToolsDirectory,
   prepareExecutorContribution,
   ripgrepAvailable,
+  isolatedWorkstationEnvironment,
+  withoutProcessStartupHooks,
   WorkspaceOperationError,
   WorkspaceOperationExecutor,
   workspaceDataDirectory,
   workspaceExecutorModules,
   workspaceProcessContext,
+  sandboxEnvironment,
+  createUnrestrictedNetworkSandbox,
+  prepareGrantedWritePaths,
+  prepareWorkstationFolders,
+  workstationAccessRule,
+  workstationCacheEnvironment,
+  validateWorkspaceGrants,
+  ragentsDataRoot,
+  type WorkspaceGrantPolicy,
   type ExecutorContributionRevision,
   type PreparedExecutorContribution,
   type WorkspaceProcessContext,
@@ -26,10 +37,12 @@ import type { OperationInput } from "../../../packages/ragents/src/rpc/contract"
 import type { RpcHandlerContext } from "../../../packages/ragents/src/rpc/peer";
 import { RPC_ERROR_CODES, RpcError } from "../../../packages/ragents/src/rpc/protocol";
 import { DomainError } from "../../../packages/ragents/src/runtime/domain-error";
+import { FullAccessConfirmations, type FullAccessOptions } from "./full-access";
 import { coreContracts } from "../../../apps/server/src/api/contracts";
 import {
   PLUGIN_ID_PATTERN,
   WORKSPACE_CLIENT_STOP_OPERATION,
+  WORKSPACE_CLIENT_DELETE_OPERATION,
   workspaceClientContracts,
   workspaceContracts,
   type WorkspaceBinding,
@@ -56,7 +69,7 @@ export interface WorkspaceClientExecution {
   error: string | undefined;
 }
 
-export interface WorkspaceClientOptions {
+export interface WorkspaceClientOptions extends FullAccessOptions {
   /** The host root of this machine with the bundles from which the executor loads its contributions; it may only come into existence later. */
   hostRoot: () => string | undefined;
   /** Resolves the host for this server before loading its requested contributions. */
@@ -67,6 +80,8 @@ export interface WorkspaceClientOptions {
   bash?: string | undefined;
   /** The bundled rg, whose folder the bash has at the front of its PATH; without a value, one in the PATH of this machine applies. */
   rg?: string | undefined;
+  readonly platform?: NodeJS.Platform;
+  readonly protectedPaths?: () => readonly string[];
   onExecuted?: (execution: WorkspaceClientExecution) => void;
 }
 
@@ -132,6 +147,8 @@ const runFolderOf = (runsDirectory: string, runId: string): string => {
   return join(runsDirectory, runId);
 };
 
+const storageFolderOf = (runsDirectory: string, runId: string): string => join(dirname(runsDirectory), "run-storage", runId);
+
 const sameFolders = (left: readonly string[], right: readonly string[]): boolean =>
   left.length === right.length && left.every((folder, index) => folder === right[index]);
 
@@ -181,6 +198,9 @@ interface Attachment {
   built: BuiltExecutor | undefined;
   readonly runsDirectory: string;
   readonly runs: Map<string, WorkspaceProcessContext>;
+  readonly access: Map<string, { level: "isolated" | "full"; revision: number; grants?: string }>;
+  readonly stopping: Map<string, Promise<void>>;
+  readonly needsStop: Set<string>;
   readonly release: () => void;
 }
 
@@ -193,6 +213,7 @@ export class WorkspaceClient {
   /** The sign-outs at the server, in order; a later sign-in waits for them so that none overtakes them. */
   #signingOff: Promise<void> = Promise.resolve();
   readonly #listeners = new Set<() => void>();
+  readonly #confirmations: FullAccessConfirmations;
 
   constructor(
     private readonly transport: WorkspaceClientTransport,
@@ -200,6 +221,7 @@ export class WorkspaceClient {
     private readonly options: WorkspaceClientOptions,
   ) {
     this.#identity = { ...identity, folders: [...identity.folders] };
+    this.#confirmations = new FullAccessConfirmations(identity.runsDirectory, transport.origin, options);
   }
 
   get id(): string {
@@ -273,12 +295,16 @@ export class WorkspaceClient {
       built: undefined,
       runsDirectory: this.#identity.runsDirectory,
       runs: new Map(),
+      access: new Map(),
+      stopping: new Map(),
+      needsStop: new Set(),
       release: () => { for (const release of releases) release(); },
     };
     releases.push(
       rpc.handle(workspaceClientContracts.execute, (input, context) => this.#execute(attachment, input, context)),
       rpc.onConnected(() => void this.#announce()),
       rpc.onStatus((status) => {
+        if (status.kind !== "connected" && attachment === this.#attachment) this.#disconnected(attachment);
         if (status.kind === "unauthorized" && attachment === this.#attachment) {
           this.#set({ kind: "failed", message: this.transport.signInFailure?.() ?? "The server requires a sign-in.", mismatch: false });
         }
@@ -345,6 +371,7 @@ export class WorkspaceClient {
     const attachment = this.#attachment;
     if (!attachment) return;
     try {
+      await Promise.all([...attachment.needsStop].map((runId) => this.#stopProcesses(attachment, runId)));
       const wanted = await this.transport.rpc.call(workspaceContracts.clients.contributions, {
         label: this.#identity.label,
         executor: WORKSPACE_EXECUTOR_VERSION,
@@ -365,6 +392,7 @@ export class WorkspaceClient {
         executor: WORKSPACE_EXECUTOR_VERSION,
         contributions: contributions.map((contribution) => ({ ...contribution })),
         backgroundTasks: executor.unreportedBackgroundTasks().map((task) => ({ ...task })),
+        confirmedRuns: [...await this.#confirmations.confirmedRuns()],
       }, { timeoutMs: REGISTER_TIMEOUT_MS });
       if (attachment === this.#attachment) this.#set({ kind: "registered" });
     } catch (cause) {
@@ -395,22 +423,89 @@ export class WorkspaceClient {
     }
   }
 
-  /** The developer works on their workstation with their own credentials and their whole environment; HOME stays their home. */
+  /** The workstation checks access locally before lending its files and environment to a run. */
   async #execute(attachment: Attachment, input: ExecuteInput, context: RpcHandlerContext): Promise<{ value: unknown }> {
-    if (input.operation === WORKSPACE_CLIENT_STOP_OPERATION) return this.#stop(attachment, input.runId);
+    if (!RUN_ID_PATTERN.test(input.runId)) throw new DomainError("workspace-run-id-invalid", "The run ID is not usable as a folder name.", 400);
+    if (input.operation === WORKSPACE_CLIENT_STOP_OPERATION || input.operation === WORKSPACE_CLIENT_DELETE_OPERATION) {
+      const result = await this.#stop(attachment, input.runId);
+      if (input.operation === WORKSPACE_CLIENT_DELETE_OPERATION) {
+        await this.#confirmations.forget(input.runId);
+        await rm(storageFolderOf(attachment.runsDirectory, input.runId), { recursive: true, force: true });
+      }
+      return result;
+    }
+    const level = input.access?.level;
+    if (level !== "isolated" && level !== "full") throw new DomainError("workspace-access-invalid", "The workstation needs an access level of isolated or full.", 400);
+    const previous = attachment.access.get(input.runId);
+    const signature = JSON.stringify(input.access.grants ?? []);
+    const access = previous?.level === level && previous.grants === signature ? previous : { level, revision: (previous?.revision ?? 0) + 1, grants: signature };
+    attachment.access.set(input.runId, access);
+    if (previous && previous !== access) attachment.needsStop.add(input.runId);
+    if (attachment.needsStop.has(input.runId)) await this.#stopProcesses(attachment, input.runId);
+    await attachment.stopping.get(input.runId);
+    if (level === "full") await this.#confirmations.accept({ runId: input.runId, name: input.runName ?? input.runId });
     const cwd = await this.#inside(input.cwd, input.runId);
     const root = await realPathOf(cwd);
     if (attachment !== this.#attachment) throw new Error("The workstation has signed out in the meantime");
     const executor = attachment.built?.executor;
     if (!executor) throw new Error("The workstation is not signed in at the server yet");
+    const protectedPaths = this.options.protectedPaths?.() ?? [];
+    const grantPolicy: WorkspaceGrantPolicy = {
+      homeDirectories: [homedir()],
+      dataDirectory: ragentsDataRoot(),
+      protectedPaths: [hostDataDirectory(), attachment.runsDirectory, join(dirname(attachment.runsDirectory), "run-storage"), join(dirname(attachment.runsDirectory), "full-access"), join(tmpdir(), "ragents-workspace-logs"),
+        ...protectedPaths,
+        ...[...attachment.runs].flatMap(([runId, context]) => runId === input.runId ? [] : [context.root])],
+    };
+    const grants = level === "full" ? [] : await validateWorkspaceGrants(input.access.grants ?? [], grantPolicy);
+    const gitEnvironment = await gitIdentityEnvironment(root);
+    const platform = this.options.platform ?? process.platform;
+    const storage = storageFolderOf(attachment.runsDirectory, input.runId);
+    const folders = level === "isolated" ? await prepareWorkstationFolders(storage) : undefined;
+    const inherited = level === "isolated" ? withoutProcessStartupHooks(isolatedWorkstationEnvironment(process.env)) : process.env;
+    const source = this.options.rg ? { ...inherited, PATH: [dirname(this.options.rg), inherited.PATH].filter(Boolean).join(delimiter) } : inherited;
+    const additions = { ...input.env, ...gitEnvironment };
+    const accessRule = folders ? await workstationAccessRule({
+      root,
+      offered: this.#identity.folders,
+      storage,
+      runFolder: runFolderOf(attachment.runsDirectory, input.runId),
+      data: [ragentsDataRoot(), hostDataDirectory(), attachment.runsDirectory, join(dirname(attachment.runsDirectory), "run-storage"),
+        join(dirname(attachment.runsDirectory), "full-access"), join(tmpdir(), "ragents-workspace-logs"), ...protectedPaths],
+      grants,
+      environment: source,
+      platform,
+      readable: [
+        ...attachment.built?.hostRoot ? [join(attachment.built.hostRoot, "node_modules"), join(attachment.built.hostRoot, "bundles")] : [],
+        ...attachment.built?.contributions.map(({ plugin }) => pluginToolsDirectory(hostDataDirectory(), plugin)) ?? [],
+        ...this.options.rg ? [dirname(this.options.rg)] : [],
+      ],
+    }) : undefined;
+    const sandbox = folders && accessRule && platform !== "win32" ? createUnrestrictedNetworkSandbox({
+      rule: accessRule,
+      temporary: folders.temporary,
+      environment: source,
+      platform,
+      validate: async () => {
+        await validateWorkspaceGrants(grants, grantPolicy);
+        if (platform === "linux") await prepareGrantedWritePaths(grants, grantPolicy);
+      },
+    }) : undefined;
+    if (attachment.access.get(input.runId) !== access) throw new DomainError("workspace-access-changed", "The run's access changed before the operation started. Retry with its current access level.", 409);
     attachment.runs.set(input.runId, workspaceProcessContext({
       runId: input.runId,
       cwd,
       root,
-      home: { home: homedir() },
-      logDirectory: join(tmpdir(), "ragents-workspace-logs", input.runId),
+      home: { home: folders?.home ?? homedir() },
+      logDirectory: folders?.temporary ?? join(tmpdir(), "ragents-workspace-logs", input.runId),
       hostRoot: attachment.built?.hostRoot,
-      additions: { ...input.env, ...await gitIdentityEnvironment(root) },
+      additions: { ...additions, ...folders ? { ...workstationCacheEnvironment(folders.home, folders.temporary, source), GIT_CEILING_DIRECTORIES: root, PATH: source.PATH ?? "" } : {} },
+      access: { level, grants },
+      grantPolicy,
+      source,
+      ...(accessRule ? { accessRule } : {}),
+      ...(sandbox ? { sandbox } : {}),
+      externalAgentEnvironment: sandboxEnvironment(process.env, { base: "inherited", home: { home: homedir() }, additions }),
       ...(input.browserNetwork ? { browserNetwork: input.browserNetwork } : {}),
       baseEnvironment: "inherited",
       ...(this.options.bash === undefined ? {} : { bash: this.options.bash }),
@@ -424,6 +519,10 @@ export class WorkspaceClient {
         signal: context.signal,
         onProgress: context.progress,
       });
+      if (input.operation === "runFolder.remove") {
+        await this.#confirmations.forget(input.runId);
+        await rm(storage, { recursive: true, force: true });
+      }
       return { value };
     } catch (cause) {
       failure = messageOf(cause);
@@ -442,12 +541,33 @@ export class WorkspaceClient {
 
   /** The stop needs no folder: it releases what the run holds, even if its folder is no longer offered. */
   async #stop(attachment: Attachment, runId: string): Promise<{ value: null }> {
-    try {
-      await attachment.built?.executor.stopRun(runId);
-    } finally {
-      attachment.runs.delete(runId);
-    }
+    const previous = attachment.access.get(runId);
+    attachment.access.set(runId, { level: "isolated", revision: (previous?.revision ?? 0) + 1 });
+    attachment.needsStop.add(runId);
+    await this.#stopProcesses(attachment, runId);
     return { value: null };
+  }
+
+  #disconnected(attachment: Attachment): void {
+    for (const [runId, access] of attachment.access) {
+      if (access.level !== "full") continue;
+      attachment.access.set(runId, { level: "isolated", revision: access.revision + 1 });
+      attachment.needsStop.add(runId);
+      void this.#stopProcesses(attachment, runId).catch((cause: unknown) => {
+        if (attachment === this.#attachment) this.#set({ kind: "failed", message: `Full access cleanup after disconnect failed: ${messageOf(cause)}`, mismatch: false });
+      });
+    }
+  }
+
+  #stopProcesses(attachment: Attachment, runId: string): Promise<void> {
+    const pending = attachment.stopping.get(runId);
+    if (pending) return pending;
+    const stopping = (attachment.built?.executor.stopRun(runId) ?? Promise.resolve()).then(() => {
+      attachment.runs.delete(runId);
+      attachment.needsStop.delete(runId);
+    }).finally(() => { attachment.stopping.delete(runId); });
+    attachment.stopping.set(runId, stopping);
+    return stopping;
   }
 
   /** Every task must be in one of the offered folders or in the new folder of its run; missing paths count through their existing parent folder. */

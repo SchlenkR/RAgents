@@ -28,7 +28,7 @@ const usage = `Usage: ragents <command> [arguments]
   acp [--profile <p>]             serve Agent Client Protocol v1 over stdio for an editor
   run <folder> "<task>"            start the host without UI, create a run and wait for the end
                                    (--entry <template> [--parameters <json>],
-                                   --share <user>[:read|:write], --share-all <read|write>)
+                                   --access full, --share <user>[:read|:write], --share-all <read|write>)
   send <run> "<text>"              follow-up message in the same run; continues a stopped run
   journal <run> [--tools]          read the history of a run
   stop <run> [--turn]              stop all run work; --turn interrupts only the primary turn
@@ -40,7 +40,7 @@ const usage = `Usage: ragents <command> [arguments]
   start <profile|path>             start a profile of the package, an own profile file or a
                                    fetched revision; the UI comes prebuilt
   provision [<profile>|--workspace] fetch the plugins' tools
-  workspace-client <server-url>    register this machine as a workspace
+  workspace-client <server-url>    register this machine as a workspace (--allow-full-access)
   plugin build <folder...>         build plugin source folders into bundles (--out, --watch)
   --version, -v                    the installed version
   --help, help                     this usage

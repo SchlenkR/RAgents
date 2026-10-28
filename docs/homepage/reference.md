@@ -2329,7 +2329,7 @@ Available in every turn; the question always goes to the user of the run.
 
 bash
 
-Execute a shell command in the run's workspace, or with cwd in one of its roots, with sandbox restrictions; run_in_background keeps a service running.
+Execute a shell command in the run's workspace, or with cwd in one of its roots, with the current access level; run_in_background keeps a service running.
 
 Execute a bash command in the working directory, or in the folder given as cwd. Every call starts there; a cd does not carry over to the next call. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to the last 2000 lines or 20KB (whichever is hit first), and lines longer than 1000 characters are shortened. If anything was cut, the full output is saved to a temp file. rg searches recursively by default; its -r flag means replace and rewrites every match, it does not mean recursive. A command is stopped after 120000 ms unless you pass a larger timeout in milliseconds (at most 3600000); builds, test runs, installs and other long commands need one. A call ends with its command, and whatever the command left running ends with it. For a dev server, a watcher or another service that must keep running, pass run_in_background: true instead of nohup, &, setsid, disown, a detached spawn or a service manager: the command keeps running until it exits, task_stop ends it, or the run stops; stop it with task_stop when you no longer need it.
 
@@ -3600,7 +3600,7 @@ Available in every model turn.
 
 edit
 
-Replace an exact string in a file within the run's writable workspace roots.
+Replace an exact string in a file according to the run's current access.
 
 Perform an exact string replacement in a file. Read the file with read in this conversation first; editing a file you have not read fails. old_string must match the file exactly, including whitespace and indentation; copy it from the read output without the line number and tab before each line. The edit fails if old_string is not unique in the file: add surrounding lines to make it unique, or set replace_all to change every occurrence. One call makes one replacement; for several changes call edit several times. An empty old_string creates a new file with new_string as its content.
 
@@ -5392,7 +5392,7 @@ Snippet-only for actor programs; a call needs the matching permission of the cal
 
 read
 
-Read a file with line numbers, or an image, within the run's allowed workspace roots.
+Read a file with line numbers, or an image, according to the run's current access.
 
 Read a file. Results are returned in cat -n format: each line is its line number starting at 1, a tab, then the line as it is in the file. By default it reads up to 2000 lines from the start of the file; offset and limit read a specific part, and a note names the offset to continue with. Lines longer than 2000 characters are truncated, and the output stops at 50KB. Images (jpg, png, gif, webp, bmp) are returned as attachments. Do not re-read a file you just edited or wrote to check it: edit and write fail if their change did not apply.
 
@@ -5422,6 +5422,67 @@ Available in every model turn.
       "type": "integer",
       "minimum": 1,
       "description": "The number of lines to read. Only provide if the file is too large to read at once"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "string"
+}
+```
+
+### request_access
+
+Access request
+
+Ask the owner for read or write access to a path outside the run's folders and end your turn; the decision arrives as a new message.
+
+Use the path you need, relative to the working directory, with an alias, or with home notation. Write access also permits reading. Call this as the only tool in your response. Do not try to work around a refusal. Broad or secret paths require full access instead.
+
+Owner: ragents.workspace. Scope: per-turn. Native model tool: yes. Availability: always.
+
+Available in every model turn.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "path",
+    "access",
+    "reason"
+  ],
+  "properties": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "description": "The file or folder you need to reach"
+    },
+    "access": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "read"
+        },
+        {
+          "type": "string",
+          "const": "write"
+        }
+      ],
+      "description": "Read only, or read and write"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "description": "Why this path is needed"
     }
   },
   "additionalProperties": false
@@ -6647,7 +6708,7 @@ Available in every run.
 
 write
 
-Create or overwrite a file within the run's writable workspace roots.
+Create or overwrite a file according to the run's current access.
 
 Write a file, overwriting it if one exists, and create its parent folders. Overwriting an existing file you have not read with read in this conversation fails. Prefer edit for changes to an existing file; use write for new files or complete rewrites.
 

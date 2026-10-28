@@ -774,10 +774,13 @@ journals, source code, tools, and general technical views. Language-server views
 phases appear only as empty progress markers while arguments, source, results, and reasoning are
 removed on the server.
 
-Server-side execution is always sandboxed for nonadministrators. Administrators can select
-"Sandbox protection" before starting a run, and the server can require it for everyone.
+Every run starts with "Isolated", including runs owned by administrators. Only the owner can
+change the composer control to "Full access". For a workspace on the server, this requires `*`
+and is forbidden by `ragents.workspace.PROCESS_SANDBOX: "on"`. For a workstation workspace,
+the owner can choose it with any server permissions, but that machine must confirm locally.
+A run with full access is `ownerOnly`; sharing never permits changing its access.
 Only administrators can bind an existing server folder; other users work in a new folder
-per run or on their own workstation. Sharing does not change the owner's execution policy.
+per run or on their own workstation.
 <!-- /guide:access -->
 
 ### Ownership in detail
@@ -913,15 +916,20 @@ with start and completion information for reasoning and tool phases; the server 
 arguments, source, results, and reasoning texts. This keeps the current working phase visible
 without revealing technical details.
 
-Settings and the global coordinator keep their own permissions. Native server execution uses the
-run owner's policy: nonadministrators always receive the process sandbox, administrators can
-select it before starting, and `ragents.workspace.PROCESS_SANDBOX: "on"` forces it for all runs,
-including owners with `*`. The start option then stays on and locked, and the server refuses a
-false choice. The default `"auto"` leaves administrator runs unrestricted unless selected:
-their native code can read the server account's files, other users' runs, environment and memory
-through other processes, and the network, despite a clean child environment. Embedded and
+Settings and the global coordinator keep their own permissions. The changeable start option
+`ragents.workspace.access` stores `"isolated"` or `"full"`, with `"isolated"` as the default for
+every owner. Stored values of the removed sandbox option are ignored. Only the run's owner can
+change the level, including while it is isolated and shared. `accept` enforces this and validates
+full access against the current binding; `describe` reports why it is unavailable. A server
+binding requires the owner's `*` and `ragents.workspace.PROCESS_SANDBOX` other than `"on"`;
+`"auto"` and `"off"` permit an explicit full choice. A workstation binding requires ownership,
+independently of server permissions, and the workstation's local confirmation; server-side work
+of such a run stays isolated. A changed binding must still permit the stored level when the run
+starts. A full run is `ownerOnly`.
+Full server execution can read the server account's files, other users' runs, environment and
+memory through other processes, and the network, despite a clean child environment. Embedded and
 multi-user deployments require `"on"` ([operations.md](../operations.md#server-process-sandbox)). Neither sharing nor a
-message from an administrator changes a restricted owner's policy
+message from an administrator widens a run's access
 ([plugins.md](plugins.md), Server process sandbox). The global coordinator has its own
 read and write permissions; changes to its model selection additionally require the permission to
 write settings. Its workspace receives a local token for its user's access, exclusively for the

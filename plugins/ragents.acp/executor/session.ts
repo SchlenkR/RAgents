@@ -38,6 +38,7 @@ export const withDeadline = <T>(operation: Promise<T>, signal: AbortSignal | und
 });
 
 export class AcpSession {
+  readonly #machine: WorkspaceExecutorMachine;
   readonly #context: WorkspaceProcessContext;
   readonly #servers: McpServers;
   readonly #process: AcpProcess;
@@ -52,11 +53,15 @@ export class AcpSession {
   #prompt: { progress: (value: AcpProgress) => void; signal: AbortSignal; cancelled: boolean } | undefined;
 
   constructor(machine: WorkspaceExecutorMachine, host: WorkspaceModuleHost, context: WorkspaceProcessContext, definition: AcpAgentDefinition, servers: McpServers) {
+    this.#machine = machine;
     this.#context = context;
     this.#servers = servers;
     this.#redactions = [...Object.values(definition.env ?? {}), ...Object.values(servers).flatMap((server) => Object.values("command" in server ? server.env ?? {} : server.headers ?? {}))].filter(Boolean).sort((a, b) => b.length - a.length);
-    this.#process = new AcpProcess(machine, context, definition);
-    this.#workspace = new AcpWorkspace(machine, host, context, (id) => this.#checkSession(id), definition.env ?? {});
+    const adapterContext = context.externalAgentEnvironment
+      ? { ...context, sandbox: undefined, env: context.externalAgentEnvironment }
+      : context;
+    this.#process = new AcpProcess(machine, adapterContext, definition);
+    this.#workspace = new AcpWorkspace(machine, host, adapterContext, (id) => this.#checkSession(id), definition.env ?? {});
   }
 
   get pid(): number | undefined { return this.#process.pid; }
@@ -91,7 +96,7 @@ export class AcpSession {
       }), signal, 15_000, "ACP initialize");
       if (initialized.protocolVersion !== PROTOCOL_VERSION) throw new Error(`ACP agent negotiated unsupported protocol version ${initialized.protocolVersion}`);
       this.#capabilities = initialized.agentCapabilities ?? {};
-      const { servers, notices } = this.#mcpServers();
+      const { servers, notices } = await this.#mcpServers();
       const setup = async (): Promise<void> => {
         if (sessionId) {
           if (!this.#capabilities.loadSession) throw new Error("ACP actor is blocked: the agent does not advertise loadSession; its previous session cannot be restored");
@@ -120,18 +125,28 @@ export class AcpSession {
     }
   }
 
-  #mcpServers(): { servers: McpServer[]; notices: string[] } {
+  async #mcpServers(): Promise<{ servers: McpServer[]; notices: string[] }> {
     const notices: string[] = [];
-    const servers = Object.entries(this.#servers).flatMap(([name, server]): McpServer[] => {
+    const servers = await Promise.all(Object.entries(this.#servers).map(async ([name, server]): Promise<McpServer[]> => {
       if ("command" in server) {
         if (server.cwd) throw new Error(`MCP server ${name} specifies cwd, which ACP cannot pass to the agent`);
+        if (this.#context.externalAgentEnvironment && this.#context.access?.level !== "full") {
+          const command = { command: server.command, args: [...server.args ?? []] };
+          const launch = this.#context.sandbox ? await this.#context.sandbox.wrap(command) : command;
+          const environment = Object.fromEntries(Object.entries({
+            ...this.#machine.withoutProcessStartupHooks({ ...this.#context.env, ...server.env }), PATH: this.#context.env.PATH,
+          }).filter((entry): entry is [string, string] => entry[1] !== undefined));
+          if (process.platform !== "win32") return [{ name, command: "/usr/bin/env", args: ["-i", ...Object.entries(environment).map(([key, value]) => `${key}=${value}`), launch.command, ...launch.args], env: [] }];
+          const source = `const child = require('node:child_process').spawn(${JSON.stringify(launch.command)}, ${JSON.stringify(launch.args)}, { env: ${JSON.stringify(environment)}, stdio: 'inherit' });\nchild.on('error', error => { console.error(error.message); process.exit(1); });\nchild.on('exit', code => process.exit(code ?? 1));`;
+          return [{ name, command: process.execPath, args: ["-e", source], env: [] }];
+        }
         return [{ name, command: server.command, args: [...(server.args ?? [])], env: Object.entries(server.env ?? {}).map(([name, value]) => ({ name, value })) }];
       }
       const type = server.type === "sse" ? "sse" : "http";
       if (!this.#capabilities.mcpCapabilities?.[type]) { notices.push(`MCP server ${name} is not passed to the external agent: ${type} transport is not advertised.`); return []; }
       return [{ name, type, url: server.url, headers: Object.entries(server.headers ?? {}).map(([name, value]) => ({ name, value })) }];
-    });
-    return { servers, notices };
+    }));
+    return { servers: servers.flat(), notices };
   }
 
   #bounded(value: unknown): unknown {

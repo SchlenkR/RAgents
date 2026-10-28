@@ -4,7 +4,28 @@ import { defineChannel, defineOperation } from "@ragents/engine/src/rpc/contract
 
 export const WORKSPACE_PLUGIN_ID = "ragents.workspace";
 
-export const WORKSPACE_SANDBOX_OPTION_ID = "ragents.workspace.sandbox";
+export const WORKSPACE_ACCESS_OPTION_ID = "ragents.workspace.access";
+
+export const WORKSPACE_GRANTS_STATE_ID = "ragents.workspace.grants";
+
+export interface WorkspaceGrant {
+  readonly path: string;
+  readonly access: "read" | "write";
+}
+
+export interface WorkspaceAccessRequest extends WorkspaceGrant {
+  readonly kind: "access-request";
+  readonly reason: string;
+  readonly file: boolean;
+}
+
+export const isWorkspaceAccessRequest = (value: unknown): value is WorkspaceAccessRequest => {
+  if (typeof value !== "object" || value === null) return false;
+  const request = value as Record<string, unknown>;
+  return request.kind === "access-request" && typeof request.path === "string" && request.path.length > 0
+    && (request.access === "read" || request.access === "write") && typeof request.reason === "string"
+    && request.reason.trim().length > 0 && typeof request.file === "boolean";
+};
 
 export const BROWSE_ROOTS = ["workspace", "files"] as const;
 export type BrowseRoot = typeof BROWSE_ROOTS[number];
@@ -145,6 +166,7 @@ export const clientRegistrationSchema = Type.Object({
   executor: executorVersion,
   contributions: executorContributions,
   backgroundTasks,
+  confirmedRuns: Type.Array(Type.String({ pattern: "^[A-Za-z0-9_-]{1,64}$" }), { maxItems: 10000 }),
 }, { additionalProperties: false });
 
 /** A workstation with a different executor does not know the shape of this version; the server rejects it by its version, not by its shape. */
@@ -156,6 +178,7 @@ const absolutePath = Type.String({ minLength: 1, description: "Absolute path in 
 
 /** Not an operation of a module: releases what the workstation's executor holds for the run. */
 export const WORKSPACE_CLIENT_STOP_OPERATION = "stop";
+export const WORKSPACE_CLIENT_DELETE_OPERATION = "delete";
 
 /** The one operation the server calls on the workstation; progress is the JSON value of the operation, for bash { text }. */
 export const workspaceClientContracts = {
@@ -165,6 +188,14 @@ export const workspaceClientContracts = {
     implementedBy: "client",
     input: Type.Object({
       runId: Type.String({ minLength: 1, maxLength: 64, description: "ID of the run" }),
+      runName: Type.Optional(Type.String({ maxLength: 500 })),
+      access: Type.Object({
+        level: Type.Union([Type.Literal("isolated"), Type.Literal("full")]),
+        grants: Type.Optional(Type.Array(Type.Object({
+          path: Type.String({ minLength: 1 }),
+          access: Type.Union([Type.Literal("read"), Type.Literal("write")]),
+        }, { additionalProperties: false }), { maxItems: 1024 })),
+      }, { additionalProperties: false }),
       operation: Type.String({ minLength: 1, maxLength: 64, description: "Name of the operation, such as read, bash, roslyn_open, files.list, or stop" }),
       toolCallId: Type.Optional(Type.String({ minLength: 1, maxLength: 200, description: "Only for a tool call of the model" })),
       cwd: absolutePath,
@@ -186,6 +217,24 @@ const browseTarget = {
 
 /** The sign-in of a workstation binds the calling connection; the server calls back through it. */
 export const workspaceContracts = {
+  accessRequestAvailability: defineOperation({
+    id: "ragents.workspace.accessRequest.availability",
+    description: "Whether the caller may answer access requests of this run, with the reason when unavailable.",
+    rights: ["runs.read", "runs.write"],
+    input: Type.Object({ runId: Type.String({ minLength: 1, maxLength: 64 }) }, { additionalProperties: false }),
+    result: Type.Object({ disabledReason: Type.Union([Type.String(), Type.Null()]) }, { additionalProperties: false }),
+  }),
+  answerAccess: defineOperation({
+    id: "ragents.workspace.accessRequest.answer",
+    description: "Allow the requested path, allow its containing folder for a file, or deny access. Only the run's owner may answer; server grants require permission to choose full access.",
+    rights: ["runs.read", "runs.write"],
+    input: Type.Object({
+      runId: Type.String({ minLength: 1, maxLength: 64 }),
+      actionId: Type.String({ minLength: 1, maxLength: 80 }),
+      decision: Type.Union([Type.Literal("allow"), Type.Literal("allow-folder"), Type.Literal("deny")]),
+    }, { additionalProperties: false }),
+    result: Type.Null(),
+  }),
   browse: {
     list: defineOperation({
       id: "ragents.workspace.browse.list",

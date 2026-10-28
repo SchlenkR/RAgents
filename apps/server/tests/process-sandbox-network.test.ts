@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import test from "node:test";
-import { SandboxManager, type SandboxRuntimeConfig } from "@anthropic-ai/sandbox-runtime";
+import { SandboxManager, type SandboxRuntimeConfig } from "@ragents/workspace-executor/src/os-process-sandbox.ts";
 import { PROCESS_SANDBOX_DEFAULT_NETWORK, ServerProcessSandbox } from "../src/plugin-support/process-sandbox.ts";
 
 test("shared public web grants allow web domains and expire with their holder", { skip: process.platform !== "darwin" && process.platform !== "linux" }, async (context) => {

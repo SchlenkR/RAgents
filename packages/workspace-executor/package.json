@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sandbox-runtime": "0.0.77",
     "@ragents/agent": "workspace:*",
     "typescript": "^5.9.0",
     "vscode-jsonrpc": "^9.0.2",

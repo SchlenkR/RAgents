@@ -462,13 +462,46 @@ Before starting, "After restart" defaults to "Continue": actors that were workin
 server stopped receive a continuation on its next start. Choose "Stay interrupted" to turn
 this off for the run. A profile can disable continuation for all its runs.
 
-Before starting, "Sandbox protection" lets administrators restrict the run's server-side
-code execution. For other users, or when the server requires it, the switch is on and locked.
-The choice cannot change after the run starts. Workstation tools use that workstation's
-permissions; server-side code still follows the run's protection.
-Leaving protection off allows model-written code to access the server account's files, other
-runs, process environment and memory, and network. Embedded and multi-user servers require
+Every run starts with "Isolated" in the composer, including an administrator's run. The shield
+control lets the owner choose "Full access" before or during the run. On the server this needs
+administrator access and a server that permits it; on a workstation the run's owner can choose it
+with any server permissions, and that machine confirms locally. An unavailable choice shows its
+reason. A shared user cannot change the level; a run with full access can only be operated by its
+owner. Run details explain what the selected level means on its machine and list approved paths
+under "Grants".
+
+"Isolated" applies one read and write rule to file tools and commands on the run's machine.
+It permits reading outside blocked homes, temporary folders, and application data, plus the run's
+allowed folders and approved paths. Writing stays within the run's writable folders and write grants.
+Server commands use the server process sandbox and network policy. On macOS and Linux workstations,
+commands use the workstation OS sandbox, their own home and temporary folder, and an environment
+without secrets; network access includes loopback and the local network. On Windows the file tools
+apply the same rule and the environment filter remains, but commands have no OS sandbox. The composer
+and run details say "Commands are not isolated on this machine". Inspect process and device
+resources through a command; isolated file tools refuse the host's process resources.
+"Full access" permits every path available to that machine's account and unrestricted commands;
+a workstation also passes its inherited environment. The server keeps its safe environment
+allowlist in both levels. Returning to "Isolated" stops the run's background commands, managed
+services, and language servers; language servers start again when needed. The agent receives the
+new level before its next model call. Embedded and multi-user servers require server process
 protection for everyone ([operations.md](../operations.md#server-process-sandbox)).
+
+For a path outside the current read or write allowance, the agent can use `request_access` with the path, "read" or
+"write", and its reason. The "Access request" card shows the resolved path and "Read only" or
+"Read and write". "Allow" permits that path; for an existing file, "Allow folder" permits its
+containing folder; "Deny" refuses it. Only the run's owner can answer. On the server the owner
+also needs permission to choose full access. A folder grant includes its contents; allowing one
+file does not allow its neighbours. Write access also permits reading and can target a file that
+does not exist yet; read access requires an existing path. Roots, homes, secret locations, the
+RAgents data folder, and other runs' files require full access instead of a narrow grant.
+For a new directory and its contents, request its existing containing folder. On Linux a
+sandboxed command's missing write target is prepared as an empty file before the command starts.
+
+The decision reaches the agent as a new message, and grants survive a server restart. A new
+message from you closes that actor's open requests; stopping the run withdraws open requests.
+Already reachable paths need no approval. Grants affect file tools and sandboxed commands on the
+binding's machine. Windows commands retain the limits described above. A refusal
+does not authorize the agent to find another way around it.
 
 A click shows its effect at once: either the run's progress appears, or the chosen entry shows
 a spinner and "Starting ..." at the top right while the other entries stay locked until the

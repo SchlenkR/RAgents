@@ -142,7 +142,7 @@ const runScript = async (env: CheckEnvironment, text: string, program: ScriptPro
   const turn = await waitFor(async () => {
     if (sending.error !== undefined) throw new Error(`ragents.chat.send fails: ${messageOf(sending.error)}`);
     const fresh = (await eventsOf(alice, env.runId).catch(() => [])).slice(before);
-    const started = fresh.find((event) => event.type === "turn.started");
+    const started = fresh.find((event) => event.type === "turn.started" || event.type === "turn.input-steered");
     if (!started) return undefined;
     const end = fresh.findIndex((event) => (event.type === "turn.finished" || event.type === "turn.interrupted")
       && payloadOf(event).turnId === payloadOf(started).turnId);
@@ -240,6 +240,85 @@ const checkBinding = (env: CheckEnvironment): Promise<true | undefined> =>
       `Stored is ${JSON.stringify(state.value)}`);
     return passed(`${machine.label}: ${folder.path}, Run ${env.runId.slice(0, 8)}`);
   });
+
+const checkIsolation = async (env: CheckEnvironment): Promise<void> => {
+  const privateFile = "/home/node/private-check.txt";
+  const grantedFile = "/home/node/shared-check/granted.txt";
+  await writeContainerFile(env.container.name, privateFile, "private-home-content\n");
+  await writeContainerFile(env.container.name, grantedFile, "granted-home-content\n");
+  await env.report.check("Isolation", "commands cannot read the user's home or write outside the run", async () => {
+    const turn = await runScript(env, "Check the isolated filesystem.", { id: "isolated-filesystem", steps: [
+      { tool: "bash", input: { command: `if cat ${privateFile}; then exit 31; fi; if printf forbidden > /work/outside-run.txt; then exit 32; fi; printf isolation-ok` } },
+      { tool: "read", input: { file_path: privateFile } },
+      { tool: "read", input: { file_path: "/etc/hosts" } },
+      { tool: "bash", input: { command: "cat /etc/hosts" } },
+    ] });
+    const command = completedText(stepOf(turn, 0, "bash"));
+    expect(command.includes("isolation-ok") && !command.includes("private-home-content"), `Unexpected command result: ${command}`);
+    const denied = stepOf(turn, 1, "read");
+    expect(denied.error !== undefined || /outside|denied|not allowed|blocked/i.test(textOf(denied.output)), `read reached the user's private file: ${textOf(denied.output)}`);
+    expect(completedText(stepOf(turn, 2, "read")).includes("localhost"), "read cannot read /etc/hosts");
+    expect(completedText(stepOf(turn, 3, "bash")).includes("localhost"), "cat cannot read /etc/hosts");
+    const outside = await containerExec(env.container.name, ["test", "-e", "/work/outside-run.txt"]);
+    expect(outside.code !== 0, "The isolated command created a file outside its folders");
+    return passed("home read denied, outside write denied, read and cat both reach /etc/hosts");
+  });
+  await env.report.check("Isolation", "file tools cannot reach host process resources or grant them", async () => {
+    const command = 'node -e "const fs=require(\'node:fs\'); const status=fs.readFileSync(\'/proc/self/status\',\'utf8\'); if(!status.includes(\'Pid:\'))process.exit(1); fs.readFileSync(\'/proc/self/environ\'); console.log(\'private-proc-ok\')"';
+    const turn = await runScript(env, "Inspect only the run's process namespace.", { id: "isolated-process-resources", steps: [
+      { tool: "read", input: { file_path: "/proc/self/environ" } },
+      { tool: "request_access", input: { path: "/proc/self/mem", access: "read", reason: "Verify that process resources cannot receive narrow grants." } },
+      { tool: "bash", input: { command } },
+    ] });
+    const denied = stepOf(turn, 0, "read");
+    const cause = denied.error ?? textOf(denied.output);
+    expect(/namespace/.test(cause) && /Use a command/.test(cause), `read lacks the process namespace remedy: ${cause}`);
+    const requested = stepOf(turn, 1, "request_access");
+    const refusal = requested.error ?? textOf(requested.output);
+    expect(/full access is required/i.test(refusal), `The process resource request lacks the full access remedy: ${refusal}`);
+    expect(completedText(stepOf(turn, 2, "bash")).includes("private-proc-ok"), "The command cannot inspect its own process namespace");
+    const view = await env.users.alice.call(runContracts.view, { runId: env.runId });
+    expect(!view?.actions.some((entry) => entry.status === "pending" && entry.owner === "ragents.workspace"), "A process resource request created an approvable grant");
+    return passed("read rejects host environ, memory requests require full access, commands retain their own proc namespace");
+  });
+  await env.report.check("Isolation", "an owner-approved read grant reaches commands and file tools", async () => {
+    await runScript(env, "Request one file in the user's home.", { id: "isolated-read-request", steps: [
+      { tool: "request_access", input: { path: grantedFile, access: "read", reason: "Read the shared check fixture." } },
+    ] });
+    const view = await env.users.alice.call(runContracts.view, { runId: env.runId });
+    const action = view?.actions.find((entry) => entry.status === "pending" && entry.owner === "ragents.workspace");
+    expect(action, "The access request has no pending action");
+    await env.users.alice.call(workspaceContracts.answerAccess, { runId: env.runId, actionId: action.id, decision: "allow" });
+    const turn = await runScript(env, "Read the approved file.", { id: "isolated-granted-read", steps: [
+      { tool: "read", input: { file_path: grantedFile } },
+      { tool: "bash", input: { command: `cat ${grantedFile}` } },
+    ] });
+    for (const [index, tool] of ["read", "bash"].entries()) {
+      expect(completedText(stepOf(turn, index, tool)).includes("granted-home-content"), `${tool} cannot read the granted file`);
+    }
+    return passed("the owner approves one path; read and cat reach exactly that file");
+  });
+  await env.report.check("Isolation", "an isolated command reaches a loopback service outside its sandbox", async () => {
+    const code = 'require("node:http").createServer((request,response)=>response.end("loopback-ok")).listen(38971,"127.0.0.1")';
+    const launched = await containerExec(env.container.name, ["sh", "-c", 'node -e "$1" > /tmp/ragents-loopback.log 2>&1 & echo $!', "sh", code]);
+    expect(launched.code === 0, `Cannot start loopback fixture: ${launched.stderr}`);
+    const pid = Number(launched.stdout.trim());
+    expect(Number.isInteger(pid) && pid > 0, `Invalid loopback fixture PID: ${launched.stdout}`);
+    try {
+      await waitFor(async () => {
+        const ready = await containerExec(env.container.name, ["node", "-e", "fetch('http://127.0.0.1:38971').then(r=>r.text()).then(console.log).catch(()=>process.exit(1))"]);
+        return ready.code === 0 ? true : undefined;
+      }, 10_000, "The loopback fixture");
+      const turn = await runScript(env, "Reach the local developer service.", { id: "isolated-loopback", steps: [
+        { tool: "bash", input: { command: `node -e "fetch('http://127.0.0.1:38971').then(r=>r.text()).then(console.log).catch(e=>{console.error(e);process.exit(1)})"` } },
+      ] });
+      expect(completedText(stepOf(turn, 0, "bash")).includes("loopback-ok"), "The isolated command cannot reach loopback");
+      return passed("a sandboxed Node command reaches the container's host loopback service");
+    } finally {
+      await containerExec(env.container.name, ["kill", String(pid)]);
+    }
+  });
+};
 
 const checkTools = async (env: CheckEnvironment): Promise<void> => {
   const { report } = env;
@@ -442,7 +521,7 @@ const checkServerRoots = async (env: CheckEnvironment): Promise<void> => {
     expect(exchange, "The script model did not see the first request for the skill task");
     const prompt = exchange.systemPrompt;
     expect(prompt.includes(`<location>@skills/${CHECK_SKILL}/SKILL.md</location>`), "The catalog does not name the skill under @skills");
-    expect(prompt.includes(`location="@skills/${CHECK_SKILL}/SKILL.md"`), "The preload does not name the skill under @skills");
+    expect(exchange.userInput.includes(`location="@skills/${CHECK_SKILL}/SKILL.md"`), "The preload does not name the skill under @skills");
     expect(!prompt.includes(env.skillsDirectory) && !prompt.includes(realpathSync(env.skillsDirectory)), "The prompt names the skills folder on the server");
     expect(prompt.includes("## Roots on the server"), "The prompt does not describe the server's roots");
     const mentions = prompt.match(/RAGENTS_ACTORS_DIR/g) ?? [];
@@ -789,6 +868,7 @@ export const runChecks = async (env: CheckEnvironment): Promise<void> => {
     return;
   }
   await checkTools(env);
+  await checkIsolation(env);
   await checkAttachment(env);
   await checkServerRoots(env);
   await checkFreshFolder(env);

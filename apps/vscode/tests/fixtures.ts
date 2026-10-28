@@ -186,7 +186,7 @@ export const startStubServer = async (options: {
     implement(runContracts.stop, async ({ runId }) => {
       for (const [id, connection] of workspaceConnections) {
         const cwd = workspaceClients.get(id)?.folders[0];
-        if (cwd) await connection.call(workspaceClientContracts.execute, { runId, operation: "stop", cwd, env: {}, input: null });
+        if (cwd) await connection.call(workspaceClientContracts.execute, { runId, access: { level: "isolated" }, operation: "stop", cwd, env: {}, input: null });
       }
       return servedView(view);
     }),
@@ -195,7 +195,7 @@ export const startStubServer = async (options: {
       if (options.refuseRegistration) throw new DomainError(options.refuseRegistration.code, options.refuseRegistration.message, 409);
       if (!("id" in input) || input.executor !== WORKSPACE_EXECUTOR_VERSION) throw new Error(`The workspace brings executor ${input.executor}`);
       if (JSON.stringify(input.contributions) !== JSON.stringify(options.contributions ?? [])) throw new Error("The workspace brings different executor contributions");
-      const { id, executor: _executor, contributions: _contributions, backgroundTasks: _backgroundTasks, ...description } = input;
+      const { id, executor: _executor, contributions: _contributions, backgroundTasks: _backgroundTasks, confirmedRuns: _confirmedRuns, ...description } = input;
       workspaceClients.set(id, description);
       workspaceConnections.set(id, connection);
       return { ...description, id };

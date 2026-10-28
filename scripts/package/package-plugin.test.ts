@@ -58,6 +58,13 @@ test("from the installed package a third-party author builds their plugin in an 
     const resolvedTools = run(process.execPath, ["--import", "tsx", "--input-type=module", "--eval",
       `import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
+import path from "node:path";
+const require = createRequire(${JSON.stringify(path.join(packageRoot, "package.json"))});
+const sandboxRoot = path.dirname(require.resolve("@anthropic-ai/sandbox-runtime/package.json"));
+for (const arch of ["x64", "arm64"]) assert.ok(existsSync(path.join(sandboxRoot, "vendor/seccomp", arch, "apply-seccomp")));
+assert.ok(existsSync(path.join(sandboxRoot, "vendor/java-proxy-agent/srt-proxy-agent.jar")));
 const { resolveBundledTools } = await import(${JSON.stringify(pathToFileURL(toolsResolver).href)});
 const tools = resolveBundledTools({ root: ${JSON.stringify(packageRoot)}, distribution: "package" });
 assert.ok(tools.rg);

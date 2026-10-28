@@ -1,6 +1,7 @@
 import { serviceToken } from "@ragents/engine";
 
 export interface RunSecurityPolicy {
+  readonly level: "isolated" | "full";
   readonly restricted: boolean;
 }
 

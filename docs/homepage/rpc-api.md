@@ -103,6 +103,8 @@ Ids from results are reused programmatically, not copied by hand.
 | ragents.settings.titles.save | host | settings.write |
 | ragents.startOptions.list | host | runs.read, runs.create |
 | ragents.startOptions.select | host | runs.read, runs.write, runs.create |
+| ragents.workspace.accessRequest.answer | ragents.workspace | runs.read, runs.write |
+| ragents.workspace.accessRequest.availability | ragents.workspace | runs.read, runs.write |
 | ragents.workspace.browse.list | ragents.workspace | runs.read, runs.inspect |
 | ragents.workspace.browse.preview | ragents.workspace | runs.read, runs.inspect |
 | ragents.workspace.clients.contributions | ragents.workspace | runs.write |
@@ -5555,6 +5557,113 @@ Default client deadline: 30000 ms; callers may override it.
 }
 ```
 
+## ragents.workspace.accessRequest.answer
+
+Allow the requested path, allow its containing folder for a file, or deny access. Only the run's owner may answer; server grants require permission to choose full access.
+
+Owner: ragents.workspace. Rights: runs.read, runs.write. Execution: the server.
+Default client deadline: 30000 ms; callers may override it.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId",
+    "actionId",
+    "decision"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "actionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "decision": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "allow"
+        },
+        {
+          "type": "string",
+          "const": "allow-folder"
+        },
+        {
+          "type": "string",
+          "const": "deny"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "null"
+}
+```
+
+## ragents.workspace.accessRequest.availability
+
+Whether the caller may answer access requests of this run, with the reason when unavailable.
+
+Owner: ragents.workspace. Rights: runs.read, runs.write. Execution: the server.
+Default client deadline: 30000 ms; callers may override it.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "disabledReason"
+  ],
+  "properties": {
+    "disabledReason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}
+```
+
 ## ragents.workspace.browse.list
 
 List a directory in the workspace or in the file store of a run.
@@ -5825,7 +5934,8 @@ Default client deadline: 30000 ms; callers may override it.
         "ripgrep",
         "executor",
         "contributions",
-        "backgroundTasks"
+        "backgroundTasks",
+        "confirmedRuns"
       ],
       "properties": {
         "id": {
@@ -5927,6 +6037,14 @@ Default client deadline: 30000 ms; callers may override it.
           },
           "maxItems": 1024,
           "description": "The background commands of bash whose end no server has learned yet; the server observes those of runs bound to the workstation again, such as after its restart, and stops those of runs it does not have"
+        },
+        "confirmedRuns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$"
+          },
+          "maxItems": 10000
         }
       },
       "additionalProperties": false

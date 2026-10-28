@@ -31,7 +31,11 @@ With `--vscode` a separate VS Code window opens.
    `SKILLS_DIR` points to a folder in the temp folder with the skill `check-notes` and a
    template next to it. The server inherits only `PATH`, `HOME`, language and
    `TMPDIR` of the caller, so no profile key from the shell overrides the check profile.
-4. In the container `ragents workspace-client` runs as the workspace of `alice`.
+4. In the container `ragents workspace-client` runs as the workspace of `alice`. The image includes
+   bubblewrap, socat, ripgrep and procps. The container's seccomp and system-path restrictions are
+   disabled so bubblewrap can create unprivileged user and PID namespaces and mount private proc
+   data; no extra capabilities or host mounts are needed. Each run's commands enter the workstation
+   OS sandbox.
 5. The checks go through the message layer (contracts from the plugins' `contract.ts`) and
    `docker exec`; each writes one line `ok`, `FAILED` with cause, or `--` (skipped).
 
@@ -40,6 +44,11 @@ With `--vscode` a separate VS Code window opens.
 - Workspace: registers with platform `linux`, its own machine name and its folder; `bob` and
   `admin` do not see it; `bob` cannot bind a run to it (`workspace-client-disconnected`).
 - Run: `alice` binds a run to the folder in the container.
+- Isolation: commands cannot read a private file in the container user's home or write outside
+  their run. An owner-approved read grant reaches both `read` and `cat`; both also read
+  `/etc/hosts`. File tools reject host process resources and cannot grant process memory; commands
+  retain their private proc namespace. A sandboxed Node command reaches a loopback service outside
+  the sandbox.
 - Tools: `bash` reports Linux, the container and the folder; `read` reads the file from the container;
   `write` writes there and nowhere on the server; `typescript_eval` works in a folder in the
   server's data folder; the system prompt names Linux and the workspace's folder, but no

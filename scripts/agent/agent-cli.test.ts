@@ -15,7 +15,7 @@ import type { PublicStartEntry } from "../../packages/ragents/src/plugin-types.t
 import { hostRecordFile, readHostRecord, writeHostRecord } from "../../apps/server/src/host-record.ts";
 import { callerDirectory } from "../../apps/server/src/profile-target.ts";
 import { startRpcServer } from "../../apps/server/tests/rpc-fixture.ts";
-import { WORKSPACE_BINDING_OPTION_ID, type WorkspaceBindingPresentation, type WorkspaceClientInfo } from "../../plugins/ragents.workspace/contract.ts";
+import { WORKSPACE_ACCESS_OPTION_ID, WORKSPACE_BINDING_OPTION_ID, type WorkspaceBindingPresentation, type WorkspaceClientInfo } from "../../plugins/ragents.workspace/contract.ts";
 import { noteHost } from "../remote/connect.ts";
 import { commands as facadeCommands } from "../package/ragents.mjs";
 import { execute, parseArguments, parseShareSpec, progressOf, usage, type TurnOutcome } from "./agent-cli.ts";
@@ -60,6 +60,7 @@ interface HarnessOptions {
   readonly refusals?: number;
   readonly clients?: WorkspaceClientInfo[];
   readonly startEntries?: PublicStartEntry[];
+  readonly accessError?: string;
   /** The turn stops after the first tool call until the test does something. */
   readonly hold?: boolean;
 }
@@ -122,6 +123,7 @@ const harness = async (t: TestContext, outcome: TurnOutcome, options: HarnessOpt
         : []),
       implement(coreContracts.plugins.bootstrap, () => ({ product: { id: "check", title: "Check" }, plugins: [], startEntries })),
       implement(coreContracts.startOptions.select, ({ runId, optionId, value }) => {
+        if (optionId === WORKSPACE_ACCESS_OPTION_ID && options.accessError) throw new DomainError("workspace-access-denied", options.accessError, 403);
         selections.push({ runId, optionId, value });
         return { id: optionId, owner: "test", value, presentation: null, selectable: true, locked: false };
       }),
@@ -265,6 +267,34 @@ test("run --workstation binds the folder on the registered workstation, an unkno
   const unbound = await harness(t, "completed", { binding: false });
   await assert.rejects(execute({ ...run, workstation: "laptop-0001" }), /without a folder binding there is no workstation/);
   assert.deepEqual(unbound.messages, []);
+});
+
+test("run requests access after binding and a refusal prevents the first message", { timeout: 20_000 }, async (t) => {
+  const workstation: WorkspaceClientInfo = { id: "laptop-0001", label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/user/project"], runsDirectory: "/home/user/runs", ripgrep: true };
+  const context = await harness(t, "completed", { clients: [workstation] });
+  const run = { kind: "run", profile: "developer", folder: "/home/user/project", workstation: workstation.id, text: "Build", entry: undefined, json: false } as const;
+  assert.equal(await execute({ ...run, access: "full" }, collect(context.lines)), 0);
+  assert.deepEqual(context.selections.map(({ optionId, value }) => ({ optionId, value })), [
+    { optionId: WORKSPACE_BINDING_OPTION_ID, value: { machine: { client: workstation.id, label: workstation.label }, folder: { path: run.folder } } },
+    { optionId: WORKSPACE_ACCESS_OPTION_ID, value: "full" },
+  ]);
+  assert.equal(await execute({ ...run, access: "isolated" }, collect(context.lines)), 0);
+  assert.equal(context.selections.at(-1)?.value, "isolated");
+  const refused = await harness(t, "completed", { accessError: "Full access requires an administrator on the server." });
+  await assert.rejects(execute({ ...run, folder: undefined, workstation: undefined, access: "full" }), /Full access requires an administrator/);
+  assert.deepEqual(refused.messages, []);
+  assert.deepEqual(refused.entries, []);
+});
+
+test("run applies a template's fixed workstation binding before requesting full access", { timeout: 20_000 }, async (t) => {
+  const binding = { machine: { client: "laptop-0001", label: "Laptop" }, folder: { path: "/home/user/project" } };
+  const entry = { id: "demo.workspace", title: "Workspace", description: "Start in the project.", fixedStartOptions: { [WORKSPACE_BINDING_OPTION_ID]: binding } } as PublicStartEntry;
+  const context = await harness(t, "completed", { startEntries: [entry] });
+  assert.equal(await execute({ kind: "run", profile: "developer", folder: undefined, text: "Build", entry: entry.id, access: "full", json: false }, collect(context.lines)), 0);
+  assert.deepEqual(context.selections.map(({ optionId, value }) => ({ optionId, value })), [
+    { optionId: WORKSPACE_BINDING_OPTION_ID, value: binding },
+    { optionId: WORKSPACE_ACCESS_OPTION_ID, value: "full" },
+  ]);
 });
 
 test("a cancelled turn ends with 2, a failed one with 1", { timeout: 20_000 }, async (t) => {
@@ -483,6 +513,11 @@ test("the command line names command, folder, task and switches", () => {
   assert.deepEqual(parseArguments(["run", "/work", "Build", "--workstation", "laptop-0001"]), {
     kind: "run", profile: "developer", folder: "/work", text: "Build", entry: undefined, json: false, workstation: "laptop-0001",
   });
+  for (const access of ["isolated", "full"]) assert.deepEqual(parseArguments(["run", "Build", "--access", access]), {
+    kind: "run", profile: "developer", folder: undefined, text: "Build", entry: undefined, json: false, access,
+  });
+  assert.throws(() => parseArguments(["run", "Build", "--access", "admin"]), /--access takes isolated or full, not admin/);
+  assert.throws(() => parseArguments(["run", "Build", "--access"]), /--access needs a value/);
   assert.throws(() => parseArguments(["run", "/work", "Build", "--workstation", "short"]), /Invalid workstation id/);
   assert.deepEqual(parseArguments(["run", "Build this", "--entry", "ragents.reference.word-game"]), {
     kind: "run", profile: "developer", folder: undefined, text: "Build this", entry: "ragents.reference.word-game", json: false,

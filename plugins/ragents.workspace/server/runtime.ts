@@ -10,6 +10,8 @@ import {
   type WorkspaceExecuteOptions,
   type WorkspaceExecutor,
   type WorkspaceExecutorParts,
+  type WorkspaceGrant,
+  type WorkspaceGrantPolicy,
 } from "@ragents/workspace-executor";
 import type {
   SessionWorkspace,
@@ -61,6 +63,9 @@ export interface RunWorkspaceRuntimeOptions {
   isolatedProcessSandboxFor?: (runId: string) => Promise<RunProcessSandboxes | undefined>;
   isolatedProcessSandbox?: () => Promise<RunProcessSandboxes | undefined>;
   restrictedFor?: (runId: string) => boolean;
+  fullAccessFor?: (runId: string) => boolean;
+  grantsFor?: (runId: string) => readonly WorkspaceGrant[];
+  grantPolicyFor?: (runId: string) => Promise<WorkspaceGrantPolicy>;
   /** The server's bash from RAGENTS_BASH; required on Windows for the bash tool. */
   bash?: string;
   /** The server's rg from RAGENTS_RG; without a value, one in the PATH applies. */
@@ -161,7 +166,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     };
     this.#nugetCacheDirectory = path.join(options.globalDirectory, "nuget-cache");
     this.sandbox = new WorkspaceSandboxHost({
-      contributorName: "ragents.workspace.sandbox",
+      contributorName: "ragents.workspace",
       contributions: options.contributions,
       workspaceFor: options.sessionWorkspaceFor,
       identFor: () => Promise.resolve(undefined),
@@ -175,6 +180,9 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
       ...(options.isolatedProcessSandboxFor ? { isolatedProcessSandboxFor: options.isolatedProcessSandboxFor } : {}),
       ...(options.isolatedProcessSandbox ? { isolatedProcessSandbox: options.isolatedProcessSandbox } : {}),
       ...(options.restrictedFor ? { restrictedFor: options.restrictedFor } : {}),
+      ...(options.grantsFor ? { grantsFor: options.grantsFor } : {}),
+      ...(options.grantPolicyFor ? { grantPolicyFor: options.grantPolicyFor } : {}),
+      ...(options.fullAccessFor ? { fullAccessFor: options.fullAccessFor } : {}),
       ...(options.bash === undefined ? {} : { bash: options.bash }),
       ...(options.rg === undefined ? {} : { rg: options.rg }),
       ...(options.bashTimeoutSeconds === undefined ? {} : { bashTimeoutSeconds: options.bashTimeoutSeconds }),
@@ -200,7 +208,11 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
   }
 
   /** A signed-in workstation names its background commands whose end no server has learned, such as after a restart of this one; the server observes each one of a run bound to it again, for the actor that started it, and stops those of runs it does not have. */
-  resumeBackgroundTasks(runtime: Orchestration, { owner, client, backgroundTasks }: WorkstationSignIn): void {
+  resumeBackgroundTasks(runtime: Orchestration, { owner, client, backgroundTasks, confirmedRuns }: WorkstationSignIn): void {
+    for (const runId of confirmedRuns) {
+      if (this.#absent(runId)) void this.#options.clients.deleteRun(owner, client.id, runId, client.runsDirectory)
+        .catch((error: unknown) => console.warn(`The deleted run ${runId} could not be released on its workstation: ${messageOf(error)}`));
+    }
     const absent = backgroundTasks.filter(({ runId }) => this.#absent(runId));
     for (const { runId, taskId, startedBy } of backgroundTasks.filter((task) => !absent.includes(task))) {
       try {
@@ -251,8 +263,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     const binding = bindingOf(state);
     if (!isWorkstationBinding(binding)) return undefined;
     const { machine, folder } = binding;
-    const executor = this.#options.clients.executorFor(workspaceOwnerOf(state), machine.client, machine.label, folder.path,
-      (id) => this.sandbox.browserNetworkFor(id));
+    const executor = this.#options.clients.executorFor(workspaceOwnerOf(state), machine.client, machine.label, folder.path);
     return "fresh" in folder ? this.#preparing(state, binding, executor) : executor;
   }
 
@@ -483,10 +494,19 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     console.warn(`The folder ${folder.path} of run ${runId} stays on the workstation ${machine.label} because it was unreachable.`);
   }
 
+  async accessChanged(runId: string): Promise<void> {
+    await this.sandbox.shutdown(runId);
+  }
+
   async deleteSession(runId: string): Promise<void> {
     const contribution = this.#serverContributionFor(runId);
     await this.stopSession(runId);
     await this.#removeWorkstationFolder(runId);
+    const state = this.#options.runState(runId);
+    const binding = bindingOf(state);
+    if (isWorkstationBinding(binding)) {
+      await this.#options.clients.deleteRun(workspaceOwnerOf(state), binding.machine.client, runId, binding.folder.path);
+    }
     await contribution?.deleteSession?.(runId);
   }
 

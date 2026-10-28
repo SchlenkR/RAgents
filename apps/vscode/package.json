@@ -236,6 +236,13 @@
             "additionalProperties": false
           }
         },
+        "ragents.workstation.fullAccess": {
+          "type": "string",
+          "enum": ["ask", "allow", "deny"],
+          "default": "ask",
+          "scope": "machine",
+          "description": "Full access for runs on this workstation: ask once per run with a local modal confirmation, always allow it, or always deny it. Full access includes every accessible file and the inherited environment with credentials."
+        },
         "ragents.hostEnvironment": {
           "type": "array",
           "default": [],

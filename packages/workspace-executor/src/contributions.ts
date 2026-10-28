@@ -8,9 +8,9 @@ import { WorkspaceOperationError } from "./errors.js";
 import type { LanguageServerAdapter } from "./language-server/host.js";
 import { resolveRootDirectory, resolveRootFile } from "./language-server/roots.js";
 import type { WorkspaceModuleFactory } from "./module.js";
-import { startManagedService, type ManagedService, type ManagedServiceOptions } from "./managed-process.js";
+import { startManagedService, stopProcessGroup, type ManagedService, type ManagedServiceOptions } from "./managed-process.js";
 import { RUN_MARKER_ENV } from "./run-marker.js";
-import { safeProcessEnvironment, withoutPrivateEnvironment } from "./safe-environment.js";
+import { safeProcessEnvironment, withoutPrivateEnvironment, withoutProcessStartupHooks } from "./safe-environment.js";
 import { allowedWorkspacePath } from "./paths.js";
 import { boundedText, TOOL_RESULT_MAX_BYTES } from "@ragents/agent";
 
@@ -34,8 +34,10 @@ export interface WorkspaceExecutorMachine {
   readonly operationError: (code: string, message: string, status: number) => Error;
   /** The environment of a process that a contribution starts itself: the safe selection of this machine, its HOME and the marker of the run for the process view. */
   readonly processEnvironment: (runId: string) => NodeJS.ProcessEnv;
+  readonly withoutProcessStartupHooks: (environment: NodeJS.ProcessEnv) => NodeJS.ProcessEnv;
   /** Starts a managed process group with pipes; the contribution applies the run's sandbox before launching. */
   readonly startManagedService: (options: ManagedServiceOptions) => ManagedService;
+  readonly stopProcessGroup: (pid: number, label: string) => Promise<void>;
 }
 
 /** What a contribution adds to the executor of a machine. */
@@ -95,7 +97,9 @@ export const executorMachine = (toolsDirectory: string): WorkspaceExecutorMachin
   resolveRootPath: (root, requested) => allowedWorkspacePath(path.resolve(root, requested), [root]),
   operationError: (code, message, status) => new WorkspaceOperationError(code, message, status),
   processEnvironment: (runId) => withoutPrivateEnvironment({ ...safeProcessEnvironment(process.env), HOME: homedir(), [RUN_MARKER_ENV]: runId }),
+  withoutProcessStartupHooks,
   startManagedService,
+  stopProcessGroup,
 });
 
 /** Loads the file of a contribution, with `expected` only in that version; the version is part of its address so that a newly built contribution never comes from the module cache. */

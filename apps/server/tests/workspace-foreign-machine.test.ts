@@ -42,6 +42,7 @@ import { allGrants, catalog, postTo, setupRun } from "../../../packages/ragents/
 import {
   WORKSPACE_BINDING_OPTION_ID,
   WORKSPACE_CLIENT_STOP_OPERATION,
+  WORKSPACE_CLIENT_DELETE_OPERATION,
   workspaceClientContracts,
   workspaceContracts,
   type BrowseListing,
@@ -120,7 +121,7 @@ const foreignWorkstation = async (
       runId: input.runId, cwd: local, root: local, home: { home: local }, logDirectory: local, hostRoot: undefined, additions: input.env,
     }));
     try {
-      if (input.operation === WORKSPACE_CLIENT_STOP_OPERATION) {
+      if (input.operation === WORKSPACE_CLIENT_STOP_OPERATION || input.operation === WORKSPACE_CLIENT_DELETE_OPERATION) {
         await executor.stopRun(input.runId);
         return { value: null };
       }
@@ -137,7 +138,7 @@ const foreignWorkstation = async (
   const contributions = await client.call(workspaceContracts.clients.contributions, { label, executor: WORKSPACE_EXECUTOR_VERSION });
   await client.call(workspaceContracts.clients.register, {
     id, label, hostname: "foreign-machine", platform: process.platform, folders: Object.keys(folders), runsDirectory, ripgrep: false, executor: WORKSPACE_EXECUTOR_VERSION, contributions,
-    backgroundTasks: [...executor.unreportedBackgroundTasks()],
+    backgroundTasks: [...executor.unreportedBackgroundTasks()], confirmedRuns: [],
   });
   return { operations, disconnect: () => client.close() };
 };
@@ -785,7 +786,7 @@ test("a new folder per run is created on the workstation as the contribution's G
   assert.equal(await stat(path.join(server.root, "server", "sessions", runId, "plugins", "ragents.workspace", "workspace")).catch(() => undefined), undefined);
 
   await server.runtime.deleteSession(runId);
-  assert.deepEqual(workstation.operations.slice(4), ["stop", "commands.run", "runFolder.remove"]);
+  assert.deepEqual(workstation.operations.slice(4), ["stop", "commands.run", "runFolder.remove", "delete"]);
   await missingOnServer(folder);
   assert.doesNotMatch(git(repository, "worktree", "list"), new RegExp(runId));
 });

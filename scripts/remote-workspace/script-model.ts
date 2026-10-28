@@ -27,6 +27,7 @@ export interface ScriptExchange {
   readonly program: string | undefined;
   readonly step: number;
   readonly systemPrompt: string;
+  readonly userInput: string;
   readonly offeredTools: readonly string[];
   readonly reply: string;
 }
@@ -154,6 +155,7 @@ export const startScriptModel = async (token: string, known: readonly KnownTask[
       program: current?.program.id,
       step: current?.step ?? 0,
       systemPrompt,
+      userInput: messages.filter((message) => message.role === "user").map((message) => textOf(message.content)).join("\n"),
       offeredTools,
       reply: reply.kind === "text" ? reply.text : `${reply.step.tool} ${JSON.stringify(reply.step.input)}`,
     });

@@ -1098,13 +1098,43 @@ A plugin view or a caller that knows the template ID can still start it with the
 <p>Before starting, &quot;After restart&quot; defaults to &quot;Continue&quot;: actors that were working when the
 server stopped receive a continuation on its next start. Choose &quot;Stay interrupted&quot; to turn
 this off for the run. A profile can disable continuation for all its runs.</p>
-<p>Before starting, &quot;Sandbox protection&quot; lets administrators restrict the run&#39;s server-side
-code execution. For other users, or when the server requires it, the switch is on and locked.
-The choice cannot change after the run starts. Workstation tools use that workstation&#39;s
-permissions; server-side code still follows the run&#39;s protection.
-Leaving protection off allows model-written code to access the server account&#39;s files, other
-runs, process environment and memory, and network. Embedded and multi-user servers require
+<p>Every run starts with &quot;Isolated&quot; in the composer, including an administrator&#39;s run. The shield
+control lets the owner choose &quot;Full access&quot; before or during the run. On the server this needs
+administrator access and a server that permits it; on a workstation the run&#39;s owner can choose it
+with any server permissions, and that machine confirms locally. An unavailable choice shows its
+reason. A shared user cannot change the level; a run with full access can only be operated by its
+owner. Run details explain what the selected level means on its machine and list approved paths
+under &quot;Grants&quot;.</p>
+<p>&quot;Isolated&quot; applies one read and write rule to file tools and commands on the run&#39;s machine.
+It permits reading outside blocked homes, temporary folders, and application data, plus the run&#39;s
+allowed folders and approved paths. Writing stays within the run&#39;s writable folders and write grants.
+Server commands use the server process sandbox and network policy. On macOS and Linux workstations,
+commands use the workstation OS sandbox, their own home and temporary folder, and an environment
+without secrets; network access includes loopback and the local network. On Windows the file tools
+apply the same rule and the environment filter remains, but commands have no OS sandbox. The composer
+and run details say &quot;Commands are not isolated on this machine&quot;. Inspect process and device
+resources through a command; isolated file tools refuse the host&#39;s process resources.
+&quot;Full access&quot; permits every path available to that machine&#39;s account and unrestricted commands;
+a workstation also passes its inherited environment. The server keeps its safe environment
+allowlist in both levels. Returning to &quot;Isolated&quot; stops the run&#39;s background commands, managed
+services, and language servers; language servers start again when needed. The agent receives the
+new level before its next model call. Embedded and multi-user servers require server process
 protection for everyone (<a href="../operations.md#server-process-sandbox">operations.md</a>).</p>
+<p>For a path outside the current read or write allowance, the agent can use <code>request_access</code> with the path, &quot;read&quot; or
+&quot;write&quot;, and its reason. The &quot;Access request&quot; card shows the resolved path and &quot;Read only&quot; or
+&quot;Read and write&quot;. &quot;Allow&quot; permits that path; for an existing file, &quot;Allow folder&quot; permits its
+containing folder; &quot;Deny&quot; refuses it. Only the run&#39;s owner can answer. On the server the owner
+also needs permission to choose full access. A folder grant includes its contents; allowing one
+file does not allow its neighbours. Write access also permits reading and can target a file that
+does not exist yet; read access requires an existing path. Roots, homes, secret locations, the
+RAgents data folder, and other runs&#39; files require full access instead of a narrow grant.
+For a new directory and its contents, request its existing containing folder. On Linux a
+sandboxed command&#39;s missing write target is prepared as an empty file before the command starts.</p>
+<p>The decision reaches the agent as a new message, and grants survive a server restart. A new
+message from you closes that actor&#39;s open requests; stopping the run withdraws open requests.
+Already reachable paths need no approval. Grants affect file tools and sandboxed commands on the
+binding&#39;s machine. Windows commands retain the limits described above. A refusal
+does not authorize the agent to find another way around it.</p>
 <p>A click shows its effect at once: either the run&#39;s progress appears, or the chosen entry shows
 a spinner and &quot;Starting ...&quot; at the top right while the other entries stay locked until the
 run opens or the start fails; a run script in the run header&#39;s &quot;Run script&quot; list does the same. While a template starts,

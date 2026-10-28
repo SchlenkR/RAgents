@@ -1,10 +1,13 @@
 import { constants } from "node:fs";
-import { access, chmod, mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { randomUUID } from "node:crypto";
+import { access, chmod, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Browser, Page } from "playwright-core";
-import type { WorkspaceExecutorMachine } from "@ragents/workspace-executor";
+import type { WorkspaceExecutorMachine, WorkspaceProcessContext } from "@ragents/workspace-executor";
 import { BROWSER_CHROMIUM_SANDBOX_VARIABLE, BROWSER_EXECUTABLE_VARIABLE } from "./contract.js";
 import { startBrowserProxy, type BrowserNetworkPolicy, type BrowserProxy } from "./network.js";
 
@@ -93,6 +96,16 @@ const sandboxFailure = (error: unknown): unknown => {
     + "a server takes it from the profile section ragents.browser, a workstation as \"0\" from its own environment.", { cause: error });
 };
 
+const browserMachServices = async (executable: string, context: WorkspaceProcessContext): Promise<readonly string[]> => {
+  const bundle = /^(.*\.app)\/Contents\//.exec(await realpath(executable))?.[1];
+  if (!bundle) throw new Error("The isolated macOS browser needs an application bundle. Set BROWSER_EXECUTABLE_PATH to the executable inside a Chrome or Chromium .app, or switch the run to Full access.");
+  const launch = await context.sandbox!.wrap({ command: "/usr/bin/plutil", args: ["-extract", "CFBundleIdentifier", "raw", "-o", "-", path.join(bundle, "Contents", "Info.plist")] });
+  const result = await promisify(execFile)(launch.command, [...launch.args], { cwd: context.root, env: context.env, timeout: 5_000 });
+  const identifier = result.stdout.trim();
+  if (!/^[a-z0-9_-]+(?:\.[a-z0-9_-]+)+$/i.test(identifier)) throw new Error("The browser application bundle has no valid identifier. Configure an installed Chrome or Chromium, or switch the run to Full access.");
+  return ["org.chromium.crashpad.child_port_handshake.*", `${identifier}.MachPortRendezvousServer.*`];
+};
+
 /** Starts Chrome headless with this machine's environment and the run's marker so the process view can attribute it. */
 export const launchChromium = async (
   machine: WorkspaceExecutorMachine,
@@ -101,41 +114,103 @@ export const launchChromium = async (
   timeoutMs: number,
   networkPolicy?: () => Promise<BrowserNetworkPolicy>,
   environment: NodeJS.ProcessEnv = machine.processEnvironment(runId),
+  processContext?: WorkspaceProcessContext,
 ): Promise<Browser> => {
   const playwright = await hostPlaywright(machine, hostRoot);
   const executablePath = await browserExecutable(playwright);
-  const sandboxed = chromiumSandbox();
+  const isolated = processContext?.externalAgentEnvironment !== undefined && processContext.sandbox !== undefined;
+  const sandboxed = chromiumSandbox() && !isolated;
   const proxy = networkPolicy === undefined ? undefined : await startBrowserProxy({ policy: networkPolicy, timeoutMs });
   let temporary: string | undefined;
   let started: Browser | undefined;
   let cleaning: Promise<void> | undefined;
+  let launcher: string | undefined;
+  let temporaryAlias: string | undefined;
   const cleanup = (): Promise<void> => cleaning ??= (async () => {
+    if (launcher !== undefined) {
+      const recorded = await readFile(path.join(launcher, "process.pid"), "utf8").catch((error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return undefined;
+        throw error;
+      });
+      if (recorded !== undefined) await machine.stopProcessGroup(Number(recorded), "Browser");
+    }
     try { await proxy?.close(); }
-    finally { if (temporary !== undefined) await rm(temporary, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }); }
-  })();
+    finally {
+      if (temporary !== undefined) await rm(temporary, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
+      if (launcher !== undefined) await rm(launcher, { recursive: true, force: true });
+      if (temporaryAlias !== undefined) await rm(temporaryAlias, { recursive: true, force: true });
+    }
+  })().catch((error: unknown) => {
+    cleaning = undefined;
+    throw error;
+  });
   try {
-    temporary = await mkdtemp(path.join(process.platform === "win32" ? tmpdir() : "/tmp", "ragents-browser-"));
+    temporary = await mkdtemp(path.join(isolated ? processContext.logDirectory : process.platform === "win32" ? tmpdir() : "/tmp", "ragents-browser-"));
     await chmod(temporary, 0o700);
     temporary = await realpath(temporary);
-    assertBrowserSocketPath(path.join(temporary, "org.chromium.Chromium.XXXXXX", "SingletonSocket"));
-    const profile = proxy === undefined ? undefined : path.join(temporary, "profile");
+    let launchTemporary = temporary;
+    if (isolated) {
+      if (process.platform === "darwin") {
+        temporaryAlias = await realpath(await mkdtemp("/tmp/ragents-b-"));
+        await chmod(temporaryAlias, 0o700);
+        launchTemporary = path.join(temporaryAlias, "tmp");
+        await symlink(temporary, launchTemporary, "dir");
+      } else {
+        launchTemporary = `/tmp/ragents-b-${randomUUID().slice(0, 8)}`;
+      }
+    }
+    assertBrowserSocketPath(path.join(launchTemporary, "org.chromium.Chromium.XXXXXX", "SingletonSocket"));
+    const profile = proxy === undefined && !isolated ? undefined : path.join(temporary, "profile");
     if (profile !== undefined) {
       await mkdir(path.join(profile, "Default"), { recursive: true, mode: 0o700 });
-      await writeFile(path.join(profile, "Default", "Preferences"), JSON.stringify({ webrtc: { ip_handling_policy: "disable_non_proxied_udp" } }), { mode: 0o600 });
+      if (proxy !== undefined) await writeFile(path.join(profile, "Default", "Preferences"), JSON.stringify({ webrtc: { ip_handling_policy: "disable_non_proxied_udp" } }), { mode: 0o600 });
     }
+    let executable = executablePath;
+    if (isolated) {
+      launcher = path.join(path.dirname(processContext.home), "launchers", randomUUID());
+      await mkdir(launcher, { recursive: true, mode: 0o700 });
+      const argumentsFile = path.join(launcher, "command.sh");
+      const launch = await processContext.sandbox!.wrap({
+        command: "/bin/sh",
+        args: [argumentsFile],
+        ...process.platform === "darwin" ? {
+          directoryAliases: [{ path: launchTemporary, target: temporary }],
+          machServices: await browserMachServices(executablePath, processContext),
+        } : {},
+      });
+      const program = path.join(launcher, "launcher.cjs");
+      const source = `const fs = require("node:fs");
+const { spawn } = require("node:child_process");
+fs.writeFileSync(${JSON.stringify(path.join(launcher, "process.pid"))}, String(process.pid), { mode: 0o600 });
+const quote = value => "'" + value.replaceAll("'", "'\\\\''") + "'";
+const prepare = ${JSON.stringify(process.platform === "linux" ? `ln -s '${temporary.replaceAll("'", "'\\''")}' '${launchTemporary}'\n` : "")};
+fs.writeFileSync(${JSON.stringify(argumentsFile)}, prepare + "exec " + ["env", "-u", "ELECTRON_RUN_AS_NODE", ${JSON.stringify(`TMPDIR=${launchTemporary}`)}, ${JSON.stringify(`MAC_CHROMIUM_TMPDIR=${launchTemporary}`)}, ${JSON.stringify(`CFFIXED_USER_HOME=${processContext.home}`)}, ${JSON.stringify(`TMP=${launchTemporary}`)}, ${JSON.stringify(`TEMP=${launchTemporary}`)}, ${JSON.stringify(executablePath)}, ...process.argv.slice(2)].map(quote).join(" ") + "\\n", { mode: 0o600 });
+const launch = ${JSON.stringify(launch)};
+const child = spawn(launch.command, launch.args, { stdio: [0, 1, 2, 3, 4], env: process.env, cwd: ${JSON.stringify(processContext.root)} });
+for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) process.on(signal, () => child.kill(signal));
+child.on("error", error => { console.error(error.message); process.exit(1); });
+child.on("exit", code => process.exit(code ?? 1));
+`;
+      await writeFile(program, source, { mode: 0o600 });
+      executable = path.join(launcher, "chromium");
+      const quote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`;
+      await writeFile(executable, `#!/bin/sh\nexec ${quote(process.execPath)} ${quote(program)} "$@"\n`, { mode: 0o700 });
+    }
+    const args = [
+      ...isolated ? ["--disable-gpu"] : [],
+      ...proxy === undefined ? [] : ["--disable-quic", "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1"],
+    ];
     const options = {
-      executablePath,
+      executablePath: executable,
       headless: true,
       chromiumSandbox: sandboxed,
       timeout: timeoutMs,
-      env: { ...environment, TMPDIR: temporary, TMP: temporary, TEMP: temporary },
-      ...(proxy === undefined ? {} : {
-        proxy: proxy.settings,
-        args: [
-          "--disable-quic",
-          "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1",
-        ],
-      }),
+      env: { ...environment, TMPDIR: launchTemporary, TMP: launchTemporary, TEMP: launchTemporary,
+        ...isolated && process.versions.electron ? { ELECTRON_RUN_AS_NODE: "1" } : {},
+        ...isolated && process.platform === "darwin" ? { MAC_CHROMIUM_TMPDIR: launchTemporary, CFFIXED_USER_HOME: processContext.home } : {},
+      },
+      ...args.length > 0 ? { args } : {},
+      ...(proxy === undefined ? {} : { proxy: proxy.settings }),
     };
     const persistent = profile === undefined ? undefined : await playwright.chromium.launchPersistentContext(profile, options);
     const browser = persistent === undefined ? await playwright.chromium.launch(options) : persistent.browser();

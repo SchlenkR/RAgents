@@ -16,9 +16,11 @@ import {
   type ExecutorContributionRevision,
   type WorkspaceExecuteOptions,
   type WorkspaceExecutor,
+  type WorkspaceAccess,
 } from "@ragents/workspace-executor";
 import {
   WORKSPACE_CLIENT_STOP_OPERATION,
+  WORKSPACE_CLIENT_DELETE_OPERATION,
   clientRegistrationSchema,
   workspaceClientContracts,
   workspaceContracts,
@@ -26,6 +28,11 @@ import {
   type WorkspaceClientInfo,
   type WorkstationBackgroundTask,
 } from "../contract.js";
+
+interface PendingCleanup {
+  readonly cwd: string;
+  readonly deleted: boolean;
+}
 
 interface ClientEntry {
   readonly info: WorkspaceClientInfo;
@@ -54,6 +61,7 @@ export interface WorkstationSignIn {
   readonly owner: string | null;
   readonly client: WorkspaceClientInfo;
   readonly backgroundTasks: readonly WorkstationBackgroundTask[];
+  readonly confirmedRuns: readonly string[];
 }
 
 /** A watch runs until aborted, cleanup briefly; everything else waits for the safety limit plus the duration the call itself requests. */
@@ -134,11 +142,19 @@ export class WorkspaceClientRegistry {
   readonly contributions: readonly ExecutorContributionRevision[];
   readonly #clients = new Map<string, ClientEntry>();
   /** Stops that have not reached the workstation yet, per workstation and run with the folder of the binding. */
-  readonly #pendingStops = new Map<string, Map<string, string>>();
+  readonly #pendingStops = new Map<string, Map<string, PendingCleanup>>();
   readonly #stopRetries = new Map<string, NodeJS.Timeout>();
+  readonly #accessFor: (runId: string) => WorkspaceAccess;
+  readonly #runNameFor: (runId: string) => string | undefined;
   readonly #waiting = new Map<string, Set<(error?: Error) => void>>();
 
-  constructor(contributions: readonly ExecutorContributionRevision[]) {
+  constructor(
+    contributions: readonly ExecutorContributionRevision[],
+    accessFor: (runId: string) => WorkspaceAccess = () => ({ level: "isolated" }),
+    runNameFor: (runId: string) => string | undefined = () => undefined,
+  ) {
+    this.#accessFor = accessFor;
+    this.#runNameFor = runNameFor;
     this.contributions = contributions.map(({ plugin, revision }) => ({ plugin, revision }));
   }
 
@@ -249,7 +265,7 @@ export class WorkspaceClientRegistry {
       version: WORKSPACE_EXECUTOR_VERSION,
       execute: (runId, operation, input, options = {}) => call(runId, operation, input, options),
       stopRun: async (runId) => {
-        this.#pendingStopsOf(key).set(runId, cwd);
+        if (!this.#pendingStops.get(key)?.has(runId)) this.#pendingStopsOf(key).set(runId, { cwd, deleted: false });
         await this.#deliverStop(key, runId);
       },
       shutdown: async () => undefined,
@@ -260,9 +276,15 @@ export class WorkspaceClientRegistry {
   async stopAbsentRun(owner: string | null, id: string, runId: string, cwd: string): Promise<boolean> {
     const key = keyOf(owner, id);
     const pending = this.#pendingStopsOf(key);
-    if (!pending.has(runId)) pending.set(runId, cwd);
+    if (!pending.has(runId)) pending.set(runId, { cwd, deleted: false });
     await this.#deliverStop(key, runId);
     return this.#pendingStops.get(key)?.has(runId) !== true;
+  }
+
+  async deleteRun(owner: string | null, id: string, runId: string, cwd: string): Promise<void> {
+    const key = keyOf(owner, id);
+    this.#pendingStopsOf(key).set(runId, { cwd, deleted: true });
+    await this.#deliverStop(key, runId);
   }
 
   shutdown(): void {
@@ -309,12 +331,15 @@ export class WorkspaceClientRegistry {
     const abandoned = new AbortController();
     entry.calls.add(abandoned);
     const signal = options.signal ? AbortSignal.any([options.signal, abandoned.signal]) : abandoned.signal;
+    const access = operation === WORKSPACE_CLIENT_STOP_OPERATION || operation === WORKSPACE_CLIENT_DELETE_OPERATION ? { level: "isolated" as const } : this.#accessFor(runId);
     try {
       const { value } = await Promise.race([
         entry.connection.call(
           workspaceClientContracts.execute,
           {
             runId,
+            access: { level: access.level, ...(access.grants ? { grants: access.grants.map((grant) => ({ ...grant })) } : {}) },
+            ...this.#runNameFor(runId) ? { runName: this.#runNameFor(runId)! } : {},
             operation,
             ...(options.toolCallId ? { toolCallId: options.toolCallId } : {}),
             cwd,
@@ -339,10 +364,10 @@ export class WorkspaceClientRegistry {
     }
   }
 
-  #pendingStopsOf(key: string): Map<string, string> {
+  #pendingStopsOf(key: string): Map<string, PendingCleanup> {
     const known = this.#pendingStops.get(key);
     if (known) return known;
-    const created = new Map<string, string>();
+    const created = new Map<string, PendingCleanup>();
     this.#pendingStops.set(key, created);
     return created;
   }
@@ -350,18 +375,19 @@ export class WorkspaceClientRegistry {
   /** Delivers a pending stop; if it does not reach the workstation, it stays pending and the next sign-in catches up on it. */
   #deliverStop(key: string, runId: string): Promise<void> {
     const entry = this.#clients.get(key);
-    const cwd = this.#pendingStops.get(key)?.get(runId);
-    if (cwd === undefined) return Promise.resolve();
+    const cleanup = this.#pendingStops.get(key)?.get(runId);
+    if (cleanup === undefined) return Promise.resolve();
     if (!entry) {
       console.warn(`The stop of run ${runId} reaches its workstation only at its next sign-in.`);
       return Promise.resolve();
     }
     const running = entry.stops.get(runId);
-    if (running) return running;
-    const delivery = this.#send(entry, runId, WORKSPACE_CLIENT_STOP_OPERATION, null, cwd, { whenReachable: true })
-      .then(() => this.#stopDelivered(key, runId, cwd), (cause: unknown) => {
+    if (running) return running.then(() => this.#pendingStops.get(key)?.has(runId) ? this.#deliverStop(key, runId) : undefined);
+    const operation = cleanup.deleted ? WORKSPACE_CLIENT_DELETE_OPERATION : WORKSPACE_CLIENT_STOP_OPERATION;
+    const delivery = this.#send(entry, runId, operation, null, cleanup.cwd, { whenReachable: true })
+      .then(() => this.#stopDelivered(key, runId, cleanup), (cause: unknown) => {
         if (!unreached(cause)) {
-          this.#stopDelivered(key, runId, cwd);
+          this.#stopDelivered(key, runId, cleanup);
           throw cause;
         }
         console.warn(`The stop of run ${runId} did not reach the workstation ${entry.info.label} and stays pending: ${messageOf(cause)}`);
@@ -372,9 +398,9 @@ export class WorkspaceClientRegistry {
     return delivery;
   }
 
-  #stopDelivered(key: string, runId: string, cwd: string): void {
+  #stopDelivered(key: string, runId: string, cleanup: PendingCleanup): void {
     const pending = this.#pendingStops.get(key);
-    if (pending?.get(runId) === cwd) pending.delete(runId);
+    if (pending?.get(runId) === cleanup) pending.delete(runId);
     if (pending?.size === 0) this.#pendingStops.delete(key);
   }
 
@@ -416,9 +442,9 @@ export const clientMethods = (registry: WorkspaceClientRegistry, onSignIn: (sign
       throw new RpcError(RPC_ERROR_CODES.invalidParams,
         `Invalid input for ${workspaceContracts.clients.register.id}: ${schemaComplaints(clientRegistrationSchema, input, "params")}`);
     }
-    const { id, executor, contributions, backgroundTasks, ...description } = input;
+    const { id, executor, contributions, backgroundTasks, confirmedRuns, ...description } = input;
     const client = await registry.register(id, description, executor, contributions, connection);
-    onSignIn({ owner: connection.userId, client, backgroundTasks });
+    onSignIn({ owner: connection.userId, client, backgroundTasks, confirmedRuns });
     return client;
   }),
   implement(workspaceContracts.clients.unregister, ({ id }, { access, connection }) => {

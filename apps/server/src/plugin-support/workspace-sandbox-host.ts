@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { chmod, lstat, mkdir, realpath } from "node:fs/promises";
+import { chmod, lstat, mkdir, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { Value } from "typebox/value";
 import type { ImageContent, TextContent } from "@ragents/ai";
@@ -34,6 +34,7 @@ import {
   sandboxRunEnvironment,
   workspaceExecutorModules,
   workspaceProcessContext,
+  validateWorkspaceGrants,
   type AddressedRoots,
   type BrowserNetworkPolicy,
   type ProcessSandbox,
@@ -45,6 +46,8 @@ import {
   type WorkspaceExecutor,
   type WorkspaceExecutorParts,
   type WorkspaceProcessContext,
+  type WorkspaceGrant,
+  type WorkspaceGrantPolicy,
 } from "@ragents/workspace-executor";
 import { hostRoot } from "../host-version.js";
 import type { SandboxFolder, SessionWorkspace } from "../ragents/workspace-runtime.js";
@@ -55,6 +58,7 @@ import { alwaysAvailable } from "./tool-availability.js";
 import { syncWorkspaceOwnership } from "./workspace-ownership.js";
 import { withoutPrivateEnvironment } from "@ragents/workspace-executor/src/safe-environment.ts";
 import { ATTACHMENT_ALIAS, ATTACHMENT_DIRECTORY } from "@ragents/workspace-executor/src/files.ts";
+import { prepareGrantedWritePaths } from "./workspace-grants.js";
 
 export interface RegisteredWorkspaceRoot {
   id: string;
@@ -111,6 +115,9 @@ export interface WorkspaceSandboxHostOptions {
   isolatedProcessSandboxFor?: (runId: string) => Promise<RunProcessSandboxes | undefined>;
   isolatedProcessSandbox?: () => Promise<RunProcessSandboxes | undefined>;
   restrictedFor?: (runId: string) => boolean;
+  fullAccessFor?: (runId: string) => boolean;
+  grantsFor?: (runId: string) => readonly WorkspaceGrant[];
+  grantPolicyFor?: (runId: string) => Promise<WorkspaceGrantPolicy>;
   /** The bash of this server's executor; required on Windows, otherwise the system's when not set. */
   bash?: string;
   /** The rg of this server's executor; when not set, one on the PATH applies. */
@@ -122,10 +129,10 @@ export interface WorkspaceSandboxHostOptions {
 }
 
 const sandboxDescriptions: Readonly<Record<string, string>> = {
-  read: "Read a file with line numbers, or an image, within the run's allowed workspace roots.",
-  edit: "Replace an exact string in a file within the run's writable workspace roots.",
-  write: "Create or overwrite a file within the run's writable workspace roots.",
-  bash: "Execute a shell command in the run's workspace, or with cwd in one of its roots, with sandbox restrictions; run_in_background keeps a service running.",
+  read: "Read a file with line numbers, or an image, according to the run's current access.",
+  edit: "Replace an exact string in a file according to the run's current access.",
+  write: "Create or overwrite a file according to the run's current access.",
+  bash: "Execute a shell command in the run's workspace, or with cwd in one of its roots, with the current access level; run_in_background keeps a service running.",
   task_output: "Read the new output and the status of a background command of bash.",
   task_stop: "Stop a background command of bash.",
 };
@@ -391,6 +398,16 @@ export class WorkspaceSandboxHost implements SandboxServices {
     };
     const additionalRoots = suppliedWorkspace ? [] : await this.#additionalRoots(runId, ident);
     const readOnlyRoots = [...stableReadOnlyRoots, ...await this.#attachmentRoots(runId)];
+    const grantPolicy = await this.#options.grantPolicyFor?.(runId);
+    const fullAccess = serverDirectory === undefined && this.#options.fullAccessFor?.(runId) === true;
+    const grants = serverDirectory === undefined && !fullAccess ? await validateWorkspaceGrants(this.#options.grantsFor?.(runId) ?? [], grantPolicy) : [];
+    const grantedPaths = await Promise.all(grants.map(async (grant) => ({
+      ...grant,
+      directory: await stat(grant.path).then((info) => info.isDirectory(), (error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT" || error.code === "ENOTDIR") return false;
+        throw error;
+      }),
+    })));
     const folders = workspace.sandboxFolders ?? [];
     const writableFolders = await Promise.all(sandboxFoldersWith(folders, "write").map(resolvedWorkspacePath));
     const readableFolders = await Promise.all(sandboxFoldersWith(folders, "read").map(resolvedWorkspacePath));
@@ -398,7 +415,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
     const processSandbox = this.#options.processSandboxFor
       ? await this.#options.processSandboxFor(runId)
       : this.#options.processSandbox;
-    const sandbox = processSandbox && temporary !== undefined
+    const processPolicy = processSandbox && temporary !== undefined
       ? processSandbox.forRun({
         writable: [
           root, ...additionalRoots.map((entry) => entry.directory), home.home, ...home.nugetPackages ? [home.nugetPackages] : [],
@@ -408,11 +425,29 @@ export class WorkspaceSandboxHost implements SandboxServices {
           ...readOnlyRoots.map((entry) => entry.directory), ...storageRoot ? [storageRoot] : [],
           ...readableFolders,
         ],
+        readOnly: readOnlyRoots.map((entry) => entry.directory),
+        grants: grantedPaths,
         temporary,
       })
       : undefined;
+    const beforeLaunch = async (): Promise<void> => {
+      const currentPolicy = await this.#options.grantPolicyFor?.(runId);
+      await validateWorkspaceGrants(grants, currentPolicy);
+      if (process.platform === "linux") await prepareGrantedWritePaths(grants, currentPolicy);
+    };
+    const sandbox: ProcessSandbox | undefined = processPolicy && grants.length > 0 ? {
+      ...(processPolicy.rule ? { rule: processPolicy.rule } : {}),
+      ...(processPolicy.cleanup ? { cleanup: processPolicy.cleanup } : {}),
+      wrap: async (launch) => { await beforeLaunch(); return processPolicy.wrap(launch); },
+      ...(processPolicy.publishPorts ? { publishPorts: async (launch, ports) => { await beforeLaunch(); return processPolicy.publishPorts!(launch, ports); } } : {}),
+      ...(processPolicy.forwardTcp ? { forwardTcp: async (launch, forwards, ports) => { await beforeLaunch(); return processPolicy.forwardTcp!(launch, forwards, ports); } } : {}),
+      ...(processPolicy.tcpEndpoints ? { tcpEndpoints: processPolicy.tcpEndpoints } : {}),
+    } : processPolicy;
     return workspaceProcessContext({
       runId,
+      access: { level: fullAccess ? "full" : "isolated", grants },
+      ...(processPolicy?.rule ? { accessRule: processPolicy.rule } : {}),
+      ...(grantPolicy ? { grantPolicy } : {}),
       cwd,
       root,
       home,
@@ -552,10 +587,9 @@ export class WorkspaceSandboxHost implements SandboxServices {
     this.#seen.delete(runId);
     this.#readImages.delete(runId);
     const remote = await this.#options.executorFor?.(runId);
-    const withoutRoot = this.#withoutRoot.has(runId);
     this.#withoutRoot.delete(runId);
     const results = await Promise.allSettled([
-      this.#local.stopRun(runId), ...(withoutRoot ? [this.#serverRoots.stopRun(runId)] : []), ...(remote ? [remote.stopRun(runId)] : []),
+      this.#local.stopRun(runId), this.#serverRoots.stopRun(runId), ...(remote ? [remote.stopRun(runId)] : []),
     ]);
     const failed = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
     if (failed) throw failed.reason;

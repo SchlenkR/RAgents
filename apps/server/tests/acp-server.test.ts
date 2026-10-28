@@ -2,7 +2,7 @@ import { modelProviderEnvironment } from "./fixtures/profile-composition/profile
 import assert from "node:assert/strict";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -19,6 +19,8 @@ import { attachmentContentRoute } from "../src/api/delivery.ts";
 import { assertRunAccess } from "../src/api/rights.ts";
 import { RpcDispatcher } from "../src/rpc/dispatcher.ts";
 import { RpcHttpTransport } from "../src/rpc/http-transport.ts";
+import type { RunMcp } from "../../../plugins/ragents.mcp/server/runtime.ts";
+import { mcpRunServersToken } from "../../../plugins/ragents.mcp/server/service.ts";
 import { mcpContracts } from "../../../plugins/ragents.mcp/contract.ts";
 import { WORKSPACE_BINDING_OPTION_ID, workspaceContracts } from "../../../plugins/ragents.workspace/contract.ts";
 import { hostClient } from "../../../scripts/agent/host.ts";
@@ -123,7 +125,13 @@ const fixture = async (t: TestContext) => {
   await writeFile(profile, 'console.log("ACP fixture profile loaded");\nexport const config = { host: { PORT: 4710 } };\n');
   t.after(async () => {
     try { await provider.shutdown(); }
-    finally { faux.unregister(); transport.close(); server.closeAllConnections(); await new Promise<void>((resolve) => server.close(() => resolve())); }
+    finally {
+      faux.unregister();
+      transport.close();
+      const closed = new Promise<void>((resolve) => server.close(() => resolve()));
+      server.closeAllConnections();
+      await closed;
+    }
   });
   return { provider, faux, url, folder, profile };
 };
@@ -174,7 +182,7 @@ test("ragents acp serves editor sessions, streams real native/MCP tools, plans, 
   assert.deepEqual(initialized.agentCapabilities?.mcpCapabilities, { http: true, sse: true });
   assert.deepEqual(initialized.authMethods, []);
   const definitions = [{ name: "fixture", type: "http" as const, url: mcp.url, headers: [{ name: "Authorization", value: "Bearer fixture-mcp-private" }] },
-    { name: "process", command: process.execPath, args: [path.join(root, "apps/server/tests/fixtures/mcp/stdio.mjs"), "legacy-strict", path.join(directory, "stdio.log")], env: [{ name: "MCP_TEST_VALUE", value: "fixture-env-private" }] }];
+    { name: "process", command: process.execPath, args: [path.join(root, "apps/server/tests/fixtures/mcp/stdio.mjs"), "legacy-strict", path.join(host.folder, "stdio.log")], env: [{ name: "MCP_TEST_VALUE", value: "fixture-env-private" }] }];
   const session = await editor.connection.newSession({ cwd: host.folder, mcpServers: definitions });
   assert.ok(session.sessionId);
   assert.equal(session.configOptions?.[0]?.currentValue, "acp-fast");
@@ -199,7 +207,8 @@ test("ragents acp serves editor sessions, streams real native/MCP tools, plans, 
     { type: "resource_link", name: "Guide", uri: "https://example.com/guide" }, { type: "resource", resource: { uri: "demo://notes", text: "Embedded context" } }] });
   assert.equal(result.stopReason, "end_turn");
   assert.ok(contexts.length >= 2, JSON.stringify(editor.updates));
-  assert.ok(!editor.updates.some(({ update }) => update.sessionUpdate === "tool_call_update" && update.status === "failed"), JSON.stringify(editor.updates));
+  assert.ok(!editor.updates.some(({ update }) => update.sessionUpdate === "tool_call_update" && update.status === "failed"),
+    JSON.stringify({ updates: editor.updates, mcp: (host.provider.plugins.service(mcpRunServersToken) as RunMcp).snapshot(session.sessionId) }));
   assert.equal(await readFile(path.join(host.folder, "result.txt"), "utf8"), "Created through ACP");
   assert.match(chunks(editor.updates, "agent_message_chunk"), /The editor task is complete\./);
   assert.match(chunks(editor.updates, "agent_thought_chunk"), /Checking tools\./);
@@ -364,14 +373,18 @@ test("ACP workstations offer independent folders, execute MCP on their machine, 
   assert.deepEqual((await rpc.call(workspaceContracts.clients.list, {})).map(({ id }) => id).sort(), [first.machine.client, second.machine.client].sort());
   const runId = "acp-workstation-run";
   await rpc.call(coreContracts.startOptions.select, { runId, optionId: WORKSPACE_BINDING_OPTION_ID, value: first });
+  for (const filename of ["stdio.mjs", "scenario.mjs"]) {
+    await writeFile(path.join(host.folder, filename), await readFile(path.join(root, "apps/server/tests/fixtures/mcp", filename)));
+  }
+  await symlink(path.join(root, "node_modules"), path.join(host.folder, "node_modules"), "dir");
   await rpc.call(mcpContracts.setServers, { runId, servers: { remote: { command: process.execPath,
-    args: [path.join(root, "apps/server/tests/fixtures/mcp/stdio.mjs"), "modern", path.join(directory, "remote-stdio.log")] } } });
+    args: [path.join(host.folder, "stdio.mjs"), "modern", path.join(host.folder, "remote-stdio.log")] } } });
   host.faux.setResponses([fauxAssistantMessage([fauxToolCall("write", { file_path: "remote.txt", content: "Written by the editor workstation" }, { id: "remote-write" }),
     fauxToolCall("mcp__remote__echo", { text: "Workstation MCP" }, { id: "remote-mcp" })], { stopReason: "toolUse" }), fauxAssistantMessage("Workstation complete.")]);
   await rpc.call(coreContracts.chat.send, { runId, text: "Write a file on the workstation and call its MCP server." });
   await until(async () => (await rpc.call(runContracts.view, { runId }))?.turns.at(-1)?.status === "completed", "workstation turn");
   assert.equal(await readFile(path.join(host.folder, "remote.txt"), "utf8"), "Written by the editor workstation");
-  assert.match(await readFile(path.join(directory, "remote-stdio.log"), "utf8"), /tool.called.*echo/);
+  assert.match(await readFile(path.join(host.folder, "remote-stdio.log"), "utf8"), /tool.called.*echo/);
   await rpc.call(mcpContracts.closeConnections, { runId });
   await rpc.call(mcpContracts.closeConnections, { runId });
   assert.match(await readFile(path.join(environment.DATA_DIR, "sessions", runId, "plugins/ragents.mcp/servers.json"), "utf8"), /remote-stdio/);

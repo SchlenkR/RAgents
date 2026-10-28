@@ -213,6 +213,7 @@ export class RunChatSession implements ChatSessionLike {
         { pluginId: optionId, scope: startOptionScope, state: accepted },
       );
     }
+    await entry.option.changed?.(accepted, this.#startContext(userId));
     return this.#startOptionState(entry, userId);
   }
 
@@ -245,7 +246,7 @@ export class RunChatSession implements ChatSessionLike {
   }
 
   #startContext(userId: string | null): StartOptionContext {
-    return { runId: this.id, userId };
+    return { runId: this.id, userId, ...(!this.startLocked ? { values: Object.fromEntries(this.#startValues) } : {}) };
   }
 
   #startValueOf(entry: RegisteredStartOption, choice: StartChoice): JsonValue {
@@ -258,8 +259,9 @@ export class RunChatSession implements ChatSessionLike {
   /** The one place where a template fixes start options: accepted with the acting user; a different earlier value is an error. */
   #startChoice(entry: PublicStartEntry, userId: string | null): StartChoice {
     const state = this.#engine.journal.stateOf(this.id);
+    const context = { ...this.#startContext(userId), values: { ...Object.fromEntries(this.#startValues), ...entry.fixedStartOptions } };
     const fixed = new Map(Object.entries(entry.fixedStartOptions ?? {}).map(([optionId, value]) => {
-      const accepted = this.#engine.startOptions.accept(optionId, value, this.#startContext(userId));
+      const accepted = this.#engine.startOptions.accept(optionId, value, context);
       const chosen = this.startLocked ? storedStartOption(state, optionId) : this.#startValues.get(optionId);
       if (chosen !== undefined && !isDeepStrictEqual(chosen, accepted)) {
         throw new DomainError("start-option-fixed", this.startLocked
@@ -994,9 +996,14 @@ export class RunChatSession implements ChatSessionLike {
   }
 
   #startupPluginStates(choice: StartChoice): readonly { pluginId: string; state: JsonValue }[] {
-    return this.#engine.startOptions.entries().map((entry) => ({
+    const entries = this.#engine.startOptions.entries();
+    const values = Object.fromEntries(entries.map((entry) => [entry.option.id, this.#startValueOf(entry, choice)]));
+    const context = { ...this.#startContext(choice.userId), values };
+    return entries.map((entry) => ({
       pluginId: entry.option.id,
-      state: this.#startValueOf(entry, choice),
+      state: choice.fixed.has(entry.option.id) || this.#startValues.has(entry.option.id)
+        ? this.#engine.startOptions.accept(entry.option.id, values[entry.option.id]!, context)
+        : values[entry.option.id]!,
     }));
   }
 

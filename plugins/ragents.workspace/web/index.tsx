@@ -1,8 +1,10 @@
 import type { WebPlugin } from "@ragents/web/PluginRegistry";
-import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_PLUGIN_ID, WORKSPACE_SANDBOX_OPTION_ID } from "../contract";
+import { WORKSPACE_ACCESS_OPTION_ID, WORKSPACE_BINDING_OPTION_ID, WORKSPACE_GRANTS_STATE_ID, WORKSPACE_PLUGIN_ID } from "../contract";
 import { FileBrowserPanel } from "./FileBrowser";
 import { WorkspaceBindingBadge, WorkspaceBindingControl, WorkspaceMetadata } from "./WorkspaceBinding";
-import { SandboxBadge, SandboxControl } from "./SandboxOption";
+import { AccessBadge, AccessControl } from "./AccessOption";
+import { AccessRequestView } from "./AccessRequest";
+import { WorkspaceGrants } from "./WorkspaceGrants";
 
 export const WORKSPACE_FILES_TAB_ID = "ragents.workspace.files";
 
@@ -17,6 +19,9 @@ function IconFiles() {
 
 export const webPlugin: WebPlugin = {
   id: WORKSPACE_PLUGIN_ID,
+  needsRunView: true,
+  actionViews: [{ owner: WORKSPACE_PLUGIN_ID, View: AccessRequestView }],
+  sessionHeaders: [{ id: WORKSPACE_GRANTS_STATE_ID, order: 95, Header: WorkspaceGrants }],
   workspaceTabs: [{
     readRight: "runs.inspect",
     id: WORKSPACE_FILES_TAB_ID,
@@ -30,9 +35,10 @@ export const webPlugin: WebPlugin = {
     Control: WorkspaceBindingControl,
     Badge: WorkspaceBindingBadge,
   }, {
-    id: WORKSPACE_SANDBOX_OPTION_ID,
-    Control: SandboxControl,
-    Badge: SandboxBadge,
+    id: WORKSPACE_ACCESS_OPTION_ID,
+    placement: "composer",
+    Control: AccessControl,
+    Badge: AccessBadge,
   }],
   sessionMetadata: [{
     id: "ragents.workspace.binding",

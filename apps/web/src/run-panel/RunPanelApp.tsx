@@ -153,6 +153,12 @@ function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { c
       setDraft({ session: newDraft(), entry, prompt: { kind: "guide", guide }, startOptions: startOptions && withoutFixedStartOptions(startOptions, entry.fixedStartOptions) });
     } else startLaunch({ runId: crypto.randomUUID(), entryId, startOptions });
   }, [openFreshRun, registry, replaceLaunch, startLaunch]);
+  /** In VS Code only the extension starts new runs, because only it binds them to its workstation. */
+  const newRunFromHost = useCallback((entryId: string | undefined): boolean => {
+    if (host.kind !== "vscode") return false;
+    host.notify({ type: "newRun", ...(entryId === undefined ? {} : { entryId }) });
+    return true;
+  }, [host]);
   const newRunRefusal = useCallback((entryId: string | undefined): string | undefined => !canCreate ? "New runs are not enabled for this user account."
     : entryId === undefined ? canCreateFree ? undefined : "Free runs are not enabled for this user account."
       : canStartEntry(access, entryId) ? undefined : "This template is not enabled for this user account.", [access, canCreate, canCreateFree]);
@@ -202,7 +208,7 @@ function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { c
       setFocusRunId(selectedRun);
       setDraft(undefined);
       replaceLaunch(undefined);
-      setRunStartOptions(undefined);
+      setRunStartOptions(message.type === "selectRun" ? message.startOptions : undefined);
       setRunTitle(undefined);
       setRunId(selectedRun);
       setPageId(message.type === "showPage" && message.page === "runs" ? "runs" : undefined);
@@ -226,7 +232,7 @@ function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { c
       onStartSample={(entryId) => {
         if (!canStartEntry(access, entryId)) return;
         setHelpOpen(false);
-        startNew(entryId);
+        if (!newRunFromHost(entryId)) startNew(entryId);
       }} />}
   </>;
   const toHome = <Button onClick={showHome} size="sm" variant="outline">Back to home</Button>;
@@ -302,10 +308,7 @@ function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { c
           return;
         case "openRun": setRunTitle(undefined); openRun(action.runId); return;
         case "newRun": {
-          if (host.kind === "vscode") {
-            host.notify({ type: "newRun", ...(action.entryId === undefined ? {} : { entryId: action.entryId }) });
-            return;
-          }
+          if (newRunFromHost(action.entryId)) return;
           const refused = newRunRefusal(action.entryId);
           if (refused !== undefined) throw new Error(refused);
           startNew(action.entryId);

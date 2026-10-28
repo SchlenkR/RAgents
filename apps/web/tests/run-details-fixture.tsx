@@ -9,8 +9,9 @@ import { ActivityHeader } from "../../../plugins/ragents.activity/web/ActivityHe
 import { processHeader } from "../../../plugins/ragents.processes/web/ProcessHeader";
 import { StopRunHeader } from "../../../plugins/ragents.orchestration/web/StopRunButton";
 import { WorkspaceBindingBadge, WorkspaceMetadata } from "../../../plugins/ragents.workspace/web/WorkspaceBinding";
-import { SandboxBadge } from "../../../plugins/ragents.workspace/web/SandboxOption";
-import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_METADATA_ID, WORKSPACE_SANDBOX_OPTION_ID } from "../../../plugins/ragents.workspace/contract";
+import { AccessBadge } from "../../../plugins/ragents.workspace/web/AccessOption";
+import { WorkspaceGrants } from "../../../plugins/ragents.workspace/web/WorkspaceGrants";
+import { WORKSPACE_ACCESS_OPTION_ID, WORKSPACE_BINDING_OPTION_ID, WORKSPACE_GRANTS_STATE_ID, WORKSPACE_METADATA_ID } from "../../../plugins/ragents.workspace/contract";
 import type { RunProcessMessage } from "../../../plugins/ragents.processes/contract";
 import type { StartOptionState } from "../../../apps/server/src/plugin-support/start-options-contract";
 import { initializeTheme } from "../src/theme";
@@ -25,7 +26,7 @@ const startedAt = new Date(Date.now() - 125_000).toISOString();
 const binding = { machine: "server" as const, folder: { path: "/home/user/project/worktrees/example-run" } };
 const options: readonly StartOptionState[] = [
   { id: WORKSPACE_BINDING_OPTION_ID, owner: "ragents.workspace", value: binding, presentation: { kind: "workspace-binding", clients: [], fresh: { server: "New folder", client: "New folder" }, serverFolders: true }, selectable: true, locked: true, chosen: true },
-  { id: WORKSPACE_SANDBOX_OPTION_ID, owner: "ragents.workspace", value: true, presentation: { forced: false }, selectable: true, locked: true, chosen: true },
+  { id: WORKSPACE_ACCESS_OPTION_ID, owner: "ragents.workspace", value: "isolated", presentation: { kind: "workspace-access", machine: "server", commandIsolation: "isolated", fullAccessDisabledReason: null }, selectable: true, locked: false, chosen: true },
   { id: "ragents.system-prompt", owner: "host", value: { promptIds: ["careful"], shareWithAgents: true }, presentation: { kind: "system-prompt", options: [{ id: "careful", label: "Check project conventions", text: "Read the project conventions before changing files." }] }, selectable: true, locked: true, chosen: true },
 ];
 const processMessage: RunProcessMessage = { kind: "snapshot", snapshot: { runId: "example-run", observedAt: startedAt, machine: "server", processes: processNames.map((label, index) => ({
@@ -82,6 +83,7 @@ const withoutBranch = new URLSearchParams(location.search).has("no-branch");
 const registry = new PluginRegistry({ brand: { title: "Example" }, product: { id: "example", title: "Example" }, startEntries: [], plugins: [
   { id: "example.metadata", sessionMetadata: withBadge ? [] : [{ id: WORKSPACE_BINDING_OPTION_ID, order: 0, Metadata: WorkspaceMetadata }] },
   { id: "example.details", sessionHeaders: [
+    { id: WORKSPACE_GRANTS_STATE_ID, order: 95, Header: WorkspaceGrants },
     { id: "example.activity", order: 100, Header: ActivityHeader },
     { id: "example.processes", order: 110, Header: processHeader() },
     { id: "example.stop", placement: "actions", order: 900, Header: StopRunHeader },
@@ -89,14 +91,21 @@ const registry = new PluginRegistry({ brand: { title: "Example" }, product: { id
     { id: "example.branch", placement: "details", order: -100, label: "Branch", explanation: "Runs in its own copy of the project on this branch.", Header: () => withoutBranch ? null : <span>{branch}</span> },
   ], startOptions: [
     { id: WORKSPACE_BINDING_OPTION_ID, Badge: WorkspaceBindingBadge },
-    { id: WORKSPACE_SANDBOX_OPTION_ID, Badge: SandboxBadge },
+    { id: WORKSPACE_ACCESS_OPTION_ID, Badge: AccessBadge },
     { id: "ragents.system-prompt", Badge: SystemPromptBadge },
   ] },
 ] });
 const session: SessionContext = {
   connected: true, pluginEvents: [], messages: [], running: true, send: async () => {}, start: async () => {},
   session: { id: "example-run", title: "Improve document search", updatedAt: 0, metadata: withBadge ? {} : { [WORKSPACE_METADATA_ID]: { binding, summary: "Project copy on branch feature/example" } } },
-  runView: { primaryActorId: "coordinator", actors: [{ id: "worker", displayName: actorName }], turns: [{ id: "worker-turn", actorId: "worker", status: "running", startedAt, toolCalls: [] }] },
+  runView: {
+    id: "example-run", ownerId: "owner", primaryActorId: "coordinator", inputs: [], subscriptions: [], actions: [], artifacts: [],
+    pluginStates: [{ pluginId: WORKSPACE_GRANTS_STATE_ID, scope: { kind: "run" }, state: [
+      { path: "/home/user/reference/project-documentation/complete-technical-reference-with-readable-paths-and-examples.md", access: "read" },
+      { path: "/home/user/exports/search-results", access: "write" },
+    ] }],
+    actors: [{ id: "worker", displayName: actorName }], turns: [{ id: "worker-turn", actorId: "worker", status: "running", startedAt, toolCalls: [] }],
+  },
 };
 const navigation = { activeTabId: "chat", openTab: () => {}, revealEntity: () => false, selectionFor: () => undefined };
 initializeTheme(window);

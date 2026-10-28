@@ -55,9 +55,9 @@ test("the prompt names the platform and search tool of the executor that runs th
     executorShellChapter(registry, "alice", runId === "on-windows"
       ? { machine: { client: CLIENT, label: "Laptop" }, folder: { path: "C:\\projects\\workshop" } }
       : { machine: "server", folder: { path: "/projects/workshop" } }, onServer));
-  assert.equal(prompt.renderForRun?.("on-windows"), shellPlatformChapter("win32", { ripgrep: false }));
+  assert.equal(prompt.renderForRun?.("on-windows")?.split("\n\n## Run access")[0], shellPlatformChapter("win32", { ripgrep: false }));
   assert.match(prompt.renderForRun?.("on-windows") ?? "", /not available here.*--exclude-dir=node_modules/s);
-  assert.equal(prompt.renderForRun?.("on-the-server"), shellPlatformChapter(process.platform, onServer));
+  assert.equal(prompt.renderForRun?.("on-the-server")?.split("\n\n## Run access")[0], shellPlatformChapter(process.platform, onServer));
   assert.equal(await prompt.render({}), shellPlatformChapter(process.platform, onServer));
 });
 
@@ -65,14 +65,14 @@ test("a workstation that reports rg gets the rg search, whatever the server has"
   const registry = await registryWith("win32", true);
   const binding = { machine: { client: CLIENT, label: "Laptop" }, folder: { path: "C:\\projects\\workshop" } } as const;
   const chapter = executorShellChapter(registry, "alice", binding, { ripgrep: false });
-  assert.equal(chapter, shellPlatformChapter("win32", { ripgrep: true }));
+  assert.equal(chapter.split("\n\n## Run access")[0], shellPlatformChapter("win32", { ripgrep: true }));
   assert.match(chapter, /Search code with `rg` \(ripgrep\)/);
 });
 
 test("the platform comes only from a workstation of the run owner, never from another user with the same id", async () => {
   const registry = await registryWith("win32", true);
   const binding = { machine: { client: CLIENT, label: "Laptop" }, folder: { path: "C:\\ragents\\runs\\run-1", fresh: true } } as const;
-  assert.equal(executorShellChapter(registry, "alice", binding, onServer), shellPlatformChapter("win32", { ripgrep: true }));
+  assert.equal(executorShellChapter(registry, "alice", binding, onServer).split("\n\n## Run access")[0], shellPlatformChapter("win32", { ripgrep: true }));
   assert.match(executorShellChapter(registry, "bob", binding, onServer), /Laptop.*not registered right now/s);
   assert.match(executorShellChapter(registry, null, binding, onServer), /Laptop.*not registered right now/s);
 });
@@ -83,4 +83,38 @@ test("an unregistered workstation is named instead of guessing a platform", () =
     folder: { path: "C:\\projects\\workshop" },
   }, onServer);
   assert.match(chapter, /Laptop.*not registered right now/s);
+});
+
+test("the shell chapter describes the selected access on its actual machine", async () => {
+  const registry = await registryWith("win32", true);
+  const workstation = { machine: { client: CLIENT, label: "Laptop" }, folder: { path: "C:\\projects\\workshop" } } as const;
+  const server = { machine: "server", folder: "fresh" } as const;
+  const isolatedWorkstation = executorShellChapter(registry, "alice", workstation, onServer, "isolated");
+  assert.match(isolatedWorkstation, /Isolated access on the workstation/);
+  assert.match(isolatedWorkstation, /read and write rule allows reads.*Secrets are removed/s);
+  assert.match(isolatedWorkstation, /Commands are not isolated on this machine.*Network access is unrestricted/s);
+  const fullWorkstation = executorShellChapter(registry, "alice", workstation, onServer, "full");
+  assert.match(fullWorkstation, /Full access on the workstation: file tools accept every path/);
+  assert.match(fullWorkstation, /including secrets, after local confirmation/);
+  assert.doesNotMatch(fullWorkstation, /server process sandbox/);
+  const isolatedServer = executorShellChapter(registry, "alice", server, onServer, "isolated");
+  assert.match(isolatedServer, /Isolated access on the server/);
+  assert.match(isolatedServer, /server process sandbox, a per-run package cache, the safe environment allowlist/);
+  const fullServer = executorShellChapter(registry, "alice", server, onServer, "full");
+  assert.match(fullServer, /Full access on the server: file tools accept every path/);
+  assert.match(fullServer, /commands run without an OS sandbox.*safe allowlist/);
+  const disconnected = executorShellChapter(new WorkspaceClientRegistry([]), "alice", workstation, onServer, "isolated");
+  assert.match(disconnected, /not registered right now/);
+  assert.match(disconnected, /Secrets are removed.*platform is unavailable/s);
+});
+
+test("macOS and Linux workstation prompts describe the OS sandbox", async () => {
+  for (const platform of ["darwin", "linux"]) {
+    const registry = await registryWith(platform, true);
+    const binding = { machine: { client: CLIENT, label: "Laptop" }, folder: { path: "/projects/workshop" } } as const;
+    const chapter = executorShellChapter(registry, "alice", binding, onServer, "isolated");
+    assert.match(chapter, /Commands are isolated by the workstation OS sandbox/);
+    assert.match(chapter, /including loopback and the local network/);
+    assert.doesNotMatch(chapter, /Commands are not isolated/);
+  }
 });

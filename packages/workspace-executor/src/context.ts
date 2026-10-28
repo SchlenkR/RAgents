@@ -1,9 +1,16 @@
 import { withGitConfigPairs, type GitConfigPairs } from "./git-config-environment.js";
 import type { ProcessSandbox } from "./process-sandbox.js";
 import { RUN_MARKER_ENV } from "./run-marker.js";
-import { inheritedProcessEnvironment, safeProcessEnvironment, withoutPrivateEnvironment } from "./safe-environment.js";
+import { inheritedProcessEnvironment, safeProcessEnvironment, withoutPrivateEnvironment, withoutProcessStartupHooks } from "./safe-environment.js";
 import type { SessionIdent } from "./session-ident.js";
 import type { ResolvedWorkspaceRoot } from "./paths.js";
+import type { WorkspaceGrant, WorkspaceGrantPolicy } from "./grants.js";
+import type { WorkspaceAccessRule } from "./access-rule.js";
+
+export interface WorkspaceAccess {
+  readonly level: "isolated" | "full";
+  readonly grants?: readonly WorkspaceGrant[];
+}
 
 export interface BrowserNetworkPolicy {
   readonly allowedOrigins: readonly string[];
@@ -11,6 +18,10 @@ export interface BrowserNetworkPolicy {
 
 /** What an executor knows about a run: its folders, its environment and its id. */
 export interface WorkspaceProcessContext {
+  readonly accessRule?: WorkspaceAccessRule;
+  readonly externalAgentEnvironment?: NodeJS.ProcessEnv;
+  readonly access?: WorkspaceAccess;
+  readonly grantPolicy?: WorkspaceGrantPolicy;
   runId: string;
   cwd: string;
   root: string;
@@ -95,6 +106,10 @@ export const sandboxEnvironment = (
 });
 
 export interface WorkspaceContextOptions {
+  readonly accessRule?: WorkspaceAccessRule;
+  readonly externalAgentEnvironment?: NodeJS.ProcessEnv;
+  readonly access?: WorkspaceAccess;
+  readonly grantPolicy?: WorkspaceGrantPolicy;
   runId: string;
   cwd: string;
   root: string;
@@ -138,20 +153,25 @@ export const workspaceProcessContext = (options: WorkspaceContextOptions): Works
   const all = [...additionalRoots, ...readOnlyRoots];
   assertDistinctAliases(all);
   const pathVariables = namedEntries(all, (root) => root.environmentVariable);
+  const environment = sandboxEnvironment(options.source ?? process.env, {
+    ...(options.baseEnvironment === undefined ? {} : { base: options.baseEnvironment }),
+    home: options.home,
+    ...(options.ident ? { ident: options.ident } : {}),
+    pathVariables,
+    ...(options.additions ? { additions: options.additions } : {}),
+  });
   return {
+    ...(options.accessRule ? { accessRule: options.accessRule } : {}),
+    ...(options.externalAgentEnvironment ? { externalAgentEnvironment: options.externalAgentEnvironment } : {}),
+    access: options.access ?? { level: "isolated" },
+    ...(options.grantPolicy ? { grantPolicy: options.grantPolicy } : {}),
     runId: options.runId,
     cwd: options.cwd,
     root: options.root,
     home: options.home.home,
     logDirectory: options.logDirectory,
     hostRoot: options.hostRoot,
-    env: sandboxEnvironment(options.source ?? process.env, {
-      ...(options.baseEnvironment === undefined ? {} : { base: options.baseEnvironment }),
-      home: options.home,
-      ...(options.ident ? { ident: options.ident } : {}),
-      pathVariables,
-      ...(options.additions ? { additions: options.additions } : {}),
-    }),
+    env: options.baseEnvironment === "inherited" && options.access?.level !== "full" ? withoutProcessStartupHooks(environment) : environment,
     ...(options.ident === undefined ? {} : { uid: options.ident.uid, gid: options.ident.gid }),
     additionalRoots: additionalRoots.map((root) => root.directory),
     readOnlyRoots: readOnlyRoots.map((root) => root.directory),

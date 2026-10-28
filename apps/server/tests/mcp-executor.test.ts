@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, realpath, rm, symlink } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
@@ -98,6 +98,17 @@ const serverOf = (snapshot: McpSnapshot, name = "fixture"): McpServerSnapshot =>
 };
 
 const resultText = (result: CallToolResult): string => result.content.filter((block) => block.type === "text").map((block) => block.text).join("\n");
+
+test("MCP configuration cannot install startup hooks before the process sandbox", async (t) => {
+  const fixture = await executorFixture(t);
+  const marker = path.join(path.dirname(fixture.workspace), "startup-marker");
+  const hook = path.join(fixture.workspace, "startup.cjs");
+  await writeFile(hook, `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'outside');\n`);
+  const stdio = fixture.stdio("modern");
+  const snapshot = await fixture.connect({ fixture: { ...stdio.definition, env: { NODE_OPTIONS: `--require ${hook}`, LD_PRELOAD: "/untrusted/library.so", DYLD_INSERT_LIBRARIES: "/untrusted/library.dylib" } } });
+  assert.equal(serverOf(snapshot).state, "connected", serverOf(snapshot).error);
+  await assert.rejects(readFile(marker), /ENOENT/);
+});
 
 for (const transport of ["modern-http", "modern-stdio", "legacy-sse", "legacy-stdio", "legacy-http"] as const) {
   test(`${transport} negotiates, lists, calls, notifies, cancels and releases a run`, async (t) => {
@@ -401,7 +412,9 @@ test("an unresponsive HTTP session termination fails within its limit and still 
   assert.ok(http.log.some((entry: { method?: string }) => entry.method === "DELETE"));
   await until(() => http.openStreams() === 0, "local connection cleanup after failed DELETE");
   await withDeadline(observed.finished, "status watch cleanup after failed DELETE");
-  await assert.rejects(fixture.call("echo", { text: "after failed termination" }), /not connected|not.*connected/i);
+  await assert.rejects(fixture.call("echo", { text: "after failed termination" }), /time|abort/i);
+  await fixture.executor.stopRun("run-one");
+  await assert.rejects(fixture.call("echo", { text: "after cleanup retry" }), /not connected|not.*connected/i);
 });
 
 test("aborting a partial connection awaits failed HTTP cleanup and closes the pending process and watch", { timeout: 10_000 }, async (t) => {

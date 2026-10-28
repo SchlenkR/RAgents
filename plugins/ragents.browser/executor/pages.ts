@@ -82,6 +82,7 @@ export const browserLocator = (page: Page, target: BrowserTarget): Locator => {
 export class BrowserPages {
   readonly #options: BrowserPagesOptions;
   readonly #sessions = new Map<string, BrowserSession>();
+  readonly #closing = new Map<string, Promise<void>>();
   #shutDown = false;
 
   constructor(options: BrowserPagesOptions) {
@@ -93,6 +94,10 @@ export class BrowserPages {
     const parsed = new URL(url);
     if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("browser_navigate needs an HTTP or HTTPS address.");
     signal?.throwIfAborted();
+    await this.#closing.get(runId);
+    signal?.throwIfAborted();
+    if (this.#shutDown) throw endedError();
+    if (this.#sessions.get(runId)?.closed) throw new Error("The previous browser has not been cleaned up. Call browser_close before starting another browser.");
     if (!this.#sessions.has(runId)) this.#start(runId, viewport);
     return this.#perform(runId, signal, async (session, page) => {
       this.#resetEvidence(session);
@@ -216,20 +221,26 @@ export class BrowserPages {
     return session && !session.closed && session.page ? this.#stateOf(session, session.page) : null;
   }
 
-  async close(runId: string): Promise<void> {
+  close(runId: string): Promise<void> {
+    const pending = this.#closing.get(runId);
+    if (pending) return pending;
     const session = this.#sessions.get(runId);
-    if (!session) return;
+    if (!session) return Promise.resolve();
     session.closed = true;
-    this.#sessions.delete(runId);
-    const browser = await session.browser.catch(() => undefined);
-    if (browser) await browser.close();
-    await session.queue;
+    const closing = (async () => {
+      const browser = await session.browser.catch(() => undefined);
+      if (browser) await browser.close();
+      await session.queue;
+      if (this.#sessions.get(runId) === session) this.#sessions.delete(runId);
+    })().finally(() => { this.#closing.delete(runId); });
+    this.#closing.set(runId, closing);
+    return closing;
   }
 
   /** Closes every browser; afterwards none starts anymore because nobody would close it. */
   async shutdown(): Promise<void> {
     this.#shutDown = true;
-    const results = await Promise.allSettled([...this.#sessions.keys()].map((runId) => this.close(runId)));
+    const results = await Promise.allSettled([...new Set([...this.#sessions.keys(), ...this.#closing.keys()])].map((runId) => this.close(runId)));
     const failed = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
     if (failed) throw failed.reason;
   }

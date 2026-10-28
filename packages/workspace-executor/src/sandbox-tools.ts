@@ -24,7 +24,7 @@ import { MSYS_CALL_ENV, processGroupExists, stopMsysCall, stopProcessTree } from
 import type { WorkspaceModuleFactory, WorkspaceOperation } from "./module.js";
 import { sandboxedLaunch } from "./process-sandbox.js";
 import { stopUidProcesses } from "./session-ident.js";
-import { allowedWorkspacePath, expandWorkspaceAlias, rootsOfFields, type OperationFootprint } from "./paths.js";
+import { workspacePathRoots, allowedWorkspacePath, expandPathVariables, expandWorkspaceAlias, rootsOfFields, type OperationFootprint } from "./paths.js";
 
 export interface ToolUpdate {
   content?: ReadonlyArray<{ type: string; text?: string }>;
@@ -131,17 +131,6 @@ export const withAnnotation = (result: unknown, note: string | undefined): unkno
   const typed = result as ToolResult;
   if (!Array.isArray(typed.content)) return result;
   return { ...typed, content: [...typed.content, { type: "text", text: note }] };
-};
-
-/** Resolves `$RAGENTS_..._DIR` and `${...}` at the start of a path against the variables of the context. */
-const expandPathVariables = (value: string, variables: Readonly<Record<string, string>>): string => {
-  for (const [name, root] of Object.entries(variables)) {
-    for (const prefix of [`$${name}`, `\${${name}}`]) {
-      const relative = value.startsWith("./") ? value.slice(2) : value;
-      if (relative === prefix || relative.startsWith(prefix + "/")) return path.join(root, relative.slice(prefix.length));
-    }
-  }
-  return value;
 };
 
 export const createSandboxTools = async (
@@ -278,9 +267,8 @@ export const createSandboxTools = async (
       const resolved = requested === undefined ? undefined
         : name === "read" ? await resolveReadPathAsync(requested, cwd) : resolveToCwd(requested, cwd);
       try {
-        const writable = [context.root, ...context.additionalRoots ?? []];
         const file = resolved === undefined ? undefined
-          : await allowedWorkspacePath(resolved, writing ? writable : [...writable, ...context.readOnlyRoots ?? []]);
+          : await allowedWorkspacePath(resolved, await workspacePathRoots(context, resolved, writing));
         const tracked = seen !== undefined && file !== undefined;
         const { answer, stale } = tracked ? await checkedAgainstSeen(name, file, params, seen) : {};
         if (answer) return answer;
@@ -320,22 +308,30 @@ export const createSandboxTools = async (
       throw new WorkspaceOperationError("workspace-path-invalid", `Invalid path: ${String(shown)}`, 400);
     }
     const context = await contextFor();
-    const writable = [context.root, ...context.additionalRoots ?? []];
     const requested = path.resolve(cwd, expandPathVariables(expandWorkspaceAlias(shown, context.workspaceAliases ?? {}), context.pathVariables ?? {}));
-    return { file: await pathInRoots(requested, shown, writing ? writable : [...writable, ...context.readOnlyRoots ?? []]), shown, writable };
+    const writable = await workspacePathRoots(context, requested, true);
+    return { file: await pathInRoots(requested, shown, await workspacePathRoots(context, requested, writing)), shown, writable };
   };
 
   const readBytes: ToolExecute = async (_toolCallId, input) => {
     const params = (input ?? {}) as { path?: unknown; recursive?: unknown };
     const { file, shown } = await resolvedIn(params.path, false);
-    return readFileBytes(file, shown, params.recursive === true);
+    const context = await contextFor();
+    return readFileBytes(file, shown, params.recursive === true, async (filename) => {
+      const relative = path.relative(file, filename).split(path.sep).join("/");
+      await pathInRoots(filename, relative ? `${shown}/${relative}` : shown, await workspacePathRoots(context, filename));
+    });
   };
 
   const writeBytes: ToolExecute = async (_toolCallId, input) => {
     const params = (input ?? {}) as { path?: unknown; content?: unknown };
     const content = fileBytesOf(params.content);
     const { file, shown, writable } = await resolvedIn(params.path, true);
-    await writeFileBytes(file, shown, content, writable);
+    const context = await contextFor();
+    await writeFileBytes(file, shown, content, writable, async (filename) => {
+      const relative = path.relative(file, filename).split(path.sep).join("/");
+      await pathInRoots(filename, relative ? `${shown}/${relative}` : shown, await workspacePathRoots(context, filename, true));
+    });
     return null;
   };
 

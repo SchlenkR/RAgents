@@ -1,6 +1,9 @@
-import { lstat, realpath } from "node:fs/promises";
+import { lstat, realpath, stat } from "node:fs/promises";
 import path from "node:path";
+import type { WorkspaceProcessContext } from "./context.js";
 import { WorkspaceOperationError } from "./errors.js";
+import { validateWorkspaceGrants } from "./grants.js";
+import { ruleAllowsPath } from "./access-rule.js";
 
 export interface ResolvedWorkspaceRoot {
   directory: string;
@@ -63,6 +66,16 @@ export const expandWorkspaceAlias = (requested: string, aliases: Readonly<Record
   return requested;
 };
 
+export const expandPathVariables = (value: string, variables: Readonly<Record<string, string>>): string => {
+  for (const [name, root] of Object.entries(variables)) {
+    for (const prefix of [`$${name}`, `\${${name}}`]) {
+      const relative = value.startsWith("./") ? value.slice(2) : value;
+      if (relative === prefix || relative.startsWith(prefix + "/")) return path.join(root, relative.slice(prefix.length));
+    }
+  }
+  return value;
+};
+
 export const resolvedWorkspacePath = async (filename: string): Promise<string> => {
   let candidate = path.resolve(filename);
   const rest: string[] = [];
@@ -92,4 +105,34 @@ export const allowedWorkspacePath = async (filename: string, roots: readonly str
   const canonicalRoots = await Promise.all(roots.map(resolvedWorkspacePath));
   if (!canonicalRoots.some((root) => containsWorkspacePath(root, absolute))) throw new Error(`Path outside the working directory: ${filename}`);
   return absolute;
+};
+
+export const workspacePathRoots = async (context: WorkspaceProcessContext, filename: string, writing = false): Promise<readonly string[]> => {
+  if (context.access?.level === "full") return [path.parse(await resolvedWorkspacePath(filename)).root];
+  if (context.accessRule) {
+    await validateWorkspaceGrants(context.access?.grants ?? [], context.grantPolicy);
+    const namespaces = context.accessRule.processNamespaces ?? [];
+    const outsideNamespace = (candidate: string): boolean => namespaces.some((root) => containsWorkspacePath(root, path.resolve(candidate)))
+      || /^(?:\\\\\.\\|\\\\\?\\(?:GLOBALROOT|pipe)\\)/i.test(candidate);
+    const assertHostPath = (candidate: string): void => {
+      if (outsideNamespace(candidate)) throw new WorkspaceOperationError("workspace-process-namespace", "Use a command to inspect the run's process and device namespace; file tools cannot read the host's process resources.", 403);
+    };
+    assertHostPath(filename);
+    const canonical = await resolvedWorkspacePath(filename);
+    assertHostPath(canonical);
+    const readOnly = writing ? await Promise.all((context.readOnlyRoots ?? []).map(resolvedWorkspacePath)) : [];
+    return !readOnly.some((root) => containsWorkspacePath(root, canonical))
+      && ruleAllowsPath(context.accessRule, canonical, writing ? "write" : "read") ? [canonical] : [];
+  }
+  const grants = await validateWorkspaceGrants(context.access?.grants ?? [], context.grantPolicy);
+  const canonical = grants.length > 0 ? await resolvedWorkspacePath(filename) : filename;
+  const grantRoots = await Promise.all(grants.filter((grant) => !writing || grant.access === "write").map(async (grant) => {
+    const info = await stat(grant.path).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT" || error.code === "ENOTDIR") return undefined;
+      throw error;
+    });
+    return info?.isDirectory() || path.relative(grant.path, canonical) === "" ? [grant.path] : [];
+  }));
+  return [context.root, ...context.additionalRoots ?? [], ...writing ? [] : context.readOnlyRoots ?? [],
+    ...grantRoots.flat()];
 };

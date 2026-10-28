@@ -4,6 +4,9 @@ ARG VARIANT=plain
 
 FROM node:22-bookworm-slim AS plain
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false NPM_CONFIG_FUND=false NPM_CONFIG_AUDIT=false
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends bubblewrap socat ripgrep procps \
+    && rm -rf /var/lib/apt/lists/*
 # /private/tmp holds the folder that --shared-path creates under the same path as on the Mac.
 RUN mkdir -p /opt/ragents /work/project /private/tmp \
     && chown -R node:node /opt/ragents /work \

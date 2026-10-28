@@ -5684,6 +5684,121 @@
       "x-timeout-ms": 30000
     },
     {
+      "name": "ragents.workspace.accessRequest.answer",
+      "description": "Allow the requested path, allow its containing folder for a file, or deny access. Only the run's owner may answer; server grants require permission to choose full access.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "actionId",
+              "decision"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "actionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "decision": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "allow"
+                  },
+                  {
+                    "type": "string",
+                    "const": "allow-folder"
+                  },
+                  {
+                    "type": "string",
+                    "const": "deny"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "null"
+        }
+      },
+      "x-owner": "ragents.workspace",
+      "x-rights": [
+        "runs.read",
+        "runs.write"
+      ],
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
+    },
+    {
+      "name": "ragents.workspace.accessRequest.availability",
+      "description": "Whether the caller may answer access requests of this run, with the reason when unavailable.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "disabledReason"
+          ],
+          "properties": {
+            "disabledReason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "x-owner": "ragents.workspace",
+      "x-rights": [
+        "runs.read",
+        "runs.write"
+      ],
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
+    },
+    {
       "name": "ragents.workspace.browse.list",
       "description": "List a directory in the workspace or in the file store of a run.",
       "params": [
@@ -5964,7 +6079,8 @@
                   "ripgrep",
                   "executor",
                   "contributions",
-                  "backgroundTasks"
+                  "backgroundTasks",
+                  "confirmedRuns"
                 ],
                 "properties": {
                   "id": {
@@ -6066,6 +6182,14 @@
                     },
                     "maxItems": 1024,
                     "description": "The background commands of bash whose end no server has learned yet; the server observes those of runs bound to the workstation again, such as after its restart, and stops those of runs it does not have"
+                  },
+                  "confirmedRuns": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                    },
+                    "maxItems": 10000
                   }
                 },
                 "additionalProperties": false

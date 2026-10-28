@@ -301,6 +301,7 @@
       "workflowInstructions"
     ],
     "@ragents/workspace-executor": [
+      "ACCESS_OPERATIONS",
       "BYTE_OPERATIONS",
       "COMMAND_OPERATIONS",
       "FILE_BYTES_LIMIT",
@@ -312,6 +313,7 @@
       "TUNNEL_PING_INTERVAL_MS",
       "WORKSPACE_EXECUTOR_VERSION",
       "allowedWorkspacePath",
+      "assertNarrowWorkspaceGrant",
       "bytesOf",
       "containsWorkspacePath",
       "languageServerOpenOperation",

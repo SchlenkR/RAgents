@@ -85,6 +85,10 @@ export class Orchestration {
         this.#recoverStoppedTurns(restartPolicy);
     }
 
+    runIds(): readonly string[] {
+        return this.#journal.runIds();
+    }
+
     listRuns() {
         return this.#journal.runIds().map((runId) => this.select(runId, (state) => ({
             id: state.id,
@@ -114,6 +118,10 @@ export class Orchestration {
         const executor = this.#services.nativeTypeScriptExecutor;
         if (!executor) throw new Error("The native TypeScript executor is missing for this runtime.");
         return executor;
+    }
+
+    stopNativeProcesses(runId: string): Promise<void> {
+        return this.#services.nativeTypeScriptExecutor?.stopRun(runId) ?? Promise.resolve();
     }
 
     events(runId: string) {
@@ -697,6 +705,20 @@ export class Orchestration {
         input: { decision: Exclude<ActionStatus, "pending">; result?: JsonValue | null },
     ) {
         return this.#run(context, runId, "action.resolve", { actionId, ...input }, actions.resolveAction(actionId, input));
+    }
+
+    resolveActionWithState(
+        context: CommandContext,
+        runId: string,
+        actionId: string,
+        input: { decision: Exclude<ActionStatus, "pending">; result?: JsonValue | null },
+        pluginState: { pluginId: string; scope: PluginStateScope; state: JsonValue },
+    ) {
+        assertJsonValue(pluginState.state, "plugin state");
+        return this.#run(context, runId, "action.resolve-with-state", { actionId, ...input, pluginState }, (state, command, services) => [
+            ...actions.resolveAction(actionId, input)(state, command, services),
+            ...actors.replacePluginState(pluginState)(state, command, services),
+        ]);
     }
 
     restartActor(context: CommandContext, runId: string, actorId: string, reason: string) {

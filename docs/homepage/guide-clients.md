@@ -118,8 +118,9 @@ left, full value on the right, with a short explanation below it. A contributed 
 first, ahead of workspace and other facts. It includes all run metadata and start option badges
 (an option already shown as metadata appears once), the full run title, and any connection
 error or sharing access. Branches, paths, process names, and errors wrap as the panel narrows.
-The workspace says where files and commands run; sandbox protection explains whether commands
-are isolated from other work on that machine; system prompts name their instructions and who receives them.
+The workspace says where files and commands run; access explains the file, command, and
+environment limits on that machine; "Grants" lists every approved path with "Read only" or
+"Read and write"; system prompts name their instructions and who receives them.
 Running work shows the agent and elapsed time without overlapping. Processes appear as ordinary
 rows with their full names, open ports, and individual stop controls.
 "Stop run" sits in a separate footer below the facts and directly stops all work and background
@@ -532,6 +533,13 @@ Dictation tools that paste their result, such as HEX, use the same input path.
 Keys already handled by the chat or mini-app are not also executed as VS Code commands.
 In a regular browser, native keyboard and clipboard behavior remains in use.
 
+For "Full access" on this workstation, VS Code asks once per run in a modal dialog that names
+the run and explains access to files, commands, and the inherited environment. The setting
+`ragents.workstation.fullAccess` is `"ask"` by default; `"allow"` permits it without a dialog,
+and `"deny"` refuses it. Confirmation is stored in the workstation's data folder and survives
+restarts; deleting the run removes it. After a refusal, switch the run back to "Isolated" or
+confirm full access in VS Code before retrying the operation.
+
 To make RAgents smaller or larger independently of VS Code's window zoom, set `ragents.zoom`
 in VS Code Settings. The value is a percentage from 50 to 200, with 100 as the default;
 for example, `"ragents.zoom": 90` makes the whole interface 10% smaller. It applies to the home,
@@ -713,6 +721,9 @@ profile's default or the template's fixed start options apply. A single value is
 even if it looks like a path; with two values the first is the folder. If the template fixes
 `ragents.workspace.binding` (`fixed-start-options`) and a folder is given anyway, the command fails
 with that cause before it creates anything on the server. `--workstation` requires a folder.
+
+`--access full` explicitly requests full access; without it, the run is isolated. The same
+ownership, server permissions, and workstation confirmation rules as in the composer apply.
 
 `--workstation <id>` binds the folder on the workstation registered at the host under that ID
 instead of the server (binding `{ machine: { client, label }, folder: { path } }`, the label taken

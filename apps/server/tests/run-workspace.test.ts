@@ -358,6 +358,7 @@ test("a signed-in workstation gets its background commands observed again for ru
     runtime.resumeBackgroundTasks(orchestration, {
       owner: "alice",
       client,
+      confirmedRuns: [],
       backgroundTasks: [
         task("alices-run", "b000001"), task("deleted-run", "b000005"), task("bobs-run", "b000002"), task("other-laptop", "b000003"),
         task("server-run", "b000004"), task("locked-run", "b000006"), task("deleted-run", "b000007"),
@@ -399,7 +400,7 @@ test("a run deleted while its workstation was away gets one stop at the next sig
       if (call.operation === "stop") await delivery.promise;
       return null;
     }));
-    runtime.resumeBackgroundTasks({} as Orchestration, { owner: "alice", client, backgroundTasks: [{ runId: "deleted-run", taskId: "b000001", startedBy: "agent-1" }] });
+    runtime.resumeBackgroundTasks({} as Orchestration, { owner: "alice", client, confirmedRuns: [], backgroundTasks: [{ runId: "deleted-run", taskId: "b000001", startedBy: "agent-1" }] });
     delivery.resolve();
     const line = "The workstation Laptop names background command b000001 of run deleted-run, which this server does not have; the server stopped it there and removed its output.";
     for (let attempt = 0; attempt < 200 && !warnings.includes(line); attempt++) await new Promise((resolve) => setTimeout(resolve, 10));
@@ -809,7 +810,7 @@ test("deleting a run takes its new folder on the workstation away after the rele
   const warnings = t.mock.method(console, "warn", () => undefined);
   try {
     await runtime.deleteSession("remote");
-    assert.deepEqual(calls.map((call) => call.operation), ["stop", "commands.run", "runFolder.remove"]);
+    assert.deepEqual(calls.map((call) => call.operation), ["stop", "commands.run", "runFolder.remove", "delete"]);
     assert.ok(calls.every((call) => call.cwd === `${RUNS}/remote`));
     assert.deepEqual(serverSteps, [], "the contribution cleans up on the server, not on the workstation");
     connection.end();

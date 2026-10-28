@@ -215,6 +215,29 @@ macOS, `%LOCALAPPDATA%` on Windows, and `XDG_CACHE_HOME` or `~/.cache` on Linux.
 provisioned from the selected host. If neither source works, registration reports both causes.
 Different executor versions or contribution states still fail with their cause.
 
+Full access is refused unless this client was started with `--allow-full-access`. This flag
+permits the full inherited environment and file access as the workstation account for runs whose
+owner chooses "Full access". Without it, switch the run back to "Isolated" or restart the
+workstation with the flag before retrying. Confirmed runs are remembered in the workstation's
+data folder beside its runs folder; deleting a run removes its confirmation. Sign-in reconciles
+these confirmations after an offline deletion, including after a server restart. Full-access
+processes stop when the workstation loses its server connection; isolated background processes
+keep their existing reconnect behavior.
+An isolated workstation passes on only toolchain, locale, and terminal variables, without secrets
+or inherited startup and loader overrides, keeps a locally derived `PATH`, and applies the same filesystem rule to file tools and
+sandboxed processes. Runtime packages, toolchains, provisioned tools, and existing caches remain
+read-only. Set any required process-start hook inside an already sandboxed command. It validates grants locally against its real home and data
+folder on every operation. macOS uses Seatbelt; Linux needs bubblewrap and the other prerequisites
+listed below. Network access remains unrestricted, including loopback and local services.
+Windows applies the file rule and environment filter, but commands are not isolated on that machine.
+Keep an isolated project's working folder separate from workstation data, run storage, and local
+full-access confirmations. If they overlap, move workstation data and runs outside the project,
+choose another working folder, or explicitly use Full access. The VS Code extension also protects
+its global storage and user, profile, and Machine settings so isolated runs cannot alter the local
+Full-access policy or cached host trust through a project or narrow grant. A new working folder created for
+this run inside the runs directory is allowed. VS Code uses its own local dialog and
+`ragents.workstation.fullAccess` setting instead of this flag.
+
 Set `RAGENTS_TOKEN` for a personal or existing session token. For automatic sign-in and renewal,
 configure `RAGENTS_USER` and `RAGENTS_PASSWORD` in the process environment. Neither is a command-line
 option. Invalid or absent credentials when sign-in is required produce a visible failure and a
@@ -302,8 +325,8 @@ The local host and workspace also run on Windows. Requirements are:
   otherwise it tells the model to exclude dependency and build folders from `grep -r`.
 - **Git** is your own `git.exe` on `PATH`, for example from Git for Windows. The bundled bash
   contains no git, so your login works as usual: Git Credential Manager, `~/.gitconfig` and
-  `~/.ssh`. On your own machine the bash inherits your whole environment, except the variables of
-  VS Code itself and `BASH_ENV`/`ENV`.
+  `~/.ssh`. On your own machine Bash keeps only toolchain, locale, and terminal variables in "Isolated";
+  "Full access" inherits the environment except VS Code variables and `BASH_ENV`/`ENV`.
 - **CLI workstation** (`ragents workspace-client`) carries the same Bash and ripgrep as the
   extension. npm installs only the optional tools package for this machine; keep optional
   dependencies enabled. A checkout uses the extension build from `pnpm bundle:rg` and
@@ -315,7 +338,8 @@ The local host and workspace also run on Windows. Requirements are:
 - The **.NET SDK** is required when the profile includes Roslyn or FSAC. Provisioning downloads
   the language servers; the TypeScript server comes from the host directory.
 - A **server** on Windows has no process sandbox. `PROCESS_SANDBOX: "auto"` (the default)
-  permits unrestricted administrator runs, but execution that requires a sandbox fails.
+  permits an administrator to choose "Full access", but the default "Isolated" execution
+  requires a sandbox and fails.
   `PROCESS_SANDBOX: "on"` fails at startup. A Windows workstation connected to a server
   needs nothing for server process isolation, because the sandbox applies only to
   the server.
@@ -344,36 +368,82 @@ Credential Manager and over SSH.
 ## Server process sandbox
 
 What a restricted run starts on the server (Bash, commands, language servers, TypeScript snippets,
-actor programs) runs in a process sandbox: it reads and writes only the permitted folders of its
-run, cannot inspect other runs or the server account's home, environment, and memory, and can
+actor programs) runs in a process sandbox: it reads outside blocked areas and inside the run's
+allowed folders, writes only in its writable folders, cannot inspect other runs or the server
+account's home, environment, and memory, and can
 reach public web domains by default. Rules and limits are in [plugins.md](../spec/plugins.md) under
-"Server process sandbox". It does not apply on a workstation; there the run works with the
-developer's Bash and credentials.
-Only what such a run starts on the server, such as a Bash in `@actors`, runs inside it.
+"Server process sandbox". File tools derive their permissions from the same rule, so reading a
+system file such as `/etc/hosts` agrees with `cat` in an isolated command. Read-only aliases and
+copy destinations retain their additional checks.
 
-Nonadministrators always get this protection. Administrators keep unrestricted execution by
-default and can select "Sandbox protection" before starting a run. A server can force it for
-everyone with `PROCESS_SANDBOX: "on"`. The setting is fixed after the start and follows the
-run's owner, including when someone else operates a shared run. Existing server folders can
-only be bound by administrators; nonadministrators use a new folder per run or their own
-workstation. Restricted runs have their own NuGet cache.
+On macOS and Linux workstations, isolated Bash, background and managed commands, language servers,
+MCP servers, and executor contributions use the shared OS sandbox. The user's home, other users'
+homes, temporary folders, and RAgents data are blocked except for the run's allowed folders,
+toolchains, readable package caches, and approved paths. Writes stay in the run's root, its own
+home and temporary folder, and write grants. The run stores its own home, temporary files, and
+writable package caches in `run-storage/<run-id>/home/` beside the workstation's runs folder;
+a sibling `tmp` folder holds temporary files. Deletion removes this run storage while
+retaining an offered external project folder.
+Existing NuGet packages, including a configured package folder, remain a read-only fallback for
+the run's own `NUGET_PACKAGES`; installed browser caches stay read-only.
+A folder path containing pattern characters or line breaks must be renamed or used with Full
+access; isolated run storage refuses redirected home and temporary folders. The error names
+what needs repair. Workstation network access stays unrestricted, including loopback and the local network.
+ACP adapters and their permission-controlled terminal calls use the developer's full environment
+outside this sandbox because the external agent handles its own isolation and permission questions.
+Their stdio MCP definitions receive a separate run launcher and clean environment before reaching
+the adapter; MCP servers follow the run's access. Browser launches on isolated macOS and Linux
+workstations enclose Chromium's parent and children in the mandatory run OS sandbox. Chromium's
+inner sandbox is disabled at the initial launch because macOS does not support nested OS sandboxes;
+there is no unrestricted retry. The profile and temporary data stay in the run's own folders.
+Server and Full-access browser launches retain their existing Chromium sandbox behavior.
+Windows has no OS sandbox: file tools apply the workstation rule and command environments keep
+only toolchain, locale, and terminal variables, while the composer, prompt, and details state "Commands are not isolated on
+this machine". Full access keeps the developer's home and inherited environment after local approval.
+Work executed on the server for a workstation run, such as a Bash in `@actors`, stays isolated
+even when that run has full access on its workstation.
+
+Every run defaults to "Isolated", including administrator runs, and isolated server execution
+uses its own NuGet cache. The owner can change the level in the composer during a run.
+For a workspace on the server, "Full access" requires `*` and is forbidden by
+`PROCESS_SANDBOX: "on"`; `"auto"` and `"off"` permit an explicit choice. A workstation's owner
+can choose full access with any server permissions, subject to that workstation's local
+confirmation. Returning to "Isolated" stops the run's background commands, managed services,
+and language servers on its machine. Existing server folders can only be bound by
+administrators; other users use a new folder per run or their own workstation.
+
+An isolated Linux operation fails if bubblewrap, socat, ripgrep, or required user-namespace support
+is missing. Install the named prerequisite (for Debian or Ubuntu: `sudo apt-get install bubblewrap
+socat ripgrep`) and enable user namespaces in the kernel or container, or switch the run to
+"Full access" with local confirmation. Missing prerequisites never launch an unrestricted command.
 
 Embedded chat and multi-user servers must set `ragents.workspace.PROCESS_SANDBOX: "on"`, even
 when conversations belong to a service account with `*`. Run the server under its own operating
-system account and use scoped provider keys with a credit limit. The forced "Sandbox protection"
-switch is on and locked; the server rejects attempts to turn it off. Limit permitted network
-destinations and extra folders to what the deployment needs.
+system account and use scoped provider keys with a credit limit. The access control explains
+that full access is unavailable for server workspaces; the server rejects an attempt to choose it.
+Limit permitted network destinations and extra folders to what the deployment needs.
 
-With the default `"auto"`, an owner with `*` can run unrestricted code. This is an explicit
-choice for trusted local work: native Node and shell code can read everything the server account
-can, including other users' runs, secrets through the server's environment or process memory,
+Path grants require the same server-owner eligibility as full access, so
+`ragents.workspace.PROCESS_SANDBOX: "on"` also prevents answering server path requests.
+For eligible owners, a read grant adds a readable path to the shared rule and a write grant
+adds readable and writable access. Workstation grants apply only on that workstation and do
+not widen the run's server-side context. The approval interface is described in
+[usage.md](../usage.md#create-your-first-run).
+
+With the default `"auto"`, an owner with `*` can explicitly choose "Full access" for server
+work. This permits every file-tool path and unrestricted native Node and shell code, which can
+read everything the server account can, including other users' runs, secrets through the server's environment or process memory,
 and the network. A prompt injection in a message or document has the same access. Every model-code
 child still starts with a clean allowlisted environment, including paths, home, temporary folder,
 locale, and required run variables; provider keys, profile `env("NAME")` sources and values, and
 configuration containing references or declared secrets are absent. Allowlisted literal
 operational settings may remain. That environment alone cannot protect unrestricted runs.
 Trusted MCP and ACP adapters receive only their explicitly configured credentials in addition
-to this environment. Workstations use their own credentials and permissions.
+to this environment. On a workstation, "Full access" retains the inherited environment;
+"Isolated" removes variables whose underscore-separated names contain secret markers, as well
+as `GPG_AGENT_INFO` and credential-bearing URL values. This filter does not prevent a command
+without an OS sandbox from reading credential files. Details are in
+[plugins.md](../spec/plugins.md#workspace-sandbox-tools-and-processes).
 
 The first restricted execution checks these prerequisites; `"on"` checks them at startup:
 

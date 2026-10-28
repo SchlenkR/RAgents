@@ -35,11 +35,13 @@ export class ManagedMcpTransport implements Transport {
     const wrapped = context.sandbox ? await context.sandbox.wrap(launch) : launch;
     if (this.#closing) throw new Error("MCP stdio transport is closed");
     const cwd = this.#definition.cwd ? await this.#machine.resolveRootDirectory(context.root, this.#definition.cwd) : context.root;
+    const environment = { ...this.#machine.processEnvironment(context.runId), ...context.env, ...this.#definition.env };
+    const isolated = context.sandbox !== undefined || context.access?.level !== "full";
     this.#process = this.#machine.startManagedService({
       ...wrapped,
       args: [...wrapped.args],
       cwd,
-      env: { ...this.#machine.processEnvironment(context.runId), ...context.env, ...this.#definition.env },
+      env: isolated ? { ...this.#machine.withoutProcessStartupHooks(environment), PATH: context.env.PATH } : environment,
       uid: context.uid,
       gid: context.gid,
       label: "MCP server",

@@ -189,7 +189,7 @@ test("commands: an abort and the stop of the run end a running command together 
     const stopped = f.run({ ...waiting("stopped.pid"), timeoutMs: 60_000 });
     const second = await pidOf("stopped.pid");
     await f.executor.stopRun("run-1");
-    await assert.rejects(stopped, /The command was ended with its run/);
+    await assert.rejects(stopped, /The (command|operation) was ended with its run/);
     assert.equal(processExists(second), false);
     await f.executor.stopRun("run-1");
   } finally {

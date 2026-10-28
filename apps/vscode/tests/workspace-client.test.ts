@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
+import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -16,7 +17,7 @@ import {
 import { runContracts } from "../../../packages/ragents/src/http/contracts";
 import { coreContracts } from "../../server/src/api/contracts";
 import { workspaceClientContracts } from "../../../plugins/ragents.workspace/contract";
-import { WorkspaceClient } from "../../../plugins/ragents.workspace/client/workspace-client";
+import { type WorkspaceClientOptions, WorkspaceClient } from "../../../plugins/ragents.workspace/client/workspace-client";
 import { typescriptLanguageServer } from "../../../plugins/ragents.lsp-typescript/executor";
 import { ServerClient } from "../src/server-client";
 import { startStubServer, waitFor, type StubServer } from "./fixtures";
@@ -32,10 +33,11 @@ const textOf = (value: unknown): string =>
     .map((part) => part.text)
     .join("\n");
 
-const started = async (server: StubServer, rg?: string) => {
+const started = async (server: StubServer, rg?: string, accessOptions: Partial<WorkspaceClientOptions> = {}, nestedStorage = false) => {
   const client = new ServerClient(server.url, undefined);
   const directory = await folder();
-  const runs = await folder();
+  const storage = await folder();
+  const runs = join(nestedStorage ? directory : storage, "runs");
   const workspace = new WorkspaceClient(client, {
     id: CLIENT_ID,
     label: "Notebook",
@@ -43,7 +45,7 @@ const started = async (server: StubServer, rg?: string) => {
     platform: process.platform,
     folders: [directory],
     runsDirectory: runs,
-  }, { hostRoot: () => undefined, rg });
+  }, { hostRoot: () => undefined, rg, ...accessOptions });
   await workspace.register();
   assert.deepEqual(workspace.status, { kind: "registered" });
   const connection = server.workspaceConnection(CLIENT_ID);
@@ -52,19 +54,20 @@ const started = async (server: StubServer, rg?: string) => {
     operation: string,
     input: unknown,
     cwd: string,
-    options: { onProgress?: (value: unknown) => void; signal?: AbortSignal } = {},
-  ) => connection.call(
+    options: { onProgress?: (value: unknown) => void; signal?: AbortSignal; access?: "isolated" | "full"; runName?: string } = {},
+  ) => server.workspaceConnection(CLIENT_ID)!.call(
     workspaceClientContracts.execute,
-    { runId: RUN, operation, toolCallId: `call-${operation}`, cwd, env: { [RUN_MARKER_ENV]: RUN, CI: "true" }, input },
+    { runId: RUN, access: { level: options.access ?? "isolated" }, ...(options.runName ? { runName: options.runName } : {}), operation, toolCallId: `call-${operation}`, cwd, env: { [RUN_MARKER_ENV]: RUN, CI: "true" }, input },
     options,
   );
   return {
     client,
     directory,
     runs,
+    storage,
     workspace,
     call,
-    execute: (operation: string, input: unknown, options?: { onProgress?: (value: unknown) => void; signal?: AbortSignal }) =>
+    execute: (operation: string, input: unknown, options?: { onProgress?: (value: unknown) => void; signal?: AbortSignal; access?: "isolated" | "full"; runName?: string }) =>
       call(operation, input, directory, options ?? {}),
   };
 };
@@ -83,7 +86,7 @@ test("the workspace registers and runs the tools in its folder", async () => {
     assert.equal(await readFile(join(directory, "new/file.txt"), "utf8"), "content");
     await execute("edit", { file_path: "new/file.txt", old_string: "content", new_string: "changed café" });
     assert.equal(await readFile(join(directory, "new/file.txt"), "utf8"), "changed café");
-    await assert.rejects(execute("read", { file_path: "/etc/hosts" }), /outside the working directory/);
+    assert.match(textOf((await execute("read", { file_path: "/etc/hosts" })).value), /localhost/);
     await assert.rejects(call("read", { file_path: "hosts" }, "/etc"), /Path outside the offered folder: \/etc/);
     const listing = (await execute("files.list", { path: "new" })).value as { entries: Array<{ name: string }> };
     assert.deepEqual(listing.entries.map((entry) => entry.name), ["file.txt"]);
@@ -98,27 +101,76 @@ test("the workspace registers and runs the tools in its folder", async () => {
   } finally {
     client.rpc.close();
     await rm(directory, { recursive: true, force: true });
-    await rm(runs, { recursive: true, force: true });
+    await rm(join(runs, ".."), { recursive: true, force: true });
     await server.close();
   }
 });
 
-test("the workspace bash inherits the environment of this machine, without VS Code variables and without BASH_ENV", async () => {
+test("Windows workstation file checks and environment filtering do not claim command isolation", async (t) => {
+  const server = await startStubServer();
+  const fixture = await started(server, undefined, { platform: "win32" });
+  const outside = join(fixture.storage, "outside.txt");
+  await writeFile(outside, "outside-command-probe");
+  t.after(async () => {
+    await fixture.workspace.unregister();
+    fixture.client.rpc.close();
+    await server.close();
+    await Promise.all([fixture.directory, fixture.storage].map((directory) => rm(directory, { recursive: true, force: true })));
+  });
+  await assert.rejects(fixture.execute("read", { file_path: outside }), /outside/);
+  const quote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`;
+  const command = `${quote(process.execPath)} -e ${quote(`process.stdout.write(require('node:fs').readFileSync(${JSON.stringify(outside)}, 'utf8'))`)}`;
+  assert.match(textOf((await fixture.execute("bash", { command })).value), /outside-command-probe/);
+});
+
+test("isolated workstation owns its home and temp until the run is deleted", async (t) => {
+  const server = await startStubServer();
+  const fixture = await started(server);
+  t.after(async () => {
+    await fixture.workspace.unregister();
+    fixture.client.rpc.close();
+    await server.close();
+    await Promise.all([fixture.directory, fixture.storage].map((directory) => rm(directory, { recursive: true, force: true })));
+  });
+  const result = textOf((await fixture.execute("bash", { command: 'printf "%s\\n%s\\n" "$HOME" "$TMPDIR"; echo own-home > "$HOME/probe"; echo own-temp > "$TMPDIR/probe"' })).value).trim().split("\n");
+  const storage = join(fixture.storage, "run-storage", RUN);
+  assert.deepEqual(result, [await realpath(join(storage, "home")), await realpath(join(storage, "tmp"))]);
+  await fixture.execute("stop", null);
+  assert.equal(await readFile(join(storage, "home", "probe"), "utf8"), "own-home\n");
+  await fixture.execute("runFolder.remove", null);
+  await assert.rejects(readFile(join(storage, "home", "probe")), /ENOENT/);
+});
+
+test("an isolated working folder cannot contain workstation consent or other run storage", async (t) => {
+  const server = await startStubServer();
+  const fixture = await started(server, undefined, {}, true);
+  t.after(async () => {
+    await fixture.workspace.unregister();
+    fixture.client.rpc.close();
+    await server.close();
+    await Promise.all([fixture.directory, fixture.storage].map((directory) => rm(directory, { recursive: true, force: true })));
+  });
+  await assert.rejects(fixture.execute("write", { file_path: "full-access/forged.txt", content: "confirmed" }), /Move the workstation data and runs folders outside the project/);
+  await assert.rejects(readFile(join(fixture.directory, "full-access", "forged.txt")), /ENOENT/);
+});
+
+test("the isolated workspace bash inherits toolchain variables of this machine, without other variables, VS Code variables and BASH_ENV", async () => {
   const server = await startStubServer();
   const { client, directory, runs, execute } = await started(server);
   const startup = join(directory, "startup.sh");
-  const names = ["RAGENTS_TEST_OWN_TOOL", "VSCODE_RAGENTS_TEST", "ELECTRON_RAGENTS_TEST", "BASH_ENV"] as const;
+  const names = ["RAGENTS_TEST_OWN_TOOL", "JAVA_HOME", "VSCODE_RAGENTS_TEST", "ELECTRON_RAGENTS_TEST", "BASH_ENV"] as const;
   const saved = Object.fromEntries(names.map((name) => [name, process.env[name]]));
   try {
     await writeFile(startup, "echo startup-file-read\n", "utf8");
     process.env.RAGENTS_TEST_OWN_TOOL = "from-user";
+    process.env.JAVA_HOME = "/opt/example-java";
     process.env.VSCODE_RAGENTS_TEST = "editor";
     process.env.ELECTRON_RAGENTS_TEST = "editor";
     process.env.BASH_ENV = startup;
     const output = textOf((await execute("bash", {
-      command: 'printf "%s|%s|%s|%s|%s" "$RAGENTS_TEST_OWN_TOOL" "${VSCODE_RAGENTS_TEST-empty}" "${ELECTRON_RAGENTS_TEST-empty}" "${BASH_ENV-empty}" "$CI"',
+      command: 'printf "%s|%s|%s|%s|%s|%s" "${RAGENTS_TEST_OWN_TOOL-empty}" "$JAVA_HOME" "${VSCODE_RAGENTS_TEST-empty}" "${ELECTRON_RAGENTS_TEST-empty}" "${BASH_ENV-empty}" "$CI"',
     })).value);
-    assert.equal(output.trim(), "from-user|empty|empty|empty|true");
+    assert.equal(output.trim(), "empty|/opt/example-java|empty|empty|empty|true");
   } finally {
     for (const name of names) {
       if (saved[name] === undefined) delete process.env[name];
@@ -126,9 +178,130 @@ test("the workspace bash inherits the environment of this machine, without VS Co
     }
     client.rpc.close();
     await rm(directory, { recursive: true, force: true });
-    await rm(runs, { recursive: true, force: true });
+    await rm(join(runs, ".."), { recursive: true, force: true });
     await server.close();
   }
+});
+
+
+test("isolated workstation commands remove secrets and full access uses the locally confirmed environment and files", async (t) => {
+  const server = await startStubServer();
+  const confirmed: unknown[] = [];
+  const { client, directory, runs, workspace, execute } = await started(server, undefined, {
+    confirmFullAccess: async (run) => { confirmed.push(run); return true; },
+  });
+  const outside = await folder();
+  const previous = process.env.RAGENTS_TEST_TOKEN;
+  process.env.RAGENTS_TEST_TOKEN = "local-secret";
+  t.after(async () => {
+    if (previous === undefined) delete process.env.RAGENTS_TEST_TOKEN;
+    else process.env.RAGENTS_TEST_TOKEN = previous;
+    await workspace.unregister();
+    client.rpc.close();
+    await server.close();
+    await rm(directory, { recursive: true, force: true });
+    await rm(join(runs, ".."), { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  });
+  const command = 'printf "%s" "${RAGENTS_TEST_TOKEN-empty}"';
+  assert.equal(textOf((await execute("bash", { command })).value).trim(), "empty");
+  await assert.rejects(execute("write", { file_path: join(outside, "note.txt"), content: "isolated" }), /outside the working directory/);
+  assert.equal(textOf((await execute("bash", { command }, { access: "full", runName: "Review project" })).value).trim(), "local-secret");
+  await execute("write", { file_path: join(outside, "note.txt"), content: "full" }, { access: "full" });
+  assert.equal(await readFile(join(outside, "note.txt"), "utf8"), "full");
+  assert.deepEqual(confirmed, [{ runId: RUN, name: "Review project" }]);
+  assert.equal(textOf((await execute("bash", { command })).value).trim(), "empty");
+  await assert.rejects(execute("read", { file_path: join(outside, "note.txt") }), /outside the working directory/);
+});
+
+test("a workstation refuses full access before any tool side effect without a local decision", async (t) => {
+  const server = await startStubServer();
+  const { client, directory, runs, workspace, execute } = await started(server);
+  t.after(async () => {
+    await workspace.unregister();
+    client.rpc.close();
+    await server.close();
+    await rm(directory, { recursive: true, force: true });
+    await rm(join(runs, ".."), { recursive: true, force: true });
+  });
+  await assert.rejects(execute("write", { file_path: "unconfirmed.txt", content: "forbidden" }, { access: "full" }), /Isolated.*VS Code.*--allow-full-access/);
+  await assert.rejects(readFile(join(directory, "unconfirmed.txt")), /ENOENT/);
+  for (const operation of ["stop", "delete"]) {
+    await assert.rejects(server.workspaceConnection(CLIENT_ID)!.call(workspaceClientContracts.execute, {
+      runId: "../outside", access: { level: "isolated" }, operation, cwd: directory, env: {}, input: null,
+    }), /not usable as a folder name/);
+  }
+  await execute("write", { file_path: "isolated.txt", content: "allowed" });
+  assert.equal(await readFile(join(directory, "isolated.txt"), "utf8"), "allowed");
+});
+
+test("deleting an offered-folder run clears its local full access confirmation", async (t) => {
+  const server = await startStubServer();
+  let calls = 0;
+  const { client, directory, runs, workspace, execute } = await started(server, undefined, {
+    confirmFullAccess: async () => { calls += 1; return true; },
+  });
+  t.after(async () => {
+    await workspace.unregister();
+    client.rpc.close();
+    await server.close();
+    await rm(directory, { recursive: true, force: true });
+    await rm(join(runs, ".."), { recursive: true, force: true });
+  });
+  await execute("write", { file_path: "note.txt", content: "one" }, { access: "full" });
+  await execute("stop", null);
+  await execute("read", { file_path: "note.txt" }, { access: "full" });
+  assert.equal(calls, 1, "stopping a run preserves its approval");
+  await execute("delete", null);
+  await execute("read", { file_path: "note.txt" }, { access: "full" });
+  assert.equal(calls, 2, "deleting the run requires local approval again");
+});
+
+
+test("a downgrade ends a full access background command before executing isolated calls", { skip: process.platform === "win32", timeout: 30_000 }, async (t) => {
+  const server = await startStubServer();
+  const { client, directory, runs, workspace, execute } = await started(server, undefined, { fullAccess: () => "allow" });
+  t.after(async () => {
+    await workspace.unregister();
+    client.rpc.close();
+    await server.close();
+    await rm(directory, { recursive: true, force: true });
+    await rm(join(runs, ".."), { recursive: true, force: true });
+  });
+  await execute("bash", { command: 'printf "%s" $$ > full.pid; while :; do sleep 0.1; done', run_in_background: true, startedBy: "agent-1" }, { access: "full" });
+  let pid = 0;
+  await waitFor(() => {
+    try { pid = Number(readFileSync(join(directory, "full.pid"), "utf8")); return pid > 0; }
+    catch { return false; }
+  });
+  const alive = () => { try { process.kill(pid, 0); return true; } catch { return false; } };
+  assert.equal(alive(), true);
+  await execute("read", { file_path: "full.pid" });
+  assert.equal(alive(), false, "the isolated operation only returns after the full access process ended");
+});
+
+test("a downgrade while local confirmation is pending prevents the full access call from starting", async (t) => {
+  const server = await startStubServer();
+  const answer = Promise.withResolvers<boolean>();
+  let asked = false;
+  const { client, directory, runs, workspace, execute } = await started(server, undefined, {
+    confirmFullAccess: () => { asked = true; return answer.promise; },
+  });
+  t.after(async () => {
+    answer.resolve(false);
+    await workspace.unregister();
+    client.rpc.close();
+    await server.close();
+    await rm(directory, { recursive: true, force: true });
+    await rm(join(runs, ".."), { recursive: true, force: true });
+  });
+  const full = execute("write", { file_path: "late.txt", content: "forbidden" }, { access: "full" });
+  const refused = assert.rejects(full, /access changed before the operation started/);
+  await waitFor(() => asked);
+  await execute("write", { file_path: "isolated.txt", content: "allowed" });
+  answer.resolve(true);
+  await refused;
+  await assert.rejects(readFile(join(directory, "late.txt")), /ENOENT/);
 });
 
 test("commits in the workspace bash carry the Git identity of the folder, even when the command names another one", async () => {
@@ -143,7 +316,7 @@ test("commits in the workspace bash carry the Git identity of the folder, even w
   } finally {
     client.rpc.close();
     await rm(directory, { recursive: true, force: true });
-    await rm(runs, { recursive: true, force: true });
+    await rm(join(runs, ".."), { recursive: true, force: true });
     await server.close();
   }
 });
@@ -159,11 +332,11 @@ test("with a bundled rg, the workspace registers rg and its bash finds exactly t
   try {
     assert.equal(server.workspaceClients().get(CLIENT_ID)?.ripgrep, true);
     const output = textOf((await execute("bash", { command: "command -v rg; rg --version" })).value);
-    assert.deepEqual(output.trim().split("\n"), [rg, "rg-bundled"]);
+    assert.deepEqual(output.trim().split("\n"), [process.platform === "win32" ? rg : await realpath(rg), "rg-bundled"]);
   } finally {
     client.rpc.close();
     await rm(directory, { recursive: true, force: true });
-    await rm(runs, { recursive: true, force: true });
+    await rm(join(runs, ".."), { recursive: true, force: true });
     await rm(tools, { recursive: true, force: true });
     await server.close();
   }
@@ -205,7 +378,7 @@ test("the new folder of a run is created in the runs folder of the workspace, an
   } finally {
     client.rpc.close();
     await rm(directory, { recursive: true, force: true });
-    await rm(runs, { recursive: true, force: true });
+    await rm(join(runs, ".."), { recursive: true, force: true });
     await server.close();
   }
 });
@@ -272,17 +445,17 @@ const withLanguageServer = async (server: StubServer) => {
   const directory = await folder();
   const workspace = new WorkspaceClient(client, {
     id: CLIENT_ID, label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [directory], runsDirectory: join(directory, "..", "runs"),
-  }, { hostRoot: () => HOST_ROOT });
-  const execute = (operation: string, input: unknown) => {
+  }, { hostRoot: () => HOST_ROOT, fullAccess: () => "allow" });
+  const execute = (operation: string, input: unknown, access: "isolated" | "full" = "isolated") => {
     const connection = server.workspaceConnection(CLIENT_ID);
     assert.ok(connection, "the workspace is registered with the server");
-    return connection.call(workspaceClientContracts.execute, { runId: RUN, operation, cwd: directory, env: { [RUN_MARKER_ENV]: RUN }, input });
+    return connection.call(workspaceClientContracts.execute, { runId: RUN, access: { level: access }, operation, cwd: directory, env: { [RUN_MARKER_ENV]: RUN }, input });
   };
   return {
     client,
     directory,
     workspace,
-    open: async () => (await execute(languageServerOpenOperation(typescriptLanguageServer.id), { root: "." })).value as string,
+    open: async (access: "isolated" | "full" = "isolated") => (await execute(languageServerOpenOperation(typescriptLanguageServer.id), { root: "." }, access)).value as string,
     states: async () => ((await execute(languageServerSnapshotOperation(typescriptLanguageServer.id), null)).value as LanguageServerSnapshot)
       .instances.map((instance) => instance.state),
     close: async () => {
@@ -309,6 +482,20 @@ test("after empty folders and a new offer, the workspace opens language servers 
     await workspace.register();
     assert.deepEqual(workspace.status, { kind: "registered" });
     assert.deepEqual(await states(), []);
+    assert.match(await open(), /1 open instance of TypeScript/);
+    assert.deepEqual(await states(), ["ready"]);
+  } finally {
+    await close();
+  }
+});
+
+test("a workstation downgrade stops language servers and they reopen on demand", { timeout: 120_000 }, async () => {
+  const server = await startStubServer({ contributions: [await typescriptContribution()] });
+  const { workspace, open, states, close } = await withLanguageServer(server);
+  try {
+    await workspace.register();
+    assert.match(await open("full"), /1 open instance of TypeScript/);
+    assert.deepEqual(await states(), [], "the first isolated operation closes full access language servers");
     assert.match(await open(), /1 open instance of TypeScript/);
     assert.deepEqual(await states(), ["ready"]);
   } finally {
@@ -346,7 +533,7 @@ test("without required contributions, the workspace executor knows no language s
   } finally {
     client.rpc.close();
     await rm(directory, { recursive: true, force: true });
-    await rm(runs, { recursive: true, force: true });
+    await rm(join(runs, ".."), { recursive: true, force: true });
     await server.close();
   }
 });
@@ -400,6 +587,8 @@ test("a headless package mismatch names both RAgents versions and the matching p
 
 test("operations resolve dependencies from the asynchronously selected host, also after a host change", async (t) => {
   const directory = await folder();
+  const project = join(directory, "project");
+  await mkdir(project);
   t.after(() => rm(directory, { recursive: true, force: true }));
   const contribution = `import { readFileSync } from "node:fs";
 export const executor = (machine) => ({ modules: [(host) => ({ operations: {
@@ -420,13 +609,13 @@ export const executor = (machine) => ({ modules: [(host) => ({ operations: {
   t.after(() => client.rpc.close());
   const selection = { root: roots[0]! };
   const workspace = new WorkspaceClient(client, {
-    id: CLIENT_ID, label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [directory], runsDirectory: join(directory, "runs"),
+    id: CLIENT_ID, label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [project], runsDirectory: join(directory, "runs"),
   }, { hostRoot: () => undefined, prepareHost: () => Promise.resolve(selection.root) });
   t.after(() => workspace.unregister());
   await workspace.register();
   selection.root = roots[1]!;
   const version = () => server.workspaceConnection(CLIENT_ID)!.call(workspaceClientContracts.execute, {
-    runId: RUN, operation: "acme_version", cwd: directory, env: {}, input: null,
+    runId: RUN, access: { level: "isolated" }, operation: "acme_version", cwd: project, env: {}, input: null,
   });
   assert.deepEqual(await version(), { value: { version: 1 } });
   await workspace.register();
@@ -462,4 +651,93 @@ test("a dead server is reported as an error", async () => {
   assert.equal(dead.status.kind, "failed");
   assert.deepEqual(changes, ["failed"]);
   offline.rpc.close();
+});
+
+test("a failed downgrade cleanup is retried before any later workstation operation", async (t) => {
+  const directory = await folder();
+  const project = join(directory, "project");
+  await mkdir(project);
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const contribution = join(directory, "bundles/acme.cleanup/executor/index.mjs");
+  await mkdir(join(directory, "bundles/acme.cleanup/executor"), { recursive: true });
+  await writeFile(contribution, `
+export const executor = () => {
+  let stops = 0;
+  return { modules: [() => ({
+    operations: { acme_stops: () => Promise.resolve(stops) },
+    stopRun: async () => { stops += 1; if (stops === 1) throw new Error("cleanup blocked"); },
+  })] };
+};
+`);
+  const loaded = await loadExecutorContribution("acme.cleanup", contribution);
+  const server = await startStubServer({ contributions: [{ plugin: loaded.plugin, revision: loaded.revision }] });
+  t.after(() => server.close());
+  const client = new ServerClient(server.url, undefined);
+  t.after(() => client.rpc.close());
+  const workspace = new WorkspaceClient(client, {
+    id: CLIENT_ID, label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [project], runsDirectory: join(directory, "runs"),
+  }, { hostRoot: () => directory, fullAccess: () => "allow" });
+  t.after(() => workspace.unregister());
+  await workspace.register();
+  const call = (level: "isolated" | "full") => server.workspaceConnection(CLIENT_ID)!.call(workspaceClientContracts.execute, {
+    runId: RUN, access: { level }, operation: "acme_stops", cwd: project, env: {}, input: null,
+  });
+  assert.deepEqual(await call("full"), { value: 0 });
+  await assert.rejects(call("isolated"), /cleanup blocked/);
+  assert.deepEqual(await call("isolated"), { value: 2 });
+});
+
+test("a full access background command ends when the workstation loses its server connection", { skip: process.platform === "win32", timeout: 30_000 }, async (t) => {
+  const server = await startStubServer();
+  const { client, directory, runs, workspace, execute } = await started(server, undefined, { fullAccess: () => "allow" });
+  t.after(async () => {
+    await workspace.unregister();
+    client.rpc.close();
+    await server.close();
+    await rm(directory, { recursive: true, force: true });
+    await rm(join(runs, ".."), { recursive: true, force: true });
+  });
+  await execute("bash", { command: 'printf "%s" $$ > disconnected.pid; while :; do sleep 0.1; done', run_in_background: true, startedBy: "agent-1" }, { access: "full" });
+  let pid = 0;
+  await waitFor(() => {
+    try { pid = Number(readFileSync(join(directory, "disconnected.pid"), "utf8")); return pid > 0; }
+    catch { return false; }
+  });
+  const alive = () => { try { process.kill(pid, 0); return true; } catch { return false; } };
+  assert.equal(alive(), true);
+  client.rpc.close();
+  await waitFor(() => !alive(), 10_000);
+  client.rpc.connect();
+  await workspace.register();
+  assert.deepEqual(workspace.status, { kind: "registered" });
+  await execute("read", { file_path: "disconnected.pid" });
+  assert.equal(alive(), false);
+});
+
+test("a pending full access confirmation cannot launch its operation after a disconnect", { timeout: 30_000 }, async (t) => {
+  const server = await startStubServer();
+  const answer = Promise.withResolvers<boolean>();
+  let asked = false;
+  const { client, directory, runs, workspace, execute } = await started(server, undefined, {
+    confirmFullAccess: () => { asked = true; return answer.promise; },
+  });
+  t.after(async () => {
+    answer.resolve(false);
+    await workspace.unregister();
+    client.rpc.close();
+    await server.close();
+    await rm(directory, { recursive: true, force: true });
+    await rm(join(runs, ".."), { recursive: true, force: true });
+  });
+  const full = execute("write", { file_path: "disconnected.txt", content: "forbidden" }, { access: "full" });
+  const ended = assert.rejects(full, /closed|cancel|connection/i);
+  await waitFor(() => asked);
+  client.rpc.close();
+  answer.resolve(true);
+  await ended;
+  client.rpc.connect();
+  await workspace.register();
+  assert.deepEqual(workspace.status, { kind: "registered" });
+  await execute("write", { file_path: "reconnected.txt", content: "allowed" });
+  await assert.rejects(readFile(join(directory, "disconnected.txt")), /ENOENT/);
 });

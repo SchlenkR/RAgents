@@ -8,6 +8,7 @@ import {
   aliasOf,
   aliasedRoot,
   allowedWorkspacePath,
+  workspacePathRoots,
   containsWorkspacePath,
   expandWorkspaceAlias,
   rootsOfFields,
@@ -165,10 +166,11 @@ export const readTextFile = async (root: string, relative: string): Promise<File
 /** The whole text of a file named like the file tools name it: relative to the working directory, absolute in a root of the run, or with an alias. */
 export const readToolTextFile = async (context: WorkspaceProcessContext, requested: string): Promise<FileText> => {
   if (requested.trim() === "" || requested.includes("\0")) throw invalid(`Invalid path: ${requested}`);
-  const roots = [context.root, ...context.additionalRoots ?? [], ...context.readOnlyRoots ?? []];
+  const candidate = path.resolve(context.cwd, expandWorkspaceAlias(requested, context.workspaceAliases ?? {}));
+  const roots = await workspacePathRoots(context, candidate);
   let file: string;
   try {
-    file = await allowedWorkspacePath(path.resolve(context.cwd, expandWorkspaceAlias(requested, context.workspaceAliases ?? {})), roots);
+    file = await allowedWorkspacePath(candidate, roots);
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("Path outside the working directory")) throw invalid(`Path outside the working directory: ${requested}`);
     throw error;
@@ -278,6 +280,12 @@ export const fileModule: WorkspaceModuleFactory = (host) => {
     const context = await host.contextFor(runId);
     const alias = (input as { alias?: unknown } | null)?.alias;
     const requested = pathOf(input);
+    if (context.accessRule) {
+      const relative = relativeWorkspacePath(requested);
+      const candidate = alias === undefined ? path.resolve(context.root, relative)
+        : path.resolve(expandWorkspaceAlias(String(alias), context.workspaceAliases ?? {}), relative);
+      await allowedWorkspacePath(candidate, await workspacePathRoots(context, candidate));
+    }
     if (alias === undefined) return { root: context.root, path: requested };
     const aliases = context.workspaceAliases ?? {};
     const location = requested === "" ? String(alias) : `${String(alias)}/${requested}`;

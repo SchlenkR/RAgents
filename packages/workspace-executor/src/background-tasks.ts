@@ -187,6 +187,7 @@ export const backgroundTasks = (
     };
     const child = (() => {
       try {
+        abort?.throwIfAborted();
         return spawn(launch.command, [...launch.args], {
           cwd,
           detached: !onWindows,

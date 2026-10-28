@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { access, mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { request } from "node:http";
@@ -7,7 +8,7 @@ import test, { type TestContext } from "node:test";
 import { pathToFileURL } from "node:url";
 import type { LaunchOptions } from "playwright-core";
 import type { PluginHost, PluginRegistration } from "@ragents/engine";
-import { executorMachine } from "@ragents/workspace-executor";
+import { executorMachine, workspaceProcessContext } from "@ragents/workspace-executor";
 import { BROWSER_CHROMIUM_SANDBOX_VARIABLE } from "../../../plugins/ragents.browser/executor/contract.ts";
 import { assertBrowserSocketPath, chromiumSandbox, launchChromium } from "../../../plugins/ragents.browser/executor/playwright.ts";
 import { plugin } from "../../../plugins/ragents.browser/server/index.ts";
@@ -212,5 +213,45 @@ test("restricted Chromium fails closed when WebRTC policy is ineffective or over
     const address = stub.launches.at(-1)!.proxy!.server;
     await assert.rejects(proxyRequest(address), /ECONNREFUSED|socket hang up/);
     await assert.rejects(access(stub.profiles.at(-1)!), /ENOENT/);
+  }
+});
+
+
+test("an Electron workstation runs its trusted browser launcher as Node and removes that mode before the browser", async (t) => {
+  const stub = await fixture(t);
+  const directory = await realpath(await mkdtemp("/tmp/ragents-browser-bootstrap-"));
+  const home = path.join(directory, "home");
+  const temporary = path.join(directory, "tmp");
+  await Promise.all([home, temporary].map((entry) => mkdir(entry)));
+  const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
+  const electron = Object.getOwnPropertyDescriptor(process.versions, "electron");
+  Object.defineProperty(process, "platform", { configurable: true, value: "linux" });
+  Object.defineProperty(process.versions, "electron", { configurable: true, value: "test" });
+  t.after(async () => {
+    Object.defineProperty(process, "platform", platform);
+    if (electron) Object.defineProperty(process.versions, "electron", electron);
+    else delete process.versions.electron;
+    await rm(directory, { recursive: true, force: true });
+  });
+  const context = workspaceProcessContext({
+    runId: "bootstrap", root: directory, cwd: directory, home: { home }, logDirectory: temporary, hostRoot: "/fixture",
+    externalAgentEnvironment: {}, sandbox: { wrap: async (launch) => launch },
+  });
+  const browser = await launchChromium(stub.machine, "/fixture", context.runId, 1000, undefined, context.env, context);
+  const options = stub.launches[0]!;
+  assert.equal(options.env?.ELECTRON_RUN_AS_NODE, "1");
+  assert.equal(options.chromiumSandbox, false);
+  try {
+    const child = spawn(options.executablePath!, ["-e", "console.log('INNER_MODE=' + (process.env.ELECTRON_RUN_AS_NODE ?? 'unset'))"], {
+      cwd: directory, env: options.env, stdio: ["ignore", "pipe", "pipe", "pipe", "pipe"],
+    });
+    let output = "";
+    child.stdout.on("data", (chunk: Buffer) => { output += chunk.toString(); });
+    const code = await new Promise<number | null>((resolve, reject) => { child.once("error", reject); child.once("close", resolve); });
+    assert.equal(code, 0);
+    assert.match(output, /INNER_MODE=unset/);
+  } finally {
+    await browser.close();
+    if (options.env?.TMPDIR) await rm(options.env.TMPDIR, { force: true });
   }
 });

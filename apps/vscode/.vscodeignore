@@ -1,5 +1,6 @@
 **
 !dist/extension.js
+!dist/vendor/**
 !dist/webview/*.js
 !dist/webview/panel.css
 !media/**

@@ -1,5 +1,156 @@
 # Decisions
 
+## 2026-10-28: Isolated workstations inherit an allowlist of environment variables
+
+Chapter: `spec/plugins.md` (Workspace, sandbox tools, and processes: environment bases); operations
+guide.
+
+**Why.** A live run on a developer machine still read API keys named `*_APIKEY`, a database
+password ending in `_PW`, and tokens under service names without any telltale part. Secret names
+are arbitrary, and an isolated workstation command reaches every network destination, so a name
+denylist cannot keep credentials in. A test also left run storage in the developer's real
+workstation data folder, and the browser's temporary alias was refused whenever the workstation
+process ran from `/`, which is the working directory of VS Code on macOS.
+
+**Decision.** Isolated workstation commands inherit only the safe names plus shell, user, locale,
+terminal, editor, proxy, and toolchain variables and a few toolchain prefixes; the name and URL
+credential filter still applies to that list. Full access and ACP adapters keep the inherited
+environment. The alias check refuses only protected roots inside the alias target, and the bundle
+test runs with its own home. The project's Git configuration stays writable for now; `TODO.md`
+names the decision about protecting it.
+
+## 2026-10-28: File operations and processes use one access rule on each machine
+
+Chapter: `spec/plugins.md` (Workspace, sandbox tools, and processes, Server process sandbox,
+Workstation process sandbox); usage and operations guides.
+
+**Why.** A file tool and a command must agree about the files a run may reach. Environment
+filtering alone cannot hide credential files from workstation commands. Host file reads of process
+pseudo-files can expose the executor's environment even though an isolated command sees its own
+process namespace. Inherited startup hooks can execute code in trusted launchers before sandbox
+entry, and writable runtime packages would let a run replace those launchers. The machine must enforce
+the run's limits while allowing normal builds and access to local development services.
+
+**Decision.** A pure rule in `packages/workspace-executor` supplies file checks and OS sandbox
+permissions. Isolated workstation environments remove startup and loader injection controls after
+server additions, retain locally derived `PATH`, and expose trusted runtime packages, toolchains,
+provisioned tools, caches, and the Node installation read-only. Full access and the ACP developer
+environment keep their inherited semantics; commands may set hooks after sandbox entry. Isolated
+MCP definitions cannot restore loader controls or replace launcher `PATH` after the merge, including
+stdio definitions forwarded through ACP and isolated server MCP launches.
+The server retains its existing rule and network policy. macOS and Linux workstations
+use the shared runtime with local blocked homes, temporary folders, and application data, readable
+offered folders and toolchains, writable run folders, and locally revalidated grants. Each run gets
+its own home, temporary folder, and writable caches; existing or configured NuGet packages are a
+read-only fallback and installed browser caches stay read-only. The existing macOS .NET mutex and MSBuild socket exceptions remain shared writable
+areas because the toolchain fixes their locations; file checks expose that same narrow exception.
+The macOS certificate service remains reachable for toolchain TLS validation; Corepack and Git
+stop probing blocked parent folders during ordinary builds; POSIX npm scripts use an absolute
+system shell for the same reason. Runtime and bundled .NET extraction files use the run's temp
+folder.
+Workstation network access includes loopback and the local network. Missing Linux
+prerequisites fail with a remedy. ACP adapters retain the developer's environment outside this
+sandbox because their agents supply their own permissions, as do their permission-controlled
+terminal calls. Stdio MCP definitions passed to those adapters still enter the run's sandbox with
+a clean child environment; Windows uses a trusted filtered-environment bootstrap without claiming
+OS isolation. Directly hosted MCP connections keep the same rule. Literal workstation paths refuse
+sandbox pattern characters and redirected run-storage directories, with a rename or repair remedy.
+The shared rule also identifies process and device namespaces: isolated host file tools refuse
+those resources, including symlink aliases, and grants cannot bind host instances into a child.
+Commands inspect their own namespace; ordinary files retain one common access authority.
+An isolated project root cannot contain local data or consent storage or live inside another
+internal-data folder; the run's own generated root is allowed. Offered read ancestors are split
+around protected directories. This local precondition prevents modifying full-access confirmations
+or sibling runs through a broad project root, and errors name moving data outside the project,
+choosing another working folder, or Full access as remedies. The local VS Code host additionally
+protects global storage and user, profile, and Machine settings so neither a grant nor a project
+operation can rewrite the local Full-access policy or cached host trust.
+Isolated workstation browsers put Chromium's parent and children inside the mandatory run OS
+sandbox. They disable Chromium's inner sandbox at the first launch because macOS cannot nest it,
+without an unrestricted retry. The profile stays in run temporary storage; a pinned short alias
+and read-only launcher keep socket paths short without widening the data allowance. The macOS
+profile permits Chromium's required IOSurface and power-management IOKit clients, limited child
+IPC handshakes, and safe machine metadata while retaining process-inspection and numeric sysctl denial. Server and
+Full-access browser behavior remains unchanged.
+Windows applies file checks and environment filtering and explicitly reports that commands are
+not isolated. The platform comes from the bound workstation, including in access-change notes,
+composer controls, and run details. A disconnected workstation reports unknown isolation. Executor protocol 20 rejects older clients
+that would run workstation commands without this OS sandbox.
+The completed access concept is removed; individual grant revocation, a workstation network
+allowlist, and global coordinator policy remain in `TODO.md`.
+
+## 2026-10-28: Owners can approve narrow paths without enabling full access
+
+Chapters: `spec/plugins.md` (Workspace, sandbox tools, and processes, Server process sandbox);
+`spec/core.md` (Pending actions); usage and operations guides.
+
+**Why.** Reading one reference file or writing one export should not require access to every
+file of the account. An action's generic resolution is an answer, so treating any approved
+result as authority would let another answer path bypass ownership or narrowness checks.
+Workstation grants also need checks on the machine whose real home and filesystem are exposed.
+
+**Decision.** `request_access` resolves the requested path through the file-tool executor,
+returns immediately when it is already reachable, and otherwise proposes an owner-controlled
+access card and ends the turn. Only the workspace plugin's answer method can write grants;
+it rechecks the caller, server full-access eligibility, canonical path, and narrowness.
+The action resolution and one grants-state event share an atomic journal record, so replay
+restores both together. A generic action resolution grants nothing. Requests close on stop or
+a new human message, and actual decisions return as new inputs without asking the model to repeat IDs.
+The shared validator rejects broad paths, homes, secrets, data, and other runs' files on the
+server and again locally for every workstation operation. Read and write grants extend file
+tools on the binding's machine and the server process sandbox, while workstation commands
+still have no OS sandbox. Executor protocol 19 rejects peers without the grant contract.
+Grant paths refuse pattern characters because the process sandbox library interprets paths as
+patterns. A missing write target denotes a file; Linux prepares it at process launch with
+exclusive creation and private permissions so bubblewrap can bind it without widening access to
+its parent. Creating a directory instead requires a grant to an existing containing folder.
+The journal keeps only path and access, so file or directory coverage follows the current kind
+at that canonical path rather than a stored file identity.
+Local confirmation storage and temporary workspace logs stay protected even when the runs
+folder is configured elsewhere. New requests and approvals fail if an unreadable journal makes
+another run's bound folder unknown, without blocking ordinary operations or existing grants.
+
+## 2026-10-28: Run access starts isolated and is widened explicitly
+
+Chapters: `spec/plugins.md` (start options, Workspace, sandbox tools, and processes, Server process
+sandbox); `spec/profiles.md` (access and ownership); usage and operations guides.
+
+**Why.** An administrator's new run previously started with unrestricted server execution, while
+file tools still rejected paths outside its folders. Workstations inherited secrets without a
+local decision. One owner-controlled access value makes these choices explicit without letting
+a server grant itself unrestricted access to a workstation.
+
+**Decision.** The changeable composer option `ragents.workspace.access` defaults to isolated for
+every owner and replaces the Boolean sandbox option without reading its stored values. Full
+access requires the server owner's administrator rights unless the binding is a workstation;
+that machine confirms locally and remembers the run. Full access applies only to the binding's
+machine; server work for a workstation run stays isolated. Server environments retain the safe
+allowlist, isolated workstation environments remove secrets, and workstation commands still have
+no OS sandbox. Returning to isolated stops long-lived run processes, and a journaled hidden note
+informs the model. Full-access processes also stop when the workstation loses its connection,
+so an offline access change cannot leave them running. Cleanup failures block later operations
+until retried successfully; confirmation reconciliation removes deleted runs after server restarts.
+Start-option validation sees all candidate values and revalidates at start;
+an awaited change hook lets the owning plugin complete cleanup before acknowledging a change.
+Extension interface 3 and executor protocol 18 reject older peers that cannot carry the required
+access object. Host API 21 stays compatible because candidate values and the change hook are
+optional additions.
+
+## 2026-10-28: A reloaded VS Code frame keeps a new run's workstation binding
+
+Chapters: `spec/plugins.md` (Web as plugin host, New runs in VS Code).
+
+**Why.** A new run from VS Code exists only in the frame until its first message, with the
+workstation binding as a preset. When the server restarted in between, the frame reloaded and the
+extension selected the run again without its presets; the first message then created the run with
+the server's default, a new folder on the server, although the extension promises never to fall
+back to the server. A sample started from the help bypassed the extension in the same way.
+
+**Decision.** The extension keeps the start options of the new run with its selection and sends
+them again with `selectRun` after a reload; the run panel takes them as presets. Another run does
+not inherit them. The help's sample start goes through the extension like every new run. The
+message stays compatible in both directions; the interface number rises only for the run access.
+
 ## 2026-10-28: The run header gives up labels before it wraps
 
 Chapters: `spec/plugins.md` (web host: run header, header windows, pages, `sessionHeaders`, host

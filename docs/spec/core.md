@@ -1068,6 +1068,13 @@ contribution displays it (`docs/spec/plugins.md`, Web as plugin host). Every act
 the plugin that creates it; the core offers no tool that proposes one. The capability name
 `action.propose` remains in the vocabulary only because journals grant it to the run owner.
 
+A trusted plugin can resolve an action and replace one plugin state through
+`Orchestration.resolveActionWithState`. The resolution and state event belong to one journal
+record; both are validated before either becomes visible. The core still interprets neither
+payload nor result. A plugin that stores permissions with an approval owns the answer method,
+checks its caller and scope, and uses this atomic operation; the generic action resolver only
+records the resolution and does not replace plugin state.
+
 Open inputs are counted generically: per actor, per mini-app, and per run, the number of actions
 with status `pending` counts. Labels say "waiting for input".
 

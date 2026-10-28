@@ -1266,11 +1266,13 @@ export const executor: WorkspaceExecutorContribution = (machine) => ({
       const context = await host.contextFor(runId);
       const launch = { command: "example-server", args: ["--stdio"] };
       const wrapped = context.sandbox ? await context.sandbox.wrap(launch) : launch;
+      const environment = { ...machine.processEnvironment(runId), ...context.env };
+      const isolated = context.sandbox !== undefined || context.access?.level !== "full";
       return machine.startManagedService({
         ...wrapped,
         args: [...wrapped.args],
         cwd: context.cwd,
-        env: { ...machine.processEnvironment(runId), ...context.env },
+        env: isolated ? { ...machine.withoutProcessStartupHooks(environment), PATH: context.env.PATH } : environment,
         uid: context.uid,
         gid: context.gid,
         label: "Example server",
@@ -1299,10 +1301,11 @@ export const executor: WorkspaceExecutorContribution = (machine) => ({
       shutdown: async () => { await Promise.all([...processes.keys()].map(stopRun)); },
     };
   }],
-});`, ["executorMachine.startManagedService"], [
+});`, ["executorMachine.startManagedService", "executorMachine.withoutProcessStartupHooks", "executorMachine.stopProcessGroup"], [
     "startManagedService accepts ManagedServiceOptions with stdin and output callbacks, and returns ManagedService with kill and finished. Add protocol framing through onStdout and bounded diagnostics through onStderr; successful spawn alone does not prove protocol readiness.",
     "The contribution first wraps command and args through context.sandbox.wrap when a sandbox exists. machine.processEnvironment(runId) supplies this machine's safe environment and the run marker; context.env adds the run's environment. The helper does not apply the sandbox itself.",
-    "The module shares startup per run, ends its own process through kill, and awaits finished in stopRun and shutdown. Managed cleanup also ends the process group. Do not import the host's process implementation into a self-contained executor bundle.",
+    "machine.withoutProcessStartupHooks removes inherited startup and loader controls after environment additions; isolated launches retain context.env.PATH. This protects code that runs before OS sandbox entry. Full-access launches retain their selected environment.",
+    "The module shares startup per run, ends its own process through kill, and awaits finished in stopRun and shutdown. Managed cleanup also ends the process group. machine.stopProcessGroup(pid, label) ends and joins a separately owned child group when a contribution launches through another library. It requires a known child PID and reports failed cleanup. Do not import the host's process implementation into a self-contained executor bundle.",
   ]),
 ];
 

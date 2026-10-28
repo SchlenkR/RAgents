@@ -170,7 +170,7 @@ test("a composed server spawns an external coder, journals streaming, tools and 
   assert.doesNotMatch(JSON.stringify(host.management().events(runId)), /sessionId/);
   assert.doesNotMatch(JSON.stringify(host.contexts), /sessionId|opaque-tool-call|opaque-allow-option/);
   const log = await host.log(runId);
-  assert.equal(log.find((entry) => entry.type === "terminal-output")?.output.output, "Terminal output");
+  assert.match(log.find((entry) => entry.type === "terminal-output")?.output.output ?? "", /^Terminal output/);
   await host.management().stop(runId).catch((cause) => { throw new Error(inspect(cause, { depth: 6 })); });
 });
 

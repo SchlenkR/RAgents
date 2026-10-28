@@ -45,6 +45,8 @@ test("the vscode host relays messages to the parent and only accepts valid comma
   ]);
   receive({}, { type: "selectRun", runId: "run-b" });
   receive(parent, { type: "selectRun", runId: 42 });
+  receive(parent, { type: "selectRun", runId: "run-c", startOptions: { "ragents.workspace.binding": { machine: "server", folder: "fresh" } } });
+  receive(parent, { type: "selectRun", runId: "run-d", startOptions: [] });
   receive(parent, { type: "theme", theme: "dark" });
   receive(parent, { type: "newRun", startOptions: { "ragents.workspace.binding": { machine: "server", folder: "fresh" } } });
   receive(parent, { type: "newRun", startOptions: [] });
@@ -52,6 +54,7 @@ test("the vscode host relays messages to the parent and only accepts valid comma
   receive(parent, { type: "showPage", page: "start", notice: "The run is no longer shared." });
   receive(parent, { type: "showPage", page: "connections" });
   assert.deepEqual(commands, [
+    { type: "selectRun", runId: "run-c", startOptions: { "ragents.workspace.binding": { machine: "server", folder: "fresh" } } },
     { type: "theme", theme: "dark" },
     { type: "newRun", startOptions: { "ragents.workspace.binding": { machine: "server", folder: "fresh" } } },
     { type: "showPage", page: "runs" },

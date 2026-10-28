@@ -53,11 +53,12 @@ const until = async (condition: () => boolean, timeoutMs = 5000) => {
 
 test("the command line names server, folders, id and label", () => {
   assert.deepEqual(parseArguments(["http://127.0.0.1:3000", "/work/project"]), {
-    serverUrl: "http://127.0.0.1:3000", folders: ["/work/project"], id: undefined, label: undefined, detached: false,
+    serverUrl: "http://127.0.0.1:3000", folders: ["/work/project"], id: undefined, label: undefined, detached: false, allowFullAccess: false,
   });
   assert.deepEqual(parseArguments(["http://x", "--id", "cli-12345678", "--label", "Notebook"]), {
-    serverUrl: "http://x", folders: [], id: "cli-12345678", label: "Notebook", detached: false,
+    serverUrl: "http://x", folders: [], id: "cli-12345678", label: "Notebook", detached: false, allowFullAccess: false,
   });
+  assert.equal(parseArguments(["http://x", "--allow-full-access"]).allowFullAccess, true);
   assert.throws(() => parseArguments([]), /server address is missing/);
   assert.throws(() => parseArguments(["http://x", "--unknown"]), /Unknown argument/);
   assert.throws(() => parseArguments(["http://x", "--id"]), /needs a value/);
@@ -174,7 +175,9 @@ test("the headless workspace registers and executes the server's tools", async (
   assert.match(textOf(bash), /marker-run-1/);
   await until(() => progress.some((text) => text.includes("marker-run-1")));
 
-  await assert.rejects(executor.execute("run-1", "read", { file_path: "/etc/hosts" }), /outside/);
+  if (process.platform !== "win32") {
+    assert.match(textOf(await executor.execute("run-1", "read", { file_path: "/etc/hosts" })), /localhost/);
+  }
   await executor.stopRun("run-1");
 
   await client.unregister();
@@ -423,6 +426,8 @@ test("a workspace with the folder / executes tasks in every folder below it", as
 
 test("unregistering waits only a limited time for the server and ends the executor anyway", { timeout: 30_000 }, async (t) => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-hang-")));
+  const project = path.join(directory, "project");
+  await mkdir(project);
   t.after(() => rm(directory, { recursive: true, force: true }));
   const registry = new WorkspaceClientRegistry([]);
   const methods = [
@@ -432,9 +437,9 @@ test("unregistering waits only a limited time for the server and ends the execut
   const { url } = await startRpcServer(t, { methods });
   const transport = workspaceClientTransport(url, undefined);
   t.after(() => transport.rpc.close());
-  const client = new WorkspaceClient(transport, { id: CLIENT, label: "Headless", hostname: "cli-host", platform: process.platform, folders: [directory], runsDirectory: path.join(directory, "runs") }, { hostRoot });
+  const client = new WorkspaceClient(transport, { id: CLIENT, label: "Headless", hostname: "cli-host", platform: process.platform, folders: [project], runsDirectory: path.join(directory, "runs") }, { hostRoot });
   await client.register();
-  const executor = registry.executorFor(null, CLIENT, "Headless", directory);
+  const executor = registry.executorFor(null, CLIENT, "Headless", project);
   const { ended } = await watching(executor, "run-hang");
 
   const begun = Date.now();
@@ -569,7 +574,7 @@ test("after a server restart the workstation's background commands of a run the 
   const storage = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-absent-server-")));
   const gone = `cli-gone-${process.pid}`;
   const kept = `cli-kept-${process.pid}`;
-  const outputOf = (runId: string, taskId: string): string => path.join(tmpdir(), "ragents-workspace-logs", runId, "background", `${taskId}.log`);
+  const outputOf = (runId: string, taskId: string): string => path.join(storage, "run-storage", runId, "tmp", "background", `${taskId}.log`);
   const pids: number[] = [];
   t.after(async () => {
     for (const pid of pids) if (alive(pid)) process.kill(-pid, "SIGKILL");

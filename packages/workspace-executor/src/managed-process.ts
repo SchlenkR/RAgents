@@ -157,20 +157,20 @@ const spawnDetached = (options: ManagedSpawnOptions): ChildProcess =>
   });
 
 const sendGroupSignal = (
-  child: ChildProcess,
+  child: ChildProcess | undefined,
   pid: number | undefined,
   processSignal: NodeJS.Signals,
   onError: (error: unknown) => void,
 ): void => {
   try {
-    if (pid === undefined) child.kill(processSignal);
+    if (pid === undefined) child?.kill(processSignal);
     else if (onWindows()) stopProcessTree(pid);
     else process.kill(-pid, processSignal);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ESRCH") return;
     onError(error);
     try {
-      child.kill(processSignal);
+      child?.kill(processSignal);
     } catch (fallbackError) {
       onError(fallbackError);
     }
@@ -178,7 +178,7 @@ const sendGroupSignal = (
 };
 
 const joinProcessGroup = async (
-  child: ChildProcess,
+  child: ChildProcess | undefined,
   pid: number | undefined,
   label: string,
   terminationDeadline: number | undefined,
@@ -204,6 +204,13 @@ const joinProcessGroup = async (
       `${label}: process group ${pid} could not be checked: ${detail}`,
     );
   }
+};
+
+export const stopProcessGroup = async (pid: number, label: string): Promise<void> => {
+  if (!Number.isSafeInteger(pid) || pid <= 1 || pid === process.pid) throw new Error("A child process group needs a valid PID.");
+  let failure: unknown;
+  await joinProcessGroup(undefined, pid, label, undefined, (error) => { failure ??= error; });
+  if (failure) throw failure;
 };
 
 export const runManagedProcess = (options: ManagedProcessOptions): Promise<ManagedProcessResult> =>

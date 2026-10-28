@@ -231,6 +231,10 @@ const listContents = (log: (line: string) => void): void => withIgnoreFiles((ign
     const listed = runVsce(["ls", "--no-dependencies", "--ignoreFile", ignoreOf(target)], { cwd: extensionRoot });
     if (listed.status !== 0) throw new Error(`vsce ls ended with code ${listed.status}: ${oneLine(listed.stderr)}`);
     const lines = listed.stdout.split("\n").map((line) => line.trim()).filter(Boolean);
+    const required = ["dist/vendor/seccomp/arm64/apply-seccomp", "dist/vendor/seccomp/x64/apply-seccomp",
+      "dist/vendor/java-proxy-agent/srt-proxy-agent.jar", "dist/vendor/sandbox-runtime-LICENSE"];
+    const missing = required.filter((file) => !lines.includes(file));
+    if (missing.length > 0) throw new Error(`The .vsix for ${target} is missing sandbox runtime files: ${missing.join(", ")}; rebuild the extension`);
     const folders = bundledFolders(target);
     const bundled = folders.map((folder) => [folder, lines.filter((line) => line.startsWith(`${folder}/`)).length] as const);
     const empty = bundled.filter(([, count]) => count === 0).map(([folder]) => folder);

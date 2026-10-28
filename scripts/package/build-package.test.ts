@@ -157,6 +157,7 @@ test("the package contains no sources nobody needs and no foreign dependencies",
   const dependencies = result.manifest.dependencies as Record<string, string>;
   assert.equal(dependencies.tsx !== undefined, true, "tsx loads the TypeScript sources at runtime");
   assert.equal(dependencies["@agentclientprotocol/sdk"], "1.7.0", "the ACP command uses the stable SDK shipped in the package");
+  assert.equal(dependencies["@anthropic-ai/sandbox-runtime"], "0.0.77", "the server and headless workstation need the same pinned OS sandbox and its vendor files");
   assert.equal(dependencies["typescript-language-server"] !== undefined, true, "the TypeScript contribution resolves it from the host's packages");
   assert.equal(dependencies.react !== undefined, true, "the mini-apps are built at runtime");
   assert.equal(dependencies.gsap, undefined, "gsap belongs to the homepage, which does not go into the package");

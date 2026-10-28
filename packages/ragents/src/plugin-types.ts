@@ -402,6 +402,8 @@ export interface StartOptionContext {
   runId: string;
   /** The user currently acting: from the access of the request, null without sign-in. */
   userId: string | null;
+  /** Before the start, the start options chosen so far, so that one option can check another. */
+  readonly values?: Readonly<Record<string, JsonValue>>;
 }
 
 export interface StartOptionContribution {
@@ -415,6 +417,8 @@ export interface StartOptionContribution {
   rights?: readonly string[];
   /** Still selectable after the start: the host writes every new value to the journal, whoever reads the option follows the currently stored one. */
   changeable?: boolean;
+  /** After a changeable option's new value is in the journal, for example to stop what the old value allowed. */
+  changed?: (value: JsonValue, context: StartOptionContext) => void | Promise<void>;
   /** Whether only the owner operates a run with this value; everyone who sees it may read and stop it. */
   ownerOnly?: (value: JsonValue) => boolean;
 }

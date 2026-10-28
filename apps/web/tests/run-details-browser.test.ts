@@ -116,7 +116,14 @@ test("Run details show ordered, wrapping rows and all process names at wide and 
     const sheet = page.locator('[data-slot="run-details-sheet"]');
     await detailRow(page, "System prompts").waitFor();
     assert.equal(await detailRow(page, "Workspace").count(), 1, "metadata replaces the matching start option badge");
-    await detailRow(page, "Sandbox").getByText("Commands run isolated from other work on this machine.", { exact: true }).waitFor();
+    await detailRow(page, "Access").getByText("Isolated", { exact: true }).waitFor();
+    await detailRow(page, "Access").getByText("Reads follow the machine's blocked and allowed areas; writes stay in the run's writable folders and write grants. Commands use the process sandbox and the server environment keeps its safe allowlist.", { exact: true }).waitFor();
+    const grants = detailRow(page, "Grants").getByRole("list", { name: "Granted paths" });
+    assert.equal(await grants.getByRole("listitem").count(), 2);
+    await assertFullText(grants.getByText("/home/user/reference/project-documentation/complete-technical-reference-with-readable-paths-and-examples.md", { exact: true }));
+    await assertFullText(grants.getByText("/home/user/exports/search-results", { exact: true }));
+    await grants.getByText("Read only", { exact: true }).waitFor();
+    await grants.getByText("Read and write", { exact: true }).waitFor();
     await detailRow(page, "Workspace").getByText("Files and commands use this project folder on the server.", { exact: true }).waitFor();
     await detailRow(page, "System prompts").getByText("These instructions guide the coordinator and the agents it starts.", { exact: true }).waitFor();
     const values = await page.evaluate(() => ({ branch: window.runDetailsFixture.branch, actor: window.runDetailsFixture.actorName, processes: window.runDetailsFixture.processNames }));

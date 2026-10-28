@@ -69,6 +69,8 @@ export interface ContainerSpec {
 export const startContainer = async (spec: ContainerSpec): Promise<void> => {
   const args = [
     "run", "--detach", "--init",
+    // Bubblewrap needs unprivileged namespaces and a private proc mount; Docker's syscall filter and masked proc entries block them.
+    "--security-opt", "seccomp=unconfined", "--security-opt", "systempaths=unconfined",
     "--name", spec.name,
     "--hostname", spec.hostname,
     "--label", `${SESSION_LABEL}=${spec.session}`,

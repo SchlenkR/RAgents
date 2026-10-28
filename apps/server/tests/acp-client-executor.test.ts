@@ -25,7 +25,7 @@ const eventsOf = async (file: string): Promise<Record<string, any>[]> => (await 
   throw cause;
 })).split("\n").filter(Boolean).map((line) => JSON.parse(line));
 
-const fixture = async (t: TestContext, env: Record<string, string> = {}) => {
+const fixture = async (t: TestContext, env: Record<string, string> = {}, externalAgentEnvironment?: NodeJS.ProcessEnv) => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-acp-executor-")));
   const workspace = path.join(directory, "workspace");
   const home = path.join(directory, "home");
@@ -36,6 +36,7 @@ const fixture = async (t: TestContext, env: Record<string, string> = {}) => {
   const machine = executorMachine(directory);
   const executor = new WorkspaceOperationExecutor({ contextFor: async (runId) => workspaceProcessContext({ runId, cwd: workspace, root: workspace,
     home: { home }, logDirectory: logs, hostRoot: undefined, sandbox: { wrap: async (launch) => { launches.push(launch); return launch; } },
+    ...(externalAgentEnvironment ? { externalAgentEnvironment } : {}),
   }), modules: [fileModule, sandboxToolsModule, acpModule(machine)] });
   t.after(async () => { try { await executor.shutdown(); } finally { await rm(directory, { recursive: true, force: true }); } });
   const definition: AcpAgentDefinition = { command: process.execPath, args: [adapter], env: { ACP_FIXTURE_LOG: logFile, ACP_FIXTURE_EXTRA: "configured-environment", ...env } };
@@ -46,6 +47,34 @@ const fixture = async (t: TestContext, env: Record<string, string> = {}) => {
   const close = () => executor.execute("run-one", ACP_OPERATIONS.close, { actorId: "coder" });
   return { directory, workspace, logFile, executor, launches, open, prompt, answer, close, events: () => eventsOf(logFile) };
 };
+
+test("workstation ACP adapters use the developer environment outside the run sandbox", async (t) => {
+  const host = await fixture(t, {}, { ...process.env, ACP_FIXTURE_DEVELOPER: "developer-environment" });
+  await host.open();
+  assert.deepEqual(host.launches, []);
+  assert.equal((await host.events())[0]?.extra, "configured-environment");
+  assert.equal((await host.events())[0]?.developer, "developer-environment");
+  await host.close();
+});
+
+test("stdio MCP servers passed to a workstation ACP adapter retain the run sandbox and filtered environment", async (t) => {
+  const host = await fixture(t, {}, { ...process.env, ACP_FIXTURE_DEVELOPER: "developer-environment" });
+  await host.open({ mcpServers: { reference: { command: "fixture-mcp", args: ["--stdio"], env: { MCP_ONLY: "configured-value", NODE_OPTIONS: "--require /project/startup.cjs" } } } });
+  assert.deepEqual(host.launches, [{ command: "fixture-mcp", args: ["--stdio"] }]);
+  const server = (await host.events()).find((event) => event.type === "new")?.request.mcpServers[0];
+  assert.ok(server);
+  if (process.platform === "win32") {
+    assert.equal(server.command, process.execPath);
+    assert.match(server.args[1], /configured-value/);
+  } else {
+    assert.equal(server.command, "/usr/bin/env");
+    assert.equal(server.args[0], "-i");
+    assert.ok(server.args.includes("MCP_ONLY=configured-value"));
+    assert.ok(server.args.includes("HOME=" + path.join(host.directory, "home")));
+  }
+  assert.doesNotMatch(JSON.stringify(server), /ACP_FIXTURE_DEVELOPER|developer-environment|NODE_OPTIONS/);
+  await host.close();
+});
 
 test("external runtime workspace reads and terminal output share the host result cap", { timeout: 20_000 }, async (t) => {
   const fixtureHost = await fixture(t);

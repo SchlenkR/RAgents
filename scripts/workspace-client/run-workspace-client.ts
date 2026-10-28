@@ -14,8 +14,9 @@ import { ensureHostPackage, findExecutable, matchingHostVersion, runHostCommand 
 import { workspaceClientTransport } from "../../plugins/ragents.workspace/client/transport.ts";
 import { WorkspaceClient, workstationRunsDirectory } from "../../plugins/ragents.workspace/client/workspace-client.ts";
 
-const usage = (): string => `Usage: ragents workspace-client <server-url> [folder ...] [--id <id>] [--label <name>] [--detached]
-Registers the folders as a workspace and executes tasks with the same tools as VS Code.
+const usage = (): string => `Usage: ragents workspace-client <server-url> [folder ...] [--id <id>] [--label <name>] [--detached] [--allow-full-access]
+Registers the folders as a workspace and executes commands with the same tools as VS Code.
+Full access is refused unless --allow-full-access explicitly permits it on this machine.
 Without folders the current directory applies. Tools are provisioned before registration.
 The npm package includes ripgrep and, on Windows, Bash. In a checkout run pnpm bundle:rg
 (and pnpm bundle:bash on Windows) first.
@@ -29,6 +30,7 @@ unreachable for 30 minutes.`;
 
 export interface WorkspaceClientArguments {
   readonly detached: boolean;
+  readonly allowFullAccess: boolean;
   readonly serverUrl: string;
   readonly folders: readonly string[];
   readonly id: string | undefined;
@@ -38,11 +40,13 @@ export interface WorkspaceClientArguments {
 export const parseArguments = (argv: readonly string[]): WorkspaceClientArguments => {
   const folders: string[] = [];
   let detached = false;
+  let allowFullAccess = false;
   let serverUrl: string | undefined;
   let id: string | undefined;
   let label: string | undefined;
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index]!;
+    if (argument === "--allow-full-access") { allowFullAccess = true; continue; }
     if (argument === "--detached") { detached = true; continue; }
     if (argument === "--id" || argument === "--label") {
       const value = argv[index + 1];
@@ -58,7 +62,7 @@ export const parseArguments = (argv: readonly string[]): WorkspaceClientArgument
   }
   if (!serverUrl) throw new Error(`The server address is missing.\n${usage()}`);
   if (id !== undefined && !/^[A-Za-z0-9_-]{8,64}$/.test(id)) throw new Error("--id needs 8 to 64 characters from A-Z, a-z, 0-9, _ and -.");
-  return { serverUrl, folders, id, label, detached };
+  return { serverUrl, folders, id, label, detached, allowFullAccess };
 };
 
 export const UNREACHABLE_LIMIT_MS = 30 * 60_000;
@@ -194,6 +198,7 @@ const main = async (): Promise<void> => {
       return selected;
     },
     version: readPackageVersion(root),
+    fullAccess: () => parsed.allowFullAccess ? "allow" : "deny",
     ...tools,
     onExecuted: ({ runId, operation, durationMs, error }) =>
       console.log(`== ${runId.slice(0, 8)} ${operation} ${durationMs} ms ${error ?? "ok"}`),

@@ -2,7 +2,10 @@
 
 Rules:
 
-- Reads and writes are allowed only inside the working directory and the roots named with it.
+- Follow the current run access described below. Isolated access uses the machine's read and write rule and approved grants; Full access permits every path on the workspace machine.
+{{#if (available "request_access")}}
+- Use `request_access` for a file or folder outside the current read or write allowance. Wait for the owner's decision and never try to work around a refusal.
+{{/if}}
 - Remote git operations (push, fetch, pull) and global git configuration are not allowed.
 {{#if (available "bash")}}
 - Network access from `bash`, including `curl`, is allowed within the host's network policy.

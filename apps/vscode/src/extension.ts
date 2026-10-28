@@ -1,5 +1,6 @@
 import { hostname } from "node:os";
 import * as vscode from "vscode";
+import { workstationFullAccessOptions } from "./workstation-access";
 import { defaultDataDirectory } from "../../server/src/data-directory";
 import { coreContracts } from "../../server/src/api/contracts";
 import type { RunPanelHostMessage, RunPanelTheme, HostRunPanelMessage, RunService } from "../../web/src/run-panel/host-contract";
@@ -92,7 +93,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       .catch((cause) => log(`== Disconnect failed: ${message(cause)}`))));
   })();
   stopSessions = stopAllSessions;
-  let selection: { connection: string; runId: string | undefined } | undefined;
+  let selection: { connection: string; runId: string | undefined; startOptions?: Record<string, unknown> } | undefined;
   let page: PanelPage = "start";
   let configProblem: string | undefined;
   let pickedProfileFile: string | undefined;
@@ -101,6 +102,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
   let revoking: PanelSharing | undefined;
   let startNotice: string | undefined;
   const pendingNewRun = new Map<string, Extract<HostRunPanelMessage, { type: "newRun" }>>();
+  /** The start options of the new run a frame is opening; the selection keeps them until the frame starts it, also across a reload. */
+  const startingOptions = new Map<string, Record<string, unknown>>();
   const identity = () => ({
     id: windowClientId(context.workspaceState),
     label: vscode.workspace.name ? `${hostname()} (${vscode.workspace.name})` : hostname(),
@@ -231,6 +234,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     if (selection === undefined) return;
     watching?.();
     watching = undefined;
+    startingOptions.delete(selection.connection);
     selection = undefined;
   };
 
@@ -487,6 +491,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     version: packagedHostVersion(context.extensionPath),
     workspaceClient: (transport) => new WorkspaceClient(transport, identity(), {
       hostRoot: () => checkout,
+      ...workstationFullAccessOptions(context.globalStorageUri.fsPath),
       prepareHost: async (report) => {
         const server = await transport.rpc.call(coreContracts.plugins.bootstrap, {});
         if (!server.version) throw new Error("The server reports no RAgents version. Update the server before registering this workstation.");
@@ -796,7 +801,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       ...(workstation === undefined || folder === undefined ? {} : { startOptions: { [WORKSPACE_BINDING_OPTION_ID]: workstation.binding(folder) } }),
       ...(entryId === undefined ? {} : { entryId }),
     };
-    if (selectRun(connection, undefined, { focusPanel: true }) === "frame-kept") panel.post(request);
+    const rendering = selectRun(connection, undefined, { focusPanel: true });
+    if (request.startOptions) startingOptions.set(connection, request.startOptions);
+    else startingOptions.delete(connection);
+    if (rendering === "frame-kept") panel.post(request);
     else pendingNewRun.set(connection, request);
   };
 
@@ -854,9 +862,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     const session = sessions.get(connection);
     switch (incoming.type) {
       case "ready": {
-        const runId = selection?.connection === connection ? selection.runId : undefined;
-        if (runId !== undefined) panel.post({ type: "selectRun", runId });
-        else panel.post({ type: "showPage", page: page === "runs" ? "runs" : "start", ...(startNotice === undefined ? {} : { notice: startNotice }) });
+        const current = selection?.connection === connection ? selection : undefined;
+        if (current?.runId !== undefined) {
+          panel.post({ type: "selectRun", runId: current.runId, ...(current.startOptions === undefined ? {} : { startOptions: current.startOptions }) });
+        } else panel.post({ type: "showPage", page: page === "runs" ? "runs" : "start", ...(startNotice === undefined ? {} : { notice: startNotice }) });
         const request = pendingNewRun.get(connection);
         if (request) {
           pendingNewRun.delete(connection);
@@ -866,8 +875,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       }
       case "runChanged":
         if (selection?.connection === connection && selection.runId !== (incoming.runId ?? undefined)) {
+          const startOptions = incoming.runId === null ? undefined : startingOptions.get(connection);
           clearSelection();
-          selection = { connection, runId: incoming.runId ?? undefined };
+          selection = { connection, runId: incoming.runId ?? undefined, ...(startOptions === undefined ? {} : { startOptions }) };
           if (incoming.runId !== null) {
             page = "run";
             watching = session?.store?.watch(incoming.runId);

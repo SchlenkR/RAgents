@@ -44,6 +44,13 @@ and blocks until the turn is over. `--profile <profile|path>` selects a differen
 `--entry <template>` additionally starts the run via a skill or script template, and
 `--parameters <json>` passes a script template's declared parameters as a JSON object; the host
 refuses missing, unknown, or wrongly typed parameters before it creates the run and names them.
+`--access full` explicitly requests full access; the default is isolated for every owner.
+A server workspace requires administrator access and a server that permits full access.
+A workstation workspace requires the run's owner and local confirmation: confirm in VS Code,
+or start the headless workstation with `--allow-full-access`. Without confirmation, switch back
+to Isolated or obtain local confirmation before retrying. Isolated workstation commands remove
+secrets from their inherited environment but currently run without an OS sandbox; file tools
+remain limited to the run's folders.
 `--workstation <id>` instead binds the folder on the workspace signed in to the host
 with this id (`pnpm workspace-client <server-url> <folder> --id <id>`); `<folder>` is
 then its path there. If no such workspace is signed in, `run` aborts with a cause.

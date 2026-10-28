@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFile, spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { before } from "node:test";
@@ -10,11 +10,17 @@ import { promisify } from "node:util";
 import { DomainError } from "@ragents/engine";
 import type { RunSharing } from "../../../packages/ragents/src/domain/model";
 import type { RunSharingResult } from "../../server/src/api/contracts";
-import { session, SESSION_TOKEN, startStubServer, stubProfile } from "./fixtures";
+import { session, SESSION_TOKEN, startStubServer, stubProfile, waitFor } from "./fixtures";
 import { hostEnvironmentSecretKey } from "../src/settings";
+import { workspaceClientContracts } from "../../../plugins/ragents.workspace/contract.ts";
 
 const extensionRoot = fileURLToPath(new URL("..", import.meta.url));
 const execute = promisify(execFile);
+
+const copyExtension = (directory: string): void => {
+  copyFileSync(path.join(extensionRoot, "dist/extension.js"), path.join(directory, "extension.js"));
+  cpSync(path.join(extensionRoot, "dist/vendor"), path.join(directory, "vendor"), { recursive: true });
+};
 
 before(() => {
   const built = spawnSync(process.execPath, ["esbuild.mjs"], { cwd: extensionRoot, encoding: "utf8" });
@@ -127,7 +133,7 @@ const context = {
   subscriptions: [],
   extensionPath: process.cwd(),
   extensionUri: vscode.Uri.file(process.cwd()),
-  globalStorageUri: vscode.Uri.file(process.cwd() + "/storage"),
+  globalStorageUri: vscode.Uri.file(process.cwd() + "/storage/User/globalStorage/ragents"),
   extension: { id: "purestate.ragents-vscode" },
   globalState: { get: () => undefined, update: () => Promise.resolve(undefined) },
   workspaceState: { get: (key) => workspaceState.get(key), update: (key, value) => { workspaceState.set(key, value); return Promise.resolve(undefined); } },
@@ -464,7 +470,11 @@ const check = async () => {
   receive({ type: "runChanged", runId: "ui-created" });
   assert.equal(posted.some((message) => message.type === "selectRun"), false, "a UI-created run keeps its fresh start options without a host selection echo");
   assertAppReadiness();
-  assert.deepEqual(ready(), [{ type: "selectRun", runId: "ui-created" }], "app readiness does not restore or redirect the selected run");
+  assert.deepEqual(ready(), [{ type: "selectRun", runId: "ui-created",
+    startOptions: { "ragents.workspace.binding": api.session("first").workspaceClient.binding(folder) } }],
+  "a reloaded frame gets the new run's workstation binding again, and app readiness does not redirect the selected run");
+  receive({ type: "runChanged", runId: "other-run" });
+  assert.deepEqual(ready(), [{ type: "selectRun", runId: "other-run" }], "another run does not inherit the new run's start options");
 
   await api.newRun("first", "ragents.reference.circle");
   assert.deepEqual(posted.find((message) => message.type === "newRun"), { type: "newRun", entryId: "ragents.reference.circle" }, "a template's fixed folder is not replaced with the workstation folder");
@@ -620,7 +630,7 @@ check().then(() => process.exit(0), (cause) => { console.error(cause.stack ?? ca
 test("the built bundle loads, activates without node_modules next to it, and runs the actions of the panel page", () => {
   const directory = mkdtempSync(path.join(tmpdir(), "ragents-bundle-"));
   try {
-    copyFileSync(path.join(extensionRoot, "dist/extension.js"), path.join(directory, "extension.js"));
+    copyExtension(directory);
     copyFileSync(path.join(extensionRoot, "package.json"), path.join(directory, "package.json"));
     writeFileSync(path.join(directory, "vscode.cjs"), VSCODE_STUB);
     writeFileSync(path.join(directory, "activate.cjs"), ACTIVATE);
@@ -772,7 +782,7 @@ const stubCommand = (directory: string, name: string, body: string): void => {
 };
 
 const workstationHosts = (directory: string, versions: readonly string[], failure?: string) => {
-  copyFileSync(path.join(extensionRoot, "dist/extension.js"), path.join(directory, "extension.js"));
+  copyExtension(directory);
   copyFileSync(path.join(extensionRoot, "package.json"), path.join(directory, "package.json"));
   writeFileSync(path.join(directory, "vscode.cjs"), VSCODE_STUB);
   writeFileSync(path.join(directory, "check.cjs"), CHECK_WORKSTATION_HOSTS);
@@ -794,6 +804,7 @@ const install = () => {
   const root = path.join(folder, "node_modules", "@schlenkr", "ragents");
   fs.cpSync(path.join(process.env.RAGENTS_TEST_PACKAGES, path.basename(folder)), root, { recursive: true });
 };
+
 setTimeout(install, 150);
 `);
   stubCommand(path.join(directory, "bin"), "node", `
@@ -830,6 +841,58 @@ require("node:fs").appendFileSync(process.env.RAGENTS_TEST_PROVISION_CALLS, JSON
   };
 };
 
+const CHECK_BUNDLED_SANDBOX = `${LOAD_EXTENSION}
+const fs = require("node:fs");
+const configuration = JSON.parse(process.env.RAGENTS_TEST_WORKSTATIONS);
+settings["ragents.connections"] = configuration.connections;
+vscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file(path.join(process.cwd(), "workspace")) }];
+const check = async () => {
+  const api = await extension.activate(context);
+  await waitFor(() => api.sessions().every((session) => session.workspaceClient?.status.kind === "registered"));
+  await waitFor(() => fs.existsSync(path.join(process.cwd(), "complete")));
+  await extension.deactivate();
+};
+check().then(() => process.exit(0), (cause) => { console.error(cause.stack ?? cause); process.exit(1); });
+`;
+
+test("the extension carries sandbox runtime assets and launches an isolated command without node_modules", {
+  skip: process.platform !== "darwin" && process.platform !== "linux" ? "The OS sandbox is available on macOS and Linux." : false,
+}, async (t) => {
+  if (process.platform === "linux" && spawnSync("sh", ["-c", "command -v bwrap && command -v socat && command -v rg"], { stdio: "ignore" }).status !== 0) {
+    t.skip("Linux bundle execution needs bubblewrap, socat and ripgrep on PATH.");
+    return;
+  }
+  const directory = mkdtempSync(path.join(tmpdir(), "ragents-bundled-sandbox-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const manifest = JSON.parse(readFileSync(path.join(extensionRoot, "package.json"), "utf8"));
+  const host = workstationHosts(directory, [manifest.version]);
+  const server = await startStubServer({ version: manifest.version, contributions: host.contributions });
+  t.after(() => server.close());
+  assert.equal(existsSync(path.join(directory, "node_modules")), false);
+  for (const arch of ["arm64", "x64"]) {
+    assert.ok(existsSync(path.join(directory, "vendor/seccomp", arch, "apply-seccomp")));
+  }
+  assert.ok(existsSync(path.join(directory, "vendor/java-proxy-agent/srt-proxy-agent.jar")));
+  assert.match(readFileSync(path.join(extensionRoot, ".vscodeignore"), "utf8"), /^!dist\/vendor\/\*\*$/m);
+  writeFileSync(path.join(directory, "check.cjs"), CHECK_BUNDLED_SANDBOX);
+  const child = execute(process.execPath, ["check.cjs"], {
+    cwd: directory, timeout: 60_000,
+    env: { ...host.environment, HOME: directory, RAGENTS_TEST_WORKSTATIONS: JSON.stringify({ connections: [{ name: "remote", url: server.url }] }) },
+  });
+  try {
+    await waitFor(() => server.workspaceClients().size === 1, 30_000);
+    const client = [...server.workspaceClients().keys()][0]!;
+    const result = await server.workspaceConnection(client)!.call(workspaceClientContracts.execute, {
+      runId: "bundle-isolation", access: { level: "isolated" }, operation: "bash",
+      cwd: path.join(directory, "workspace"), env: {}, input: { command: "printf bundle-sandbox" },
+    });
+    assert.deepEqual((result.value as { content: unknown }).content, [{ type: "text", text: "bundle-sandbox" }]);
+  } finally {
+    writeFileSync(path.join(directory, "complete"), "");
+    await child;
+  }
+});
+
 test("a remote-only workstation fetches the server's host version, registers, and reuses it after restart", async (t) => {
   const directory = mkdtempSync(path.join(tmpdir(), "ragents-workstation-hosts-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
@@ -845,7 +908,7 @@ test("a remote-only workstation fetches the server's host version, registers, an
   assert.equal(host.calls().length, 1);
   const call = host.calls()[0];
   assert.deepEqual({ ...call, args: call?.args.map((argument) => argument.replace(/[/\\]\.staging-[^/\\]+/g, "")) }, {
-    args: ["install", "--prefix", path.join(realpathSync(directory), "storage/hosts/0.1.8"), host.environment.RAGENTS_HOST_PACKAGE_SPEC],
+    args: ["install", "--prefix", path.join(realpathSync(directory), "storage/User/globalStorage/ragents/hosts/0.1.8"), host.environment.RAGENTS_HOST_PACKAGE_SPEC],
     registry: "https://registry.example.com",
   });
 });

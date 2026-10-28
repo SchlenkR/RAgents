@@ -106,7 +106,8 @@ export function isRunPanelKeyboardMessage(value: unknown): value is RunPanelKeyb
 
 /** Messages from the host to the panel. */
 export type HostRunPanelMessage =
-  | { type: "selectRun"; runId: string | null }
+  /** startOptions restore the presets of a new run that a reloaded frame has not started yet. */
+  | { type: "selectRun"; runId: string | null; startOptions?: Record<string, unknown> }
   | { type: "showPage"; page: "start" | "runs"; notice?: string }
   | { type: "newRun"; startOptions?: Record<string, unknown>; entryId?: string }
   | { type: "theme"; theme: RunPanelTheme }
@@ -116,6 +117,7 @@ export type HostRunPanelMessage =
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 const isText = (value: unknown): value is string => typeof value === "string" && value.length > 0;
 const isPort = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 65535;
+const isStartOptions = (value: unknown): boolean => value === undefined || (isObject(value) && !Array.isArray(value));
 
 export const isRunPanelTheme = (value: unknown): value is RunPanelTheme => value === "light" || value === "dark";
 export const isRunPanelScheme = (value: unknown): value is RunPanelScheme => value === "auto" || isRunPanelTheme(value);
@@ -164,12 +166,11 @@ export const isHostRunPanelMessage = (value: unknown): value is HostRunPanelMess
   if (!isObject(value)) return false;
   switch (value.type) {
     case "selectRun":
-      return value.runId === null || isText(value.runId);
+      return (value.runId === null || isText(value.runId)) && isStartOptions(value.startOptions);
     case "showPage":
       return (value.page === "start" || value.page === "runs") && (value.notice === undefined || isText(value.notice));
     case "newRun":
-      return (value.startOptions === undefined || (isObject(value.startOptions) && !Array.isArray(value.startOptions)))
-        && (value.entryId === undefined || isText(value.entryId));
+      return isStartOptions(value.startOptions) && (value.entryId === undefined || isText(value.entryId));
     case "theme":
       return isRunPanelTheme(value.theme);
     case "appearance":

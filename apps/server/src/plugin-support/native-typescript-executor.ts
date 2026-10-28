@@ -46,6 +46,7 @@ export class NodeTypeScriptExecutor implements NativeTypeScriptExecutor {
   readonly #options: ExecutorOptions;
   readonly #backends = new Map<string, BackendSlot>();
   readonly #stopping = new Map<string, Promise<void>>();
+  readonly #failedStops = new Set<string>();
   #closed = false;
 
   constructor(options: ExecutorOptions) { this.#options = options; }
@@ -253,11 +254,17 @@ export class NodeTypeScriptExecutor implements NativeTypeScriptExecutor {
 
   stopRun(runId: string): Promise<void> {
     const current = this.#stopping.get(runId);
-    if (current) return current;
+    if (current && !this.#failedStops.has(runId)) return current;
+    this.#failedStops.delete(runId);
     const stopped = Promise.resolve().then(async () => {
       await Promise.all([...this.#backends.keys()].filter((key) => key.startsWith(`${runId}\0`))
         .map((key) => this.stopInstance(runId, key.slice(runId.length + 1))));
-    }).finally(() => { if (this.#stopping.get(runId) === stopped) this.#stopping.delete(runId); });
+    }).then(() => {
+      if (this.#stopping.get(runId) === stopped) this.#stopping.delete(runId);
+    }, (error: unknown) => {
+      this.#failedStops.add(runId);
+      throw error;
+    });
     this.#stopping.set(runId, stopped);
     return stopped;
   }

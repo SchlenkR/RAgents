@@ -66,7 +66,8 @@ interface FoundTree {
 }
 
 /** Collects a folder without following links; the limits apply before a single byte is read. */
-const treeOf = async (directory: string, shown: string, relative: string, found: FoundTree): Promise<FoundTree> => {
+const treeOf = async (directory: string, shown: string, relative: string, found: FoundTree, check?: (filename: string) => Promise<void>): Promise<FoundTree> => {
+  await check?.(path.join(directory, relative));
   const entries = (await readdir(path.join(directory, ...relative.split("/").filter(Boolean)), { withFileTypes: true }))
     .sort((left, right) => left.name.localeCompare(right.name, "en"));
   let tree = found;
@@ -75,10 +76,11 @@ const treeOf = async (directory: string, shown: string, relative: string, found:
     const absolute = path.join(directory, ...entryPath.split("/"));
     if (entry.isSymbolicLink()) throw invalid(`${below(shown, entryPath)} is a symbolic link; a folder is copied without following links`);
     if (entry.isDirectory()) {
-      tree = await treeOf(directory, shown, entryPath, { ...tree, directories: [...tree.directories, entryPath] });
+      tree = await treeOf(directory, shown, entryPath, { ...tree, directories: [...tree.directories, entryPath] }, check);
       continue;
     }
     if (!entry.isFile()) throw invalid(`${below(shown, entryPath)} is neither a file nor a folder`);
+    await check?.(absolute);
     const size = tree.size + (await lstat(absolute)).size;
     if (tree.files.length + 1 > FILE_COUNT_LIMIT || size > FILE_BYTES_LIMIT) throw folderTooLarge(shown);
     tree = { ...tree, files: [...tree.files, { path: entryPath, absolute }], size };
@@ -94,7 +96,8 @@ const contentOf = async (file: string, shown: string): Promise<Buffer> => {
 };
 
 /** Reads a resolved file, with `recursive` also a folder with everything in it; `shown` is the reference as the caller named it. */
-export const readFileBytes = async (resolved: string, shown: string, recursive: boolean): Promise<FileBytes> => {
+export const readFileBytes = async (resolved: string, shown: string, recursive: boolean, check?: (filename: string) => Promise<void>): Promise<FileBytes> => {
+  await check?.(resolved);
   let info;
   try {
     info = await lstat(resolved);
@@ -108,7 +111,7 @@ export const readFileBytes = async (resolved: string, shown: string, recursive: 
   }
   if (!info.isDirectory()) throw invalid(`${shown} is neither a file nor a folder`);
   if (!recursive) throw invalid(`${shown} is a folder, not a file`);
-  const tree = await treeOf(resolved, shown, "", { directories: [], files: [], size: 0 });
+  const tree = await treeOf(resolved, shown, "", { directories: [], files: [], size: 0 }, check);
   // One file after the other, so that a full folder never runs into the limit of open files.
   const files: FileBytesEntry[] = [];
   for (const file of tree.files) files.push({ path: file.path, content: (await contentOf(file.absolute, below(shown, file.path))).toString("base64") });
@@ -163,7 +166,8 @@ const writeOne = async (target: string, shown: string, bytes: Buffer): Promise<v
 };
 
 /** Writes bytes at a resolved destination within the writable roots; a folder is created with everything in it, and no link leads out of the roots. */
-export const writeFileBytes = async (resolved: string, shown: string, content: FileBytes, writableRoots: readonly string[]): Promise<void> => {
+export const writeFileBytes = async (resolved: string, shown: string, content: FileBytes, writableRoots: readonly string[], check?: (filename: string) => Promise<void>): Promise<void> => {
+  await check?.(resolved);
   if (content.kind === "file") {
     await writeOne(resolved, shown, decoded(content.content, shown));
     return;
@@ -172,8 +176,11 @@ export const writeFileBytes = async (resolved: string, shown: string, content: F
   if (files.reduce((sum, file) => sum + file.bytes.byteLength, 0) > FILE_BYTES_LIMIT) throw folderTooLarge(shown);
   const existing = await kindAt(resolved);
   if (existing !== undefined && existing !== "directory") throw invalid(`${shown} is a file; name the folder to create`);
-  const inside = (relative: string): Promise<string> =>
-    pathInRoots(path.join(resolved, ...relative.split("/")), below(shown, relative), writableRoots);
+  const inside = async (relative: string): Promise<string> => {
+    const candidate = path.join(resolved, ...relative.split("/"));
+    await check?.(candidate);
+    return pathInRoots(candidate, below(shown, relative), writableRoots);
+  };
   await mkdir(resolved, { recursive: true });
   for (const directory of content.directories) {
     const target = await inside(directory);

@@ -1,4 +1,5 @@
 import { commandModule } from "./commands.js";
+import { accessModule } from "./access.js";
 import type { WorkspaceExecutorParts } from "./contributions.js";
 import { fileModule } from "./files.js";
 import { languageServerModule } from "./language-server/module.js";
@@ -18,6 +19,7 @@ export interface WorkspaceExecutorModuleOptions {
 
 /** The modules of an executor: its own and what the contributions of the plugins add. */
 export const workspaceExecutorModules = (options: WorkspaceExecutorModuleOptions): readonly WorkspaceModuleFactory[] => [
+  accessModule,
   sandboxToolsModule,
   languageServerModule(options.contributions.flatMap((parts) => parts.languageServers ?? [])),
   fileModule,

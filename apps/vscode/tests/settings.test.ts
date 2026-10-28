@@ -136,3 +136,12 @@ test("the VS Code table spacing setting names the shared values and defaults to 
   for (const density of schema.enum) assert.equal(parseLookSetting("density", density), density);
   for (const density of [undefined, "", "auto", "Compact", "3"]) assert.throws(() => parseLookSetting("density", density), /ragents\.density/);
 });
+
+
+test("workstation full access defaults to a local question and cannot be set by a workspace", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const schema = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")).contributes.configuration.properties["ragents.workstation.fullAccess"];
+  assert.deepEqual(schema.enum, ["ask", "allow", "deny"]);
+  assert.equal(schema.default, "ask");
+  assert.equal(schema.scope, "machine");
+});

@@ -771,10 +771,13 @@ journals, source code, tools, and general technical views. Language-server views
 <code>runs.trace</code> separately reveals reasoning and function-call content in chat. Without it, those
 phases appear only as empty progress markers while arguments, source, results, and reasoning are
 removed on the server.</p>
-<p>Server-side execution is always sandboxed for nonadministrators. Administrators can select
-&quot;Sandbox protection&quot; before starting a run, and the server can require it for everyone.
+<p>Every run starts with &quot;Isolated&quot;, including runs owned by administrators. Only the owner can
+change the composer control to &quot;Full access&quot;. For a workspace on the server, this requires <code>*</code>
+and is forbidden by <code>ragents.workspace.PROCESS_SANDBOX: &quot;on&quot;</code>. For a workstation workspace,
+the owner can choose it with any server permissions, but that machine must confirm locally.
+A run with full access is <code>ownerOnly</code>; sharing never permits changing its access.
 Only administrators can bind an existing server folder; other users work in a new folder
-per run or on their own workstation. Sharing does not change the owner&#39;s execution policy.</p>
+per run or on their own workstation.</p>
 <h2 id="function-selection-and-actor-grants">Function selection and actor grants</h2>
 <p>An engine capability is a technical permission such as <code>workspace.use</code>. A grant assigns it to
 an actor for the run or a workspace path and records whether the actor may use or delegate it.

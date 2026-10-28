@@ -126,9 +126,6 @@ importers:
 
   apps/server:
     dependencies:
-      '@anthropic-ai/sandbox-runtime':
-        specifier: 0.0.77
-        version: 0.0.77
       '@ragents/agent':
         specifier: workspace:*
         version: link:../../packages/agent
@@ -343,6 +340,9 @@ importers:
 
   packages/workspace-executor:
     dependencies:
+      '@anthropic-ai/sandbox-runtime':
+        specifier: 0.0.77
+        version: 0.0.77
       '@ragents/agent':
         specifier: workspace:*
         version: link:../agent

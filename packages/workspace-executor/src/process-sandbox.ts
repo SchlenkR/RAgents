@@ -1,4 +1,5 @@
 import { createServer, isIP, type Server } from "node:net";
+import type { WorkspaceAccessRule } from "./access-rule.js";
 import type { WorkspaceProcessContext } from "./context.js";
 import { WorkspaceOperationError } from "./errors.js";
 
@@ -6,10 +7,14 @@ import { WorkspaceOperationError } from "./errors.js";
 export interface ProcessLaunch {
   readonly command: string;
   readonly args: readonly string[];
+  readonly machServices?: readonly string[];
+  readonly directoryAliases?: readonly { readonly path: string; readonly target: string }[];
 }
 
 /** How an executor puts the processes of a run into its sandbox; the context carries it, every start asks it. */
 export interface ProcessSandbox {
+  readonly rule?: WorkspaceAccessRule;
+  readonly cleanup?: () => Promise<void>;
   readonly wrap: (launch: ProcessLaunch) => Promise<ProcessLaunch>;
   readonly publishPorts?: (launch: ProcessLaunch, ports: readonly number[]) => Promise<PublishedProcessLaunch>;
   readonly tcpEndpoints?: (forwards: readonly TcpForward[]) => Promise<readonly TcpEndpoint[]>;

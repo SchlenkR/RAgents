@@ -164,3 +164,61 @@ test("without paths the diagnostics find the changed files in a subfolder of a r
     await f.close();
   }
 });
+
+test("a stop cancels a call before it can launch and gates new calls until late resources are cleaned", async () => {
+  const launched: string[] = [];
+  const stopped: string[] = [];
+  let release: (() => void) | undefined;
+  const barrier = new Promise<void>((resolve) => { release = resolve; });
+  let entered: (() => void) | undefined;
+  const ready = new Promise<void>((resolve) => { entered = resolve; });
+  const executor = new WorkspaceOperationExecutor({
+    contextFor: () => Promise.reject(new Error("No context expected")),
+    modules: [() => ({
+      operations: {
+        launch: async ({ input }) => {
+          entered!();
+          if (input === "old") await barrier;
+          launched.push(String(input));
+        },
+      },
+      stopRun: async (runId) => { if (runId === "run") stopped.push(...launched.splice(0)); },
+    })],
+  });
+  const old = executor.execute("run", "launch", "old");
+  await ready;
+  const stopping = executor.stopRun("run");
+  const fresh = executor.execute("run", "launch", "new");
+  await Promise.resolve();
+  assert.deepEqual(launched, []);
+  release!();
+  await Promise.all([old, stopping, fresh]);
+  assert.deepEqual(stopped, ["old"]);
+  assert.deepEqual(launched, ["new"]);
+  const cancelled = executor.execute("cancelled", "launch", "cancelled");
+  const rejected = assert.rejects(cancelled, /ended with its run/);
+  await executor.stopRun("cancelled");
+  await rejected;
+  assert.deepEqual(launched, ["new"]);
+  await executor.shutdown();
+});
+
+test("failed process cleanup blocks new operations until cleanup succeeds on retry", async () => {
+  let failing = true;
+  let calls = 0;
+  const executor = new WorkspaceOperationExecutor({
+    contextFor: () => Promise.reject(new Error("No context expected")),
+    modules: [() => ({
+      operations: { run: () => { calls++; return Promise.resolve(null); } },
+      stopRun: () => failing ? Promise.reject(new Error("Cleanup failed")) : Promise.resolve(),
+    })],
+  });
+  await assert.rejects(executor.stopRun("run"), /Cleanup failed/);
+  await assert.rejects(executor.execute("run", "run", null), /Cleanup failed/);
+  assert.equal(calls, 0);
+  failing = false;
+  await executor.stopRun("run");
+  await executor.execute("run", "run", null);
+  assert.equal(calls, 1);
+  await executor.shutdown();
+});
