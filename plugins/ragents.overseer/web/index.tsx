@@ -1,6 +1,6 @@
 import { useAccess } from "@ragents/web/AccessContext";
-import { RotateCcwIcon } from "lucide-react";
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, HeaderDropdown, Spinner } from "@ragents/web/ui";
+import { BotMessageSquareIcon, RotateCcwIcon } from "lucide-react";
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, HeaderDropdown, HeaderLabel, Spinner } from "@ragents/web/ui";
 import { RunModalContext } from "@ragents/web/ui/dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatMessages, ChatInputToolbar, ChatPanel, type ChatInputHandle, type ChatEvent } from "@schlenkr/quassel";
@@ -17,8 +17,9 @@ import { OVERSEER_PLUGIN_ID, overseerContracts } from "../contract";
 import { ModelSettings, useModelSettings } from "./ModelSettings";
 import { overseerChatDisplayPolicy, overseerChatStorageKeyPrefix } from "./chat-display";
 
-const toolbarClass = "flex h-header w-full min-w-0 flex-1 items-center px-2 py-1 max-md:px-1";
-const triggerClass = "h-full min-w-0 flex-1 justify-start border-border-strong bg-background px-2 font-normal text-muted-foreground data-[working=true]:animate-working-pulse data-[working=true]:border-primary motion-reduce:data-[working=true]:animate-none";
+const toolbarClass = "flex flex-none items-center gap-1";
+// Framed like an input field, also when the header collapses it to its icon.
+const triggerClass = "justify-start border-border-strong bg-background font-normal text-muted-foreground icon-only:border data-[working=true]:animate-working-pulse data-[working=true]:border-primary motion-reduce:data-[working=true]:animate-none";
 const noteClass = "text-[0.8rem] text-muted-foreground";
 const errorClass = "text-[0.8rem] text-destructive";
 const codeBlocks = { wrap: true } as const;
@@ -119,8 +120,8 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
   return <div className={toolbarClass} data-slot="overseer-toolbar">
     <HeaderDropdown id="overseer-dropdown" initialFocus={composerInput} keepMounted label="Global coordinator"
       onOpenChange={(next) => { if (next) onOpen(); else if (!confirmReset) onClose(); }} open={open} ref={setDropdown} role="region" variant="chat"
-      trigger={<Button className={triggerClass} data-working={chat.running} variant="ghost">
-          <span className="truncate">Global coordinator</span>
+      trigger={<Button aria-label="Global coordinator" className={triggerClass} data-working={chat.running} size="lg" variant="ghost">
+          <BotMessageSquareIcon /><HeaderLabel>Global coordinator</HeaderLabel>
       </Button>}>
         {confirmReset && dialogContainer && <RunModalContext.Provider value={dialogContainer}>
           <Dialog open onOpenChange={(next) => { if (!next && !resetting) setConfirmReset(false); }} modal="trap-focus" disablePointerDismissal>

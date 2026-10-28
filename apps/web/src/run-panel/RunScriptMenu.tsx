@@ -6,7 +6,7 @@ import { useAccess } from "../AccessContext";
 import { ParameterForm, type ParameterValues } from "../ParameterForm";
 import { rpc } from "../rpc";
 import { StartTile } from "../StartTiles";
-import { Button, HeaderDropdown, Separator } from "../ui";
+import { Button, HeaderDropdown, HeaderLabel, Separator } from "../ui";
 
 const messageOf = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
 const noticeClass = "px-1 py-2 type-body text-muted-foreground";
@@ -47,7 +47,7 @@ export function RunScriptMenu({ runId }: { runId: string }) {
     <Separator className="my-3" orientation="vertical" />
     <HeaderDropdown label="Run script" onOpenChange={(next) => { if (next) listScripts(); else close(); }} open={open}
       trigger={<Button aria-label="Run script" className="flex-none self-center" size="lg" aria-description="Run script" variant="ghost">
-        <CodeIcon className="text-primary" /><span>Run script</span>
+        <CodeIcon className="text-primary" /><HeaderLabel>Run script</HeaderLabel>
       </Button>}>
         {scripts?.kind === "loading" && <p className={noticeClass}>Loading run scripts ...</p>}
         {scripts?.kind === "ready" && scripts.scripts.length === 0 && !error && <p className={noticeClass}>This profile has no run scripts for you.</p>}

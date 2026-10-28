@@ -151,10 +151,10 @@ test("the run header offers Share to whoever may share and tells a sharee what t
   assert.match(owner, /<button(?=[^>]*aria-label="Share")(?=[^>]*aria-description="Share run")[^>]*>/);
   assert.match(headerOf({ id: "run", title: "Review", updatedAt: 0, operable: true, canShare: true, shared: true }), /aria-description="Shared - change whom the run is shared with"/);
   const viewer = headerOf({ id: "run", title: "Review", updatedAt: 0, operable: false, sharedAccess: "read" });
-  assert.match(viewer, /aria-label="Shared with you - view only"[^>]*>View only</);
+  assert.match(viewer, /aria-label="Shared with you - view only"[^>]*><svg.*?<\/svg><span[^>]*>View only</);
   assert.doesNotMatch(viewer, /aria-label="Share"/);
   const member = headerOf({ id: "run", title: "Review", updatedAt: 0, operable: true, sharedAccess: "write" });
-  assert.match(member, /aria-label="Shared with you - can operate"[^>]*>Shared</);
+  assert.match(member, /aria-label="Shared with you - can operate"[^>]*><svg.*?<\/svg><span[^>]*>Shared</);
   assert.doesNotMatch(headerOf({ id: "run", title: "Review", updatedAt: 0, operable: true }), /aria-label="Share"|View only/);
 });
 

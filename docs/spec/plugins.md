@@ -1665,7 +1665,8 @@ Instead, plugins fill typed slots for:
   `runs`, and a blank `title`. `PluginRegistry.pagesFor(access)` filters by `readRight`.
   The header always starts with the standard Runs entry beside the logo; `PageButtons` in
   `run-panel/PluginPages.tsx` places the readable plugin pages after it, in that sorted order.
-  Entries show their icon and title and adapt to narrow headers. The open entry carries
+  Entries show their icon and title; the titles are the first labels a tight header collapses,
+  from left to right (section on the web host below). The open entry carries
   `aria-current="page"`; clicking it changes nothing.
   `home: true` claims the home for that page. Among visible claims, the smallest `order` wins,
   then the smallest `id` in case-sensitive lexical string order, using the same sort as the page
@@ -1715,6 +1716,9 @@ Instead, plugins fill typed slots for:
   appear in the details footer, after the facts;
   with `placement: "bar"` instead in the run's title bar between the window buttons and "Share"
   (`RunPanelHeader`). Omitted placement and `placement: "details"` both select the fact rows.
+  A bar contribution, like a toolbar contribution of `overviewPanels`, shows an icon and puts its
+  text in `HeaderLabel` from `@ragents/web/ui`, so that its label collapses with the header's
+  other labels; text outside `HeaderLabel` never collapses.
 - run providers and surface (`surface.RunPanel`): one component for browser and VS Code
   receives `SurfaceCenterContext`, including chat, catalog, navigation, and card contributions.
 
@@ -3010,9 +3014,9 @@ level of detail, and attachments to it; until then the space stays empty, and an
 In VS Code the selected environment supplies its own global coordinator, also on the home. It
 oversees only this server's runs; switching environments selects a separate conversation.
 Coordinator runs do not appear in the ordinary run list. In the header the contribution is a plain button (`PopoverTrigger`) with the
-accessible name "Global coordinator", styled like an input field with that text in muted color;
-it fills its header slot, and the header keeps its fixed height of 45 pixels. Button and status
-are on one row. The button opens the history directly below itself, left-aligned, in the shared
+accessible name "Global coordinator", styled like an input field with an icon and that text in muted color;
+it keeps its natural width, its text is a `HeaderLabel`, and collapsed it keeps the field's frame
+around the icon. Button and status are on one row. The button opens the history directly below itself, left-aligned, in the shared
 square `HeaderDropdown` with `variant="chat"` in both browser and VS Code;
 `aria-expanded` and, while open, `aria-controls` point to the dropdown. The shared shell
 provides its labeled heading, close button, width and height limits, padding, and dimming;
@@ -3229,16 +3233,33 @@ closed until available. The browser instead uses the docking state described abo
 `app` layout never has an inspection rail in either host. The chat reports the active inspection
 tab through the existing navigation and user-location contract.
 The panel header (`RunHeader` in `RunPanelPage`) keeps fixed controls in a leading group (logo,
-global coordinator, and run title) and a trailing group (bar contributions,
+page buttons, global coordinator, and run title) and a trailing group (bar contributions,
 Share, Run script, environment, run state, Appearance, Settings, Help, browser, and sign-out).
-The coordinator and title have bounded preferred widths; the title truncates. At header widths
-of at least 768px, the title shrinks first, down to its chevron, and then the global coordinator,
-to keep the fixed groups on one row without covering one another. Fixed controls
-can wrap on narrower panels. `RunPanelHeader` supplies the title and portals its controls and
-window target to these shared slots.
+It stays one row whenever possible. Every item keeps its natural width except the run title,
+which shrinks and truncates down to 6rem of text (all of a shorter title). When the row still
+does not fit, labels give way one by one in a fixed order (`run-panel/header-collapse.ts`): first
+the page button titles (`pages`), then every other `HeaderLabel` (`actions`: global coordinator,
+Overview, window extras such as "Empty space" and "Show app...", bar contributions, Share, Run
+script, and the environment name), then the run title's status texts (`status`: "Run
+unreachable", attention, and sharing), each group from left to right. The header collapses the fewest labels that make the
+row fit, marking each with `data-collapsed`; `HeaderLabel` (`ui/header-label.tsx`, in the host
+API) then keeps its text only for screen readers, so the item keeps its icon and accessible name,
+and the shared `icon-only` variant gives it the look of an icon button. The header measures
+synchronously in a `ResizeObserver` callback, with transitions suspended while it measures, and
+searches the count by halving: first with the window buttons' total width reserved in the row,
+then, when they do not fit even with every label collapsed, for the controls alone, with the
+windows continuing below; labels give way only when that brings everything into the row. Only
+when the fully collapsed controls do not fit does the row wrap (`data-wrap` on the header). When
+it changed sizes itself, it observes again from the next frame, so the browser reports no
+observer loop. Window buttons keep their titles, because apps share one icon. A collapsed label
+appears in one shared tooltip below its item on mouse hover or keyboard focus, for host and
+plugin items alike; an open dropdown's trigger shows none. The title clips its own content, so a
+badge never covers the next control. `RunPanelHeader` supplies the title and portals its
+controls and window target to these shared slots.
 Both hosts put `DockWindowActions` in the same window slot; VS Code opens a mini-app in an editor
 when its button is clicked. The slot measures the fixed groups and actual button sizes, fills
-the remaining first-row gap in order, then uses the full width for continuation rows. Only
+the remaining first-row gap in order, then uses the full width for continuation rows. In a
+wrapped header, the free space before the trailing controls on their own row comes first. Only
 necessary rows are reserved. Window positions update without movement animation; existing
 buttons stay mounted, preserving focus and drag state. Resize, changed labels, and newly
 created or removed apps recalculate positions. Window buttons cap their width at 16rem or the
@@ -3275,12 +3296,11 @@ content width of 480 pixels and one column below it. A click starts a script wit
 `ragents.runs.startScript` with `parameters: {}`; a script with parameters first shows the generated
 `ParameterForm` and starts with its values. Until the answer its item is `starting` ("Starting ..." with a
 spinner in the action position) and every other item is locked. Success closes the pop-out;
-a refusal stays visible in it. Its label stays visible when
-the header wraps.
+a refusal stays visible in it. Its label is one of the header's `actions` labels.
 With `canShare`, "Share" (`RunShareButton`) stands right before it, its icon in the primary color
 while the run is shared, and opens `SharePanel` (`panel/SharePanel.tsx`) against
 `ragents.runs.sharing` and `ragents.runs.share`, in the browser and in the VS Code iframe alike;
-its label stays visible when the header wraps. A run the panel opened under a fresh identifier (a new
+its label is one of the header's `actions` labels. A run the panel opened under a fresh identifier (a new
 empty run) counts as shareable before its first message when the profile has sign-in and the user
 `runs.write`; the server keeps that choice until the run is created. For a sharee the title carries
 a badge, "View only" for `sharedAccess: "read"` and "Shared" for `"write"`, with the accessible name "Shared
@@ -5748,6 +5768,9 @@ right) returns the archive; a different version is 404. The counterpart is `rage
 - Browser scaling uses a root transform: media queries keep
   the window width, so breakpoints such as `max-md` switch by window width, container queries by the
   zoomed width.
+- Run header labels give way in a fixed order, by group and then from left to right; a plugin cannot
+  rank its label within its group, and text it renders outside `HeaderLabel` never collapses, so a
+  wide plugin item can make the header wrap earlier. Window buttons never collapse.
 - The build tool does not see pure type imports, because they disappear in the bundle: a third-party
   plugin can name types from a module outside the host API, such as from the agent runtime,
   and still builds. For the built-in plugins, `apps/server/tests/host-api.test.ts` also checks

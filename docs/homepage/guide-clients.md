@@ -143,8 +143,8 @@ locked until the server accepts the start, then the list closes;
 the primary actor stays, every start gets a room of its own with its own participants (`name`,
 `name-2`, ...), its main view becomes available as an app, and its output and summary appear in
 the chat as `@room.handle: ...`. If the start is refused,
-the list stays open and shows why. The same labeled button works in the VS Code run panel and
-wraps with the other header actions when space is short.
+the list stays open and shows why. The same button works in the VS Code run panel; in a tight
+header it shows only its icon, like the other labelled header buttons.
 
 Opening a window without a remembered place splits the largest visible window other than the
 main Chat into equal halves. If only Chat is visible, it splits Chat. Wider windows split side
@@ -175,12 +175,21 @@ exists. If the group was removed, it splits the largest visible window by the sa
 Clicking a window that waits as a background tab brings that tab to the front.
 Clicking a visible window focuses its area. All window buttons, "Empty space", and "Reset layout" remain directly available. They fill
 the space between the fixed controls first, then continue across the full header width when
-needed. Adding apps keeps the title and actions such as "Share", "Run script", and Settings
-in place. The title, and after it the global coordinator, shrinks before the fixed actions wrap on
-desktop widths. The title and long button labels truncate; Run details shows the full run title,
-and each window shows its own title. Controls retain complete accessible names.
-Narrow panels can also wrap fixed controls. The header grows and pushes the workspace down;
-its controls are never clipped, hidden in a window menu, or placed in a horizontal scroll area.
+needed.
+
+The header keeps everything in one row as long as it can. When space gets short, the run title
+shortens first, down to a few words. Then labels give way one at a time, only as many as needed,
+each leaving its icon: first the titles of Runs and the plugin views, then the other labelled
+buttons from left to right, such as the global coordinator, "Empty space", "Show app...",
+"Share", "Run script", and the environment name, and last the status texts beside the run title,
+such as "@coordinator asks". Point at a button that shows only its icon, or move the keyboard
+focus to it, to see its label. Window buttons keep their titles. Labels give way only when that
+brings the windows into the row; when they do not fit even then, they continue in further rows
+and the other buttons keep the labels they have room for. Only when the buttons alone do not fit
+as icons does the header wrap them as well. The header grows and pushes the workspace down; its controls are never clipped,
+covered, hidden in a window menu, or placed in a horizontal scroll area. The title and long window
+labels truncate; Run details shows the full run title, and each window shows its own title.
+Controls retain complete accessible names.
 Each window button has a grip at its left edge, shown on hover or focus and always on touch
 screens. Drag a button within the header to reorder the buttons across rows; a thin line marks
 where it lands. Drag it into the workspace to get the same compass and edge guides as for a tab:
@@ -404,10 +413,11 @@ scales with zoom. The outer header remains full width. Logo, Runs, plugin views,
 Settings, and Help share the header. An open run places its layout actions in its own header,
 without a separate toolbar row. Mini-app buttons use the remaining width between fixed controls,
 then continue over the full width in further rows. VS Code opens mini-apps in editor tabs; the
-browser opens them in its workspace. Narrow panels also wrap fixed controls.
+browser opens them in its workspace. A narrow panel shows labelled buttons as icons before it
+wraps anything, in the same order as in the browser.
 
 Runs is always the first view beside the logo. A plugin can add further views with an icon and
-title; the open entry is highlighted and long titles shorten in a narrow header. A plugin view
+title; the open entry is highlighted, and a tight header shows only the icons. A plugin view
 replaces Runs or the open run as plain content on the normal background, and the main area scrolls
 as a whole. The logo opens the home; opening a run leaves the view. In the browser the address
 names Runs as `?page=runs` and a plugin view as `?page=<id>`, so reloading, bookmarking, back, and
@@ -555,8 +565,8 @@ View lets the user see the run; Operate also lets them work in it within their o
 dropdown open with the saved state. Access controls are briefly disabled while saving. If the
 server refuses, the reason appears inline and the choices return to the server's saved state.
 There is no Save or Cancel. Escape or clicking outside closes the dropdown. The panel is the
-same in the browser and in VS Code; the labeled header button wraps with the other actions when
-space is short.
+same in the browser and in VS Code; in a tight header the button shows only its icon, like the
+other labelled header buttons.
 
 To inspect your outgoing shares together, open All runs, then "Shared by me". It lists your
 shared runs with Everyone and the individual recipients, each marked View or Operate. Search

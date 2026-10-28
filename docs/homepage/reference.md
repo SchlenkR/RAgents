@@ -8612,6 +8612,20 @@ declare function FilterSelect({ label, options, value, onValueChange, size, sear
 export { FilterSelect };
 ```
 
+#### apps/web/src/ui/header-label.d.ts
+
+```typescript
+import type { ReactNode } from "react";
+export type HeaderLabelCollapse = "pages" | "actions" | "status";
+/** The text of an item in the run header: when the row gets tight, the header collapses it in its group's turn and leaves the item's icon, while the text stays the accessible name. */
+declare function HeaderLabel({ children, className, collapse }: {
+    children: ReactNode;
+    className?: string;
+    collapse?: HeaderLabelCollapse;
+}): import("react").JSX.Element;
+export { HeaderLabel };
+```
+
 #### apps/web/src/ui/HeaderDropdown.d.ts
 
 ```typescript
@@ -8688,6 +8702,7 @@ export { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLab
 export { Input } from "./input";
 export { OverflowTabs, OverflowTabsList, type OverflowTabItem, type OverflowTabsListProps, type OverflowTabsProps } from "./overflow-tabs";
 export { HeaderDropdown } from "./HeaderDropdown";
+export { HeaderLabel, type HeaderLabelCollapse } from "./header-label";
 export { ImagePreview, ImageViewer, type ImagePreviewProps, type ImageViewerProps } from "./image-viewer";
 export { ImagePreviewGroup } from "./image-preview-group";
 export { InteractiveItem } from "./interactive-item";
@@ -9142,7 +9157,7 @@ import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 declare function TooltipProvider({ delay, ...props }: TooltipPrimitive.Provider.Props): import("react").JSX.Element;
 declare function Tooltip({ ...props }: TooltipPrimitive.Root.Props): import("react").JSX.Element;
 declare function TooltipTrigger({ ...props }: TooltipPrimitive.Trigger.Props): import("react").JSX.Element;
-declare function TooltipContent({ className, side, sideOffset, align, alignOffset, children, ...props }: TooltipPrimitive.Popup.Props & Pick<TooltipPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset">): import("react").JSX.Element;
+declare function TooltipContent({ className, side, sideOffset, align, alignOffset, anchor, children, ...props }: TooltipPrimitive.Popup.Props & Pick<TooltipPrimitive.Positioner.Props, "align" | "alignOffset" | "anchor" | "side" | "sideOffset">): import("react").JSX.Element;
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };
 ```
 

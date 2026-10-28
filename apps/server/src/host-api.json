@@ -916,6 +916,7 @@
       "FieldTitle",
       "FilterSelect",
       "HeaderDropdown",
+      "HeaderLabel",
       "ImagePreview",
       "ImagePreviewGroup",
       "ImageViewer",

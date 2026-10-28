@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState, type ComponentType } from "react";
+import { LayoutDashboardIcon } from "lucide-react";
 import { useAccess } from "../AccessContext";
 import { Overview } from "../Overview";
 import type { OverviewPanelContext, PluginRegistry } from "../PluginRegistry";
 import type { ChatUserLocation } from "../../../server/src/chat-context";
-import { Button } from "../ui";
+import { Button, HeaderLabel } from "../ui";
 
 export function PanelContributions({ registry, userLocation }: { registry: PluginRegistry; userLocation: ChatUserLocation }) {
   const access = useAccess();
@@ -21,7 +22,9 @@ export function PanelContributions({ registry, userLocation }: { registry: Plugi
   const overview = panels.filter((panel) => (panel.placement ?? "overview") === "overview");
   const openOverview = () => { setOverviewActivated(true); setOpen("overview"); };
   return <>
-    {overview.length > 0 && <Button onClick={() => open === "overview" ? setOpen(undefined) : openOverview()} variant="ghost">{busy.size ? "Overview (working)" : "Overview"}</Button>}
+    {overview.length > 0 && <Button aria-label={busy.size ? "Overview (working)" : "Overview"} onClick={() => open === "overview" ? setOpen(undefined) : openOverview()} variant="ghost">
+      <LayoutDashboardIcon /><HeaderLabel>{busy.size ? "Overview (working)" : "Overview"}</HeaderLabel>
+    </Button>}
     {panels.filter((panel) => panel.placement === "toolbar").map(({ id, Panel }) =>
       <Contribution id={id} key={id} onBusy={reportBusy} onClose={() => setOpen(undefined)} onOpen={() => setOpen(id)}
         open={open === id} Panel={Panel} registry={registry} userLocation={userLocation} />)}

@@ -27,3 +27,10 @@ test("removing windows restores the fixed height without a reserved overflow row
   assert.equal(headerWindowLayout(bounds, sizes([100])).height, 36);
   assert.deepEqual(headerWindowLayout(bounds, []), { positions: [], height: 36 });
 });
+
+test("a wrapped header fills the free start of the trailing controls' own row before continuing below", () => {
+  const wrapped = { width: 600, height: 76, start: 0, end: 200, top: 40, line: 36, gap: 4 };
+  assert.deepEqual(headerWindowLayout(wrapped, sizes([100, 96, 100])), {
+    positions: [{ left: 0, top: 42 }, { left: 104, top: 42 }, { left: 0, top: 80 }], height: 112,
+  });
+});

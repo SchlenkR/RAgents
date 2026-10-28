@@ -1,5 +1,5 @@
 import { Activity, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ListIcon } from "lucide-react";
+import { ListIcon, ServerIcon } from "lucide-react";
 import { canStartEntry, type AccessContext } from "../../../../packages/ragents/src/access";
 import { deleteSession, getStartOptions, markRunViewed, revokeRunShare, setStartOption, stopRun } from "../api";
 import { scriptParameters, startEntryDirectly } from "../chat/requests";
@@ -24,7 +24,7 @@ import { usePageHistory } from "./page-history";
 import { PageButtons, PluginPage } from "./PluginPages";
 import { WorkspaceModalContext } from "../ui/dialog";
 import { SettingsModal } from "../SettingsModal";
-import { Alert, Button, RunStateIcon, StartupNotice, StopButton, type StartupNoticeState } from "../ui";
+import { Alert, Button, HeaderLabel, RunStateIcon, StartupNotice, StopButton, type StartupNoticeState } from "../ui";
 import type { RunPanelLocation } from "./run-panel-location";
 import { RunPanelActions } from "./RunPanelActions";
 import { SERVER_SHARING } from "./RunShareButton";
@@ -32,16 +32,12 @@ import { useRunPanelHost } from "./host";
 import { useRetainedSession, useSessionList } from "./use-session-list";
 import { viewedReporter } from "./viewed-runs";
 import { BrandLogo } from "../ui/brand-logo";
-import { RunHeader } from "./RunHeader";
+import { headerGroupClass, RunHeader } from "./RunHeader";
 
 const headerClass = "relative z-[80] flex min-h-header flex-none flex-wrap items-center border-b border-border bg-shell shadow-bar";
-const globalBarClass = "flex min-w-0 flex-[0_1_auto] items-center gap-1";
-// Each plugin page adds a button, so the limit grows with them and the buttons stay in one row.
-const globalBarWidth = (pages: number) => ({ maxWidth: `${18 + 9 * pages}rem` });
-// From 768px the run title shrinks first down to its chevron; only then the global bar shrinks instead of overlapping the actions.
-const runBarClass = "flex min-w-0 max-w-[22rem] flex-[0_1_auto] items-stretch @min-[768px]/run-header:min-w-8 @min-[768px]/run-header:shrink-[1000]";
-const actionsBarClass = "ml-auto flex max-w-full min-w-0 flex-wrap items-center justify-end gap-1";
-const connectionClass = "max-w-[120px] self-center truncate rounded-full bg-secondary px-2 py-0.5 type-meta font-semibold text-muted-foreground";
+// The run title is the one header item that shrinks; the header measures how far (RunHeader).
+const runBarClass = "flex min-w-0 max-w-[22rem] flex-[0_1_auto] items-stretch";
+const connectionClass = "flex max-w-[120px] min-w-0 items-center gap-1 self-center rounded-full bg-secondary px-2 py-0.5 type-meta font-semibold text-muted-foreground [&>svg]:size-3 [&>svg]:flex-none";
 const pendingTitleClass = "min-w-0 flex-1 self-center truncate px-1.5 type-item";
 const STOP_REASON = "Stopped in the run panel";
 const statusBarClass = "relative flex min-h-statusbar flex-none items-stretch border-t border-border bg-shell";
@@ -377,21 +373,21 @@ function RunPanelPage({ connection, initialPageId, initialRunId, registry }: { c
   };
   return <WorkspaceModalContext.Provider value={workspaceContainer}><div className="flex h-full flex-col">
     <RunHeader leading={<>
-      <div className={globalBarClass} style={globalBarWidth(pages.length)}>
+      <div className={headerGroupClass}>
         <Button aria-label="Home" className="self-center" onClick={showHome} size="icon" variant="ghost">
           <BrandLogo className="size-6 text-foreground" title={registry.brand.title} />
         </Button>
-        <div className="flex min-w-0 flex-1 items-center empty:hidden">
+        <div className={`${headerGroupClass} empty:hidden group-data-wrap/run-header:flex-1`}>
           <PageButtons active={viewingPage ? currentPageId : undefined} onOpen={openPage} pages={[runsPage, ...pages]} />
           <PanelContributions registry={registry} userLocation={chatUserLocation(viewingPage ? undefined : runId, false, runLocation)} />
         </div>
       </div>
       {hasRunTitle && <div className={runBarClass}>
-        {launch ? <div aria-label="Run title bar" className="flex min-w-0 flex-1 items-stretch" role="region"><h1 className={pendingTitleClass}>{runTitle ?? NEW_RUN_TITLE}</h1></div>
+        {launch ? <div aria-label="Run title bar" className="flex min-w-0 flex-1 items-stretch" role="region"><h1 className={pendingTitleClass} data-header-title>{runTitle ?? NEW_RUN_TITLE}</h1></div>
           : <div aria-label="Run title bar" className="flex min-w-0 flex-1 items-stretch" ref={setHeaderContainer} role="region" />}
       </div>}
-    </>} trailing={<div className={actionsBarClass}>
-        {connection && <span className={connectionClass} aria-label={`Environment ${connection}`}>{connection}</span>}
+    </>} trailing={<div className={`${headerGroupClass} ml-auto justify-end`}>
+        {connection && <span className={connectionClass} aria-label={`Environment ${connection}`}><ServerIcon aria-hidden /><HeaderLabel>{connection}</HeaderLabel></span>}
         {readRuns && runId && !viewingPage && <>
           <RunStateIcon className="self-center px-1.5" state={session?.state === "stopped" ? "stopped" : session?.running ? "running" : "idle"} />
           {session?.sharedAccess !== "read" && <StopButton className="self-center" disabled={!writeRuns} label="Stop run" onClick={stop} size="icon-lg" aria-description="Stop the run with all agents and flows" />}

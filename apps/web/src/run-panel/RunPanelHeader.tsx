@@ -1,17 +1,19 @@
 import { useState, type Ref } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDownIcon } from "lucide-react";
+import { BellIcon, ChevronDownIcon, EyeIcon, UnplugIcon, UsersIcon } from "lucide-react";
 import type { AttentionState, PluginRegistry, SessionContext, SessionNavigation } from "../PluginRegistry";
 import { sharedWithYouLabel } from "../run-sharing";
 import { StartOptionBadges } from "../StartOptions";
-import { Badge, DetailRow, HeaderDropdown, InteractiveItem } from "../ui";
+import { Badge, DetailRow, HeaderDropdown, HeaderLabel, InteractiveItem } from "../ui";
 import { RunScriptMenu } from "./RunScriptMenu";
 import { RunShareButton } from "./RunShareButton";
 import { HeaderControls, useRunHeader } from "./RunHeader";
 
-const titleClass = "flex h-[30px] min-w-0 max-w-full flex-1 cursor-pointer items-center gap-2 self-center rounded-md px-2 text-left";
+// The title gives way first; whatever is still too wide stays inside the trigger instead of covering the next control.
+const titleClass = "flex h-[30px] min-w-0 max-w-full flex-1 cursor-pointer items-center gap-2 self-center overflow-hidden rounded-md px-2 text-left";
+const statusBadgeClass = "flex-none has-[>[data-collapsed]]:w-5.5 has-[>[data-collapsed]]:px-0";
 
-/** The wrapping panel header keeps bar actions direct and run details behind the title. */
+/** The run title with its status, and the run's controls for the panel header; bar actions stay direct and run details sit behind the title. */
 export function RunPanelHeader({ actionsRef, attention, contributions, navigation, registry, runError, session, working }: {
   actionsRef?: Ref<HTMLDivElement>;
   attention: AttentionState | undefined;
@@ -43,11 +45,13 @@ export function RunPanelHeader({ actionsRef, attention, contributions, navigatio
   const windows = <div className="min-w-0 max-w-full empty:hidden" ref={actionsRef} />;
   return <div className={header ? "flex min-w-0 max-w-full items-center" : "flex min-w-0 flex-1 flex-wrap items-center gap-1 py-1"}>
     <HeaderDropdown label="Run details" onOpenChange={setOpen} open={open} trigger={<InteractiveItem aria-description="Show run details" aria-label={title} className={titleClass} type="button">
-      <strong className="min-w-0 truncate type-item">{title}</strong>
+      <strong className="min-w-0 truncate type-item" data-header-title>{title}</strong>
       {working && <span aria-label="Processing" className="size-1.5 flex-none rounded-full bg-active animate-fade-pulse motion-reduce:animate-none" role="status" />}
-      {runError && <span className="flex-none type-meta font-medium text-destructive">Run unreachable</span>}
-      {attention && <Badge className="flex-none truncate" role="status" tone="warning">{attention.label}</Badge>}
-      {sharedAccess && <Badge aria-label={sharedWithYouLabel(sharedAccess)} className="flex-none" variant="secondary">{sharedAccess === "read" ? "View only" : "Shared"}</Badge>}
+      {runError && <span className="flex flex-none items-center gap-1 type-meta font-medium text-destructive [&>svg]:size-3.5"><UnplugIcon aria-hidden /><HeaderLabel collapse="status">Run unreachable</HeaderLabel></span>}
+      {attention && <Badge className={statusBadgeClass} role="status" tone="warning"><BellIcon aria-hidden /><HeaderLabel collapse="status">{attention.label}</HeaderLabel></Badge>}
+      {sharedAccess && <Badge aria-label={sharedWithYouLabel(sharedAccess)} className={statusBadgeClass} variant="secondary">
+        {sharedAccess === "read" ? <EyeIcon aria-hidden /> : <UsersIcon aria-hidden />}<HeaderLabel collapse="status">{sharedAccess === "read" ? "View only" : "Shared"}</HeaderLabel>
+      </Badge>}
       <ChevronDownIcon aria-hidden className="size-3.5 flex-none text-muted-foreground" />
     </InteractiveItem>}>
       <div className="min-w-0" data-slot="run-details-sheet">

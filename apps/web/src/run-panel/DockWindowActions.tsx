@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, type KeyboardEvent, type PointerEvent, type ReactNode, type Ref } from "react";
 import { GripVerticalIcon, RotateCcwIcon } from "lucide-react";
-import { BadgeDisplayProvider, Button, cn } from "../ui";
+import { BadgeDisplayProvider, Button, cn, HeaderLabel } from "../ui";
 import { DockButtonMenu } from "./DockButtonMenu";
 import { useHeaderWindows, useRunHeader } from "./RunHeader";
 const gripClass = "absolute inset-y-0 left-0 flex cursor-grab items-center text-muted-foreground opacity-0 transition-opacity active:cursor-grabbing group-hover/button:opacity-100 group-focus-visible/button:opacity-100 group-data-[dragging=true]/button:opacity-100 pointer-coarse:opacity-100";
@@ -18,7 +18,7 @@ export interface DockWindowItem {
   readonly draggable?: boolean;
 }
 
-/** Direct window buttons wrap, with `extras` and reset after them outside the order. */
+/** Direct window buttons wrap, with `extras` and reset after them outside the order; the windows keep their titles, the extras collapse with the header's labels. */
 export function DockWindowActions({ dragging, dropIndex, extras = [], groupRef, items, onDragStart, onMove, onOpen, onReset, onMoveToSidebar }: {
   dragging?: string;
   dropIndex?: number;
@@ -41,7 +41,7 @@ export function DockWindowActions({ dragging, dropIndex, extras = [], groupRef, 
     if (groupRef) groupRef.current = element;
   }, [groupRef]);
   const position = (index: number) => header ? { position: "absolute" as const, ...layout?.positions[index], visibility: layout?.positions[index] ? "visible" as const : "hidden" as const } : undefined;
-  const content = (item: DockWindowItem) => <>{item.icon}<span className="min-w-0 truncate">{item.title}</span></>;
+  const content = (item: DockWindowItem, extra: boolean) => <>{item.icon}{extra ? <HeaderLabel>{item.title}</HeaderLabel> : <span className="min-w-0 truncate">{item.title}</span>}</>;
   const dot = (badge: ReactNode, className: string) => <span className={className}><BadgeDisplayProvider value="dot">{badge}</BadgeDisplayProvider></span>;
   const moveFromKeyboard = (event: KeyboardEvent<HTMLElement>, id: string) => {
     if (!onMove || !event.altKey || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) return;
@@ -60,7 +60,7 @@ export function DockWindowActions({ dragging, dropIndex, extras = [], groupRef, 
       onClick={(event) => { if (!drag || event.detail === 0) onOpen(item.id); }} onKeyDown={index === undefined ? undefined : (event) => moveFromKeyboard(event, item.id)}
       onPointerDown={drag && ((event) => drag(event, item.id))} aria-description={item.hint ?? (item.visible ? item.title : `Show ${item.title}`)} variant="ghost">
       {drag && <span aria-hidden className={gripClass} data-dock-window-grip aria-label={index === undefined ? "Drag to dock" : "Drag to reorder or dock"}><GripVerticalIcon className="size-2.5" strokeWidth={3} /></span>}
-      {content(item)}
+      {content(item, index === undefined)}
       {item.badge !== undefined && dot(item.badge, "absolute top-0.5 right-0.5")}
       {index !== undefined && dropIndex === index && <span aria-hidden className={cn(dropClass, "-left-1")} data-dock-window-drop />}
       {index !== undefined && dropIndex === items.length && index === items.length - 1 && <span aria-hidden className={cn(dropClass, "-right-1")} data-dock-window-drop />}

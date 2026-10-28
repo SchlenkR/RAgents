@@ -1,12 +1,12 @@
 import { createRoot } from "react-dom/client";
-import { FileTextIcon, ScrollTextIcon, TriangleAlertIcon } from "lucide-react";
+import { BotMessageSquareIcon, FileTextIcon, ScrollTextIcon, TriangleAlertIcon, UsersIcon } from "lucide-react";
 import { createAccessContext } from "../../../packages/ragents/src/access";
 import { OrchestrationRunPanel } from "../../../plugins/ragents.orchestration/web/run-panel/RunPanel";
 import { AccessContext } from "../src/AccessContext";
 import type { PluginActivationState } from "../src/PluginActivation";
-import { PluginRegistry, type SurfaceElementDefinition, type EntryGuideContext, type PageContext, type WebPlugin } from "../src/PluginRegistry";
+import { PluginRegistry, type SurfaceElementAdditionContext, type SurfaceElementDefinition, type EntryGuideContext, type PageContext, type WebPlugin } from "../src/PluginRegistry";
 import type { ListedSession } from "../src/api";
-import { Button, DetailRow } from "../src/ui";
+import { Button, DetailRow, HeaderLabel } from "../src/ui";
 import type { RunSharing, RunSharingResult } from "../src/run-sharing";
 import { RunPanelApp } from "../src/run-panel/RunPanelApp";
 import { RunPanelHostProvider, type RunPanelHost } from "../src/run-panel/host";
@@ -72,12 +72,18 @@ const dropdownPlugin: WebPlugin = {
     Header: () => <Button type="button" variant="outline">Contributed details action</Button> }],
   startOptions: [{ id: "start.dropdown.mode", Badge: () => <DetailRow label="Mode">Careful review</DetailRow> }],
 };
+const coordinatorPanel = { id: "start.coordinator.panel", order: 0, placement: "toolbar" as const,
+  Panel: () => <Button aria-label="Global coordinator" size="lg" variant="outline"><BotMessageSquareIcon /><HeaderLabel>Global coordinator</HeaderLabel></Button> };
+const coordinatorPlugin: WebPlugin = { id: "start.coordinator", overviewPanels: [coordinatorPanel] };
 const growingHeaderPlugin: WebPlugin = {
   id: "start.growing-header",
-  overviewPanels: [{ id: "start.growing-header.coordinator", order: 0, placement: "toolbar",
-    Panel: () => <Button aria-label="Global coordinator" className="min-w-0 max-w-48" style={{ flexShrink: 1 }} variant="outline"><span className="truncate">Global coordinator</span></Button> }],
+  overviewPanels: [coordinatorPanel],
   sessionHeaders: [{ id: "start.growing-header.actors", order: 0, placement: "bar",
-    Header: () => <Button aria-label="Actors" className="flex-none" variant="ghost">Actors</Button> }],
+    Header: () => <Button aria-label="Actors" size="lg" variant="ghost"><UsersIcon /><HeaderLabel>Actors</HeaderLabel></Button> }],
+};
+const attentionPlugin: WebPlugin = {
+  id: "start.attention",
+  attention: [{ id: "start.attention.question", assess: (session) => session.session.id === "existing" ? { active: true, label: "@coordinator asks" } : undefined }],
 };
 const pagesPlugin: WebPlugin = {
   id: "start.pages",
@@ -100,9 +106,11 @@ const registry = new PluginRegistry({
   plugins: [{
     id: "start", needsRunView: true,
     surface: { RunPanel: OrchestrationRunPanel },
-    surfaceElements: [{ id: "start.app", order: 0, select: () => fixture.elements, Element: () => <p>Mini-app ready</p> }],
+    surfaceElements: [{ id: "start.app", order: 0, select: () => fixture.elements, Element: () => <p>Mini-app ready</p>,
+      ...(query.has("additions") ? { add: { label: "Show app...", Dialog: ({ onClose }: SurfaceElementAdditionContext) => <button onClick={() => onClose()} type="button">Close addition</button> } } : {}) }],
     guides: [{ id: "start.topic", Guide: TopicGuide }],
-  }, ...(query.has("documents") ? [documentPlugin] : []), ...(query.has("dropdowns") ? [dropdownPlugin] : []), ...(query.has("growing-header") ? [growingHeaderPlugin] : []), ...(query.has("pages") ? [pagesPlugin] : [])],
+  }, ...(query.has("documents") ? [documentPlugin] : []), ...(query.has("dropdowns") ? [dropdownPlugin] : []), ...(query.has("growing-header") ? [growingHeaderPlugin] : []), ...(query.has("pages") ? [pagesPlugin] : []),
+    ...(query.has("attention") ? [attentionPlugin] : []), ...(query.has("coordinator") ? [coordinatorPlugin] : [])],
   startEntries: [
     { id: "start.script", owner: "start", title: "Setup template", description: "Builds a mini-app", action: "script", coordinator: false },
     { id: "start.other", owner: "start", title: "Second template", description: "Builds something else", action: "script", coordinator: false },

@@ -242,7 +242,8 @@
 /* Native open states plus an open popup trigger (data-popup-open or expanded aria-haspopup); plain disclosures are not selected. */
 @custom-variant open (&:is([open], :popover-open, :open, [data-popup-open], [aria-haspopup]:not([aria-haspopup="false"])[aria-expanded="true"]));
 
-@custom-variant icon-only (&:has(> svg:only-child:not([data-icon])));
+/* A run header item whose label the header collapsed (HeaderLabel) looks like any icon button. */
+@custom-variant icon-only (&:is(:has(> svg:only-child:not([data-icon])), :has(> [data-header-label][data-collapsed])));
 
 @custom-variant data-disabled {
     &:where([data-disabled="true"]),

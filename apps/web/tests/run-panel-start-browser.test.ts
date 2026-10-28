@@ -702,7 +702,13 @@ for (const host of ["browser", "vscode"] as const) {
             const expected = before[index]!;
             const current = after[index]!;
             assert.ok(Math.abs(current.x - expected.x) < 1 && Math.abs(current.y - expected.y) < 1 && Math.abs(current.width - expected.width) < 1,
-              `App growth leaves ${expected.name} in place: ${JSON.stringify({ expected, current })}`);
+              `Removing the extra apps returns ${expected.name} to its place: ${JSON.stringify({ expected, current })}`);
+          }
+        };
+        // Labels may give way or return when apps come and go, so growth only keeps every fixed control on its row.
+        const sameFixedRows = (before: Awaited<ReturnType<typeof fixedBounds>>, after: Awaited<ReturnType<typeof fixedBounds>>) => {
+          for (let index = 0; index < before.length; index++) {
+            assert.ok(Math.abs(after[index]!.y - before[index]!.y) < 1, `App growth keeps ${before[index]!.name} on its row: ${JSON.stringify({ before: before[index], after: after[index] })}`);
           }
         };
         const setApps = async (titles: readonly string[]) => {
@@ -733,7 +739,7 @@ for (const host of ["browser", "vscode"] as const) {
         await notes.focus();
         await setApps(growingAppTitles);
         const grown = await headerGeometry(header);
-        sameFixedBounds(initialFixed, await fixedBounds());
+        sameFixedRows(initialFixed, await fixedBounds());
         assert.ok(grown.height > initial.height, "Additional app and actor views add header rows only when they need room.");
         assert.equal(await notes.evaluate((element, original) => element === original && element === document.activeElement, originalNotes), true,
           "Adding app views preserves the existing button and its keyboard focus.");
@@ -777,18 +783,100 @@ for (const host of ["browser", "vscode"] as const) {
         }
 
         const grownAtOriginalWidth = await headerGeometry(header);
-        const fixedAtOriginalWidth = await fixedBounds();
+        sameFixedRows(initialFixed, await fixedBounds());
         await setApps(["Notes"]);
         const shrunk = await headerGeometry(header);
         assert.ok(shrunk.height < grownAtOriginalWidth.height, "Removing app views gives the workspace its vertical space back.");
         assert.ok(Math.abs(shrunk.height - initial.height) < 1, "Shrinking restores the original compact header height.");
-        sameFixedBounds(fixedAtOriginalWidth, await fixedBounds());
+        sameFixedBounds(initialFixed, await fixedBounds());
         assert.equal(await notes.evaluate((element, original) => element === original && element === document.activeElement, originalNotes), true,
           "Removing other app views preserves the focused surviving button.");
         assert.deepEqual(errors, []);
       } finally { await browser.close(); }
     });
   }
+}
+
+for (const host of ["browser", "vscode"] as const) {
+  test(`the run header gives up labels in order before it wraps and never covers a control in ${host}`, browserOnly, async () => {
+    const url = await (fixtureUrl ??= buildFixture());
+    const browser = await launchBrowser();
+    try {
+      const page = await browser.newPage({ viewport: { width: 1800, height: 900 }, reducedMotion: "reduce" });
+      page.setDefaultTimeout(8000);
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      await page.goto(`${url}?host=${host}&documents&coordinator&dropdowns&attention&additions&rights=runs.read,runs.write,runs.create,runs.inspect,settings.read`);
+      await page.locator('main[data-page="runs"]').waitFor();
+      await page.evaluate(() => {
+        window.runStartFixture.views.add("existing");
+        window.runStartFixture.command({ type: "selectRun", runId: "existing" });
+      });
+      await page.waitForFunction(() => window.runStartFixture.activeRun() === "existing");
+      const header = page.locator("header");
+      const button = (name: string) => header.getByRole("button", { name, exact: true });
+      const title = button("Existing run");
+      const attention = title.getByRole("status").filter({ hasText: "@coordinator asks" });
+      await attention.waitFor();
+      await button("Share").waitFor();
+      const labels = () => header.evaluate((element) => {
+        const all = [...element.querySelectorAll<HTMLElement>("[data-header-label]")];
+        const ordered = ["pages", "actions", "status"].flatMap((step) => all.filter((label) => label.dataset.headerLabel === step));
+        return { names: ordered.map((label) => label.textContent ?? ""), collapsed: ordered.map((label) => label.hasAttribute("data-collapsed")),
+          shown: ordered.map((label) => label.getBoundingClientRect().width > 1), wrap: element.hasAttribute("data-wrap") };
+      });
+      const fixed = ["Home", "Runs", "Documents", "Global coordinator", "Existing run", "Share", "Run script", "Settings"];
+      await settleHeader(page);
+      const wide = await labels();
+      assert.deepEqual(wide.names, ["Runs", "Documents", "Global coordinator", ...(host === "browser" ? ["Empty space"] : []), "Show app...", "Share", "Run script", "local", "@coordinator asks"],
+        "Page titles give way first, then the other labels from left to right, then the run status.");
+      assert.ok(wide.collapsed.every((collapsed) => !collapsed) && wide.shown.every(Boolean) && !wide.wrap, "A wide header keeps every label.");
+      const counts = new Set<number>();
+      for (let width = 1800; width >= 320; width -= 40) {
+        await page.setViewportSize({ width, height: 900 });
+        await settleHeader(page);
+        const current = await labels();
+        const count = current.collapsed.filter(Boolean).length;
+        counts.add(current.wrap ? -1 : count);
+        assert.deepEqual(current.collapsed, current.names.map((_, index) => index < count), `Labels give way in their fixed order at ${width}px: ${JSON.stringify(current)}`);
+        assert.deepEqual(current.shown, current.collapsed.map((collapsed) => !collapsed), `A collapsed label leaves only its icon at ${width}px.`);
+        assert.ok(!current.wrap || count === current.names.length, `The header wraps only with every label collapsed at ${width}px.`);
+        const geometry = await headerGeometry(header);
+        const badge = await attention.boundingBox();
+        const trigger = await title.boundingBox();
+        assert.ok(badge && trigger && badge.width > 0 && badge.x >= trigger.x - 0.5 && badge.x + badge.width <= trigger.x + trigger.width + 0.5,
+          `The attention badge stays whole inside the run title at ${width}px: ${JSON.stringify({ badge, trigger })}`);
+        for (const box of geometry.boxes.filter((entry) => entry.name !== "Existing run")) {
+          const overlap = Math.min(box.right, badge.x + badge.width) - Math.max(box.left, badge.x);
+          const vertical = Math.min(box.bottom, badge.y + badge.height) - Math.max(box.top, badge.y);
+          assert.ok(overlap < 1 || vertical < 1, `The attention badge never covers ${box.name} at ${width}px.`);
+        }
+        if (!current.wrap) {
+          const centers = await Promise.all(fixed.map(async (name) => {
+            const bounds = await button(name).boundingBox();
+            assert.ok(bounds, `${name} is visible at ${width}px.`);
+            return bounds.y + bounds.height / 2;
+          }));
+          assert.ok(Math.max(...centers) - Math.min(...centers) < 2, `Until the header wraps, its controls share one row at ${width}px.`);
+        }
+      }
+      assert.ok(counts.has(0) && counts.has(-1) && counts.size >= 5, `The sweep passes from full labels through partial collapse to a wrapped header: ${[...counts].join(" ")}`);
+      await page.setViewportSize({ width: 800, height: 900 });
+      await settleHeader(page);
+      const narrow = await labels();
+      assert.ok(narrow.collapsed[narrow.names.indexOf("Share")], "At 800px the Share label is collapsed.");
+      const share = await button("Share").boundingBox();
+      const settings = await button("Settings").boundingBox();
+      assert.ok(share && settings && Math.abs(share.width - settings.width) < 1, "A collapsed item is as wide as an icon button.");
+      const hint = page.locator('[data-slot="tooltip-content"]');
+      await button("Share").hover();
+      await hint.filter({ hasText: /^Share$/ }).waitFor();
+      await page.mouse.move(400, 600);
+      await hint.waitFor({ state: "hidden" });
+      assert.equal(await header.locator("[title]").count(), 0, "The header sets no native tooltips.");
+      assert.deepEqual(errors, []);
+    } finally { await browser.close(); }
+  });
 }
 
 for (const { host, width } of [{ host: "browser", width: 1400 }, { host: "vscode", width: 1400 }, { host: "browser", width: 420 }, { host: "vscode", width: 420 }, { host: "vscode", width: 360 }, { host: "vscode", width: 320 }]) {

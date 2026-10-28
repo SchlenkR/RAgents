@@ -1,5 +1,32 @@
 # Decisions
 
+## 2026-10-28: The run header gives up labels before it wraps
+
+Chapters: `spec/plugins.md` (web host: run header, header windows, pages, `sessionHeaders`, host
+API, global coordinator); `usage.md` (run panel header, Run script, Share, plugin views, global
+coordinator).
+
+**Why.** At about 800 pixels the VS Code run header broke into two rows for a single "Show
+app..." button while page buttons and actions kept their labels, and the attention badge of a
+squeezed run title was drawn over "Share". Page buttons had a collapse rule of their own; no other
+item, host or plugin, could give way.
+
+**Decision.** One rule for every header item: the header stays one row while it can. The run title
+shrinks first, down to 6rem; then labels collapse one at a time in a fixed order - page titles,
+every other `HeaderLabel` (coordinator, Empty space, Show app..., bar contributions, Share, Run
+script, environment), and the title's status texts, each group from left to right - and only then
+does the row wrap. Collapsing whole groups at once left wide gaps, so the header collapses the
+fewest labels that fit. `RunHeader` measures synchronously with transitions suspended and finds
+the count by halving (`header-collapse.ts` holds the order and the search): first with the window
+buttons reserved in the row, then for the controls alone with the windows below, so labels give
+way only when that brings everything into the row. Window buttons keep their titles, because apps
+share one icon. `HeaderLabel` joins `@ragents/web/ui` additively, so host API 21 stays; plugin
+items use it like host items. A collapsed item keeps its icon, accessible name, and icon-button
+look, and shows its label in one shared header tooltip, which replaces the page buttons' own. The
+title clips its content, so a badge cannot cover the next control. The 768 pixel container query
+is gone, and a wrapped header fills the free space beside the trailing controls before adding a
+window row.
+
 ## 2026-10-27: Stale stored model choices no longer block the start
 
 Chapters: `spec/profiles.md` (global coordinator, editable model defaults, automatic titles);
