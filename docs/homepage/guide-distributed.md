@@ -32,6 +32,8 @@ Node.js 22.19 or newer is required, without Git, pnpm, or a source build. The su
   a custom `ragents.config.<profile>.ts` anywhere on disk, or a previously fetched version.
 - `ragents provision [<profile>|--workspace]` installs only the required tools.
 - `ragents workspace-client <server-url> [folders ...]` registers this machine as a workspace.
+- `ragents call <method> [json-params|-] [--raw]` calls a running host; `call --list` lists its
+  methods. Host selection and authentication match the agent commands; see [usage](../usage.md#control-ragents-as-an-agent).
 - `ragents plugin build <folder...>` builds plugin sources into bundles, with type checks; see
   [Build and ship a plugin](guide-plugins.html).
 - `ragents --version` (or `-v`) prints the version of the package or standalone installation.

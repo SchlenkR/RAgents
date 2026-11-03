@@ -64,6 +64,7 @@ export class RpcConnection implements MethodConnection {
 
   call<C extends OperationContract>(contract: C, input: OperationInput<C>, options?: RpcCallOptions): Promise<OperationResult<C>> {
     if (contract.implementedBy !== "client") return Promise.reject(new Error(`The operation ${contract.id} is executed by the server, not by the client`));
+    if (contract.scope === "local" && !this.local) return Promise.reject(localOnly(contract.id));
     if (this.streamless) return Promise.reject(new DomainError("stream-required", "The callback to the client needs an event stream.", 409));
     return this.peer.call(contract, input, options);
   }
@@ -115,6 +116,7 @@ export class RpcDispatcher {
       throw new RpcError(RPC_ERROR_CODES.methodNotFound, `Unknown method: ${method}`);
     }
     const { contract, execute } = found.contribution;
+    assertScope(connection, contract);
     assertRights(connection.access, contract.rights);
     const input = params === undefined ? {} : params;
     if (!Value.Check(contract.input, input)) {
@@ -145,6 +147,7 @@ export class RpcDispatcher {
     const found = this.#options.channels.find(channel);
     if (!found) throw new DomainError("unknown-channel", `Unknown event channel: ${channel}`, 400);
     const { contract, open } = found.contribution;
+    assertScope(connection, contract);
     assertRights(connection.access, contract.rights);
     const input = channelParams === undefined ? {} : channelParams;
     if (!Value.Check(contract.params, input)) {
@@ -197,6 +200,12 @@ export class RpcDispatcher {
     stop?.();
   }
 }
+
+const localOnly = (id: string): DomainError => new DomainError("local-only", `${id} is only available from this machine (stdio or loopback).`, 403);
+
+const assertScope = (connection: RpcConnection, contract: { id: string; scope?: "local" }): void => {
+  if (contract.scope === "local" && !connection.local) throw localOnly(contract.id);
+};
 
 export const assertRights = (access: AccessContext, rights: readonly string[]): void => {
   const missing = rights.find((right) => !access.can(right));

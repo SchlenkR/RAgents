@@ -20,8 +20,9 @@
   "files": {
     "apps/web/src/run-panel/host-contract.ts": "c89649a1bedae8b500fc7c9bf258162294effa306b4fa9aff3ee512503a813f6",
     "packages/ragents/src/rpc/protocol.ts": "82bbcb8181a2f90708dc607922fef4a9d472cd82d6dede09324df778773699a6",
-    "apps/server/src/rpc/http-transport.ts": "3628cf45a5dbd12e7b74c7db99a00a8eabca51a2c4b7d045ed3834f54f450f75",
-    "apps/server/src/access-session.ts": "315452c735d674baf0ee22e41f73ac7019fa058d55a4386b110b8a7a4d08589c",
+    "apps/server/src/rpc/http-transport.ts": "bb49490ba9e731f13ce8ce57cc3f83fde8f9cae371dda140c859129d480c8544",
+    "apps/server/src/access-session.ts": "d50e88b7471197848e8d2ccf3fe29da5405d29777e1a99483baa215957276488",
+    "apps/server/src/request-origin.ts": "ec9d608248c07cde2cf1e656f13b4f605ee295e1638c0fb3e1b07b3910883556",
     "packages/ragents/src/access.ts": "59fd8368e099e4318b1ed303bffefd2fe7c26d0cfc420a4ad9ac84f9bce4d3dd",
     "apps/server/src/host-package.ts": "079886247234519e193ef41b0cd7a76ef76ce9db33896b76447a24e936169034",
     "packages/workspace-executor/src/processes/tunnel.ts": "b33548190f115bf6d33788b6fbf94a0ac78dd2bb87a3e693e60151506990eab1"

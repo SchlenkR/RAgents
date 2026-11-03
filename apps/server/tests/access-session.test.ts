@@ -216,7 +216,7 @@ test("logout during a slow HTTP response disconnects the client without a late h
 test("foreign origins, wrong methods and oversized data are rejected", async () => {
   const manager = createAccessSessionManager({ cookieName: "test_access", users });
   try {
-    assert.equal(isSameOriginRequest(request("POST", {}, { origin: "https://localhost:3000" })), true);
+    assert.equal(isSameOriginRequest(request("POST", {}, { origin: "http://localhost:3000" })), true);
     for (const headers of [{ origin: "https://attacker.example" }, { origin: "null" }, { "sec-fetch-site": "cross-site" }]) {
       const res = await call(manager, "/api/access/login", request("POST", {}, headers));
       assert.equal(res.status, 403);

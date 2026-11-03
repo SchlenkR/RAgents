@@ -30,6 +30,7 @@ interface StartOptions {
   port?: number;
   bindAddress?: string;
   dev?: boolean;
+  signIn?: boolean;
   selection?: string;
   dataMode?: "default" | "configured" | "override" | "unsafe" | "reference" | "missing-reference";
   webProblem?: string;
@@ -69,7 +70,8 @@ export const hostWebProblem = () => {
   const configuredData = options.dataMode === "reference" || options.dataMode === "missing-reference"
     ? { kind: "environment", name: "RAGENTS_TEST_REFERENCED_DATA" }
     : options.dataMode === "configured" || options.dataMode === "override" ? configuredDataDirectory : undefined;
-  const profileSource = `export const config = { host: { PORT: ${options.configuredPort}, BIND_ADDRESS: ${JSON.stringify(options.configuredBindAddress)}, DATA_DIR: ${JSON.stringify(configuredData)} } };`;
+  const profileSource = `export const config = { host: { PORT: ${options.configuredPort}, BIND_ADDRESS: ${JSON.stringify(options.configuredBindAddress)}, DATA_DIR: ${JSON.stringify(configuredData)} } };
+${options.signIn ? 'export const users = [{ id: "alice", password: "demo-password", rights: [] }];' : ""}`;
   for (const profile of ["core", "other"]) {
     await writeFile(path.join(project, `ragents.config.${profile}.ts`), profileSource);
   }
@@ -135,7 +137,7 @@ appendFileSync(process.env.RAGENTS_START_PROBE, JSON.stringify({args:process.arg
   }
 };
 
-const assertDevRouting = (result: Awaited<ReturnType<typeof probe>>, backendPort: number, webPort: number) => {
+const assertDevRouting = (result: Awaited<ReturnType<typeof probe>>, backendPort: number, webPort: number, backendHost = "127.0.0.1") => {
   assert.ok(result.code === 0 || result.signal === "SIGTERM", result.output);
   assert.equal(result.calls.length, 4, result.output);
   assert.deepEqual(result.calls[0]!.args, ["build:plugins"]);
@@ -144,7 +146,7 @@ const assertDevRouting = (result: Awaited<ReturnType<typeof probe>>, backendPort
   const frontend = result.calls.find((call) => call.args[0] === "dev:web")!;
   assert.ok(backend && frontend, result.output);
   assert.equal(backend.port, String(backendPort));
-  assert.equal(frontend.target, `http://localhost:${backendPort}`);
+  assert.equal(frontend.target, `http://${backendHost}:${backendPort}`);
   assert.deepEqual(backend.args, ["dev:server"]);
   assert.equal(backend.dev, "1", "the server knows about dev mode and does not check its built web");
   assert.equal(backend.launch, undefined);
@@ -248,6 +250,14 @@ test("an occupied Vite port aborts before starting the backend or build", { time
   assert.equal(occupied.listening, true);
 });
 
+test("startup with sign-in keeps the all-interface address for normal and dev mode", { timeout: 15_000 }, async (t) => {
+  const configuredPort = await freePort();
+  const normal = await probe(t, { configuredPort, signIn: true });
+  assert.equal(normal.code, 0, normal.output);
+  assert.match(normal.output, new RegExp(`== Starting server: http://localhost:${configuredPort} `));
+  assertDevRouting(await probe(t, { configuredPort, signIn: true, dev: true }), configuredPort, configuredPort + 1000, "localhost");
+});
+
 test("a profile file outside the repository is named by its path and keeps its name", { timeout: 15_000 }, async (t) => {
   const result = await probe(t, { profile: "external", configuredPort: await freePort() });
   assert.equal(result.code, 0, result.output);
@@ -334,7 +344,7 @@ test("startup names the address the server is bound to, with the profile's bind 
   assert.equal(fromEnvironment.code, 0, fromEnvironment.output);
   assert.match(fromEnvironment.output, new RegExp(`== Starting server: http://localhost:${configuredPort} `));
   const unbound = await probe(t, { configuredPort });
-  assert.match(unbound.output, new RegExp(`== Starting server: http://localhost:${configuredPort} `));
+  assert.match(unbound.output, new RegExp(`== Starting server: http://127\\.0\\.0\\.1:${configuredPort} `));
 });
 
 test("dev startup routes the UI to the address the backend is bound to", { timeout: 15_000 }, async (t) => {

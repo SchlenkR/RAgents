@@ -99,13 +99,14 @@ export class RpcHttpTransport {
     if (!stream.response.writableEnded) stream.response.end();
   }
 
-  #streamFor(request: IncomingMessage, access: AccessContext): StreamConnection | undefined {
+  #streamFor(request: IncomingMessage, access: AccessContext, local: boolean): StreamConnection | undefined {
     const header = request.headers[RPC_CONNECTION_HEADER];
     const id = Array.isArray(header) ? header[0] : header;
     if (!id) return undefined;
     const stream = this.#streams.get(id);
     if (!stream) throw new DomainRejection(404, "unknown-connection", "The event connection is unknown or closed.");
     if (stream.connection.userId !== (access.user?.id ?? null)) throw new DomainRejection(403, "foreign-connection", "The event connection belongs to another user.");
+    if (stream.connection.local !== local) throw new DomainRejection(403, "foreign-connection", "The event connection belongs to a different local access scope.");
     return stream;
   }
 
@@ -127,7 +128,7 @@ export class RpcHttpTransport {
     }
     let stream: StreamConnection | undefined;
     try {
-      stream = this.#streamFor(request, access);
+      stream = this.#streamFor(request, access, local);
     } catch (error) {
       if (error instanceof DomainRejection) {
         writeJson(response, error.status, rpcFailure(isRpcRequest(message) ? message.id : null, RPC_ERROR_CODES.application, error.message, { code: error.code, status: error.status }));

@@ -752,6 +752,8 @@ tools, and starts a server. It supports <code>--port &lt;n&gt;</code>, <code>--b
 a custom <code>ragents.config.&lt;profile&gt;.ts</code> anywhere on disk, or a previously fetched version.</li>
 <li><code>ragents provision [&lt;profile&gt;|--workspace]</code> installs only the required tools.</li>
 <li><code>ragents workspace-client &lt;server-url&gt; [folders ...]</code> registers this machine as a workspace.</li>
+<li><code>ragents call &lt;method&gt; [json-params|-] [--raw]</code> calls a running host; <code>call --list</code> lists its
+methods. Host selection and authentication match the agent commands; see <a href="../usage.md#control-ragents-as-an-agent">usage</a>.</li>
 <li><code>ragents plugin build &lt;folder...&gt;</code> builds plugin sources into bundles, with type checks; see
 <a href="guide-plugins.html">Build and ship a plugin</a>.</li>
 <li><code>ragents --version</code> (or <code>-v</code>) prints the version of the package or standalone installation.</li>

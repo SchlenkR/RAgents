@@ -42,10 +42,10 @@ export const localProfile = (selection: string, root = hostRoot(), caller = call
 /** Port, bind address, and data folder of a profile, as the server determines them itself later: environment before profile file before default. */
 export const readProfileTarget = async (profile: string, profileFile: string, environment = process.env): Promise<ProfileTarget> => {
   if (!statSync(profileFile, { throwIfNoEntry: false })?.isFile()) throw new Error(`The profile file is missing: ${profileFile}`);
-  const module = await import(pathToFileURL(profileFile).href) as { config: { host: { PORT?: number; BIND_ADDRESS?: unknown; DATA_DIR?: unknown } } };
+  const module = await import(pathToFileURL(profileFile).href) as { config: { host: { PORT?: number; BIND_ADDRESS?: unknown; DATA_DIR?: unknown } }; users?: unknown };
   const port = Number(environment.PORT || module.config.host.PORT);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error(`host.PORT of profile ${profile} is not a valid port number.`);
-  const bindAddress = configuredBindAddress(module.config.host.BIND_ADDRESS, environment);
+  const bindAddress = configuredBindAddress(module.config.host.BIND_ADDRESS, environment, module.users !== undefined);
   const configured = module.config.host.DATA_DIR;
   if (isEnvironmentReference(configured) && environment.DATA_DIR === undefined && environment[configured.name] === undefined) {
     throw new Error(`host.DATA_DIR of profile ${profile} refers to the unset environment variable ${configured.name}.`);

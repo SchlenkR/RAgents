@@ -6,11 +6,13 @@ import test, { type TestContext } from "node:test";
 import { Type } from "typebox";
 import { createAccessContext, PluginHost, RPC_ERROR_CODES, RPC_REQUEST_TIMEOUT_MS, type JournalEvent, type RunView } from "@ragents/engine";
 import { methodReference, openRpcDocument } from "../src/api/reference.ts";
+import { coreMethods } from "../src/api/core-methods.ts";
+import { coreContracts } from "../src/api/contracts.ts";
 import { overseerContracts } from "../../../plugins/ragents.overseer/contract.ts";
 import { managementMethods } from "../../../plugins/ragents.overseer/server/api.ts";
 import { RunDirectory } from "../../../plugins/ragents.overseer/server/run-directory.ts";
 import type { ManagedRunStart, RunManagement } from "../src/ragents/global-chat.ts";
-import { startRpcServer } from "./rpc-fixture.ts";
+import { coreSources, startRpcServer } from "./rpc-fixture.ts";
 
 const viewOf = (id: string): RunView => ({ id, revision: 3, title: "Analysis", ownerId: "owner", primaryActorId: "worker", createdAt: "2026-09-07T00:00:00Z", forkedFrom: null, actors: [], inputs: [], turns: [], subscriptions: [], pluginStates: [], actions: [], artifacts: [] });
 const eventOf = (sequence: number): JournalEvent => ({
@@ -60,6 +62,21 @@ test("reference and OpenRPC follow the registered contracts of methods and chann
   assert.equal(described.find((method) => method.id === overseerContracts.createRun.id)?.timeoutMs, 75 * 60_000);
   assert.match(methodReference(host, { kind: "token" }), /ACCESS_TOKEN/);
   assert.match(String((openRpcDocument(host, { kind: "users", cookieName: "test-core-user" }).info as { description: string }).description), /User sign-in/);
+});
+
+test("overseer and core references expose the same contracts and keep the same access checks", async (t) => {
+  const { host, directory } = await hostWith(t);
+  const methods = [
+    ...coreMethods(coreSources({}, { plugins: host })),
+    ...managementMethods({ root: host, management: () => { throw new Error("The reference does not query runs"); }, directory: new RunDirectory(path.join(directory, "references.json")), authentication: { kind: "open" } }),
+  ];
+  host.methods.register("host", methods);
+  const server = await startRpcServer(t, { methods, accessFor: (request) => request.headers["x-test-operator"] ? operator : inspector });
+  for (const [core, overseer] of [[coreContracts.api.reference.id, overseerContracts.readReference.id], [coreContracts.api.openrpc.id, overseerContracts.readOpenRpc.id]]) {
+    assert.deepEqual((await server.call(core, {})).result, (await server.call(overseer, {})).result);
+    assert.deepEqual((await server.call(core, {}, { "x-test-operator": "yes" })).error?.data, { code: "access-denied", status: 403 });
+    assert.deepEqual((await server.call(overseer, {}, { "x-test-operator": "yes" })).error?.data, { code: "access-denied", status: 403 });
+  }
 });
 
 test("the management methods validate input, resolve references, page events and await accepted work", async (t) => {

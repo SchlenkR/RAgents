@@ -17,12 +17,18 @@ import { interruptPrimaryTurn, stopWholeRun } from "./turn-control.ts";
 import { DEFAULT_PROFILE, HEALTH_TIMEOUT_MS, LOGIN_REQUIRED, addressOf, defaultProfile, delay, ensureHost, healthy, hostClient as client, loadProfile, note, withLoginHint } from "./host.ts";
 export { addressOf, defaultProfile, loadProfile, LOGIN_REQUIRED, withLoginHint } from "./host.ts";
 import { journalLines, questionLine, readJournal, RUN_ID_PATTERN, type JournalEvent } from "./journal.ts";
+import { callCommand, type CallCommand } from "./call.ts";
 
 const HOST_STOP_TIMEOUT_MS = 20_000;
 const POLL_INTERVAL_MS = 400;
 const CHAT_READY_TIMEOUT_MS = 60_000;
 export const usage = (): string => `Usage: ragents <command> [arguments]
 
+  call <method> [<json-params>|-] [--profile <p>] [--raw]
+      Call one method of the running host. Params default to {}; - reads a JSON object from
+      stdin. Print the result as pretty JSON, or one line with --raw. Errors go to stderr.
+  call --list [--profile <p>]
+      List the host's methods with their one-line descriptions (runs.read and runs.inspect).
   acp [--profile <p>] [--data-dir <folder>]
       Serve Agent Client Protocol v1 over stdio for an editor. Logs go to stderr.
   run [<folder>] "<task>" [--profile <p>] [--entry <template>] [--parameters <json>] [--workstation <id>] [--access <isolated|full>] [--json]
@@ -68,7 +74,7 @@ export const usage = (): string => `Usage: ragents <command> [arguments]
 
 <p> is a profile name next to the host or the path to a ragents.config.<profile>.ts anywhere;
 without --profile, RAGENTS_PROFILE applies, otherwise ${DEFAULT_PROFILE}. Exit code:
-0 done, 2 cancelled, 1 failed or connection problem. The last line on stdout
+0 done, 2 cancelled, 1 failed or connection problem. For run and send, the last line on stdout
 is "run: <id>". run and send follow the turn through the server (channel ragents.run and
 ragents.runs.view), also on another machine; the server shows tool lines only with
 runs.inspect, --json returns the same steps as JSON. Every question of the agent is a line
@@ -81,6 +87,7 @@ start <profile> starts it with the UI.`;
 type ScriptParameterValues = Readonly<Record<string, unknown>>;
 
 export type AgentCommand =
+  | CallCommand
   | { readonly kind: "run"; readonly profile: string; readonly folder: string | undefined; readonly text: string; readonly entry: string | undefined; readonly json: boolean; readonly parameters?: ScriptParameterValues; readonly workstation?: string; readonly sharing?: RunSharing; readonly access?: "isolated" | "full" }
   | { readonly kind: "send"; readonly profile: string; readonly runId: string; readonly text: string; readonly json: boolean }
   | { readonly kind: "journal"; readonly profile: string; readonly runId: string; readonly json: boolean; readonly tools: boolean }
@@ -104,6 +111,8 @@ interface Flags {
   readonly host: boolean;
   readonly turn: boolean;
   readonly none: boolean;
+  readonly raw: boolean;
+  readonly list: boolean;
   readonly positional: readonly string[];
 }
 
@@ -145,6 +154,8 @@ const scan = (argv: readonly string[], allowed: readonly string[]): Flags => {
     host: switches.has("--host"),
     turn: switches.has("--turn"),
     none: switches.has("--none"),
+    raw: switches.has("--raw"),
+    list: switches.has("--list"),
     positional,
   };
 };
@@ -167,6 +178,16 @@ const sharingOf = (specs: readonly string[], everyone: string | undefined, flag:
 
 export const parseArguments = (argv: readonly string[]): AgentCommand => {
   const [command, ...rest] = argv;
+  if (command === "call") {
+    const flags = scan(rest, ["--profile", "--raw", "--list"]);
+    if (flags.list) {
+      if (flags.positional.length || flags.raw) throw new Error("call --list takes no method, params or --raw.");
+      return { kind: "call-list", profile: flags.profile };
+    }
+    const [method, params = "{}", ...extra] = flags.positional;
+    if (!method || extra.length) throw new Error("call needs <method> and at most one JSON params value (or - for stdin).");
+    return { kind: "call", profile: flags.profile, method, params, raw: flags.raw };
+  }
   if (command === "run") {
     const flags = scan(rest, ["--profile", "--entry", "--parameters", "--workstation", "--access", "--json", "--share", "--share-all"]);
     if (flags.positional.length > 2) throw new Error(`run takes at most two values, not ${flags.positional.length}.`);
@@ -655,6 +676,7 @@ const stopHostCommand = async (command: Extract<AgentCommand, { kind: "stop-host
 };
 
 export const execute = async (command: AgentCommand, write: LineWriter = toStdout): Promise<number> => {
+  if (command.kind === "call" || command.kind === "call-list") return callCommand(command, write);
   if (command.kind === "run") return runCommand(command, write);
   if (command.kind === "send") return sendCommand(command, write);
   if (command.kind === "journal") return journalCommand(command, write);

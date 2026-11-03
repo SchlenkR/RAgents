@@ -30,6 +30,7 @@ export const extensionApi = {
     "packages/ragents/src/rpc/protocol.ts",
     "apps/server/src/rpc/http-transport.ts",
     "apps/server/src/access-session.ts",
+    "apps/server/src/request-origin.ts",
     "packages/ragents/src/access.ts",
     "apps/server/src/host-package.ts",
     "packages/workspace-executor/src/processes/tunnel.ts",

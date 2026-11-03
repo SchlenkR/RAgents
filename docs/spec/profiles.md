@@ -22,8 +22,11 @@ before the start. The server checks it again after loading the configuration, be
 initializes plugins. A port in use is a clear start error; neither is another address chosen nor
 is a running instance terminated. The start message names the fixed URL and storage location.
 
-`host.BIND_ADDRESS` names the interface the server listens on; without it, the server listens on
-all interfaces. An explicitly set environment variable `BIND_ADDRESS` overrides the profile, and
+`host.BIND_ADDRESS` names the interface the server listens on. Without it, a profile without
+`users` listens on `127.0.0.1`, including profiles with `anonymousUser` or `ACCESS_TOKEN`;
+a profile with sign-in keeps listening on all interfaces. Set `host.BIND_ADDRESS: "0.0.0.0"`
+or `"::"` explicitly to expose an anonymous profile to other machines. An explicitly set
+environment variable `BIND_ADDRESS` overrides the profile, and
 `--bind-address` of the server, of `ragents start`, and of `ragents connect` overrides both. The value
 is an IPv4 or IPv6 address without brackets, port, or zone, or `localhost`, which the system
 resolves to one loopback address; `0.0.0.0` and `::` stay all interfaces. Any other value, an
@@ -34,6 +37,23 @@ only, and an address the machine does not have is a start error. The start messa
 that `ragents run`, the remembered `host.json`, and the dev mode's `API_TARGET` use, and
 `RAGENTS_API_BASE_URL` for the host's own tools name the interface actually bound; only all
 interfaces are reached as `localhost`, for the host's own tools as `127.0.0.1`.
+
+`host.ALLOWED_ORIGINS` is an optional array of exact HTTP or HTTPS origins, default `[]`.
+The environment variable `ALLOWED_ORIGINS` overrides it as a JSON array or comma-separated list.
+For example, `ALLOWED_ORIGINS: ["https://portal.example"]` permits that browser origin through
+the host's origin check. Paths, credentials, queries, fragments, wildcards, and `null` are
+invalid settings. This check applies to RPC POSTs, RPC streams, all state-changing HTTP methods
+and WebSocket upgrades, independently of sign-in or bearer tokens. A present foreign Origin
+receives HTTP 403 with `origin-denied` before authentication or dispatch. Without Origin, native
+clients stay allowed unless `Sec-Fetch-Site` identifies a cross-site browser request. An explicitly
+allowed Origin takes precedence over that fetch metadata. Browser CORS rules still apply.
+
+The own origin uses the request's Host and HTTP/TLS scheme. A reverse proxy must preserve Host
+and set `X-Forwarded-Proto` to `http` or `https` to identify its external scheme. The VS Code
+extension, workstation clients, package CLI and model-relay clients use Node requests without
+Origin. The VS Code server iframe calls from the server origin; sandboxed mini-apps use their
+MessageChannel bridge to that parent rather than direct HTTP. Vite's proxy preserves the browser
+Host. These clients need no additional allowed origins.
 
 `host.RESUME_AFTER_RESTART` is a boolean, default `true`. Only `true` and `false` are valid
 environment values. Setting it to `false` prevents automatic continuation of turns interrupted

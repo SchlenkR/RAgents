@@ -17,120 +17,122 @@ The shell variable RAGENTS_API_BASE_URL contains the server address. If RAGENTS_
 
 ```sh
 curl -s "$RAGENTS_API_BASE_URL/rpc" -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"ragents.global-apps.list","params":{}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"ragents.api.openrpc","params":{}}'
 ```
 
 Ids from results are reused programmatically, not copied by hand.
 
 ## Method overview
 
-| Method | Owner | Rights |
-| --- | --- | --- |
-| ragents.actor-programs.action | ragents.actor-programs | runs.read, runs.write |
-| ragents.actor-programs.apps | ragents.actor-programs | runs.read |
-| ragents.actor-programs.display-add | ragents.actor-programs | runs.read, runs.write |
-| ragents.actor-programs.display-remove | ragents.actor-programs | runs.read, runs.write |
-| ragents.actor-programs.display-sources | ragents.actor-programs | runs.read |
-| ragents.actor-programs.function | ragents.actor-programs | runs.read, runs.write, runs.inspect |
-| ragents.actor-programs.function-invocation | ragents.actor-programs | runs.read, runs.inspect |
-| ragents.actor-programs.invocation | ragents.actor-programs | runs.read |
-| ragents.actor-programs.pause | ragents.actor-programs | runs.read, runs.write |
-| ragents.actor-programs.source | ragents.actor-programs | runs.read, runs.inspect |
-| ragents.actor-programs.status | ragents.actor-programs | runs.read |
-| ragents.actor-programs.trigger | ragents.actor-programs | runs.read, runs.write |
-| ragents.ask.answer | ragents.ask | runs.read, runs.write |
-| ragents.chat.actorHistory | host | no fixed rights |
-| ragents.chat.capabilities | host | no fixed rights |
-| ragents.chat.contextUsage | host | no fixed rights |
-| ragents.chat.send | host | no fixed rights |
-| ragents.chat.sendToActor | host | no fixed rights |
-| ragents.chat.start | host | no fixed rights |
-| ragents.documents.files | ragents.documents | runs.read |
-| ragents.documents.grant | ragents.documents | runs.read |
-| ragents.external.set | host | settings.write |
-| ragents.global-apps.create | ragents.global-apps | ragents.global-apps.write, runs.write |
-| ragents.global-apps.list | ragents.global-apps | ragents.global-apps.read |
-| ragents.global-apps.remove | ragents.global-apps | ragents.global-apps.write, runs.write |
-| ragents.lsp-fsharp.snapshot | ragents.lsp-fsharp | runs.read, ragents.lsp-fsharp.read |
-| ragents.lsp-roslyn.snapshot | ragents.lsp-roslyn | runs.read, ragents.lsp-roslyn.read |
-| ragents.lsp-roslyn.solutions | ragents.lsp-roslyn | runs.read, ragents.lsp-roslyn.read |
-| ragents.lsp-roslyn.switch | ragents.lsp-roslyn | runs.read, runs.write, ragents.lsp-roslyn.read, ragents.lsp-roslyn.write |
-| ragents.lsp-typescript.snapshot | ragents.lsp-typescript | runs.read, ragents.lsp-typescript.read |
-| ragents.mcp.connections.close | ragents.mcp | runs.read, runs.write |
-| ragents.mcp.servers.set | ragents.mcp | runs.read, runs.write, runs.create |
-| ragents.overseer.coordinator | ragents.overseer | ragents.overseer.read |
-| ragents.overseer.createRun | ragents.overseer | runs.read, runs.write, runs.create |
-| ragents.overseer.listRuns | ragents.overseer | runs.read |
-| ragents.overseer.readCatalog | ragents.overseer | runs.read, runs.inspect |
-| ragents.overseer.readEvents | ragents.overseer | runs.read, runs.inspect |
-| ragents.overseer.readOpenRpc | ragents.overseer | runs.read, runs.inspect |
-| ragents.overseer.readReference | ragents.overseer | runs.read, runs.inspect |
-| ragents.overseer.readRun | ragents.overseer | runs.read, runs.inspect |
-| ragents.overseer.reset | ragents.overseer | ragents.overseer.read, ragents.overseer.write |
-| ragents.overseer.sendMessage | ragents.overseer | runs.read, runs.write |
-| ragents.overseer.settings.read | ragents.overseer | ragents.overseer.read |
-| ragents.overseer.settings.save | ragents.overseer | ragents.overseer.read, ragents.overseer.write, settings.write |
-| ragents.overseer.stopRun | ragents.overseer | runs.read, runs.write |
-| ragents.plugins.bootstrap | host | no fixed rights |
-| ragents.processes.snapshot | ragents.processes | runs.read, ragents.processes.read |
-| ragents.processes.stop | ragents.processes | runs.read, runs.write, runs.inspect |
-| ragents.processes.tunnel | ragents.processes | runs.read, runs.inspect, ragents.processes.read |
-| ragents.product.modelSettings.read | ragents.product | settings.read |
-| ragents.product.modelSettings.save | ragents.product | settings.read, settings.write |
-| ragents.runs.delete | host | runs.read, runs.delete |
-| ragents.runs.enqueueInput | host | no fixed rights |
-| ragents.runs.events | host | no fixed rights |
-| ragents.runs.export | host | runs.read, runs.inspect |
-| ragents.runs.import | host | * |
-| ragents.runs.interruptTurn | host | no fixed rights |
-| ragents.runs.list | host | runs.read |
-| ragents.runs.markViewed | host | runs.read |
-| ragents.runs.prepare | host | runs.read, runs.write, runs.create |
-| ragents.runs.resolveAction | host | no fixed rights |
-| ragents.runs.restartActor | host | no fixed rights |
-| ragents.runs.revoke | host | no fixed rights |
-| ragents.runs.scriptParameters | host | no fixed rights |
-| ragents.runs.scripts | host | no fixed rights |
-| ragents.runs.share | host | no fixed rights |
-| ragents.runs.sharing | host | no fixed rights |
-| ragents.runs.startScript | host | no fixed rights |
-| ragents.runs.stop | host | no fixed rights |
-| ragents.runs.stopActor | host | no fixed rights |
-| ragents.runs.view | host | no fixed rights |
-| ragents.settings.read | host | settings.read |
-| ragents.settings.skill | host | settings.read |
-| ragents.settings.titles.read | host | settings.read |
-| ragents.settings.titles.save | host | settings.write |
-| ragents.startOptions.list | host | runs.read, runs.create |
-| ragents.startOptions.select | host | runs.read, runs.write, runs.create |
-| ragents.workspace.accessRequest.answer | ragents.workspace | runs.read, runs.write |
-| ragents.workspace.accessRequest.availability | ragents.workspace | runs.read, runs.write |
-| ragents.workspace.browse.list | ragents.workspace | runs.read, runs.inspect |
-| ragents.workspace.browse.preview | ragents.workspace | runs.read, runs.inspect |
-| ragents.workspace.clients.contributions | ragents.workspace | runs.write |
-| ragents.workspace.clients.list | ragents.workspace | runs.read |
-| ragents.workspace.clients.register | ragents.workspace | runs.write |
-| ragents.workspace.clients.unregister | ragents.workspace | runs.write |
+| Method | Owner | Rights | Access scope |
+| --- | --- | --- | --- |
+| ragents.actor-programs.action | ragents.actor-programs | runs.read, runs.write | unrestricted |
+| ragents.actor-programs.apps | ragents.actor-programs | runs.read | unrestricted |
+| ragents.actor-programs.display-add | ragents.actor-programs | runs.read, runs.write | unrestricted |
+| ragents.actor-programs.display-remove | ragents.actor-programs | runs.read, runs.write | unrestricted |
+| ragents.actor-programs.display-sources | ragents.actor-programs | runs.read | unrestricted |
+| ragents.actor-programs.function | ragents.actor-programs | runs.read, runs.write, runs.inspect | unrestricted |
+| ragents.actor-programs.function-invocation | ragents.actor-programs | runs.read, runs.inspect | unrestricted |
+| ragents.actor-programs.invocation | ragents.actor-programs | runs.read | unrestricted |
+| ragents.actor-programs.pause | ragents.actor-programs | runs.read, runs.write | unrestricted |
+| ragents.actor-programs.source | ragents.actor-programs | runs.read, runs.inspect | unrestricted |
+| ragents.actor-programs.status | ragents.actor-programs | runs.read | unrestricted |
+| ragents.actor-programs.trigger | ragents.actor-programs | runs.read, runs.write | unrestricted |
+| ragents.api.openrpc | host | runs.read, runs.inspect | unrestricted |
+| ragents.api.reference | host | runs.read, runs.inspect | unrestricted |
+| ragents.ask.answer | ragents.ask | runs.read, runs.write | unrestricted |
+| ragents.chat.actorHistory | host | no fixed rights | unrestricted |
+| ragents.chat.capabilities | host | no fixed rights | unrestricted |
+| ragents.chat.contextUsage | host | no fixed rights | unrestricted |
+| ragents.chat.send | host | no fixed rights | unrestricted |
+| ragents.chat.sendToActor | host | no fixed rights | unrestricted |
+| ragents.chat.start | host | no fixed rights | unrestricted |
+| ragents.documents.files | ragents.documents | runs.read | unrestricted |
+| ragents.documents.grant | ragents.documents | runs.read | unrestricted |
+| ragents.external.set | host | settings.write | local |
+| ragents.global-apps.create | ragents.global-apps | ragents.global-apps.write, runs.write | unrestricted |
+| ragents.global-apps.list | ragents.global-apps | ragents.global-apps.read | unrestricted |
+| ragents.global-apps.remove | ragents.global-apps | ragents.global-apps.write, runs.write | unrestricted |
+| ragents.lsp-fsharp.snapshot | ragents.lsp-fsharp | runs.read, ragents.lsp-fsharp.read | unrestricted |
+| ragents.lsp-roslyn.snapshot | ragents.lsp-roslyn | runs.read, ragents.lsp-roslyn.read | unrestricted |
+| ragents.lsp-roslyn.solutions | ragents.lsp-roslyn | runs.read, ragents.lsp-roslyn.read | unrestricted |
+| ragents.lsp-roslyn.switch | ragents.lsp-roslyn | runs.read, runs.write, ragents.lsp-roslyn.read, ragents.lsp-roslyn.write | unrestricted |
+| ragents.lsp-typescript.snapshot | ragents.lsp-typescript | runs.read, ragents.lsp-typescript.read | unrestricted |
+| ragents.mcp.connections.close | ragents.mcp | runs.read, runs.write | unrestricted |
+| ragents.mcp.servers.set | ragents.mcp | runs.read, runs.write, runs.create | unrestricted |
+| ragents.overseer.coordinator | ragents.overseer | ragents.overseer.read | unrestricted |
+| ragents.overseer.createRun | ragents.overseer | runs.read, runs.write, runs.create | unrestricted |
+| ragents.overseer.listRuns | ragents.overseer | runs.read | unrestricted |
+| ragents.overseer.readCatalog | ragents.overseer | runs.read, runs.inspect | unrestricted |
+| ragents.overseer.readEvents | ragents.overseer | runs.read, runs.inspect | unrestricted |
+| ragents.overseer.readOpenRpc | ragents.overseer | runs.read, runs.inspect | unrestricted |
+| ragents.overseer.readReference | ragents.overseer | runs.read, runs.inspect | unrestricted |
+| ragents.overseer.readRun | ragents.overseer | runs.read, runs.inspect | unrestricted |
+| ragents.overseer.reset | ragents.overseer | ragents.overseer.read, ragents.overseer.write | unrestricted |
+| ragents.overseer.sendMessage | ragents.overseer | runs.read, runs.write | unrestricted |
+| ragents.overseer.settings.read | ragents.overseer | ragents.overseer.read | unrestricted |
+| ragents.overseer.settings.save | ragents.overseer | ragents.overseer.read, ragents.overseer.write, settings.write | unrestricted |
+| ragents.overseer.stopRun | ragents.overseer | runs.read, runs.write | unrestricted |
+| ragents.plugins.bootstrap | host | no fixed rights | unrestricted |
+| ragents.processes.snapshot | ragents.processes | runs.read, ragents.processes.read | unrestricted |
+| ragents.processes.stop | ragents.processes | runs.read, runs.write, runs.inspect | unrestricted |
+| ragents.processes.tunnel | ragents.processes | runs.read, runs.inspect, ragents.processes.read | unrestricted |
+| ragents.product.modelSettings.read | ragents.product | settings.read | unrestricted |
+| ragents.product.modelSettings.save | ragents.product | settings.read, settings.write | unrestricted |
+| ragents.runs.delete | host | runs.read, runs.delete | unrestricted |
+| ragents.runs.enqueueInput | host | no fixed rights | unrestricted |
+| ragents.runs.events | host | no fixed rights | unrestricted |
+| ragents.runs.export | host | runs.read, runs.inspect | unrestricted |
+| ragents.runs.import | host | * | unrestricted |
+| ragents.runs.interruptTurn | host | no fixed rights | unrestricted |
+| ragents.runs.list | host | runs.read | unrestricted |
+| ragents.runs.markViewed | host | runs.read | unrestricted |
+| ragents.runs.prepare | host | runs.read, runs.write, runs.create | unrestricted |
+| ragents.runs.resolveAction | host | no fixed rights | unrestricted |
+| ragents.runs.restartActor | host | no fixed rights | unrestricted |
+| ragents.runs.revoke | host | no fixed rights | unrestricted |
+| ragents.runs.scriptParameters | host | no fixed rights | unrestricted |
+| ragents.runs.scripts | host | no fixed rights | unrestricted |
+| ragents.runs.share | host | no fixed rights | unrestricted |
+| ragents.runs.sharing | host | no fixed rights | unrestricted |
+| ragents.runs.startScript | host | no fixed rights | unrestricted |
+| ragents.runs.stop | host | no fixed rights | unrestricted |
+| ragents.runs.stopActor | host | no fixed rights | unrestricted |
+| ragents.runs.view | host | no fixed rights | unrestricted |
+| ragents.settings.read | host | settings.read | unrestricted |
+| ragents.settings.skill | host | settings.read | unrestricted |
+| ragents.settings.titles.read | host | settings.read | unrestricted |
+| ragents.settings.titles.save | host | settings.write | unrestricted |
+| ragents.startOptions.list | host | runs.read, runs.create | unrestricted |
+| ragents.startOptions.select | host | runs.read, runs.write, runs.create | unrestricted |
+| ragents.workspace.accessRequest.answer | ragents.workspace | runs.read, runs.write | unrestricted |
+| ragents.workspace.accessRequest.availability | ragents.workspace | runs.read, runs.write | unrestricted |
+| ragents.workspace.browse.list | ragents.workspace | runs.read, runs.inspect | unrestricted |
+| ragents.workspace.browse.preview | ragents.workspace | runs.read, runs.inspect | unrestricted |
+| ragents.workspace.clients.contributions | ragents.workspace | runs.write | unrestricted |
+| ragents.workspace.clients.list | ragents.workspace | runs.read | unrestricted |
+| ragents.workspace.clients.register | ragents.workspace | runs.write | unrestricted |
+| ragents.workspace.clients.unregister | ragents.workspace | runs.write | unrestricted |
 
 ## Channel overview
 
-| Channel | Owner | Rights |
-| --- | --- | --- |
-| ragents.actor-programs.display | ragents.actor-programs | runs.read |
-| ragents.chat | host | no fixed rights |
-| ragents.documents.changed | ragents.documents | runs.read |
-| ragents.global-apps.changed | ragents.global-apps | ragents.global-apps.read |
-| ragents.mcp.status | ragents.mcp | runs.read, ragents.mcp.read |
-| ragents.processes | ragents.processes | runs.read, ragents.processes.read |
-| ragents.run | host | no fixed rights |
-| ragents.runs | host | runs.read |
-| ragents.workspace.browse | ragents.workspace | runs.read, runs.inspect |
+| Channel | Owner | Rights | Access scope |
+| --- | --- | --- | --- |
+| ragents.actor-programs.display | ragents.actor-programs | runs.read | unrestricted |
+| ragents.chat | host | no fixed rights | unrestricted |
+| ragents.documents.changed | ragents.documents | runs.read | unrestricted |
+| ragents.global-apps.changed | ragents.global-apps | ragents.global-apps.read | unrestricted |
+| ragents.mcp.status | ragents.mcp | runs.read, ragents.mcp.read | unrestricted |
+| ragents.processes | ragents.processes | runs.read, ragents.processes.read | unrestricted |
+| ragents.run | host | no fixed rights | unrestricted |
+| ragents.runs | host | runs.read | unrestricted |
+| ragents.workspace.browse | ragents.workspace | runs.read, runs.inspect | unrestricted |
 
 ## ragents.actor-programs.action
 
 Start a function of an actor view; the response is the queued call.
 
-Owner: ragents.actor-programs. Rights: runs.read, runs.write. Execution: the server.
+Owner: ragents.actor-programs. Rights: runs.read, runs.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -195,7 +197,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 The actor views of a run with state and calls; the tool list stays empty without runs.inspect.
 
-Owner: ragents.actor-programs. Rights: runs.read. Execution: the server.
+Owner: ragents.actor-programs. Rights: runs.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -256,7 +258,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Show an app of another run read-only in this run; showing the same view again returns its display.
 
-Owner: ragents.actor-programs. Rights: runs.read, runs.write. Execution: the server.
+Owner: ragents.actor-programs. Rights: runs.read, runs.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -321,7 +323,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Remove a display from this run; the app in its own run stays as it is.
 
-Owner: ragents.actor-programs. Rights: runs.read, runs.write. Execution: the server.
+Owner: ragents.actor-programs. Rights: runs.read, runs.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -363,7 +365,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 The apps you can show read-only in this run: named apps such as global apps, and the apps of your other runs grouped by run title.
 
-Owner: ragents.actor-programs. Rights: runs.read. Execution: the server.
+Owner: ragents.actor-programs. Rights: runs.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -468,7 +470,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Start a function of an actor independently of its views.
 
-Owner: ragents.actor-programs. Rights: runs.read, runs.write, runs.inspect. Execution: the server.
+Owner: ragents.actor-programs. Rights: runs.read, runs.write, runs.inspect. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -533,7 +535,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Read the state of a call of an actor function.
 
-Owner: ragents.actor-programs. Rights: runs.read, runs.inspect. Execution: the server.
+Owner: ragents.actor-programs. Rights: runs.read, runs.inspect. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -581,7 +583,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Read the state of a call of an actor view.
 
-Owner: ragents.actor-programs. Rights: runs.read. Execution: the server.
+Owner: ragents.actor-programs. Rights: runs.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -629,7 +631,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Pause or resume a program's automatic triggers; resuming also clears a problem that blocks them.
 
-Owner: ragents.actor-programs. Rights: runs.read, runs.write. Execution: the server.
+Owner: ragents.actor-programs. Rights: runs.read, runs.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -688,7 +690,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Read the source code of an actor program.
 
-Owner: ragents.actor-programs. Rights: runs.read, runs.inspect. Execution: the server.
+Owner: ragents.actor-programs. Rights: runs.read, runs.inspect. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -754,7 +756,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 A program's triggers, permissions, trigger progress, state and recent input log.
 
-Owner: ragents.actor-programs. Rights: runs.read. Execution: the server.
+Owner: ragents.actor-programs. Rights: runs.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -800,7 +802,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Queue one manual trigger input for an actor's program, also while its triggers are paused.
 
-Owner: ragents.actor-programs. Rights: runs.read, runs.write. Execution: the server.
+Owner: ragents.actor-programs. Rights: runs.read, runs.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -845,11 +847,64 @@ Default client deadline: 30000 ms; callers may override it.
 }
 ```
 
+## ragents.api.openrpc
+
+Read OpenRPC 1.3 for all core and plugin methods and channels registered in this profile.
+
+Owner: host. Rights: runs.read, runs.inspect. Access scope: unrestricted. Execution: the server.
+Default client deadline: 30000 ms; callers may override it.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "object",
+  "patternProperties": {
+    "^.*$": {}
+  }
+}
+```
+
+## ragents.api.reference
+
+Read the reference of all core and plugin methods and channels registered in this profile, including rights, access scopes, schemas and deadlines.
+
+Owner: host. Rights: runs.read, runs.inspect. Access scope: unrestricted. Execution: the server.
+Default client deadline: 30000 ms; callers may override it.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "string"
+}
+```
+
 ## ragents.ask.answer
 
 Answer or dismiss the questions of one pending question action of an agent. Rights: runs.read and runs.write.
 
-Owner: ragents.ask. Rights: runs.read, runs.write. Execution: the server.
+Owner: ragents.ask. Rights: runs.read, runs.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -935,7 +990,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 The conversation histories of all actors of the run, without runs.inspect without tool details. Right: runs.read.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -972,7 +1027,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Which attachments an actor's model accepts; the model name appears only with runs.inspect. Right: runs.read.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -1013,7 +1068,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 The actor's active context token count, whether it is estimated, and the window and compaction threshold of its selected model. Limits apply from the next turn. Null for a runtime without a built-in model context. Right: runs.read.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -1083,7 +1138,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 A message to the run's coordinator; starts a new run or cuts into a running one. With entry, it starts the run through this skill template and the start options it fixes. Rights: runs.read and runs.write, for a new run runs.create; for the global chat its rights.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 4500000 ms; callers may override it.
 
 ### Input
@@ -1157,7 +1212,7 @@ Default client deadline: 4500000 ms; callers may override it.
 
 A message to a specific LLM actor of the run. Rights as for ragents.chat.send.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 4500000 ms; callers may override it.
 
 ### Input
@@ -1226,7 +1281,7 @@ Default client deadline: 4500000 ms; callers may override it.
 
 Start a run through a script template, without a message. parameters are checked against the template's declared parameters before the start is accepted, so parameters-invalid comes back to the caller; options chooses start options for the new run as ragents.startOptions.select does, and the options the template fixes apply. Returns once the start is accepted; progress and later errors appear in the chat. In a running run it starts an embeddable script like ragents.runs.startScript. Rights: runs.read, runs.write and the template's release, with options also runs.create and the rights of each option.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -1280,7 +1335,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 A run's file store as groups and loose files. Right: runs.read.
 
-Owner: ragents.documents. Rights: runs.read. Execution: the server.
+Owner: ragents.documents. Rights: runs.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -1395,7 +1450,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 A short-lived, read-only grant for the files of one root of a run, bound to the caller; the content route accepts it in its path where the page signs in with a token instead of a cookie. Rights: runs.read, for the run's root also runs.inspect and access to its workspace.
 
-Owner: ragents.documents. Rights: runs.read. Execution: the server.
+Owner: ragents.documents. Rights: runs.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -1446,7 +1501,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Turn external access on or off; only from the local machine. Right: settings.write.
 
-Owner: host. Rights: settings.write. Execution: the server.
+Owner: host. Rights: settings.write. Access scope: local. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -1495,7 +1550,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Copy an owned actor package into its own room of your global space and activate it there with its triggers and permissions.
 
-Owner: ragents.global-apps. Rights: ragents.global-apps.write, runs.write. Execution: the server.
+Owner: ragents.global-apps. Rights: ragents.global-apps.write, runs.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 120000 ms; callers may override it.
 
 ### Input
@@ -1550,7 +1605,7 @@ Default client deadline: 120000 ms; callers may override it.
 
 List your global apps with their trigger progress.
 
-Owner: ragents.global-apps. Rights: ragents.global-apps.read. Execution: the server.
+Owner: ragents.global-apps. Rights: ragents.global-apps.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -1900,7 +1955,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Stop and remove an app, retaining its journal history.
 
-Owner: ragents.global-apps. Rights: ragents.global-apps.write, runs.write. Execution: the server.
+Owner: ragents.global-apps. Rights: ragents.global-apps.write, runs.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -1944,7 +1999,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 State and diagnostics of the language server ragents.lsp-fsharp in a run. Rights: runs.read and ragents.lsp-fsharp.read.
 
-Owner: ragents.lsp-fsharp. Rights: runs.read, ragents.lsp-fsharp.read. Execution: the server.
+Owner: ragents.lsp-fsharp. Rights: runs.read, ragents.lsp-fsharp.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -1981,7 +2036,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 State and diagnostics of the language server ragents.lsp-roslyn in a run. Rights: runs.read and ragents.lsp-roslyn.read.
 
-Owner: ragents.lsp-roslyn. Rights: runs.read, ragents.lsp-roslyn.read. Execution: the server.
+Owner: ragents.lsp-roslyn. Rights: runs.read, ragents.lsp-roslyn.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -2018,7 +2073,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 The solutions in the workspace of a run and which of them ragents.lsp-roslyn has opened. Rights: runs.read and ragents.lsp-roslyn.read.
 
-Owner: ragents.lsp-roslyn. Rights: runs.read, ragents.lsp-roslyn.read. Execution: the server.
+Owner: ragents.lsp-roslyn. Rights: runs.read, ragents.lsp-roslyn.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -2055,7 +2110,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Loads a solution in ragents.lsp-roslyn and ends all other instances of the run; null ends all of them. Does not wait for the load. Rights: runs.read, runs.write, ragents.lsp-roslyn.read and ragents.lsp-roslyn.write.
 
-Owner: ragents.lsp-roslyn. Rights: runs.read, runs.write, ragents.lsp-roslyn.read, ragents.lsp-roslyn.write. Execution: the server.
+Owner: ragents.lsp-roslyn. Rights: runs.read, runs.write, ragents.lsp-roslyn.read, ragents.lsp-roslyn.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 905000 ms; callers may override it.
 
 ### Input
@@ -2107,7 +2162,7 @@ Default client deadline: 905000 ms; callers may override it.
 
 State and diagnostics of the language server ragents.lsp-typescript in a run. Rights: runs.read and ragents.lsp-typescript.read.
 
-Owner: ragents.lsp-typescript. Rights: runs.read, ragents.lsp-typescript.read. Execution: the server.
+Owner: ragents.lsp-typescript. Rights: runs.read, ragents.lsp-typescript.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -2144,7 +2199,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Close a run's MCP connections while preserving its private server definitions for the next connection.
 
-Owner: ragents.mcp. Rights: runs.read, runs.write. Execution: the server.
+Owner: ragents.mcp. Rights: runs.read, runs.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -2178,7 +2233,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Replace a run's external MCP servers before its next turn. Definitions stay in private plugin storage, outside the journal and model context. Refused while an actor is running or input is queued.
 
-Owner: ragents.mcp. Rights: runs.read, runs.write, runs.create. Execution: the server.
+Owner: ragents.mcp. Rights: runs.read, runs.write, runs.create. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -2218,7 +2273,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Read the run ID of your own global coordinator: one per signed-in user, exactly one without sign-in.
 
-Owner: ragents.overseer. Rights: ragents.overseer.read. Execution: the server.
+Owner: ragents.overseer. Rights: ragents.overseer.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -2252,7 +2307,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Create a run with a server-side ID and title. Exactly one start form: message, installed script (id or unique title), or packageDirectory (existing local run script package). input is only allowed with script/packageDirectory. options selects start options such as ragents.startOptions.select, each only with its own rights. sharing shares the run before its start like ragents.runs.share: everyone and individual users, each with read or write. The result waits for preparation, check, test and installation; accepted does not yet confirm a finished model result.
 
-Owner: ragents.overseer. Rights: runs.read, runs.write, runs.create. Execution: the server.
+Owner: ragents.overseer. Rights: runs.read, runs.write, runs.create. Access scope: unrestricted. Execution: the server.
 Default client deadline: 4500000 ms; callers may override it.
 
 ### Input
@@ -2576,7 +2631,7 @@ Default client deadline: 4500000 ms; callers may override it.
 
 List the runs the caller sees, with stable references; the global coordinators are not part of this list.
 
-Owner: ragents.overseer. Rights: runs.read. Execution: the server.
+Owner: ragents.overseer. Rights: runs.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -2637,7 +2692,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Read installed templates and start options with input schemas, default values and selectability. createRun starts messages, installed scripts or local packages via packageDirectory. Skills provide editable tasks for message; name the skill as the work instruction.
 
-Owner: ragents.overseer. Rights: runs.read, runs.inspect. Execution: the server.
+Owner: ragents.overseer. Rights: runs.read, runs.inspect. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -2736,7 +2791,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Read the complete journal page by page in sequence order. As long as hasMore is true, use nextAfter as after of the next request. type filters an exact event type.
 
-Owner: ragents.overseer. Rights: runs.read, runs.inspect. Execution: the server.
+Owner: ragents.overseer. Rights: runs.read, runs.inspect. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -3202,7 +3257,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Read OpenRPC 1.3 directly from the same contracts.
 
-Owner: ragents.overseer. Rights: runs.read, runs.inspect. Execution: the server.
+Owner: ragents.overseer. Rights: runs.read, runs.inspect. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -3230,7 +3285,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Read a readable reference of all registered methods and channels directly from their contracts.
 
-Owner: ragents.overseer. Rights: runs.read, runs.inspect. Execution: the server.
+Owner: ragents.overseer. Rights: runs.read, runs.inspect. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -3255,7 +3310,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Read the current unabridged RunView; nested domain values are documented as open JSON objects.
 
-Owner: ragents.overseer. Rights: runs.read, runs.inspect. Execution: the server.
+Owner: ragents.overseer. Rights: runs.read, runs.inspect. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -3434,7 +3489,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Reset the conversation of your own global coordinator including its model context; the model selection, other users' coordinators and all runs are kept.
 
-Owner: ragents.overseer. Rights: ragents.overseer.read, ragents.overseer.write. Execution: the server.
+Owner: ragents.overseer. Rights: ragents.overseer.read, ragents.overseer.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -3468,7 +3523,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Enqueue a chat message for the primary LLM actor; TypeScript as primary is rejected with actor-chat-unsupported. The result only confirms the enqueueing, neither processing nor completion. A running turn is not replaced by it.
 
-Owner: ragents.overseer. Rights: runs.read, runs.write. Execution: the server.
+Owner: ragents.overseer. Rights: runs.read, runs.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 4500000 ms; callers may override it.
 
 ### Input
@@ -3531,7 +3586,7 @@ Default client deadline: 4500000 ms; callers may override it.
 
 Read the global coordinator's model selection with the available model catalog.
 
-Owner: ragents.overseer. Rights: ragents.overseer.read. Execution: the server.
+Owner: ragents.overseer. Rights: ragents.overseer.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -3604,7 +3659,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Set the global coordinator's model selection; it applies from the next answer on.
 
-Owner: ragents.overseer. Rights: ragents.overseer.read, ragents.overseer.write, settings.write. Execution: the server.
+Owner: ragents.overseer. Rights: ragents.overseer.read, ragents.overseer.write, settings.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -3698,7 +3753,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Stop the run through its normal stop boundary and wait for the cleanup; the conversation is kept.
 
-Owner: ragents.overseer. Rights: runs.read, runs.write. Execution: the server.
+Owner: ragents.overseer. Rights: runs.read, runs.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -3755,7 +3810,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Product, active plugins with web configuration, released templates, the server's RAgents version for the UI and the number of its interface to the VS Code extension.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -3782,7 +3837,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 The observed processes of a run with their open ports. Rights: runs.read and ragents.processes.read.
 
-Owner: ragents.processes. Rights: runs.read, ragents.processes.read. Execution: the server.
+Owner: ragents.processes. Rights: runs.read, ragents.processes.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -3819,7 +3874,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 End a process of the run. Rights: runs.read, runs.write and runs.inspect.
 
-Owner: ragents.processes. Rights: runs.read, runs.write, runs.inspect. Execution: the server.
+Owner: ragents.processes. Rights: runs.read, runs.write, runs.inspect. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -3860,7 +3915,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Open a byte stream to a port of the run's own processes on the machine the run works on: that machine connects to the port and dials back, and the result names the path with query on this server where the caller opens its WebSocket leg, once and within 15 seconds. With connect false it only checks that a process of the run listens on the port. Rights: runs.read, runs.inspect and ragents.processes.read.
 
-Owner: ragents.processes. Rights: runs.read, runs.inspect, ragents.processes.read. Execution: the server.
+Owner: ragents.processes. Rights: runs.read, runs.inspect, ragents.processes.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -3925,7 +3980,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 The model defaults of the roles with the available model catalog. Right: settings.read.
 
-Owner: ragents.product. Rights: settings.read. Execution: the server.
+Owner: ragents.product. Rights: settings.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -3952,7 +4007,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Save the model defaults of the roles. Rights: settings.read and settings.write.
 
-Owner: ragents.product. Rights: settings.read, settings.write. Execution: the server.
+Owner: ragents.product. Rights: settings.read, settings.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -3988,7 +4043,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Delete a run with its data; a user who sees the run only through a share never deletes it (run-delete-denied). Rights: runs.read and runs.delete.
 
-Owner: host. Rights: runs.read, runs.delete. Execution: the server.
+Owner: host. Rights: runs.read, runs.delete. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -4023,7 +4078,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Put a message into the queue of an actor.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -4090,7 +4145,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Read all journal events of a run in sequence order.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -4130,7 +4185,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Fetch a stopped run as an archive: journal, payloads, model contexts and its plugin stores. Rights: runs.read and runs.inspect.
 
-Owner: host. Rights: runs.read, runs.inspect. Execution: the server.
+Owner: host. Rights: runs.read, runs.inspect. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -4167,7 +4222,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Accept a run archive, replay its journal and open the run stopped. Requires administrator access (*).
 
-Owner: host. Rights: *. Execution: the server.
+Owner: host. Rights: *. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -4208,7 +4263,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Interrupt the running turn of an actor; the actor stays active and accepts the next input. Without a running turn nothing happens.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -4267,7 +4322,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 All runs of the profile the caller sees, its own and those shared with it, with title, times, state (stopped, running, waiting, idle, ended), pending actions, the caller's own seenRevision, whether the caller operates it (operable), its sharing for the caller (canShare and shared for whoever may change it, sharing with recipient labels only for the signed-in owner, sharedAccess for whoever sees it only through a share), metadata and its list lines. Right: runs.read.
 
-Owner: host. Rights: runs.read. Execution: the server.
+Owner: host. Rights: runs.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -4297,7 +4352,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Record that the caller has viewed a run up to this revision; ragents.runs.list reports it back to the same user as seenRevision, on every device and host, and to nobody else. Only a higher revision counts. Right: runs.read.
 
-Owner: host. Rights: runs.read. Execution: the server.
+Owner: host. Rights: runs.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -4338,7 +4393,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Work out the task of a new run in a conversation with a separate coordinator instance. Rights: runs.read, runs.write, runs.create.
 
-Owner: host. Rights: runs.read, runs.write, runs.create. Execution: the server.
+Owner: host. Rights: runs.read, runs.write, runs.create. Access scope: unrestricted. Execution: the server.
 Default client deadline: 125000 ms; callers may override it.
 
 ### Input
@@ -4383,7 +4438,7 @@ Default client deadline: 125000 ms; callers may override it.
 
 Answer or dismiss a pending action.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -4454,7 +4509,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Restart a stopped actor.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -4513,7 +4568,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Revoke a run's sharing with everyone, one individual user, or all recipients. Applies to the current journal state and keeps other shares; removing an individual share does not remove access granted to everyone. Result and rights as for ragents.runs.sharing.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -4688,7 +4743,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 The parameters a script template declares, as a closed JSON Schema object: each property a string (format model for a model name), a number, an integer, a boolean or a choice of strings, required ones under required. Rights: runs.read, runs.write and the template's release.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -4730,7 +4785,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 The run scripts the caller may start with their declared parameters, and for a running run whether each can start there now: available, otherwise reason (not embeddable, a fixed start option differs from the run's). Rights: runs.read, runs.write.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -4798,7 +4853,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Replace whom a run is shared with: every user of the profile (everyone) and individual users, each with read (sees the run, operates nothing) or write (operates it as far as the user's own rights go); a user gets the higher of both. Before the start the choice waits for the run's creation by the caller, afterwards it is written to the journal; an unchanged sharing writes nothing. A user unknown to the profile (share-user-unknown), the owner (share-owner) and a user named twice (share-user-duplicate) are refused. Result as ragents.runs.sharing. Rights as for ragents.runs.sharing.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -4988,7 +5043,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Whom a run is shared with, each with its access, and the users of the profile it can be shared with. Before the start, the caller's own choice for the run it is about to create. Only with sign-in (sharing-unavailable), not for a global coordinator or a run without an owner (run-not-shareable). Rights: runs.read and runs.write, and the caller must own the run or have runs.read.all (run-sharing-denied).
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -5114,7 +5169,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Start a run script and wait until its actor has the start input; errors come back to the caller instead of the chat. A new run starts as with ragents.chat.start. In a running run only a script whose RUN.md sets embeddable: true starts, its fixed start options must match the run's, it takes no start options, and the primary actor stays. Every start opens a new room named after the script with its own actors. Result: the script actor, its address (room.handle), and which start of its package this was. Rights: runs.read, runs.write and the template's release.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 4500000 ms; callers may override it.
 
 ### Input
@@ -5186,7 +5241,7 @@ Default client deadline: 4500000 ms; callers may override it.
 
 Stop all work in the run: interrupt every running turn, abort starts and external work, and keep all actors active. Later inputs wait; the owner's next message continues the run.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -5240,7 +5295,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Stop an actor together with its delegated children.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -5300,7 +5355,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Read the run view, optionally the state after a journal sequence; null for a run that has not started yet.
 
-Owner: host. Rights: no fixed rights. Execution: the server.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -5348,7 +5403,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Models, plugins, tools, skills and runtime information of the profile. Right: settings.read; only locally or with access.
 
-Owner: host. Rights: settings.read. Execution: the server.
+Owner: host. Rights: settings.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -5375,7 +5430,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Read the files of a registered skill; null if it is not registered. Right: settings.read.
 
-Owner: host. Rights: settings.read. Execution: the server.
+Owner: host. Rights: settings.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -5417,7 +5472,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Read the model for automatic titles and the choices. Right: settings.read.
 
-Owner: host. Rights: settings.read. Execution: the server.
+Owner: host. Rights: settings.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -5444,7 +5499,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Set the model for automatic titles or turn their generation off. Right: settings.write.
 
-Owner: host. Rights: settings.write. Execution: the server.
+Owner: host. Rights: settings.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -5476,7 +5531,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 The start options of a run with value and presentation, only those whose own rights the caller has; the model choice, for example, requires runs.inspect. After the start, all except the changeable ones are locked. Rights: runs.read, runs.create.
 
-Owner: host. Rights: runs.read, runs.create. Execution: the server.
+Owner: host. Rights: runs.read, runs.create. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -5516,7 +5571,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Choose a start option before the start, a changeable one such as the model choice also afterwards, taking effect from the next turn; if a right of the option itself is missing, the choice fails with access-denied. Rights: runs.read, runs.write, runs.create.
 
-Owner: host. Rights: runs.read, runs.write, runs.create. Execution: the server.
+Owner: host. Rights: runs.read, runs.write, runs.create. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -5561,7 +5616,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Allow the requested path, allow its containing folder for a file, or deny access. Only the run's owner may answer; server grants require permission to choose full access.
 
-Owner: ragents.workspace. Rights: runs.read, runs.write. Execution: the server.
+Owner: ragents.workspace. Rights: runs.read, runs.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -5618,7 +5673,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Whether the caller may answer access requests of this run, with the reason when unavailable.
 
-Owner: ragents.workspace. Rights: runs.read, runs.write. Execution: the server.
+Owner: ragents.workspace. Rights: runs.read, runs.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -5668,7 +5723,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 List a directory in the workspace or in the file store of a run.
 
-Owner: ragents.workspace. Rights: runs.read, runs.inspect. Execution: the server.
+Owner: ragents.workspace. Rights: runs.read, runs.inspect. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -5723,7 +5778,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Preview a file as text; files that are too large or binary state the reason instead.
 
-Owner: ragents.workspace. Rights: runs.read, runs.inspect. Execution: the server.
+Owner: ragents.workspace. Rights: runs.read, runs.inspect. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -5778,7 +5833,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 The plugins' contributions to the executor that a workstation loads before sign-in and reports back with it. A workstation with a different executor version fails on its version; other fields do not matter.
 
-Owner: ragents.workspace. Rights: runs.write. Execution: the server.
+Owner: ragents.workspace. Rights: runs.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -5841,7 +5896,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 The caller's signed-in workstations; other users' workstations do not appear even with runs.read.all.
 
-Owner: ragents.workspace. Rights: runs.read. Execution: the server.
+Owner: ragents.workspace. Rights: runs.read. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -5914,7 +5969,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Sign in a workstation or renew its folders; the connection of this request becomes its return path and needs an event stream. The server observes the named background commands of its runs on this workstation again. A workstation with a different executor version fails on its version before the rest of the shape matters.
 
-Owner: ragents.workspace. Rights: runs.write. Execution: the server.
+Owner: ragents.workspace. Rights: runs.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -6131,7 +6186,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 Sign out one of your own workstations; open tasks fail.
 
-Owner: ragents.workspace. Rights: runs.write. Execution: the server.
+Owner: ragents.workspace. Rights: runs.write. Access scope: unrestricted. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
 
 ### Input
@@ -6165,7 +6220,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 The current state of a display's app after every change, checked against your access to the app's run.
 
-Owner: ragents.actor-programs. Rights: runs.read.
+Owner: ragents.actor-programs. Rights: runs.read. Access scope: unrestricted.
 
 ### Parameter
 
@@ -6353,7 +6408,7 @@ Owner: ragents.actor-programs. Rights: runs.read.
 
 The coordinator's chat history: first the stored history, then live. Rights as for reading the run; it ends as soon as the caller no longer sees the run because a share was taken back.
 
-Owner: host. Rights: no fixed rights.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted.
 
 ### Parameter
 
@@ -6389,7 +6444,7 @@ Owner: host. Rights: no fixed rights.
 
 Reports changes in a run's document store. Right: runs.read.
 
-Owner: ragents.documents. Rights: runs.read.
+Owner: ragents.documents. Rights: runs.read. Access scope: unrestricted.
 
 ### Parameter
 
@@ -6449,7 +6504,7 @@ Owner: ragents.documents. Rights: runs.read.
 
 Your current global apps after every change and reconnect.
 
-Owner: ragents.global-apps. Rights: ragents.global-apps.read.
+Owner: ragents.global-apps. Rights: ragents.global-apps.read. Access scope: unrestricted.
 
 ### Parameter
 
@@ -6814,7 +6869,7 @@ Owner: ragents.global-apps. Rights: ragents.global-apps.read.
 
 Connection state of a run's MCP servers, without their definitions or credentials.
 
-Owner: ragents.mcp. Rights: runs.read, ragents.mcp.read.
+Owner: ragents.mcp. Rights: runs.read, ragents.mcp.read. Access scope: unrestricted.
 
 ### Parameter
 
@@ -6916,7 +6971,7 @@ Owner: ragents.mcp. Rights: runs.read, ragents.mcp.read.
 
 The live state of a run's process monitoring. Rights: runs.read and ragents.processes.read.
 
-Owner: ragents.processes. Rights: runs.read, ragents.processes.read.
+Owner: ragents.processes. Rights: runs.read, ragents.processes.read. Access scope: unrestricted.
 
 ### Parameter
 
@@ -6952,7 +7007,7 @@ Owner: ragents.processes. Rights: runs.read, ragents.processes.read.
 
 Reports every new journal event of a run; first ready, then run. Rights as for reading the run; it ends as soon as the caller no longer sees the run because a share was taken back.
 
-Owner: host. Rights: no fixed rights.
+Owner: host. Rights: no fixed rights. Access scope: unrestricted.
 
 ### Parameter
 
@@ -7003,7 +7058,7 @@ Owner: host. Rights: no fixed rights.
 
 Reports every change of the run list, also when a run is shared with the caller or no longer, a changed read marker only to its user. Right: runs.read.
 
-Owner: host. Rights: runs.read.
+Owner: host. Rights: runs.read. Access scope: unrestricted.
 
 ### Parameter
 
@@ -7036,7 +7091,7 @@ Owner: host. Rights: runs.read.
 
 Reports every change below the observed root of a run.
 
-Owner: ragents.workspace. Rights: runs.read, runs.inspect.
+Owner: ragents.workspace. Rights: runs.read, runs.inspect. Access scope: unrestricted.
 
 ### Parameter
 

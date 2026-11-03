@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
-import { createServer } from "node:http";
+import { createServer, request as httpRequest } from "node:http";
 import { PassThrough } from "node:stream";
 import test, { type TestContext } from "node:test";
 import { Type } from "typebox";
@@ -20,6 +20,7 @@ import {
 import { RpcDispatcher } from "../src/rpc/dispatcher.ts";
 import { RPC_CONNECTION_HEADER, RpcHttpTransport } from "../src/rpc/http-transport.ts";
 import { startStdioTransport } from "../src/rpc/stdio-transport.ts";
+import { isLocalRequest } from "../src/local-request.ts";
 
 const greet = defineOperation({
   id: "test.greet",
@@ -90,7 +91,7 @@ const httpFixture = async (t: TestContext) => {
   const transport = new RpcHttpTransport({ dispatcher: f.dispatcher });
   const server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://host");
-    void transport.handle(request, response, url, reader, true).then((handled) => { if (!handled) { response.writeHead(404); response.end(); } });
+    void transport.handle(request, response, url, reader, isLocalRequest(request)).then((handled) => { if (!handled) { response.writeHead(404); response.end(); } });
   });
   t.after(() => { transport.close(); server.closeAllConnections(); server.close(); });
   server.listen(0, "127.0.0.1");
@@ -163,6 +164,26 @@ test("http: keepalives are named events so native SSE consumers can observe stre
   const stream = await f.stream();
   t.mock.timers.tick(15_000);
   assert.deepEqual(await stream.next(), { event: "ping", data: {} });
+});
+
+test("http: a stream cannot lend its local access to a non-local POST", async (t) => {
+  const f = await httpFixture(t);
+  const stream = await f.stream();
+  t.after(stream.close);
+  const response = await new Promise<{ status: number | undefined; body: { error: { data: unknown } } }>((resolve, reject) => {
+    const request = httpRequest(`${f.base}/rpc`, {
+      method: "POST",
+      headers: { "content-type": "application/json", host: "acme.example", [RPC_CONNECTION_HEADER]: stream.connection },
+    }, (reply) => {
+      const chunks: Buffer[] = [];
+      reply.on("data", (chunk: Buffer) => chunks.push(chunk));
+      reply.on("end", () => resolve({ status: reply.statusCode, body: JSON.parse(Buffer.concat(chunks).toString("utf8")) }));
+    });
+    request.once("error", reject);
+    request.end(JSON.stringify({ jsonrpc: "2.0", id: 1, method: greet.id, params: { name: "demo" } }));
+  });
+  assert.equal(response.status, 403);
+  assert.deepEqual(response.body.error.data, { code: "foreign-connection", status: 403 });
 });
 
 test("http: a stream carries subscriptions, progress and requests from the server to the client", async (t) => {

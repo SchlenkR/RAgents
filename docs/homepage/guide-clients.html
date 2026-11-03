@@ -1364,7 +1364,7 @@ a blocking cause; no empty conversation silently replaces it. Text is always sup
 and embedded resources require the adapter&#39;s advertised capabilities. Missing installation,
 sign-in, unsupported content, and workspace refusals show their causes in the actor&#39;s history.</p>
 <h2 id="control-ragents-as-an-agent">Control RAgents as an agent</h2>
-<p>An AI agent working on the same machine controls RAgents through six <code>ragents</code> subcommands. In
+<p>An AI agent working on the same machine controls RAgents through the <code>ragents</code> subcommands. In
 a checkout, use <code>pnpm ragents &lt;command&gt;</code>. These commands are the agent-facing contract: <code>run</code> and
 <code>send</code> wait for the turn to end, and every command returns an exit code.</p>
 <pre><code class="language-sh">ragents provision developer                                  # once per machine
@@ -1379,9 +1379,26 @@ ragents script &lt;runId&gt; &lt;entry&gt; --input &#39;{&quot;topic&quot;:&quot
 ragents run &quot;Review the change&quot; --share bob --share carol:write   # share the new run before the task goes out
 ragents share &lt;runId&gt;                                        # whom the run is shared with
 ragents share &lt;runId&gt; bob:write --all read                   # replace the sharing; --none shares with nobody
+ragents call --list                                          # methods of the running profile
+ragents call ragents.runs.list                               # default params: {}
+ragents call acme.demo.inspect &#39;{&quot;name&quot;:&quot;demo&quot;}&#39; --raw       # one-line JSON result
 ragents --help                                               # same as ragents help
 ragents --version                                            # the installed version, same as ragents -v
 </code></pre>
+<p><code>call &lt;method&gt; [json-params]</code> sends one JSON-RPC request to an already running host and prints
+only its result as JSON, pretty by default, on one line with <code>--raw</code>. Params default to <code>{}</code>
+and must be a JSON object. Use <code>-</code> to read them from stdin:</p>
+<pre><code class="language-sh">printf &#39;%s&#39; &#39;{&quot;name&quot;:&quot;demo&quot;}&#39; | ragents call acme.demo.inspect - --raw
+ragents call ragents.api.reference --profile demo
+ragents call ragents.api.openrpc --profile demo &gt; openrpc.json
+</code></pre>
+<p><code>call --list</code> reads the core OpenRPC reference and prints each server method with its one-line
+description, including plugin methods; client callbacks are omitted. Like the reference, it
+requires <code>runs.read</code> and <code>runs.inspect</code>. A direct call needs only the called method&#39;s rights and
+scope. Unknown methods, validation failures, domain errors and connection failures return exit
+code 1 and put the error message on stderr. <code>call</code> never starts a host, creates a run or opens
+an event stream. It uses the same <code>--profile</code>, <code>RAGENTS_PROFILE</code>, remembered host, <code>RAGENTS_URL</code>,
+<code>PORT</code> and <code>RAGENTS_TOKEN</code> resolution described below; the default request deadline is 30 seconds.</p>
 <p><code>run</code> checks <code>GET &lt;address&gt;/health</code> to see whether the profile host is already running. If not,
 it starts a detached process with its log at <code>&lt;data-directory&gt;/host.log</code>, then records the
 address and PID in <code>&lt;data-directory&gt;/host.json</code>. It creates a run bound to the absolute folder as
@@ -1532,7 +1549,7 @@ stdin and stdout and opens no port. The startup modes are:</p>
 <code>{&quot;ragents&quot;:{&quot;url&quot;:&quot;...&quot;,&quot;token&quot;:&quot;...&quot;,&quot;pid&quot;:1234}}</code>.</li>
 <li><code>--port N</code>: fixed port N instead of <code>host.PORT</code> from the profile file.</li>
 <li><code>--bind-address A</code>: the interface to listen on instead of <code>host.BIND_ADDRESS</code> from the profile
-file, an IPv4 or IPv6 address or <code>localhost</code>; without any, the server listens on all interfaces,
-and a private port from <code>--port 0</code> on <code>127.0.0.1</code>.</li>
+file, an IPv4 or IPv6 address or <code>localhost</code>; without any, profiles without <code>users</code> listen on
+<code>127.0.0.1</code>, profiles with sign-in on all interfaces, and <code>--port 0</code> on <code>127.0.0.1</code>.</li>
 </ul>
 <p class="guide-source">Source: <a href="../../docs/usage.md">docs/usage.md</a>. <a href="guide-clients.md">This chapter as Markdown</a>.</p><p><a href="guide-global-apps.html">Create global mini-apps</a></p><nav class="guide-next" aria-label="Continue reading"><a href="guide-getting-started.html">Previous: Get started</a><a href="guide-global-apps.html">Next: Global mini-apps</a></nav></article></div></main><footer class="shell"><p>Generated from public documentation. Rebuild with <code>pnpm generate:homepage</code>. Verify with <code>pnpm check:homepage</code>.</p><nav aria-label="More pages"><a href="index.html">Homepage</a><a href="guide.html">Guide</a></nav></footer></body></html>

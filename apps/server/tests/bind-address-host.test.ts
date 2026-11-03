@@ -11,7 +11,7 @@ import { announcement, isolatedDirectory, stopChild } from "./foreign-plugin-fix
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 
-const writeProfile = (directory: string, host: Readonly<Record<string, unknown>> = {}): string => {
+const writeProfile = (directory: string, host: Readonly<Record<string, unknown>> = {}, signIn = false): string => {
   const file = path.join(directory, "ragents.config.bind-check.ts");
   const base = { PRODUCT_PROFILE: "bind-check", PRODUCT_ID: "acme", PRODUCT_TITLE: "Acme", PLUGINS: ["ragents.orchestration", "ragents.workspace", "ragents.product"] };
   writeFileSync(file, `import { env } from "@ragents/host/config-definition.js";
@@ -21,6 +21,7 @@ export const config = {
       models: [{ id: "z-ai/glm-5.3-flash", contextWindow: 262144, maxTokens: 32768, reasoning: true, input: ["text"] }] }] },
   "ragents.product": { AGENT_MODEL: "z-ai/glm-5.3-flash", AGENT_COORDINATOR_MODEL: "z-ai/glm-5.3-flash" },
 };
+${signIn ? 'export const users = [{ id: "alice", password: "demo-password", rights: ["*"] }];' : ""}
 `);
   return file;
 };
@@ -94,17 +95,31 @@ const probePort = async (port: number, addresses: readonly string[]): Promise<{ 
   };
 };
 
-test("a host without BIND_ADDRESS listens on all interfaces and names localhost", { timeout: 120_000 }, async () => {
+test("a host with sign-in and without BIND_ADDRESS listens on all interfaces and names localhost", { timeout: 120_000 }, async () => {
   const directory = isolatedDirectory("ragents-bind-address-");
   const output: string[] = [];
   const port = await freePort();
-  const server = startHost(directory, writeProfile(directory), [], { PORT: String(port) });
+  const server = startHost(directory, writeProfile(directory, {}, true), [], { PORT: String(port) });
   try {
     assert.equal(await listeningAt(server, output), `http://localhost:${port}`);
     assert.equal((await fetch(`http://127.0.0.1:${port}/health`)).status, 200);
     const probed = await probePort(port, ["127.0.0.1", ...externalIPv4()]);
     assert.deepEqual(probed.refused, [], "the host answers on every address of the machine");
     assert.ok(probed.reached.includes("127.0.0.1"));
+  } finally {
+    await stopChild(server);
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("a host without sign-in and without BIND_ADDRESS listens only on loopback", { timeout: 120_000 }, async () => {
+  const directory = isolatedDirectory("ragents-bind-address-");
+  const port = await freePort();
+  const server = startHost(directory, writeProfile(directory), [], { PORT: String(port), ACCESS_TOKEN: "demo-access-token" });
+  try {
+    assert.equal(await listeningAt(server, []), `http://127.0.0.1:${port}`);
+    const probed = await probePort(port, ["127.0.0.1", "::1", ...externalIPv4()]);
+    assert.deepEqual(probed.reached, ["127.0.0.1"]);
   } finally {
     await stopChild(server);
     rmSync(directory, { recursive: true, force: true });

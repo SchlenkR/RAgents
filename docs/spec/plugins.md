@@ -1204,8 +1204,10 @@ module at startup through `hostNames`.
    module.
 5. Entries and names without users are removed with a version jump in the cleanup that owns them.
 
-**Version contract.** `HOST_API_VERSION` is 21 for profile-owned model definitions and completion
-services. Plugins built for earlier host APIs must rebuild. `providerCatalog` replaces the built-in
+**Version contract.** `HOST_API_VERSION` is 22, requiring contract access scopes as well as
+profile-owned model definitions and completion services. Plugins built for earlier host APIs
+must rebuild; an older host must reject a scoped bundle rather than ignore its scope.
+`providerCatalog` replaces the built-in
 catalog helper, and `completionModelToken` replaces the standalone OpenRouter completion helper;
 the model upstream service is removed. It increases with every incompatible change of a
 list entry, a listed name, or a fully allowed library, not with every
@@ -1414,7 +1416,7 @@ its limits are in [profiles.md](profiles.md).
 The server's API is JSON-RPC 2.0 with typed contracts; there is no longer a REST-style HTTP API.
 A contract is an object from `defineOperation` or `defineChannel`
 (`packages/ragents/src/rpc/contract.ts`) in the plugin's `contract.ts`: a namespaced ID
-(`ragents.<plugin>.<name>`), description, rights, and TypeBox schemas for input and result
+(`ragents.<plugin>.<name>`), description, rights, optional access scope, and TypeBox schemas for input and result
 or parameters and message. Server and web take their types from the same object:
 `host.methods(implement(contract, (input, context) => result))` enforces input and output through
 `Static<>`, and the web client `rpc.call(contract, input)` returns the result typed. Large
@@ -1434,6 +1436,17 @@ the rights of its plugin); such contracts name no static rights but their rule
 in the description. The `context` of a method: `access`, `signal` (cancellation through `rpc.cancel`
 or end of connection), `progress` (intermediate states as `rpc.progress`), `connection`, and
 `local` (call from the own machine: stdio or loopback).
+
+An operation or channel can declare `scope: "local"`. The dispatcher rejects a non-local
+call or subscription before running its handler with domain error `local-only`, status 403
+(JSON-RPC code `-32000`). Without `scope`, access is unrestricted by location; rights and
+run ownership still apply. HTTP requires both a loopback peer and a loopback Host name, so a
+reverse-proxied request does not become local merely because the proxy is on this machine.
+An HTTP POST can reuse a stream only with the same user and locality. A local client callback
+also requires a local connection. Conditional policies, such as allowing a remote signed-in
+workstation but an anonymous workstation only locally, remain handler checks.
+Host API 22 requires support for scope enforcement; rebuild older bundles against the new
+host. A scoped bundle must never load in a host that would silently discard its scope.
 
 Outgoing calls have a 30-second deadline by default. An operation may declare `timeoutMs` in its
 contract, and an explicit call option takes precedence over that declaration. `timeoutMs: null`
@@ -1474,7 +1487,15 @@ JSON message per line on stdin and stdout; the caller counts as trusted and has 
 Sign-in is a transport matter: HTTP with cookie, bearer, or `?access=` as before
 (`/api/access`, `/api/access/login`, `/api/access/logout` stay HTTP), stdio without.
 
-Core contracts: `ragents.chat.*`, `ragents.runs.*` (run list and read markers, run view, journal,
+The host checks browser origins before authentication, message dispatch, and plugin delivery:
+`POST /rpc`, `GET /rpc/stream`, all HTTP methods other than GET, HEAD and OPTIONS, and
+WebSocket upgrades require the host's own origin or an origin explicitly listed in
+`host.ALLOWED_ORIGINS`. Native clients without `Origin` remain allowed; `Sec-Fetch-Site:
+cross-site` without an Origin is refused. An explicitly allowed origin can use cross-site
+requests. Opaque `Origin: null` is refused. Profile settings and proxy requirements are in
+[profiles.md](profiles.md#profiles).
+
+Core contracts: `ragents.api.reference`, `ragents.api.openrpc`, `ragents.chat.*`, `ragents.runs.*` (run list and read markers, run view, journal,
 queues, stop, and questions from the engine), `ragents.startOptions.*`,
 `ragents.runs.prepare`, `ragents.settings.*`, `ragents.plugins.bootstrap`,
 `ragents.external.set`, and the channels `ragents.runs`, `ragents.run`, and `ragents.chat`
@@ -1485,8 +1506,15 @@ artifact and attachment content under `/files/runs/<run>/artifacts/<id>` and
 of the service tunnel. The registry `http` exists only for that; every JSON response is a method.
 
 The reference is generated from the registrations: `host.methods.describe()` and
-`host.channels.describe()` provide owner, ID, description, rights, and schemas for the readable
-reference and the OpenRPC document. The web client (`apps/web/src/rpc/client.ts`) also runs
+`host.channels.describe()` provide owner, ID, description, rights, access scope, schemas and
+operation deadlines. Every profile serves the readable Markdown through `ragents.api.reference {}`
+and OpenRPC 1.3 through `ragents.api.openrpc {}`, without requiring the overseer plugin. Both
+require `runs.read` and `runs.inspect`, just like the overseer's existing `readReference` and
+`readOpenRpc`, which use the same core renderers. An authorized caller receives the complete
+profile catalog; the listed rights and scopes do not grant permission to call a method.
+OpenRPC includes channels in `x-channels` and metadata in `x-owner`, `x-rights`, `x-scope`
+(`local` or `unrestricted`), `x-implemented-by`, and `x-timeout-ms` for operations.
+The web client (`apps/web/src/rpc/client.ts`) also runs
 under Node; the VS Code extension and `pnpm driver` use it with their own `fetch`.
 
 ## Web as plugin host

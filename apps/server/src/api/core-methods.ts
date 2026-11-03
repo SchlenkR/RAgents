@@ -10,6 +10,7 @@ import type { TitleModelSettings } from "../title-settings-contract.js";
 import { EXTENSION_API_VERSION } from "../extension-api.js";
 import { revokedSharing } from "../run-sharing.js";
 import { coreContracts, type HostPackageDownload, type RunSharingResult } from "./contracts.js";
+import { methodReference, openRpcDocument, type ApiAuthentication } from "./reference.js";
 import { assertRunDeletable, assertRunReachable, assertRunRights, runListScope, runSharer, type GlobalRunPolicy, type RunAccessPolicy } from "./rights.js";
 
 export interface CoreMethodSources {
@@ -34,6 +35,7 @@ export interface CoreMethodSources {
   plugins: PluginHost;
   /** The RAgents version of this server; a UI with a different version shows the difference. */
   version: string;
+  authentication?: ApiAuthentication;
   hostPackage?: HostPackageDownload;
   global: GlobalRunPolicy | undefined;
   /** The user of a run: null without an owner, undefined for an id without a run. */
@@ -110,6 +112,8 @@ export const coreMethods = (sources: CoreMethodSources): MethodContribution[] =>
     if (!local && sources.settingsGuarded()) throw new DomainError("settings-local-only", "Settings are only available locally or with an access token", 403);
   };
   return [
+    implement(coreContracts.api.reference, () => methodReference(sources.plugins, sources.authentication)),
+    implement(coreContracts.api.openrpc, () => openRpcDocument(sources.plugins, sources.authentication)),
     implement(coreContracts.runs.list, (_input, { access }) => sessions.list(runListScope(access, policy))),
     implement(coreContracts.runs.delete, async ({ runId }, { access }) => {
       assertRunDeletable(access, runId, policy);
@@ -206,8 +210,7 @@ export const coreMethods = (sources: CoreMethodSources): MethodContribution[] =>
       ...sources.plugins.publicProfile(access), version: sources.version, extensionApi: EXTENSION_API_VERSION,
       hostPackage: access.can("runs.write") && hasWorkstationOwner(access, local) ? sources.hostPackage ?? null : null,
     })),
-    implement(coreContracts.external.set, async ({ state }, { local }) => {
-      if (!local) throw new DomainError("local-only", "Can only be switched locally", 403);
+    implement(coreContracts.external.set, async ({ state }) => {
       await sources.external.set(state === "on");
       return { external: sources.external.open() };
     }),

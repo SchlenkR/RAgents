@@ -12,13 +12,14 @@ export const parseBindAddress = (value: unknown, source: string): string => {
   return value;
 };
 
-/** The address the server binds as the server itself resolves it: environment before profile file; none means all interfaces. */
+/** Environment before profile file; without an address, only profiles with sign-in listen on all interfaces. */
 export const configuredBindAddress = (
   profileValue: unknown,
   environment: Readonly<Record<string, string | undefined>> = process.env,
+  signIn = false,
 ): string | undefined => {
   if (environment.BIND_ADDRESS !== undefined) return parseBindAddress(environment.BIND_ADDRESS, "BIND_ADDRESS");
-  if (profileValue === undefined) return undefined;
+  if (profileValue === undefined) return signIn ? undefined : "127.0.0.1";
   if (!isEnvironmentReference(profileValue)) return parseBindAddress(profileValue, "host.BIND_ADDRESS");
   const referenced = environment[profileValue.name];
   if (referenced === undefined) throw new Error(`host.BIND_ADDRESS refers to the unset environment variable ${profileValue.name}.`);

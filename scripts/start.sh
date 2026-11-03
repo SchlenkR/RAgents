@@ -86,9 +86,9 @@ import "./src/host-resolution.ts";
 import { pathToFileURL } from "node:url";
 import { assertServerPortAvailable, configuredBindAddress, localHttpUrl } from "./src/startup.ts";
 try {
-    const { config } = await import(pathToFileURL(process.env.PRODUCT_PROFILE_FILE).href);
+    const { config, users } = await import(pathToFileURL(process.env.PRODUCT_PROFILE_FILE).href);
     const port = Number(process.env.PORT || config.host.PORT);
-    const bindAddress = configuredBindAddress(config.host.BIND_ADDRESS);
+    const bindAddress = configuredBindAddress(config.host.BIND_ADDRESS, process.env, users !== undefined);
     await assertServerPortAvailable(port, bindAddress);
     console.log(port, localHttpUrl(bindAddress, port));
 } catch (error) {

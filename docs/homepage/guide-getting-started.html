@@ -946,8 +946,9 @@ first chat message does not start them.</p>
 startup fails. The address stays fixed and a running instance is not terminated. An explicitly
 set <code>PORT</code> must be between 1 and 65535; 0 is invalid. The final server message displays the URL.
 A warning about JavaScript bundle size does not prevent startup.</p>
-<p>By default, the server listens on all interfaces of the machine. To restrict it, for example to
-loopback behind a reverse proxy on the same machine, set <code>host.BIND_ADDRESS</code> in the profile file
+<p>By default, profiles without <code>users</code> listen only on <code>127.0.0.1</code>; profiles with sign-in listen on
+all interfaces. To select an interface, for example loopback behind a reverse proxy on the same
+machine or <code>0.0.0.0</code> for an anonymous profile reached by other machines, set <code>host.BIND_ADDRESS</code> in the profile file
 or <code>BIND_ADDRESS</code> in the environment; <code>ragents start &lt;profile&gt; --bind-address &lt;address&gt;</code> overrides
 both. The value is an IPv4 or IPv6 address without brackets, such as <code>127.0.0.1</code> or <code>::1</code>, or
 <code>localhost</code>; <code>0.0.0.0</code> and <code>::</code> mean all interfaces. Any other value, or an address that does not

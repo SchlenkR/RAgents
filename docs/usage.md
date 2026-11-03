@@ -1599,7 +1599,7 @@ sign-in, unsupported content, and workspace refusals show their causes in the ac
 
 ## Control RAgents as an agent
 
-An AI agent working on the same machine controls RAgents through six `ragents` subcommands. In
+An AI agent working on the same machine controls RAgents through the `ragents` subcommands. In
 a checkout, use `pnpm ragents <command>`. These commands are the agent-facing contract: `run` and
 `send` wait for the turn to end, and every command returns an exit code.
 
@@ -1616,9 +1616,30 @@ ragents script <runId> <entry> --input '{"topic":"Launch"}'  # start one inside 
 ragents run "Review the change" --share bob --share carol:write   # share the new run before the task goes out
 ragents share <runId>                                        # whom the run is shared with
 ragents share <runId> bob:write --all read                   # replace the sharing; --none shares with nobody
+ragents call --list                                          # methods of the running profile
+ragents call ragents.runs.list                               # default params: {}
+ragents call acme.demo.inspect '{"name":"demo"}' --raw       # one-line JSON result
 ragents --help                                               # same as ragents help
 ragents --version                                            # the installed version, same as ragents -v
 ```
+
+`call <method> [json-params]` sends one JSON-RPC request to an already running host and prints
+only its result as JSON, pretty by default, on one line with `--raw`. Params default to `{}`
+and must be a JSON object. Use `-` to read them from stdin:
+
+```sh
+printf '%s' '{"name":"demo"}' | ragents call acme.demo.inspect - --raw
+ragents call ragents.api.reference --profile demo
+ragents call ragents.api.openrpc --profile demo > openrpc.json
+```
+
+`call --list` reads the core OpenRPC reference and prints each server method with its one-line
+description, including plugin methods; client callbacks are omitted. Like the reference, it
+requires `runs.read` and `runs.inspect`. A direct call needs only the called method's rights and
+scope. Unknown methods, validation failures, domain errors and connection failures return exit
+code 1 and put the error message on stderr. `call` never starts a host, creates a run or opens
+an event stream. It uses the same `--profile`, `RAGENTS_PROFILE`, remembered host, `RAGENTS_URL`,
+`PORT` and `RAGENTS_TOKEN` resolution described below; the default request deadline is 30 seconds.
 
 `run` checks `GET <address>/health` to see whether the profile host is already running. If not,
 it starts a detached process with its log at `<data-directory>/host.log`, then records the
@@ -1798,6 +1819,6 @@ stdin and stdout and opens no port. The startup modes are:
   `{"ragents":{"url":"...","token":"...","pid":1234}}`.
 - `--port N`: fixed port N instead of `host.PORT` from the profile file.
 - `--bind-address A`: the interface to listen on instead of `host.BIND_ADDRESS` from the profile
-  file, an IPv4 or IPv6 address or `localhost`; without any, the server listens on all interfaces,
-  and a private port from `--port 0` on `127.0.0.1`.
+  file, an IPv4 or IPv6 address or `localhost`; without any, profiles without `users` listen on
+  `127.0.0.1`, profiles with sign-in on all interfaces, and `--port 0` on `127.0.0.1`.
 <!-- /guide:clients -->

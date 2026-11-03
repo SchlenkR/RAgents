@@ -9,8 +9,8 @@ import { createInterface } from "node:readline";
 export const GREETING_PLUGIN: Readonly<Record<string, string>> = {
   "ragents-plugin.json": JSON.stringify({ id: "acme.greeting" }),
   "server/index.ts": `import { Type } from "typebox";
-import { implement } from "@ragents/engine";
-import { defineOperation } from "@ragents/engine/src/rpc/contract";
+import { implement, implementChannel } from "@ragents/engine";
+import { defineChannel, defineOperation } from "@ragents/engine/src/rpc/contract";
 import type { ModelUpstream } from "@ragents/host/plugin-support/model-upstreams.js";
 import type { PluginModule } from "@ragents/host/plugin-support/plugin-module.js";
 export type Catalog = readonly ModelUpstream["models"][number][];
@@ -18,11 +18,16 @@ const hello = defineOperation({
   id: "acme.greeting.hello",
   description: "Greets from the bundle.",
   rights: [],
+  scope: "local",
   input: Type.Object({}),
   result: Type.Object({ text: Type.String() }),
 });
+const changes = defineChannel({ id: "acme.greeting.changes", description: "Greeting changes.", scope: "local", params: Type.Object({}), message: Type.String() });
 export const plugin: PluginModule = {
-  create: () => ({ manifest: { id: "acme.greeting" }, register: (host) => { host.methods(implement(hello, () => ({ text: "Hello from the bundle" }))); } }),
+  create: () => ({ manifest: { id: "acme.greeting" }, register: (host) => {
+    host.methods(implement(hello, () => ({ text: "Hello from the bundle" })));
+    host.channels(implementChannel(changes, (_params, emit) => { emit("ready"); return () => undefined; }));
+  } }),
 };
 `,
   "web/index.tsx": `import { useState } from "react";
@@ -102,6 +107,10 @@ export const assertGreetingServed = async (host: Announced, webDirectory: string
   const entryAddress = bootstrap.plugins.find((plugin) => plugin.id === "acme.greeting")?.web?.entry;
   assert.match(entryAddress ?? "", /^\/plugins\/acme\.greeting\/web\/index\.js\?v=[A-Za-z0-9%_-]+$/);
   assert.deepEqual(await rpc(host, "acme.greeting.hello"), { text: "Hello from the bundle" }, "the server half runs");
+  const document = await rpc(host, "ragents.api.openrpc") as { methods: Array<Record<string, unknown>>; "x-channels": Array<Record<string, unknown>> };
+  assert.equal(document.methods.find((method) => method.name === "acme.greeting.hello")?.["x-scope"], "local");
+  assert.equal(document["x-channels"].find((channel) => channel.name === "acme.greeting.changes")?.["x-owner"], "acme.greeting");
+  assert.match(await rpc(host, "ragents.api.reference") as string, /## acme.greeting.hello/);
   const entry = await fetch(`${host.url}${entryAddress}`);
   assert.equal(entry.status, 200, "the web half loads without a token, as in an iframe without a cookie");
   assert.match(await entry.text(), /webPlugin/);

@@ -21,6 +21,7 @@ export const commands = {
   stop: AGENT_CLI,
   script: AGENT_CLI,
   share: AGENT_CLI,
+  call: AGENT_CLI,
 };
 
 const usage = `Usage: ragents <command> [arguments]
@@ -36,6 +37,9 @@ const usage = `Usage: ragents <command> [arguments]
   script <run> [<entry>]           list the run scripts or start one inside the run (--parameters <json>)
   share <run> [<user>[:read|:write]...] [--all <read|write>] [--none]
                                    print or replace whom a run is shared with
+  call <method> [<json-params>|-] [--raw]
+                                   call a method of the running host; - reads params from stdin
+  call --list                      list methods and their one-line descriptions
   connect <server-url>             fetch the client profile with its bundles and start the local server with it
   start <profile|path>             start a profile of the package, an own profile file or a
                                    fetched revision; the UI comes prebuilt
@@ -45,7 +49,7 @@ const usage = `Usage: ragents <command> [arguments]
   --version, -v                    the installed version
   --help, help                     this usage
 
-run, send, journal, stop, script and share take another profile with --profile <profile|path>: a name
+run, send, journal, stop, script, share and call take another profile with --profile <profile|path>: a name
 next to the host or the path to an own ragents.config.<profile>.ts. RAGENTS_PROFILE sets
 the same for all commands of a shell; if the profile requires sign-in, the user's
 personal token goes into RAGENTS_TOKEN.

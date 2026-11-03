@@ -129,8 +129,8 @@ export class MethodContributionRegistry {
 
   describe(): readonly MethodDescriptor[] {
     return this.#methods.entries().map(({ owner, value }) => {
-      const { id, description, rights, input, result, implementedBy, timeoutMs } = value.contribution.contract;
-      return Object.freeze({ owner, id, description, rights, input, result, implementedBy, ...(timeoutMs === undefined ? {} : { timeoutMs }) });
+      const { id, description, rights, scope, input, result, implementedBy, timeoutMs } = value.contribution.contract;
+      return Object.freeze({ owner, id, description, rights, input, result, implementedBy, ...(scope === undefined ? {} : { scope }), ...(timeoutMs === undefined ? {} : { timeoutMs }) });
     });
   }
 }
@@ -149,8 +149,8 @@ export class ChannelContributionRegistry {
 
   describe(): readonly ChannelDescriptor[] {
     return this.#channels.entries().map(({ owner, value }) => {
-      const { id, description, rights, params, message } = value.contribution.contract;
-      return Object.freeze({ owner, id, description, rights, params, message });
+      const { id, description, rights, scope, params, message } = value.contribution.contract;
+      return Object.freeze({ owner, id, description, rights, params, message, ...(scope === undefined ? {} : { scope }) });
     });
   }
 }

@@ -15,6 +15,17 @@ npm install -g @schlenkr/ragents
 
 ## Commands
 
+- `call <method> [json-params|-] [--raw] [--profile <profile|path>]` - send one JSON-RPC request
+  to the running host and print its result as pretty JSON, or one line with `--raw`. Params
+  default to `{}`; `-` reads a JSON object from stdin. Errors go to stderr with exit code 1.
+  `call --list` lists server methods with their descriptions through the core OpenRPC reference
+  (requires `runs.read` and `runs.inspect`). Host and token selection match `run`; no host is started.
+
+  ```sh
+  ragents call --list
+  ragents call ragents.runs.list --raw
+  ```
+
 - `acp [--profile <profile|path>] [--data-dir <folder>]` - serve stable Agent Client Protocol v1
   over stdio for an editor such as Zed. Each editor chat uses a run bound to its project folder,
   with streamed replies, tool progress, plans, and history. Logs go to stderr. Profile, host,

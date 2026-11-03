@@ -24,7 +24,10 @@ test("a bind address is an IPv4 or IPv6 literal or localhost and nothing else", 
 });
 
 test("the environment's bind address wins over the profile's, and a reference to a variable that is not set is an error", () => {
-  assert.equal(configuredBindAddress(undefined, {}), undefined);
+  assert.equal(configuredBindAddress(undefined, {}), "127.0.0.1");
+  assert.equal(configuredBindAddress(undefined, {}, true), undefined);
+  assert.equal(configuredBindAddress("0.0.0.0", {}), "0.0.0.0");
+  assert.equal(configuredBindAddress("127.0.0.1", {}, true), "127.0.0.1");
   assert.equal(configuredBindAddress("127.0.0.1", {}), "127.0.0.1");
   assert.equal(configuredBindAddress("127.0.0.1", { BIND_ADDRESS: "::1" }), "::1");
   assert.equal(configuredBindAddress(env("EXAMPLE_BIND"), { EXAMPLE_BIND: "localhost" }), "localhost");
@@ -55,8 +58,8 @@ test("the address of a profile target follows the bind address of environment an
     return file;
   };
   const plain = await profile("plain", "");
-  assert.equal((await readProfileTarget("plain", plain, {})).baseUrl, "http://localhost:4790");
-  assert.equal((await readProfileTarget("plain", plain, {})).bindAddress, undefined);
+  assert.equal((await readProfileTarget("plain", plain, {})).baseUrl, "http://127.0.0.1:4790");
+  assert.equal((await readProfileTarget("plain", plain, {})).bindAddress, "127.0.0.1");
   assert.equal((await readProfileTarget("plain", plain, { BIND_ADDRESS: "127.0.0.1" })).baseUrl, "http://127.0.0.1:4790");
   const bound = await profile("bound", ', BIND_ADDRESS: "::1"');
   assert.equal((await readProfileTarget("bound", bound, {})).baseUrl, "http://[::1]:4790");
@@ -65,4 +68,10 @@ test("the address of a profile target follows the bind address of environment an
   assert.equal((await readProfileTarget("wide", wide, {})).baseUrl, "http://localhost:4790");
   const invalid = await profile("invalid", ', BIND_ADDRESS: "example.com"');
   await assert.rejects(readProfileTarget("invalid", invalid, {}), /host\.BIND_ADDRESS needs an IPv4 or IPv6 address/);
+  const signedIn = path.join(directory, "ragents.config.users.ts");
+  await writeFile(signedIn, 'export const config = { host: { PORT: 4790 } }; export const users = [{ id: "alice", password: "demo", rights: ["*"] }];\n');
+  assert.equal((await readProfileTarget("users", signedIn, {})).bindAddress, undefined);
+  const anonymous = path.join(directory, "ragents.config.anonymous.ts");
+  await writeFile(anonymous, 'export const config = { host: { PORT: 4790 } }; export const anonymousUser = { id: "demo", rights: ["*"] };\n');
+  assert.equal((await readProfileTarget("anonymous", anonymous, {})).bindAddress, "127.0.0.1");
 });

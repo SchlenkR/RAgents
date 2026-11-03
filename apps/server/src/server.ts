@@ -15,7 +15,8 @@ import { startStdioTransport } from "./rpc/stdio-transport.js";
 import { localHttpUrl } from "./bind-address.js";
 import { config, HOST_SECRET_ENV_NAMES, hostConfigKeys } from "./config.js";
 import { configuredAnonymousUser, configuredDefaultStartEntry, configuredUsers, validateConfigFileSections } from "./config-file.js";
-import { createAccessSessionManager, isSameOriginRequest } from "./access-session.js";
+import { createAccessSessionManager } from "./access-session.js";
+import { isSameOriginRequest } from "./request-origin.js";
 import { coordinatorRequestUser, profileAccessCookieName } from "./access-service.js";
 import { globalChatToken, globalRunPolicyOf } from "./ragents/global-chat.js";
 import { PayloadTooLargeError, readBody } from "./plugin-support/http.js";
@@ -214,6 +215,7 @@ const accessSessions = createAccessSessionManager({
   users: configuredUsers(),
   anonymousUser: configuredAnonymousUser(),
   cookieName: profileAccessCookieName(product.id, config.productProfile),
+  allowedOrigins: config.allowedOrigins,
 });
 const globalAccess = globalRunPolicyOf(provider.plugins.optionalService(globalChatToken));
 await loadExternalAccess();
@@ -233,6 +235,9 @@ provider.plugins.methods.register("host", [
     sessions: provider,
     plugins: provider.plugins,
     version: readPackageVersion(),
+    authentication: accessSessions.enabled
+      ? { kind: "users", cookieName: profileAccessCookieName(product.id, config.productProfile) }
+      : process.env.ACCESS_TOKEN ? { kind: "token" } : { kind: "open" },
     hostPackage: servedHostPackage?.download,
     global: globalAccess,
     runOwner: (runId) => provider.runOwner(runId),
@@ -289,6 +294,11 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
   const startedAt = Date.now();
   res.once("close", () =>
     console.log(`${req.method} ${url.pathname} -> ${res.statusCode} (${Date.now() - startedAt} ms)`));
+  if ((url.pathname === "/rpc/stream" || !["GET", "HEAD", "OPTIONS"].includes(req.method ?? ""))
+    && !isSameOriginRequest(req, config.allowedOrigins)) {
+    jsonResponse(res, 403, { error: "This request requires the host's own origin or an explicitly allowed origin.", code: "origin-denied" });
+    return;
+  }
   if (externalGate(req, res)) return;
   // A credential in the address stands in for the sign-in; reachability and rights are checked against it as usual.
   const granted = addressAccess(req, res, url);
@@ -310,11 +320,6 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     || isBundleSourceMap(bundleFolders, url.pathname);
   if (protectedPath && access.enabled && !access.user) {
     jsonResponse(res, 401, { error: "Please sign in.", code: "login-required" });
-    return;
-  }
-  if (access.enabled && protectedPath && !["GET", "HEAD", "OPTIONS"].includes(req.method ?? "")
-    && !serviceRequest && !isSameOriginRequest(req)) {
-    jsonResponse(res, 403, { error: "Changes are only possible from the same website." });
     return;
   }
   if (protectedPath && !serviceRequest) accessSessions.track(req, res);
@@ -388,6 +393,10 @@ const refuseUpgrade = (socket: Duplex, status: number, text: string): void => {
 async function handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): Promise<void> {
   const url = new URL(req.url ?? "/", "http://localhost");
   socket.on("error", (error) => console.error(`Upgrade ${url.pathname}: ${error.message}`));
+  if (!isSameOriginRequest(req, config.allowedOrigins)) {
+    refuseUpgrade(socket, 403, "This request requires the host's own origin or an explicitly allowed origin.");
+    return;
+  }
   if (!externalAllowed(req)) {
     refuseUpgrade(socket, 503, "External access is turned off.");
     console.log(`${req.method} ${url.pathname} -> 503 (upgrade)`);

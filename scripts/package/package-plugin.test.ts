@@ -128,6 +128,13 @@ if (!result.javaScript.includes("Installed view")) throw new Error("The installe
     children.push(host);
     const running = await announcement(host, []);
     await assertGreetingServed(running, path.join(packageRoot, "apps/web/dist"));
+    const callEnvironment = { ...process.env, RAGENTS_URL: running.url, RAGENTS_TOKEN: running.token, DATA_DIR: path.join(directory, "call-data") };
+    const called = run(process.execPath, [ragents, "call", "acme.greeting.hello", "--profile", "./ragents.config.greeting.ts", "--raw"], work, callEnvironment);
+    assert.equal(called.code, 0, called.output);
+    assert.match(called.output, /\{"text":"Hello from the bundle"\}/);
+    const listed = run(process.execPath, [ragents, "call", "--list", "--profile", "./ragents.config.greeting.ts"], work, callEnvironment);
+    assert.equal(listed.code, 0, listed.output);
+    assert.match(listed.output, /acme.greeting.hello  Greets from the bundle/);
     const bootstrap = await rpc(running, "ragents.plugins.bootstrap") as HostBootstrap;
     assert.equal(bootstrap.hostPackage?.path, "/api/host-package");
     assert.equal((await fetch(`${running.url}/api/host-package`)).status, 401);

@@ -52,6 +52,7 @@ export interface MethodDescriptor {
   id: string;
   description: string;
   rights: readonly string[];
+  scope?: "local";
   input: TSchema;
   result: TSchema;
   implementedBy: "server" | "client";
@@ -63,6 +64,7 @@ export interface ChannelDescriptor {
   id: string;
   description: string;
   rights: readonly string[];
+  scope?: "local";
   params: TSchema;
   message: TSchema;
 }

@@ -4,5 +4,5 @@
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "typeRoots": ["../../apps/server/node_modules/@types", "../../node_modules/@types"]
   },
-  "include": ["./*.ts", "../agent/agent-cli.ts"]
+  "include": ["./*.ts", "../agent/agent-cli.ts", "../agent/call.test.ts"]
 }

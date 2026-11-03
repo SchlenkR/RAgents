@@ -1,5 +1,28 @@
 # Decisions
 
+## 2026-11-03: Plugins use the host's API reference, access scopes and command line
+
+Chapters: `spec/plugins.md` (Message layer), `spec/profiles.md` (Profiles); usage, operations and
+the agent skill.
+
+**Why.** Profiles without the overseer lacked API discovery, and local-only policy lived in
+handlers. Anonymous hosts listened on every interface, while the browser origin check depended on
+sign-in and omitted streams. Calling a plugin method from a shell needed a custom client.
+
+**Decision.** The core serves readable and OpenRPC references from the shared registries, with
+the same inspection rights and renderers as the overseer. Contracts declare optional local scope;
+the dispatcher enforces it for methods and channels, and HTTP streams cannot lend their locality
+to a different request. Anonymous profiles default to loopback, with explicit binding preserved.
+Host API 22 forces a rebuild rather than allowing a scoped bundle in an older host that would
+discard the field and expose the operation remotely.
+Browser origin checks precede authentication and dispatch for RPC, mutations and upgrades;
+profiles can allow exact additional origins. Existing native clients and bridged mini-apps need
+no exception. `ragents call` uses the same host discovery and credentials as the other agent
+commands, sends one request, and exposes method discovery through the core OpenRPC contract.
+The extension interface stays at 3: existing extension and workstation requests use no Origin
+and keep each stream's locality. Fetching a distributed profile with `ragents connect` requires
+updating an older local host to API 22.
+
 ## 2026-10-28: Agents search the web through a Brave Search plugin
 
 Chapters: `spec/plugins.md` (Web search, Open limits); `spec/profiles.md` (plugin lists); operations

@@ -282,8 +282,9 @@ startup fails. The address stays fixed and a running instance is not terminated.
 set `PORT` must be between 1 and 65535; 0 is invalid. The final server message displays the URL.
 A warning about JavaScript bundle size does not prevent startup.
 
-By default, the server listens on all interfaces of the machine. To restrict it, for example to
-loopback behind a reverse proxy on the same machine, set `host.BIND_ADDRESS` in the profile file
+By default, profiles without `users` listen only on `127.0.0.1`; profiles with sign-in listen on
+all interfaces. To select an interface, for example loopback behind a reverse proxy on the same
+machine or `0.0.0.0` for an anonymous profile reached by other machines, set `host.BIND_ADDRESS` in the profile file
 or `BIND_ADDRESS` in the environment; `ragents start <profile> --bind-address <address>` overrides
 both. The value is an IPv4 or IPv6 address without brackets, such as `127.0.0.1` or `::1`, or
 `localhost`; `0.0.0.0` and `::` mean all interfaces. Any other value, or an address that does not
@@ -561,6 +562,8 @@ Node.js 22.19 or newer is required, without Git, pnpm, or a source build. The su
   a custom `ragents.config.<profile>.ts` anywhere on disk, or a previously fetched version.
 - `ragents provision [<profile>|--workspace]` installs only the required tools.
 - `ragents workspace-client <server-url> [folders ...]` registers this machine as a workspace.
+- `ragents call <method> [json-params|-] [--raw]` calls a running host; `call --list` lists its
+  methods. Host selection and authentication match the agent commands; see [usage](usage.md#control-ragents-as-an-agent).
 - `ragents plugin build <folder...>` builds plugin sources into bundles, with type checks; see
   [Build and ship a plugin](homepage/guide-plugins.html).
 - `ragents --version` (or `-v`) prints the version of the package or standalone installation.

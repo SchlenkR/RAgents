@@ -2144,6 +2144,10 @@ Generated automatically from the registered contracts; the host checks methods w
 
 | --- | --- |
 
+| ragents.api.openrpc | runs.read, runs.inspect |
+
+| ragents.api.reference | runs.read, runs.inspect |
+
 | ragents.chat.actorHistory | per run |
 
 | ragents.chat.capabilities | per run |

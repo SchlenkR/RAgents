@@ -1,6 +1,6 @@
 ---
 name: ragents
-description: Start RAgents locally and have it program a project - bring up the host, bind a run to a project folder, send tasks, and read the journal.
+description: Start RAgents locally and have it program a project - bring up the host, bind a run to a project folder, send tasks, read the journal, and call plugin APIs.
 ---
 
 # Commissioning RAgents as a programmer
@@ -21,10 +21,10 @@ side, for example two solutions, and `<language>_close` shuts one of them down a
 - Once per machine: `ragents provision developer` fetches language servers and tools into
   `~/.local/share/ragents/developer/tools/`. A second call downloads nothing more.
 
-The `developer` profile runs without sign-in on port 4715, with data under
+The `developer` profile runs without sign-in on loopback port 4715, with data under
 `~/.local/share/ragents/developer`. `PORT` and `DATA_DIR` override both.
 
-## The six commands
+## Commands
 
 ```sh
 ragents run /path/to/project "Fix the type error in src/broken.ts and run typescript_diagnostics"
@@ -35,8 +35,22 @@ ragents stop 7f3c1e64-... --turn # interrupt only the running turn of the primar
 ragents stop --host              # shut down the remembered host
 ragents script 7f3c1e64-... demo.review --parameters '{"topic":"Release notes"}'  # start a run script inside the running run (ragents script <run> lists them)
 ragents share 7f3c1e64-... bob:write     # replace whom the run is shared with (ragents share <run> prints it)
+ragents call --list                   # available server methods and their one-line descriptions
+ragents call ragents.runs.list        # call a method with default params {}
+ragents call acme.demo.inspect '{"name":"demo"}' --raw
 ragents --help                   # the usage, like ragents help
 ```
+
+`call <method> [json-params]` sends one request to the running host and prints the JSON result,
+pretty by default; `--raw` prints one line. Params must be a JSON object and default to `{}`.
+With `-`, read them from stdin, for example
+`printf '%s' '{"name":"demo"}' | ragents call acme.demo.inspect - --raw`.
+`call --list` uses the core reference (`ragents.api.openrpc`) and requires `runs.read` and
+`runs.inspect`; a direct call uses the method's own rights and scope. The readable reference is
+`ragents call ragents.api.reference`. Errors go to stderr with exit code 1. The command neither
+starts a host nor creates a run; its request deadline is 30 seconds. Host selection matches the
+other commands: `--profile` or `RAGENTS_PROFILE`, the profile's remembered `host.json`, otherwise
+`RAGENTS_URL`, otherwise `PORT`/`host.PORT` and the bind address. `RAGENTS_TOKEN` is sent as bearer.
 
 `run` starts the host if nothing answers at its address, creates the run with the absolute
 folder as an existing folder on the server (the server runs on the same machine), sends the task,

@@ -6,6 +6,7 @@ export interface OperationContract<I extends TSchema = TSchema, R extends TSchem
   readonly id: string;
   readonly description: string;
   readonly rights: readonly string[];
+  readonly scope?: "local";
   readonly input: I;
   readonly result: R;
   readonly implementedBy: "server" | "client";
@@ -18,6 +19,7 @@ export interface ChannelContract<P extends TSchema = TSchema, M extends TSchema 
   readonly id: string;
   readonly description: string;
   readonly rights: readonly string[];
+  readonly scope?: "local";
   readonly params: P;
   readonly message: M;
 }
@@ -36,16 +38,22 @@ const assertContractId = (id: string): void => {
   if (!CONTRACT_ID.test(id)) throw new Error(`Invalid contract id: ${id}`);
 };
 
+const assertScope = (scope: unknown): void => {
+  if (scope !== undefined && scope !== "local") throw new Error(`Invalid access scope: ${String(scope)} (expected local or no scope)`);
+};
+
 export const defineOperation = <I extends TSchema, R extends TSchema>(definition: {
   id: string;
   description: string;
   rights?: readonly string[];
+  scope?: "local";
   input: I;
   result: R;
   implementedBy?: "server" | "client";
   timeoutMs?: number;
 }): OperationContract<I, R> => {
   assertContractId(definition.id);
+  assertScope(definition.scope);
   if (!definition.description.trim()) throw new Error(`Operation ${definition.id} has no description`);
   if (definition.timeoutMs !== undefined && (!Number.isSafeInteger(definition.timeoutMs) || definition.timeoutMs <= 0 || definition.timeoutMs > 2_147_483_647)) {
     throw new Error(`Operation ${definition.id} timeoutMs must be a positive timer duration`);
@@ -55,6 +63,7 @@ export const defineOperation = <I extends TSchema, R extends TSchema>(definition
     id: definition.id,
     description: definition.description,
     rights: Object.freeze([...(definition.rights ?? [])]),
+    ...(definition.scope === undefined ? {} : { scope: definition.scope }),
     input: definition.input,
     result: definition.result,
     implementedBy: definition.implementedBy ?? "server",
@@ -66,16 +75,19 @@ export const defineChannel = <P extends TSchema, M extends TSchema>(definition: 
   id: string;
   description: string;
   rights?: readonly string[];
+  scope?: "local";
   params: P;
   message: M;
 }): ChannelContract<P, M> => {
   assertContractId(definition.id);
+  assertScope(definition.scope);
   if (!definition.description.trim()) throw new Error(`Channel ${definition.id} has no description`);
   return Object.freeze({
     kind: "channel",
     id: definition.id,
     description: definition.description,
     rights: Object.freeze([...(definition.rights ?? [])]),
+    ...(definition.scope === undefined ? {} : { scope: definition.scope }),
     params: definition.params,
     message: definition.message,
   });

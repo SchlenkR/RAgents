@@ -3,11 +3,15 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { ACCESS_TOKEN_QUERY, type AccessSnapshot, type AccessUser } from "@ragents/engine";
 import type { ResolvedProfileUser } from "./config-file.js";
 import { PayloadTooLargeError, readJsonBody, writeJson } from "./plugin-support/http.js";
+import { isSameOriginRequest } from "./request-origin.js";
+
+export { isSameOriginRequest } from "./request-origin.js";
 
 export interface AccessSessionOptions {
   users?: readonly ResolvedProfileUser[];
   anonymousUser?: AccessUser;
   cookieName: string;
+  allowedOrigins?: readonly string[];
   sessionTtlMs?: number;
   now?: () => number;
 }
@@ -30,18 +34,6 @@ const derivePassword = (password: string, salt: Buffer): Promise<Buffer> => new 
 });
 
 const digestOf = (token: string): Buffer => createHash("sha256").update(token).digest();
-
-export const isSameOriginRequest = (request: IncomingMessage): boolean => {
-  if (request.headers["sec-fetch-site"] === "cross-site") return false;
-  const origin = request.headers.origin;
-  if (!origin) return true;
-  try {
-    const parsed = new URL(origin);
-    return ["http:", "https:"].includes(parsed.protocol) && parsed.host === request.headers.host;
-  } catch {
-    return false;
-  }
-};
 
 export const createAccessSessionManager = (options: AccessSessionOptions) => {
   if (!/^[A-Za-z0-9_-]+$/.test(options.cookieName)) throw new Error("Invalid name for the sign-in cookie");
@@ -134,7 +126,7 @@ export const createAccessSessionManager = (options: AccessSessionOptions) => {
       writeJson(response, 200, snapshot(request));
       return true;
     }
-    if (!isSameOriginRequest(request)) {
+    if (!isSameOriginRequest(request, options.allowedOrigins)) {
       writeJson(response, 403, { error: "Sign-in and sign-out are only possible from the same website" });
       return true;
     }

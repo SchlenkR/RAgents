@@ -88,6 +88,22 @@ const chatContextUsage = Type.Object({
 export type ChatContextUsage = Static<typeof chatContextUsage>;
 
 export const coreContracts = {
+  api: {
+    reference: defineOperation({
+      id: "ragents.api.reference",
+      description: "Read the reference of all core and plugin methods and channels registered in this profile, including rights, access scopes, schemas and deadlines.",
+      rights: ["runs.read", "runs.inspect"],
+      input: Type.Object({}, { additionalProperties: false }),
+      result: Type.String(),
+    }),
+    openrpc: defineOperation({
+      id: "ragents.api.openrpc",
+      description: "Read OpenRPC 1.3 for all core and plugin methods and channels registered in this profile.",
+      rights: ["runs.read", "runs.inspect"],
+      input: Type.Object({}, { additionalProperties: false }),
+      result: Type.Record(Type.String(), Type.Any()),
+    }),
+  },
   runs: {
     list: defineOperation({
       id: "ragents.runs.list",
@@ -285,6 +301,7 @@ export const coreContracts = {
   external: {
     set: defineOperation({
       id: "ragents.external.set",
+      scope: "local",
       description: "Turn external access on or off; only from the local machine. Right: settings.write.",
       rights: ["settings.write"],
       input: Type.Object({ state: Type.Union([Type.Literal("on"), Type.Literal("off")]) }, { additionalProperties: false }),
