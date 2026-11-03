@@ -261,8 +261,11 @@ Chat responses stream as Markdown in a comfortable reading size and line height:
 heavier, headings step down in size, inline code is a tinted chip, and code blocks, tables, and quotes
 sit on their own surfaces. Chat, its input, and documents use the same host base and Markdown
 typography: 14 pixels in the browser or the VS Code chat size, with body line height 1.5.
-The background of a user message spans its row while its text keeps its alignment and width limit.
-Visible timestamps sit beside the first text line. Opening a chat loads its history in one update;
+User messages have compact backgrounds that fit their text, with uniform rounded corners.
+Markdown lists have more indentation and space between items, muted markers, and larger headings;
+second-level headings have a thin rule below them. Visible timestamps sit beside the first text line;
+when a chat places them above, they align to the message's side. Image attachments appear as compact
+thumbnails that open in the image viewer. Opening a chat loads its history in one update;
 reconnecting keeps the visible history until loading finishes.
 Scrolling up keeps your reading position while new messages arrive; the jump-to-end button resumes
 following. Copy preserves original text and line breaks. Attachments,
@@ -1624,7 +1627,8 @@ ragents --version                                            # the installed ver
 ```
 
 `call <method> [json-params]` sends one JSON-RPC request to an already running host and prints
-only its result as JSON, pretty by default, on one line with `--raw`. Params default to `{}`
+only its complete result as JSON, pretty by default, on one line with `--raw`. Large results also
+arrive in full when piped into another command or redirected to a file. Params default to `{}`
 and must be a JSON object. Use `-` to read them from stdin:
 
 ```sh

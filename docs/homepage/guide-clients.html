@@ -647,6 +647,8 @@
 :root {
   --control-line-height: calc(var(--text-base) * var(--text-base--line-height));
   --chat-max-width: 900px;
+  --chat-bubble-padding-x: 10px;
+  --chat-bubble-padding-y: 3px;
   --radius: 0.5rem;
   --grid-cell-x: calc(var(--spacing) * 3);
   --grid-cell-y: calc(var(--spacing) * 2.5);
@@ -1386,7 +1388,8 @@ ragents --help                                               # same as ragents h
 ragents --version                                            # the installed version, same as ragents -v
 </code></pre>
 <p><code>call &lt;method&gt; [json-params]</code> sends one JSON-RPC request to an already running host and prints
-only its result as JSON, pretty by default, on one line with <code>--raw</code>. Params default to <code>{}</code>
+only its complete result as JSON, pretty by default, on one line with <code>--raw</code>. Large results also
+arrive in full when piped into another command or redirected to a file. Params default to <code>{}</code>
 and must be a JSON object. Use <code>-</code> to read them from stdin:</p>
 <pre><code class="language-sh">printf &#39;%s&#39; &#39;{&quot;name&quot;:&quot;demo&quot;}&#39; | ragents call acme.demo.inspect - --raw
 ragents call ragents.api.reference --profile demo

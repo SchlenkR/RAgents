@@ -68,16 +68,17 @@ const main = () => {
   const [command, ...rest] = process.argv.slice(2);
   if (command === "--help" || command === "help") {
     console.log(usage);
-    process.exit(0);
+    return;
   }
   if (command === "--version" || command === "-v") {
     console.log(packageVersion(root));
-    process.exit(0);
+    return;
   }
   const script = command ? commands[command] : undefined;
   if (!script) {
     console.error(command ? `Unknown command: ${command}\n\n${usage}` : usage);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
   ensureHostLinks(root);
   const passed = script === AGENT_CLI ? [command, ...rest] : rest;
@@ -116,9 +117,9 @@ const main = () => {
   }
   child.once("error", (error) => {
     console.error(`ragents ${command} could not be started: ${error.message}`);
-    process.exit(1);
+    process.exitCode = 1;
   });
-  child.once("exit", (code, signal) => process.exit(code ?? (signal ? 1 : 0)));
+  child.once("close", (code, signal) => { process.exitCode ??= code ?? (signal ? 1 : 0); });
 };
 
 // npm installs the command as a link; the comparison therefore needs the real path.

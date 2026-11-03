@@ -1514,6 +1514,10 @@ require `runs.read` and `runs.inspect`, just like the overseer's existing `readR
 profile catalog; the listed rights and scopes do not grant permission to call a method.
 OpenRPC includes channels in `x-channels` and metadata in `x-owner`, `x-rights`, `x-scope`
 (`local` or `unrestricted`), `x-implemented-by`, and `x-timeout-ms` for operations.
+`ragents call` sends one method request to the running host and prints its complete JSON result,
+pretty by default or compact with `--raw`; `call --list` lists server methods from OpenRPC.
+The agent CLI sets its exit code and lets pending stdout and stderr writes finish before it exits,
+including when results or journals larger than the pipe buffer are piped into another process.
 The web client (`apps/web/src/rpc/client.ts`) also runs
 under Node; the VS Code extension and `pnpm driver` use it with their own `fetch`.
 
@@ -2447,10 +2451,12 @@ outside the token file.
 
 Answers, documents, file previews, Settings previews, and mini-app Markdown all render through
 quassel's `Markdown` component and its own scope. There is no separate `type-prose` or `.prose`
-stylesheet. quassel 0.6 fixes Markdown h1/h2/h3 at 1.3/1.15/1.05 of the base, with line heights
+stylesheet. quassel 0.9.1 fixes Markdown h1/h2/h3 at 1.6/1.3/1.1 of the base, with line heights
 1.25/1.3/1.35; h4-h6 use the base with line height 1.4. Inline code and code blocks use 0.9 of
 the surrounding text size, with inherited line height; code inside a block inherits without
-another reduction. Paragraphs, lists, and tables use the body scale everywhere.
+another reduction. Lists have deeper indentation, more space between items, and muted markers;
+h2 has extra space above and a thin rule in `--qsl-border-soft`. Paragraphs, lists, and tables
+use the body scale everywhere.
 `tailwind.css` is the host entry point with preflight; `frame.css` the entry point of the mini-app frames.
 The frame puts preflight in a lower base sublayer and restores semantic HTML defaults with
 zero-specificity `:where(...)` selectors: shared heading roles, related block spacing (2 units),
@@ -2468,11 +2474,16 @@ of the chat building blocks `@schlenkr/quassel/chat.css` (classes with prefix `q
 mapping of host colors, fonts, radii, shadows, and `--qsl-color-scheme` to the tokens from `theme.css`.
 The only typography inputs passed to quassel are `--qsl-font`, `--qsl-mono`, and
 `--qsl-font-size`, bound to the host's UI family, monospace family, and base size. The library
-keeps its fixed derived scale; spacing keeps quassel's defaults. Markdown colors are mapped
+keeps its fixed derived scale. Bubble padding maps to `--chat-bubble-padding-x` (10 pixels) and
+`--chat-bubble-padding-y` (3 pixels) in `theme.css`, preserving quassel's compact defaults;
+other spacing and the uniform bubble radius keep the library defaults. Markdown colors are mapped
 without repeating its styling rules: `--qsl-inline-code-background` uses `--inline-code`,
 `--qsl-inline-code-foreground` uses `--code-foreground`, `--qsl-inline-code-edge` uses
 `--inline-code-edge`, `--qsl-code-background` uses `--code`, and `--qsl-code-border` uses
 `--code-border`. `--qsl-blockquote-background` mixes 40 percent `--selected` with transparent.
+`--qsl-border-soft` uses `--border-soft` in every palette and mode. Avatar, highlight, mention,
+reaction, thread, unread, and pill-composer colors and shadows use the existing palette tokens
+through `quassel.css`; the palette generator needs no additional colors.
 The Outlined code style therefore retains its inline edge. Because quassel's classes come
 after the host's, they win at equal specificity, also against the base classes of the slots;
 a conflicting layout class passed through `className` needs `!` (such as `min-h-16!` in the
@@ -2616,6 +2627,12 @@ around every plugin, and the mini-app building blocks around their chat, `ChatMe
 and `DocumentViewer`. The history is not a live region: quassel announces finished responses and new actions
 once through its shared region; the global coordinator switches that off with
 `announce={false}`.
+The host uses quassel 0.9.1's default assistant layout and card composer. Pill composition,
+multi-party rows, threads, reactions, and mentions remain optional library features for callers
+that supply their props; the host does not turn them on for existing chats. The six additional
+value exports are available under both `@schlenkr/quassel` and the deprecated `quassel` alias.
+No existing export or required prop is removed, so host API 22 stays unchanged; bundles that use
+a new name require a host whose inventory includes it.
 `ChatPanel` and `ChatMessages` use the full available width by default with 24 pixels of
 side spacing. `maxWidth` and `horizontalPadding` adjust these dimensions from outside; the panel's
 defaults apply to history and input together. Responses have no additional
@@ -2652,7 +2669,8 @@ preferences:
 - `timestampOptions` determines `time`, `date-time`, or `relative`, language, time zone, optional day
   separators, and `position`: `aside` by default, or `above` the message. Timestamps use the small
   text scale. Relative times update every 15 seconds. Day boundaries follow the configured time
-  zone, also split tool groups, and are independent of timestamp position. Missing or invalid
+  zone, also split tool groups, and are independent of timestamp position. Above timestamps align
+  to the message's side, including right-aligned user messages. Missing or invalid
   message data create neither separators nor invalid date displays. The default remains local
   time in the format HH:MM. Aside timestamps align with the first text line, also for tool groups
   and multi-line messages with different paddings.
@@ -2663,9 +2681,9 @@ preferences:
   speech bubbles (`bubbles`), limits their width, sets the side per role, and controls the
   sender label including its own name resolution. Without defaults, message defaults,
   owner presentation, and existing sender labels are kept. An explicit owner stays without a
-  speech bubble; bubble content is at most 86 percent on wide surfaces, full width on mobile. The background
-  of a user message spans its whole row by default while the text keeps this width and its alignment.
-  `userBackgroundFullWidth: false` limits the background to the content again.
+  speech bubble; bubble content is at most 86 percent on wide surfaces, full width on mobile. A user
+  background fits its text by default, with uniform corners and compact padding.
+  `userBackgroundFullWidth: true` fills the available row while preserving text alignment and width.
 - `messageActions` configures copying per text message, editing own messages,
   requesting responses again, and custom actions. Editing and requesting again
   appear only with a host callback; the components change neither the journal nor the model run.

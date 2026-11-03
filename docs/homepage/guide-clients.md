@@ -727,7 +727,8 @@ ragents --version                                            # the installed ver
 ```
 
 `call <method> [json-params]` sends one JSON-RPC request to an already running host and prints
-only its result as JSON, pretty by default, on one line with `--raw`. Params default to `{}`
+only its complete result as JSON, pretty by default, on one line with `--raw`. Large results also
+arrive in full when piped into another command or redirected to a file. Params default to `{}`
 and must be a JSON object. Use `-` to read them from stdin:
 
 ```sh

@@ -1,5 +1,31 @@
 # Decisions
 
+## 2026-11-03: Agent CLI output finishes before the process exits
+
+Chapter: `spec/plugins.md` (Message layer); agent usage guide.
+
+**Why.** An immediate process exit discarded buffered stdout when `ragents call` returned a large
+result into a pipe. The same entry point serves run, send, journal, script, share, and stop.
+
+**Decision.** The shared agent entry point and package launcher set the exit code and let Node
+finish pending output naturally. The regression pipes a UTF-8 JSON result larger than 2 MB into
+a separate byte counter through both real CLI entries, with pretty and compact JSON.
+
+## 2026-11-03: Use quassel 0.9.1 and its compact message and document defaults
+
+Chapter: `spec/plugins.md` (Web as plugin host, host API); usage guide; development handbook.
+
+**Why.** The chat dependency adds optional composition and team-chat features and improves
+message geometry and Markdown readability. Independent host overrides would split the shared scale.
+
+**Decision.** Pin all three dependencies to 0.9.1. Keep text-width user backgrounds, uniform
+corners, compact 10-by-3-pixel padding, side-aligned above timestamps, compact image thumbnails,
+and document-style Markdown. The card composer and assistant layout remain the host defaults;
+new interactive features require caller props. Map the new semantic theme variables to existing
+palette tokens and retain the shared font base. The generated inventory adds six value names
+under both library specifiers; no names or required props disappear, so host API 22 is unchanged.
+An existing API-22 bundle keeps loading; a plugin using a new export needs an updated host.
+
 ## 2026-11-03: Plugins use the host's API reference, access scopes and command line
 
 Chapters: `spec/plugins.md` (Message layer), `spec/profiles.md` (Profiles); usage, operations and

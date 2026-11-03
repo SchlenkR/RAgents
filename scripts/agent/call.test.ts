@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import type { IncomingHttpHeaders } from "node:http";
 import { tmpdir } from "node:os";
@@ -14,6 +15,7 @@ import { writeHostRecord } from "../../apps/server/src/host-record.ts";
 import { parseArguments } from "./agent-cli.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
+const largeResult = { text: "Large demo output with UTF-8: äöü.\n".repeat(65_536) };
 
 const fixture = async (t: TestContext) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-call-"));
@@ -23,11 +25,13 @@ const fixture = async (t: TestContext) => {
   const demo = defineOperation({ id: "acme.demo.greet", description: "Greet the demo.\nAccept optional input.", input: Type.Object({ name: Type.Optional(Type.String()) }, { additionalProperties: false }), result: Type.Object({ greeting: Type.String() }) });
   const fail = defineOperation({ id: "acme.demo.fail", description: "Refuse the demo.", input: Type.Object({}), result: Type.Null() });
   const callback = defineOperation({ id: "acme.demo.callback", description: "Client callback.", input: Type.Object({}), result: Type.Null(), implementedBy: "client" });
+  const large = defineOperation({ id: "acme.demo.large", description: "Read a large demo result.", input: Type.Object({}), result: Type.Object({ text: Type.String() }) });
   const methods = [
     ...coreMethods(coreSources({}, { plugins: host })),
     implement(demo, ({ name }) => ({ greeting: `Hello ${name ?? "demo"}` })),
     implement(fail, () => { throw new DomainError("demo-denied", "The demo refuses this call.", 403); }),
     implement(callback, () => null),
+    implement(large, () => largeResult),
   ];
   host.methods.register("acme", methods);
   const server = await startRpcServer(t, { methods, routes: [{
@@ -42,18 +46,23 @@ const fixture = async (t: TestContext) => {
   const profile = path.join(directory, "ragents.config.demo.ts");
   await writeFile(profile, 'export const config = { host: { PORT: 4790 } };\n');
   const environment: NodeJS.ProcessEnv = { ...process.env, PORT: undefined, BIND_ADDRESS: undefined, DATA_DIR: directory, RAGENTS_URL: server.url, RAGENTS_TOKEN: "demo-token", RAGENTS_PROFILE: profile };
-  const invoke = (args: readonly string[], input = "", extra: NodeJS.ProcessEnv = {}, facade = true): Promise<{ code: number | null; stdout: string; stderr: string }> => new Promise((resolve, reject) => {
+  const launch = (args: readonly string[], extra: NodeJS.ProcessEnv = {}, facade = true) => {
     const entry = facade ? [path.join(root, "scripts/package/ragents.mjs")] : ["--import", "tsx", path.join(root, "scripts/agent/agent-cli.ts")];
     const child = spawn(process.execPath, [...entry, "call", ...args], { cwd: path.join(root, "apps/server"), env: { ...environment, ...extra }, stdio: ["pipe", "pipe", "pipe"] });
+    t.after(() => { child.kill(); });
+    return child;
+  };
+  const invoke = (args: readonly string[], input = "", extra: NodeJS.ProcessEnv = {}, facade = true): Promise<{ code: number | null; stdout: string; stderr: string }> => new Promise((resolve, reject) => {
+    const child = launch(args, extra, facade);
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
     child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
     child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
     child.once("error", reject);
-    child.once("exit", (code) => resolve({ code, stdout: Buffer.concat(stdout).toString("utf8"), stderr: Buffer.concat(stderr).toString("utf8") }));
+    child.once("close", (code) => resolve({ code, stdout: Buffer.concat(stdout).toString("utf8"), stderr: Buffer.concat(stderr).toString("utf8") }));
     child.stdin.end(input);
   });
-  return { directory, profile, server, requests, invoke };
+  return { directory, profile, server, requests, invoke, launch };
 };
 
 test("call parses method, stdin, raw, profile and list arguments", () => {
@@ -80,6 +89,29 @@ test("package and checkout call send one RPC request and print pretty or raw JSO
   const stdin = await f.invoke(["acme.demo.greet", "-", "--raw"], '{"name":"stdin"}');
   assert.equal(stdin.code, 0, stdin.stderr);
   assert.equal(stdin.stdout, '{"greeting":"Hello stdin"}\n');
+});
+
+test("package and checkout call pipe complete JSON results larger than 1 MB", { timeout: 30_000 }, async (t) => {
+  const f = await fixture(t);
+  for (const facade of [true, false]) for (const raw of [false, true]) {
+    const expected = Buffer.byteLength(`${JSON.stringify(largeResult, null, raw ? undefined : 2)}\n`);
+    assert.ok(expected > 1024 * 1024);
+    const child = f.launch(["acme.demo.large", "{}", ...(raw ? ["--raw"] : [])], {}, facade);
+    const counter = spawn(process.execPath, ["-e", "let bytes = 0; process.stdin.on('data', (chunk) => { bytes += chunk.length; }); process.stdin.on('end', () => { console.log(bytes); });"], { stdio: ["pipe", "pipe", "pipe"] });
+    t.after(() => { counter.kill(); });
+    const completed = Promise.all([once(child, "close"), once(counter, "close")]);
+    const counted: Buffer[] = [];
+    const errors: Buffer[] = [];
+    counter.stdout.on("data", (chunk: Buffer) => counted.push(chunk));
+    for (const stderr of [child.stderr, counter.stderr]) stderr.on("data", (chunk: Buffer) => errors.push(chunk));
+    child.stdout.pipe(counter.stdin);
+    child.stdin.end();
+    const [[code], [counterCode]] = await completed;
+    assert.equal(code, 0, Buffer.concat(errors).toString("utf8"));
+    assert.equal(counterCode, 0, Buffer.concat(errors).toString("utf8"));
+    assert.equal(Buffer.concat(errors).toString("utf8"), "");
+    assert.equal(Number(Buffer.concat(counted).toString("utf8")), expected, `${facade ? "package" : "checkout"}, ${raw ? "raw" : "pretty"}`);
+  }
 });
 
 test("call uses PORT, explicit profiles and the remembered host with the existing precedence", { timeout: 30_000 }, async (t) => {

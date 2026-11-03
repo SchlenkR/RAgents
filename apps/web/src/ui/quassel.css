@@ -7,6 +7,8 @@
     --qsl-font: --theme(--font-sans);
     --qsl-mono: --theme(--font-mono);
     --qsl-font-size: var(--text-base);
+    --qsl-bubble-padding-x: var(--chat-bubble-padding-x);
+    --qsl-bubble-padding-y: var(--chat-bubble-padding-y);
     --qsl-inline-code-background: var(--inline-code);
     --qsl-inline-code-foreground: var(--code-foreground);
     --qsl-inline-code-edge: var(--inline-code-edge);
@@ -23,6 +25,7 @@
     --qsl-muted-foreground: var(--muted-foreground);
     --qsl-destructive: var(--destructive);
     --qsl-success: var(--success);
+    --qsl-warning: var(--warning);
     --qsl-border: var(--border);
     --qsl-border-soft: var(--border-soft);
     --qsl-border-strong: var(--border-strong);
@@ -31,6 +34,32 @@
     --qsl-pop-shadow: var(--pop-shadow);
     --qsl-card-shadow: var(--card-shadow);
     --qsl-radius-panel: --theme(--radius-panel);
+    --qsl-avatar-background: var(--secondary);
+    --qsl-avatar-foreground: var(--muted-foreground);
+    --qsl-highlight-background: var(--warning-soft);
+    --qsl-highlight-edge: var(--warning);
+    --qsl-mention-background: var(--selected);
+    --qsl-mention-foreground: var(--selected-foreground);
+    --qsl-mention-self-background: var(--warning-soft);
+    --qsl-mention-self-foreground: var(--foreground);
+    --qsl-reaction-background: var(--background);
+    --qsl-reaction-mine-background: var(--selected);
+    --qsl-reaction-mine-foreground: var(--selected-foreground);
+    --qsl-reaction-shadow: 0 0 0 1px var(--border-soft);
+    --qsl-thread-summary-foreground: var(--primary);
+    --qsl-thread-summary-hover: var(--hover);
+    --qsl-thread-summary-active: var(--selected);
+    --qsl-unread-color: var(--primary);
+    --qsl-pill-background: var(--background);
+    --qsl-pill-border: var(--border-strong);
+    --qsl-pill-shadow: var(--bar-shadow);
+    --qsl-pill-primary-background: var(--primary);
+    --qsl-pill-primary-foreground: var(--primary-foreground);
+    --qsl-pill-primary-shadow: var(--card-shadow);
+    --qsl-pill-recording-background: var(--destructive);
+    --qsl-pill-recording-foreground: var(--background);
+    --qsl-pill-aura-color: var(--destructive);
+    --qsl-pill-aura-ring-color: var(--destructive);
 }
 
 :root[data-theme="dark"] {

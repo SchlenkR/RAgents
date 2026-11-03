@@ -703,8 +703,8 @@ const main = async (): Promise<number> => {
 
 const moduleUrl: string | undefined = import.meta.url;
 if (moduleUrl && process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(moduleUrl)) {
-  main().then((code) => process.exit(code), (error: unknown) => {
+  main().then((code) => { process.exitCode = code; }, (error: unknown) => {
     console.error(error instanceof Error ? error.message : String(error));
-    process.exit(1);
+    process.exitCode = 1;
   });
 }

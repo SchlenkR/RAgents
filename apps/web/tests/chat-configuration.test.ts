@@ -21,7 +21,15 @@ test("default chat appearance keeps timestamps hidden and copies user messages a
   assert.equal(buttons(html, "Copy with formatting").length, 1);
   assert.doesNotMatch(html, /data-chat="day-separator"|data-chat="sender"/);
   assert.match(html, /data-message="user"/);
+  assert.match(html, /data-background-width="content"/);
+  assert.doesNotMatch(html, /data-chat="bubble-background"/);
   assert.match(html, /data-message="answer"/);
+});
+
+test("user backgrounds fill the row only when explicitly requested", () => {
+  const html = render({ bubbleOptions: { userBackgroundFullWidth: true } });
+  assert.match(html, /data-background-width="full"/);
+  assert.match(html, /data-chat="bubble-background"/);
 });
 
 test("timestamp formatting respects the requested locale and time zone", () => {

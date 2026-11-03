@@ -73,12 +73,34 @@ async function assertScale(scope: Page | FrameLocator, base: number, family: str
   near(title.lineHeight, base * 1.15 * 1.3, "Run title, line height");
   assert.equal(title.fontFamily, family);
   for (const section of [chat, documentView, files]) {
-    for (const [level, factor, lineHeight] of [[1, 1.3, 1.25], [2, 1.15, 1.3], [3, 1.05, 1.35], [4, 1, 1.4]] as const) {
+    for (const [level, factor, lineHeight] of [[1, 1.6, 1.25], [2, 1.3, 1.3], [3, 1.1, 1.35], [4, 1, 1.4]] as const) {
       const actual = await typography(section.getByRole("heading", { level }));
       near(actual.fontSize, base * factor, `H${level}, font`);
       near(actual.lineHeight, base * factor * lineHeight, `H${level}, line height`);
       assert.equal(actual.fontFamily, family);
     }
+    const rhythm = await section.getByRole("heading", { level: 2 }).evaluate((heading) => {
+      const node = heading.closest("[data-quassel-markdown]")!;
+      const list = node.querySelector("ul")!;
+      const item = list.querySelector("li")!;
+      const headingStyle = getComputedStyle(heading);
+      const marker = getComputedStyle(item, "::marker");
+      const probe = document.createElement("span");
+      node.append(probe);
+      probe.style.color = "var(--border-soft)";
+      const border = getComputedStyle(probe).color;
+      probe.style.color = "var(--muted-foreground)";
+      const muted = getComputedStyle(probe).color;
+      probe.remove();
+      return { headingMargin: parseFloat(headingStyle.marginTop), ruleWidth: parseFloat(headingStyle.borderBottomWidth), ruleColor: headingStyle.borderBottomColor,
+        indent: parseFloat(getComputedStyle(list).paddingLeft), itemMargin: parseFloat(getComputedStyle(item).marginTop), marker: marker.color, border, muted };
+    });
+    near(rhythm.headingMargin, base * 1.3 * 2, "H2, space above");
+    near(rhythm.ruleWidth, 1, "H2, rule width");
+    assert.equal(rhythm.ruleColor, rhythm.border);
+    near(rhythm.indent, base * 1.75, "List indentation");
+    near(rhythm.itemMargin, base * 0.4, "List item spacing");
+    assert.equal(rhythm.marker, rhythm.muted);
     for (const code of [section.locator("p code"), section.locator("pre code")]) {
       const actual = await typography(code);
       near(actual.fontSize, base * 0.9, "Code, font");
