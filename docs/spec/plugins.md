@@ -3915,7 +3915,12 @@ this actor last saw of the file: after a `read` including the excerpt (`offset`,
 model writes it, and passes it to the executor of the machine that has the file as the field `seen`
 of the operation (`null`: nothing seen); the executor compares the resolved file and the SHA-256 of the
 content and reports the new state back in `details.seen` (`packages/workspace-executor/src/sandbox-tools.ts`).
-The executor thus stays without state, also on a workstation. The checks follow the standard.
+The executor thus stays without state, also on a workstation. Calls that one actor sends in one
+step (parallel tool calls) on the same file and model context run one after another in arrival
+order, each with the state its predecessor left, so two `edit` calls at different places both
+apply cleanly and the next `write` needs no new `read`; if an earlier call in the step took away
+the target of a later `edit`, the later one fails with the edit's own error ("String to replace
+not found in file ..."). The checks follow the standard.
 `edit` or `write` of an existing file without a seen state fails with `workspace-file-unread`
 ("File has not been read yet. Read it first before writing to it."); a new file needs no `read`,
 nor does an `edit` with an empty `old_string`. On a file changed since then, `write` fails with

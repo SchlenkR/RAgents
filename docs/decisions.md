@@ -1,5 +1,23 @@
 # Decisions
 
+## 2026-11-10: Parallel file tool calls on one file run one after another
+
+Chapter: `spec/plugins.md` (Workspace, sandbox tools, and processes, seen file state).
+
+**Why.** A model that sends two `edit` calls on one file in one step made the seen state wrong: both
+calls read the state from before the step. The second one met a file that the first had changed,
+took the "modified since read" path, applied with the note about foreign changes, and stored the
+old state again, so the next `write` failed with "modified since read" although nobody else had
+touched the file. If its target had changed, the second `edit` failed with the same wrong cause. A
+`read` next to an `edit` of the file answered "File unchanged since last read" from the state before
+the edit.
+
+**Decision.** `WorkspaceSandboxHost` runs the calls of `read`, `edit`, and `write` on one file of
+one actor and model context one after another in arrival order, and reads the seen state only when a
+call starts. Each call sees what its predecessor left; calls on other files stay parallel. A
+later `edit` whose target an earlier one removed fails with the edit's own error. The executor is
+unchanged, so `WORKSPACE_EXECUTOR_VERSION` and the host API stay as they are.
+
 ## 2026-11-03: Agent CLI output finishes before the process exits
 
 Chapter: `spec/plugins.md` (Message layer); agent usage guide.

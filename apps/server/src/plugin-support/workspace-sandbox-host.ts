@@ -3,6 +3,7 @@ import { chmod, lstat, mkdir, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { Value } from "typebox/value";
 import type { ImageContent, TextContent } from "@ragents/ai";
+import { KeyedSerialQueue } from "@ragents/engine/src/runtime/serial-queue";
 import {
   DomainError,
   serviceToken,
@@ -246,6 +247,8 @@ export class WorkspaceSandboxHost implements SandboxServices {
   /** Per run the file state a model saw last, by actor, model context and path; only in memory, a loss requires at most a new read. */
   readonly #seen = new Map<string, Map<string, SeenFile>>();
   readonly #readImages = new Map<string, Map<string, { content: (TextContent | ImageContent)[]; seenKey: string; seen: SeenFile }>>();
+  /** One queue per run, actor, model context and path, so that the parallel calls of one step on a file see each other's state. */
+  readonly #fileCalls = new KeyedSerialQueue();
   /** Per run the executor that started each background command; without an entry the executor of the binding holds it. */
   readonly #tasks = new Map<string, Map<string, WorkspaceExecutor>>();
   /** Per run the observations of the ends of its background commands; the stop of the run ends them before any process ends. */
@@ -747,19 +750,21 @@ export class WorkspaceSandboxHost implements SandboxServices {
     const known = this.#seen.get(runId) ?? new Map<string, SeenFile>();
     this.#seen.set(runId, known);
     const key = [scope.caller.actorId, scope.modelContext, path.posix.normalize(input.file_path)].join("\0");
-    const result = await this.execute(runId, name, { ...input, seen: known.get(key) ?? null }, options) as {
-      content: (TextContent | ImageContent)[];
-      details?: { seen?: SeenFile; imageMimeType?: string };
-    };
-    const seen = result.details?.seen;
-    if (!seen) throw new Error(`The executor reports no file state after ${name}; server and workstation need the same executor version`);
-    if (name === "read" && (result.details?.imageMimeType || result.content.some((part) => part.type === "image"))) {
-      const images = this.#readImages.get(runId) ?? new Map();
-      this.#readImages.set(runId, images);
-      images.set(`${scope.caller.actorId}\0${toolCallId}`, { content: result.content, seenKey: key, seen });
-    } else {
-      known.set(key, seen);
-    }
-    return textOf(result);
+    return this.#fileCalls.run(`${runId}\0${key}`, async () => {
+      const result = await this.execute(runId, name, { ...input, seen: known.get(key) ?? null }, options) as {
+        content: (TextContent | ImageContent)[];
+        details?: { seen?: SeenFile; imageMimeType?: string };
+      };
+      const seen = result.details?.seen;
+      if (!seen) throw new Error(`The executor reports no file state after ${name}; server and workstation need the same executor version`);
+      if (name === "read" && (result.details?.imageMimeType || result.content.some((part) => part.type === "image"))) {
+        const images = this.#readImages.get(runId) ?? new Map();
+        this.#readImages.set(runId, images);
+        images.set(`${scope.caller.actorId}\0${toolCallId}`, { content: result.content, seenKey: key, seen });
+      } else {
+        known.set(key, seen);
+      }
+      return textOf(result);
+    });
   }
 }
