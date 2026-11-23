@@ -4,6 +4,10 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
+- Run script discovery for clients: `apps/server/src/api/core-methods.ts` registers run-script RPC methods for every profile and `apps/web/src/run-panel/RunPanelHeader.tsx` offers writers the menu even when their profile supplies no scripts. Decide which contribution should own this client interface.
+- Resolve the plugin service `aliasCompletionModel` against initialized model providers. Its synchronous metadata lookup in `apps/server/src/plugin-support/model-completion.ts` can reject a valid alias targeting a fetched relay catalog.
+- Review role selection across providers in `plugins/ragents.product/server/config.ts`: `AGENT_PROVIDER` selects one catalog for all roles and also decides whether the product registers the relay.
+- Move the model-specific title ordering in `apps/server/src/title-settings.ts` to the profile if the preferred title models need to differ between products.
 - Check live (28.10.2026): run `web_search` and `news_search` in a real run with a model (`BRAVE_API_KEY` set, `ragents start developer`) and judge the call patterns (count, freshness, follow-up searches) and result sizes; the functions are verified against the real API, not against a model.
 - Nested VS Code zoom browser fixture (28.10.2026): investigate intermittent Chrome pointer routing into the sandboxed cross-origin iframe at 90 percent zoom in `vscode-zoom-browser.test.ts`; the physical click also fails with the typography bridge removed, while local font and zoom checks pass.
 - Homepage screenshots (28.10.2026): retake the browser and VS Code screenshots with the shared typography scale; retain the current images until their replacements are ready.

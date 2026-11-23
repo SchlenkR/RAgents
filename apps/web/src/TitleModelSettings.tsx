@@ -73,7 +73,7 @@ export function TitleModelSettings() {
     void save();
   }}>
     <p className={noteClasses}>Condenses the first task into a short title line. Applies to the next automatically generated titles.</p>
-    {settings.models.length === 0 && draft === null && <p className={noteClasses}>The provider offers no model for titles; automatic titles stay off.</p>}
+    {settings.models.length === 0 && draft === null && <p className={noteClasses}>This profile offers no model for automatic titles.</p>}
     {unavailable && <p className="text-sm text-destructive" role="alert">The stored title model is no longer configured. Choose another model or turn automatic titles off, then save. Until then, titles stay as they are.</p>}
     {!writable && <p className={noteClasses}>You have read access to these settings.</p>}
     <Select disabled={!writable || pending} items={options} value={titleSelectionKey(draft)} onValueChange={(key) => {

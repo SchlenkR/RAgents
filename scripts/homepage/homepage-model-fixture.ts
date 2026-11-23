@@ -14,7 +14,6 @@ export const referenceModelEnvironment = {
   AGENT_PROVIDER: "reference",
   AGENT_MODEL: "reference-agent",
   AGENT_COORDINATOR_MODEL: "reference-coordinator",
-  COMPACTION_PROVIDER: "reference",
   MODEL_PROVIDERS: JSON.stringify(providers),
   REFERENCE_MODEL_KEY: "documentation-only",
   BRAVE_API_KEY: "documentation-only",

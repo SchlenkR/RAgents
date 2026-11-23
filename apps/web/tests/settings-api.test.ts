@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { modelToolDescriptors } from "@ragents/engine";
+import { orchestrationToolContributor } from "../../../plugins/ragents.orchestration/server/functions.ts";
 import { getSettings, type SettingsResponse } from "../src/api.ts";
 
 const answer = (init: RequestInit | undefined, result: unknown) =>
   Response.json({ jsonrpc: "2.0", id: (JSON.parse(String(init?.body)) as { id: number }).id, result });
+
+const contributor = orchestrationToolContributor();
 
 const settings = (): SettingsResponse => ({
   version: 2,
@@ -19,16 +21,16 @@ const settings = (): SettingsResponse => ({
     scope: "product", content: "", finalPromptIsRunSpecific: true,
     composition: "", runtimeContracts: [],
   },
-  tools: modelToolDescriptors.map((tool) => ({
-    ...tool, id: `ragents:${tool.name}`, owner: "ragents", source: "ragents.agent-tools",
-    kind: "ragents",
+  tools: contributor.descriptors.map((tool) => ({
+    ...tool, id: `plugin:ragents.orchestration:${contributor.name}:${tool.name}`, owner: "ragents.orchestration", source: contributor.name,
+    kind: "plugin",
   })),
 });
 
-test("settings accept the current engine tool descriptors, including required capabilities", async (context) => {
+test("settings accept the orchestration tool descriptors, including required capabilities", async (context) => {
   const body = settings();
-  assert.ok(modelToolDescriptors.some((tool) => tool.requiredCapabilities?.length));
-  assert.ok(modelToolDescriptors.some((tool) => tool.requiredCapabilities === undefined));
+  assert.ok(contributor.descriptors.some((tool) => tool.requiredCapabilities?.length));
+  assert.ok(contributor.descriptors.some((tool) => tool.requiredCapabilities === undefined));
   context.mock.method(globalThis, "fetch", async (_url: string, init: RequestInit) => answer(init, body));
   assert.deepEqual(await getSettings(), body);
 });

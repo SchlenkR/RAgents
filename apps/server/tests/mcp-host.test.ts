@@ -26,7 +26,6 @@ const environment = {
   PRODUCT_ID: "test-mcp",
   PRODUCT_TITLE: "MCP host fixture",
   PROCESS_SANDBOX: "off",
-  COMPACTION_MODEL: "",
   MODEL_ALIASES: undefined,
   ...modelProviderEnvironment,
   MCP_SERVERS: undefined,

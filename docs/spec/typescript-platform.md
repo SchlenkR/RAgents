@@ -273,7 +273,7 @@ Every function available to an actor is also a native model tool: `read`, `write
 code in which every function is available as `context.functions.<name>(input)`. A snippet combines
 calls, filters results, and passes values onward without transcription. Both belong to the server
 foundation, even without the optional actor-program plugin. A function can stay snippet-only with
-`nativeTool: false`; the engine does so for the low-level journal event functions `event_query`,
+`nativeTool: false`; the orchestration plugin does so for the low-level journal event functions `event_query`,
 `event_subscribe`, `event_unsubscribe`, and `event_subscription_list`. Native and snippet calls use
 the same implementation, working-directory resolution, permission checks, and journal recording.
 Plugins register each implementation once; snippets and persistent actor programs use the same API.
@@ -532,7 +532,7 @@ TypeScript actor whose package a run script installed, attributed with its addre
 `@room.handle: ...`; without
 `runs.inspect` it becomes the general processing notice like every system entry.
 
-`run_script_list` and `run_script_start({ entry, parameters? })` act on the caller's own run and need the
+The orchestration plugin provides `run_script_list` and `run_script_start({ entry, parameters? })`. They act on the caller's own run and need the
 capability `script.start`. The owner holds it like every capability; whoever gets it from the owner
 holds it without passing it on (`firstHandCapabilities` in the engine vocabulary). So the coordinator
 and the TypeScript actors that the owner installs, such as a run script, can start scripts, while

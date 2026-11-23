@@ -4,22 +4,30 @@ import {
   eventResultSchemaOf,
   ScriptDriver,
   type ActorInputRequest,
+  type PluginHost,
   type RAgentsPlugin,
 } from "@ragents/engine";
 import { runtimeProviderToken } from "@ragents/host/ragents/host-services.js";
 import { pluginAsset } from "@ragents/host/plugin-support/plugin-folder.js";
 import type { PluginModule } from "@ragents/host/plugin-support/plugin-module.js";
-import { handlebarsPrompt } from "@ragents/host/plugin-support/prompt.js";
+import { boundToTools, handlebarsPrompt } from "@ragents/host/plugin-support/prompt.js";
+import { orchestrationToolContributor } from "./functions.js";
+import { createRunScriptToolContributor } from "./run-script-tools.js";
 import { createRunStopContributor } from "./run-stop-tool.js";
 import { runManagementToken } from "@ragents/host/ragents/global-chat.js";
 
-const orchestrationPlugin: RAgentsPlugin = {
+const orchestrationPlugin = (plugins: PluginHost): RAgentsPlugin => ({
   manifest: { id: "ragents.orchestration" },
   register: (host) => {
-    host.functions(createRunStopContributor(
-      (runId) => host.service(runManagementToken)().stop(runId),
-      (error) => console.error("Run stop by the coordinator failed", error),
-    ));
+    const management = () => host.service(runManagementToken)();
+    host.functions(
+      orchestrationToolContributor(() => plugins.actorRuntimes.describe()),
+      createRunScriptToolContributor(management),
+      createRunStopContributor(
+        (runId) => management().stop(runId),
+        (error) => console.error("Run stop by the coordinator failed", error),
+      ),
+    );
     host.operations({
       id: "actor_input",
       label: "Enqueue actor input",
@@ -46,9 +54,13 @@ const orchestrationPlugin: RAgentsPlugin = {
       }),
     });
     host.prompts(
+      boundToTools({
+        ...handlebarsPrompt("ragents.orchestration.actor-guidance", 610, pluginAsset("ragents.orchestration", "actor-guidance.hbs")),
+        delivery: "initial",
+      }, "actor_input", "event_subscribe", "event_subscription_list", "event_unsubscribe"),
       handlebarsPrompt("ragents.orchestration.prompt", 600, pluginAsset("ragents.orchestration", "orchestration.hbs")),
     );
   },
-};
+});
 
-export const plugin: PluginModule = { create: () => orchestrationPlugin };
+export const plugin: PluginModule = { create: orchestrationPlugin };

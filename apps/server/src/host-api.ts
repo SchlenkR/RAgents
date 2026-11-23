@@ -1,5 +1,5 @@
 /** The number of the host API a plugin is built against; it changes with every incompatible change of a list, a listed name or a library. */
-export const HOST_API_VERSION = 22;
+export const HOST_API_VERSION = 23;
 
 /** A library the host shares whole, as its installed version exports it; host code instead names each value it offers. */
 export const LIBRARY = "library";
@@ -11,10 +11,10 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
   server: {
     "@ragents/engine": [
       "DomainError", "RPC_ERROR_CODES", "RpcError", "ScriptDriver", "ToolRegistry", "actorByHandle",
-      "actorByReference", "actorDescriptionMaxLength", "actorInputSchema", "addressFrom", "addressOf", "agentTools", "assertJsonValue", "builtinProfiles", "canonicalHash",
-      "compileVirtualTypeScriptAsync", "contextToolResults", "defineRunFunction", "defineToolAvailability", "emptyUsage",
+      "actorByReference", "actorDescriptionMaxLength", "actorInputSchema", "addressFrom", "addressOf", "addressedActorOf", "agentDriverKinds", "assertJsonValue", "builtinProfiles", "canonicalHash", "capabilitySchema",
+      "compileVirtualTypeScriptAsync", "contextToolResults", "defineRunFunction", "defineToolAvailability", "describeToolAvailability", "emptyUsage",
       "enqueueActorInput", "eventResultSchemaOf", "freeRoomName", "handleKey", "hasCapability", "holdsUsable", "implement", "implementChannel", "inheritedGrants",
-      "isRunId", "isThinkingLevel", "hasWorkstationOwner", "modelToolDescriptors", "pluginStateAt", "runCapabilityBindingHash",
+      "isRunId", "isThinkingLevel", "hasWorkstationOwner", "literalUnion", "observableEventTypes", "resolveExecution", "thinkingLevels", "pluginStateAt", "runCapabilityBindingHash",
       "runCapabilityContractHash", "schemaComplaints", "scriptInputOf", "serviceToken",
     ],
     "@ragents/engine/src/domain/events": ["eventTypeMap"],

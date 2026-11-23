@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { orchestrationRegistry } from "./orchestration-fixture.ts";
 import { TurnToolset } from "../src/agents/toolset.ts";
 import { claimTurn } from "../src/agents/turn.ts";
 import type { CapabilityGrant, RunView } from "../src/domain/model.ts";
@@ -170,7 +171,7 @@ const turnOf = async (runtime: Orchestration, run: RunView, actorId: string) => 
     const input = queued.inputs.find((entry) => entry.actorId === actorId && entry.lifecycle.kind === "pending");
     assert.ok(input);
     const turn = claimTurn(runtime, run.id, actorId, input.id, `turn-${actorId}`);
-    return { turn, toolset: await TurnToolset.create({ runtime, turn, catalog }) };
+    return { turn, toolset: await TurnToolset.create({ runtime, turn, catalog, registry: orchestrationRegistry() }) };
 };
 
 /** A lead with the given capabilities in a running turn and a helper it spawned in that turn, stopped by the owner. */

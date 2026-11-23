@@ -16,7 +16,7 @@ Send plain text and optional artifacts to one existing actor of this run, such a
 
 It reaches an actor that already exists; agent_spawn creates a new one. This only confirms enqueueing, not processing, an answer or completion; an answer reaches you only as a later input, for example through a subscription to the recipient's events. A built-in agent in the middle of a turn receives the text before its next model request; external actors receive it in their next turn. Both interpret natural language. TypeScript actors only process their programmed input protocol: use their documented functions, or send an exact supported program input after inspecting the program. Never address an unknown script with a natural-language task or assume an idle or completed turn means the requested work happened.
 
-Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
+Owner: ragents.orchestration. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability actor.input.
 
@@ -103,7 +103,7 @@ List existing actors with their identity, lifecycle and the size of their functi
 
 Check before spawning: reuse suitable participants, including actors created by a setup or another actor. Kinds agent and external are conversational partners. A script executes its programmed input protocol; it does not interpret arbitrary natural-language requests. Inspect its documented functions or program before using it. toolNames: true also lists the names of each fixed selection. An actor's address is room.name, the main room has no prefix; handle is written from your room, so it is exactly what actor_input and the other functions take.
 
-Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
+Owner: ragents.orchestration. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability actor.input.
 
@@ -1368,7 +1368,7 @@ Restart a stopped actor in this actor's branch. It becomes idle with its history
 
 An actor that is not stopped is refused. A stopped former primary actor becomes the primary actor again if no other was chosen in the meantime and this actor holds run.configure. Event subscriptions removed by the stop stay removed.
 
-Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
+Owner: ragents.orchestration. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability execution.stopOwned.
 
@@ -1470,7 +1470,7 @@ Stop Actor
 
 Stop an actor in this actor's branch together with its active descendants.
 
-Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
+Owner: ragents.orchestration. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability execution.stopOwned.
 
@@ -1721,7 +1721,7 @@ Create an LLM agent or a configured external runtime actor in this run and optio
 
 It creates exactly one agent in this run: never a new run, never a TypeScript actor, and never a prepared setup, which run_script_start starts where it is offered. Check actor_list first when available: actor_input gives a further task to an existing actor, while the same name here creates another actor with a suffix. Read model_list before the first spawn. For an LLM actor pass a model-bearing profile or an explicit model; the caller's model is not inherited. For an external actor select a configured runtime, pass tools: null, and omit host model settings and forkOf. It owns its coding tools and receives no RAgents functions. The agent inherits your delegable capabilities, but its function selection is required and never inherited: named tools with TypeScript tools added by default, an array with exactTools: true for only those names, [] for a plain LLM without runtime, workspace or host functions, or null for the open, dynamically resolved set; drivers without plain-LLM isolation are rejected. Nothing waits for the agent: the call returns its reference at once. Its answers are model.output.completed events of its turns and reach you only as later inputs of a subscription made with event_subscribe; failed or interrupted turns reach you as automatic notices. A task given here starts at once, so a subscription made afterwards can miss its first answer: when you need that answer, create the agent without a task, subscribe to its events, then send the task with actor_input. A fork starts with an unchanged copy of the model context of an LLM agent of this run up to the end of that agent's last finished turn; nothing of its running turn is copied, a source without a finished turn is rejected, and the fork still gets its own instructions, functions and model, with its first task after the copy.
 
-Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
+Owner: ragents.orchestration. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability agent.spawn.
 
@@ -2049,7 +2049,7 @@ Publish text as a new immutable artifact of this run and return its ID.
 
 Another actor may read it once it is attached to an actor_input for that actor; the run owner may read every artifact. A change is a new artifact that names its predecessor.
 
-Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
+Owner: ragents.orchestration. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability artifact.publish.
 
@@ -2141,7 +2141,7 @@ Read the content and metadata of an artifact that this actor published or receiv
 
 The run owner may read every artifact. Text, JSON and XML media types come back as UTF-8 text, all others as base64.
 
-Owner: engine. Scope: per-turn. Native model tool: yes. Availability: always.
+Owner: ragents.orchestration. Scope: per-turn. Native model tool: yes. Availability: always.
 
 Available in every turn.
 
@@ -3654,7 +3654,7 @@ Query Events
 
 Read journal events in this run, optionally filtered by event ID, actor or event type.
 
-Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: ragents.orchestration. Scope: per-turn. Native model tool: no. Availability: conditional.
 
 Only with the capability event.subscribe.
 
@@ -3783,7 +3783,7 @@ Subscribe this actor to run events delivered as later ActorInputs.
 
 Source actors may be named by id or handle. Every matching observable event arrives without loss as its own new ActorInput for this actor. Use it when each event matters; to be woken only once a derived state meets a condition, use a watch where one is offered.
 
-Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: ragents.orchestration. Scope: per-turn. Native model tool: no. Availability: conditional.
 
 Only with the capability event.subscribe.
 
@@ -3940,7 +3940,7 @@ List Event Subscriptions
 
 List this actor's event subscriptions, including inactive and failed ones.
 
-Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: ragents.orchestration. Scope: per-turn. Native model tool: no. Availability: conditional.
 
 Only with the capability event.subscribe.
 
@@ -4310,7 +4310,7 @@ Remove Event Subscription
 
 Remove one event subscription owned by this actor.
 
-Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: ragents.orchestration. Scope: per-turn. Native model tool: no. Availability: conditional.
 
 Only with the capability event.subscribe.
 
@@ -4919,7 +4919,7 @@ List Models and Profiles
 
 List the execution profiles and provider models available for agent_spawn.
 
-Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
+Owner: ragents.orchestration. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability agent.spawn.
 
@@ -5763,7 +5763,7 @@ Configure Run
 
 Set the run title and/or choose the primary actor the chat talks to. Give title, primaryActor or both; the primary actor must be an active agent or TypeScript actor of this run.
 
-Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
+Owner: ragents.orchestration. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability run.configure.
 
@@ -5903,7 +5903,7 @@ List run scripts
 
 The run scripts of this profile that can join this run: entry, title, description, the parameters each declares as a JSON Schema object, and whether each can start now or why not.
 
-Owner: ragents.runtime. Scope: per-turn. Native model tool: yes. Availability: conditional.
+Owner: ragents.orchestration. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability script.start, which the coordinator holds and passes to no agent it spawns.
 
@@ -5967,7 +5967,7 @@ Start a run script from run_script_list inside this run, in a room of its own; r
 
 A run script is a prepared setup of this profile: a TypeScript actor that arranges its own participants and views in this run; for a single new LLM agent use agent_spawn instead. entry is the entry from run_script_list; parameters are the script's parameters by name as run_script_list declares them, required ones always. The script joins the run without changing the primary actor. Every start opens a new room named after the script (name, name-2, ...) with its own actors, so a repeated start never reuses the actors of an earlier one; handle is the setup actor's address from your room, such as name-2.name. When it finishes a start, you receive its summary and result as a message; do not wait or poll for it in the same turn.
 
-Owner: ragents.runtime. Scope: per-turn. Native model tool: yes. Availability: conditional.
+Owner: ragents.orchestration. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability script.start, which the coordinator holds and passes to no agent it spawns.
 
@@ -6536,7 +6536,7 @@ Create watch
 
 Observes an actor of this run and wakes another with a background message as soon as the condition, written as a TypeScript function body, returns a reason for the changed state. No model: the condition is type-checked on creation and afterwards run deterministically on every change of the observed state, once the observed actor has come to rest; stalledForSeconds appears after stallAfterSeconds without activity and again after each further period. An identical watch is not created twice.
 
-Use a watch to be woken once a derived state meets a condition; to receive every matching event without loss as its own input, use event_subscribe instead.
+A watch compares derived state after changes. Several events can contribute to one wake.
 
 Owner: ragents.watch. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -11123,7 +11123,6 @@ Complete package sources are in [run-setup.md](run-setup.md).
   {
     "id": "ragents.product",
     "requires": [
-      "ragents.orchestration",
       "ragents.workspace"
     ]
   },
@@ -11142,7 +11141,6 @@ Complete package sources are in [run-setup.md](run-setup.md).
   {
     "id": "ragents.documents",
     "requires": [
-      "ragents.orchestration",
       "ragents.workspace"
     ]
   },
@@ -11180,9 +11178,7 @@ Complete package sources are in [run-setup.md](run-setup.md).
   },
   {
     "id": "ragents.watch",
-    "requires": [
-      "ragents.orchestration"
-    ]
+    "requires": []
   },
   {
     "id": "ragents.actor-programs",

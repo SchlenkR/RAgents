@@ -135,10 +135,10 @@ clone.
 
 ## What is built in
 
-The engine provides typed functions for actors, messages, events, artifacts, and
-model selection. The binding inventory is in the code under
-`packages/ragents/src/agents/tools.ts`. Plugins add further functions, for example for files,
-programs, and mini-apps.
+The engine manages the journal and actor lifecycle. The orchestration plugin exposes
+them to agents through typed functions in `plugins/ragents.orchestration/server/functions.ts`
+and contributes tools for run scripts and stopping a run. Other plugins contribute functions
+for files, programs, and mini-apps.
 
 Every function is a native model tool. `typescript_api` returns exact types and detailed
 guidance; with `typescript_eval` a model runs small TypeScript snippets that combine calls through

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { orchestrationRegistry } from "./orchestration-fixture.ts";
 import { TurnScheduler } from "../src/agents/scheduler.ts";
 import { Journal } from "../src/runtime/journal.ts";
 import { Orchestration } from "../src/runtime/orchestration.ts";
@@ -108,7 +109,7 @@ test("an orchestrator sees existing participants from another creator in each tu
     assert.ok(kai);
     spawnGuest("lena");
     const driver = new FakeDriver(async () => ({ failure: null, usage: noUsage() }));
-    const scheduler = new TurnScheduler(setup.runtime, setup.journal, { drivers: { agent: driver }, catalog });
+    const scheduler = new TurnScheduler(setup.runtime, setup.journal, { drivers: { agent: driver }, catalog, registry: orchestrationRegistry() });
 
     try {
         postTo(setup.runtime, setup.view, setup.agent.id, "first", "Moderate the existing guests.");
@@ -146,7 +147,7 @@ test("the actor roster is absent without an allowed actor_list tool, including p
     ]) {
         const setup = setupRun(options);
         const driver = new FakeDriver(async () => ({ failure: null, usage: noUsage() }));
-        const scheduler = new TurnScheduler(setup.runtime, setup.journal, { drivers: { agent: driver }, catalog });
+        const scheduler = new TurnScheduler(setup.runtime, setup.journal, { drivers: { agent: driver }, catalog, registry: orchestrationRegistry() });
 
         try {
             postTo(setup.runtime, setup.view, setup.agent.id, "isolated", "Answer normally.");

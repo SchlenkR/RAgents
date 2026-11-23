@@ -749,7 +749,7 @@ forms use the same functions.</p>
 code in which every function is available as <code>context.functions.&lt;name&gt;(input)</code>. A snippet combines
 calls, filters results, and passes values onward without transcription. Both belong to the server
 foundation, even without the optional actor-program plugin. A function can stay snippet-only with
-<code>nativeTool: false</code>; the engine does so for the low-level journal event functions <code>event_query</code>,
+<code>nativeTool: false</code>; the orchestration plugin does so for the low-level journal event functions <code>event_query</code>,
 <code>event_subscribe</code>, <code>event_unsubscribe</code>, and <code>event_subscription_list</code>. Native and snippet calls use
 the same implementation, working-directory resolution, permission checks, and journal recording.
 Plugins register each implementation once; snippets and persistent actor programs use the same API.</p>

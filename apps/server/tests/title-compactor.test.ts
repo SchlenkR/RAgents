@@ -87,13 +87,13 @@ test("the title compactor summarizes the first prompt and persists the result", 
   assert.equal(await reloaded.titleFor("run-1", prompt), "Two models chat briefly");
 });
 
-test("without a configured compaction model the title stays untouched", async (t) => {
+test("without a configured title model the title stays untouched", async (t) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-title-compactor-off-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const compactor = createTitleCompactor({
     selection: () => null,
     sessionsDir: path.join(directory, "sessions"),
-    modelRuntime: () => Promise.reject(new Error("Without a compaction model no model runtime is needed.")),
+    modelRuntime: () => Promise.reject(new Error("Without a title model no model runtime is needed.")),
   });
 
   assert.equal(await compactor.titleFor("run-1", "Some task."), undefined);
@@ -279,7 +279,7 @@ test("a stale stored title choice warns per run, preserves existing titles and r
   const f = await fixture(t);
   const file = path.join(f.directory, "title-settings.json");
   await writeFile(file, JSON.stringify({ selection: { provider: f.faux.provider, model: "removed" } }));
-  const settings = await TitleSettingsStore.create(file, f.faux.modelRuntime, f.selection, f.faux.provider);
+  const settings = await TitleSettingsStore.create(file, f.faux.modelRuntime, f.selection.model);
   const warnings: unknown[] = [];
   const compactor = createTitleCompactor({ ...f.options, selection: settings.selection, onError: (error) => warnings.push(error) });
   t.after(() => compactor.shutdown());

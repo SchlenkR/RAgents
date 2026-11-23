@@ -152,5 +152,5 @@ test("direct provider names offer configured models and AGENT_MODELS restricts t
   assert.equal(directChoice(["second"]).selectable, false);
   assert.throws(() => directChoice(["missing"]).options, /AGENT_MODELS: model missing is not configured for provider direct; configured model ids: first, second/);
   assert.throws(() => providerCatalog("openrouter")(), /AGENT_PROVIDER: provider openrouter is not configured; declare it in MODEL_PROVIDERS or set AGENT_PROVIDER/);
-  assert.throws(() => providerCatalog("openrouter", "COMPACTION_PROVIDER")(), /COMPACTION_PROVIDER: provider openrouter is not configured; declare it in MODEL_PROVIDERS or set COMPACTION_PROVIDER/);
+  assert.throws(() => providerCatalog("openrouter", "EXAMPLE_PROVIDER")(), /EXAMPLE_PROVIDER: provider openrouter is not configured; declare it in MODEL_PROVIDERS or set EXAMPLE_PROVIDER/);
 });

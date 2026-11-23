@@ -5,6 +5,7 @@ import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { PluginHost, ScriptDriver, ToolRegistry, TurnScheduler, type AgentDriver } from "@ragents/engine";
 import { allGrants, catalog, postTo, setupRun } from "../../../packages/ragents/tests/support.ts";
+import { orchestrationToolContributor } from "../../../plugins/ragents.orchestration/server/functions.ts";
 import { agentToolsFrom } from "../../../plugins/ragents.actor-programs/server/agent-tools.ts";
 import { runtimeProviderToken, runWorkspaceProviderToken } from "../src/ragents/host-services.ts";
 import { runtimeFor } from "./actor-runtime-fixture.ts";
@@ -27,8 +28,9 @@ const fixture = async (t: TestContext) => {
   const host = new PluginHost({ product: { id: "acme", title: "Acme" }, dataDirectory: directory, storageModes: { session: 0o700, sessionsRoot: 0o700 } });
   host.provideHost(runtimeProviderToken, () => setup.runtime);
   host.provideHost(runWorkspaceProviderToken, async () => ({ cwd: directory, currentRoot: async () => directory, runOperation: (operation) => operation() }));
+  host.tools.register("ragents.orchestration", [orchestrationToolContributor(() => host.actorRuntimes.describe())]);
   const programs = runtimeFor(setup, directory, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, agentToolsFrom(host));
-  const registry = host.tools.entries().reduce((current, contributor) => current.register(contributor), new ToolRegistry(() => host.actorRuntimes.describe()));
+  const registry = host.tools.entries().reduce((current, contributor) => current.register(contributor), new ToolRegistry());
   const scheduler = new TurnScheduler(setup.runtime, setup.journal, { catalog, registry, drivers: { script: new ScriptDriver({ runtime: setup.runtime }) } });
   t.after(async () => {
     await scheduler.stop();

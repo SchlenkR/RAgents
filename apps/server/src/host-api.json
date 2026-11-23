@@ -1,5 +1,5 @@
 {
-  "version": 22,
+  "version": 23,
   "server": {
     "@ragents/engine": [
       "DomainError",
@@ -13,14 +13,17 @@
       "actorInputSchema",
       "addressFrom",
       "addressOf",
-      "agentTools",
+      "addressedActorOf",
+      "agentDriverKinds",
       "assertJsonValue",
       "builtinProfiles",
       "canonicalHash",
+      "capabilitySchema",
       "compileVirtualTypeScriptAsync",
       "contextToolResults",
       "defineRunFunction",
       "defineToolAvailability",
+      "describeToolAvailability",
       "emptyUsage",
       "enqueueActorInput",
       "eventResultSchemaOf",
@@ -34,13 +37,16 @@
       "inheritedGrants",
       "isRunId",
       "isThinkingLevel",
-      "modelToolDescriptors",
+      "literalUnion",
+      "observableEventTypes",
       "pluginStateAt",
+      "resolveExecution",
       "runCapabilityBindingHash",
       "runCapabilityContractHash",
       "schemaComplaints",
       "scriptInputOf",
-      "serviceToken"
+      "serviceToken",
+      "thinkingLevels"
     ],
     "@ragents/engine/src/domain/events": [
       "eventTypeMap"

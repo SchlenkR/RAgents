@@ -1,7 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Type } from "typebox";
-import { agentTools, createAccessContext, OperationContributionRegistry, type RunFunction } from "@ragents/engine";
+import { orchestrationFunctions } from "../../../plugins/ragents.orchestration/server/functions.ts";
+import { createAccessContext, OperationContributionRegistry, type RunFunction } from "@ragents/engine";
 import { setupRun } from "../../../packages/ragents/tests/support.ts";
 import type { AskService } from "../../../plugins/ragents.ask/server/contract.ts";
 import { ActorProgramRuntime, type ActorProgramRuntimeOptions } from "../../../plugins/ragents.actor-programs/server/runtime.ts";
@@ -20,7 +21,7 @@ export const runtimeFor = (setup: ReturnType<typeof setupRun>, directory: string
     const view = setup.runtime.view(runId);
     const actor = provisionalActor ?? view.actors.find((candidate) => candidate.id === actorId);
     if (!actor) throw new Error(`Unknown test actor ${actorId}`);
-    return [...agentTools, ...hostTools()].filter((tool) => tool.available(actor, view));
+    return [...orchestrationFunctions(), ...hostTools()].filter((tool) => tool.available(actor, view));
   },
   extra: Partial<ActorProgramRuntimeOptions> = {}) => {
   const serverProcessContextFor = async (runId: string) => ({runId, cwd: directoryFor(runId), root: directoryFor(runId), home: directoryFor(runId),
@@ -29,7 +30,7 @@ export const runtimeFor = (setup: ReturnType<typeof setupRun>, directory: string
   const runtime = new ActorProgramRuntime({
     runtime: () => setup.runtime,
     agentToolsFor,
-    askService: () => askService, reservedToolNames: () => [], serverProcessContextFor, isolatedProcessContextFor: serverProcessContextFor, isolatedSandbox: async () => undefined,
+    askService: () => askService, reservedToolNames: () => [...orchestrationFunctions(), ...hostTools()].map((tool) => tool.name), serverProcessContextFor, isolatedProcessContextFor: serverProcessContextFor, isolatedSandbox: async () => undefined,
     operations: {operation: (id) => operations.operation(id), invoke: (id, context, input) => operations.invoke(id, context, input), list: () => operations.describe()},
     directoryFor,
     scriptSources,

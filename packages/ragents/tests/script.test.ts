@@ -6,7 +6,7 @@ import path from "node:path";
 import { Journal } from "../src/runtime/journal.ts";
 import { Orchestration } from "../src/runtime/orchestration.ts";
 import { claimTurn } from "../src/agents/turn.ts";
-import { agentTools } from "../src/agents/tools.ts";
+import { orchestrationFunctions } from "../../../plugins/ragents.orchestration/server/functions.ts";
 import { TurnScheduler } from "../src/agents/scheduler.ts";
 import { actorStatePluginId, emptyUsage } from "../src/domain/model.ts";
 import { capabilityNames } from "../src/domain/vocabulary.ts";
@@ -83,7 +83,7 @@ test("both agent and TypeScript actors own intrinsic state without plugin write 
 });
 
 test("the obsolete build workflow and install grant are absent", () => {
-    assert.equal(agentTools.some((tool) => tool.name.startsWith("script_actor_")), false);
+    assert.equal(orchestrationFunctions().some((tool) => tool.name.startsWith("script_actor_")), false);
     assert.equal((capabilityNames as readonly string[]).includes("script.install"), false);
 });
 

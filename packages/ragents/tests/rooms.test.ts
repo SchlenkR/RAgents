@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { actorRosterText } from "../src/agents/delivery.ts";
+import { orchestrationRegistry } from "./orchestration-fixture.ts";
 import { TurnToolset } from "../src/agents/toolset.ts";
 import { claimTurn } from "../src/agents/turn.ts";
 import { actorByReference, addressFrom, addressOf, freeRoomName, isActorAddress } from "../src/domain/actor-reference.ts";
@@ -83,7 +84,7 @@ const toolsetOf = async (runtime: Orchestration, runId: string, actorId: string,
     const view = postTo(runtime, runtime.view(runId), actorId, `input-${label}`, "Set up.");
     const input = view.inputs.findLast((entry) => entry.actorId === actorId && entry.lifecycle.kind === "pending");
     assert.ok(input);
-    return TurnToolset.create({ runtime, turn: claimTurn(runtime, runId, actorId, input.id, `turn-${label}`), catalog });
+    return TurnToolset.create({ runtime, turn: claimTurn(runtime, runId, actorId, input.id, `turn-${label}`), catalog, registry: orchestrationRegistry() });
 };
 
 test("a room opens with its first actor in one command, and agents spawned there stay in their creator's room", async () => {

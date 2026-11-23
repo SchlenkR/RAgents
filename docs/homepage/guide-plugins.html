@@ -956,7 +956,7 @@ bound identity apply equally, while a program&#39;s <code>capabilities</code> li
 <code>typescript_eval</code>. The model calls a single action directly; a snippet combines calls, filters
 results, and passes values onward without transcription. <code>nativeTool: false</code> keeps a function
 snippet-only. That is the exception for low-level interfaces whose raw results belong in code,
-such as the engine&#39;s journal event functions (<code>event_query</code>, <code>event_subscribe</code>,
+such as the orchestration plugin&#39;s journal event functions (<code>event_query</code>, <code>event_subscribe</code>,
 <code>event_unsubscribe</code>, <code>event_subscription_list</code>); for models, <code>watch_*</code> covers waiting for state.
 A function whose purpose only works natively, such as <code>browser_view_screenshot</code> returning image
 pixels, must not opt out. Functions that only programs may call are limited by their

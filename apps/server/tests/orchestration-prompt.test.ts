@@ -35,6 +35,13 @@ test("the orchestration prompt reuses existing participants before creating new 
   assert.match(prompt, /Before retrying,\s+inspect the existing actors, programs and subscriptions/);
 });
 
+test("without orchestration functions the prompt keeps the shared API and leaves out actors and events", async () => {
+  const prompt = await handlebarsPrompt("test.orchestration", 0, promptFile).render({ functions: ["read", "typescript_api", "typescript_eval"] });
+  assert.match(prompt, /## The shared API/);
+  assert.match(prompt, /## Results for the user/);
+  assert.doesNotMatch(prompt, /## Actors and messages|## Events and turn boundaries|agent_spawn|event_subscribe|actor_input|run_stop/);
+});
+
 test("free outcome requests leave technical implementation to the model", async () => {
   const prompt = await orchestrationPrompt();
   assert.match(prompt, /The user describes\s+an outcome; discover the available functions and choose the implementation yourself/);

@@ -39,7 +39,6 @@ process.env.DATA_DIR = dataDirectory;
 process.env.PRODUCT_PROFILE = "per-user";
 process.env.PRODUCT_ID = "test";
 process.env.PRODUCT_TITLE = "Test";
-process.env.COMPACTION_MODEL = "";
 Object.assign(process.env, modelProviderEnvironment);
 await loadConfigFile(root);
 const { RunSessionProvider } = await import("../src/provider.ts");

@@ -198,6 +198,7 @@ and every overflowing chat history has a thin, subtle scrollbar at its edge. Scr
 the wheel, keyboard, or scrollbar pauses following new messages; reaching the bottom or clicking
 the jump-to-end button resumes it.
 
+In a profile without the orchestration plugin you can chat with a coordinator that works alone.
 The shared panel initially addresses the coordinator. Use the addressee selector at the bottom
 of the input to choose another conversation from the graph of all actors. Visited chats keep separate drafts.
 Sending requires write permission and a running actor. A stopped actor shows its reason and
@@ -666,9 +667,9 @@ save. Until then, title generation reports a warning for the run and leaves its 
 the server and other work remain available.
 The selection applies from the next generation and does not change any agent models.
 
-Offered are text models of the configured `COMPACTION_PROVIDER` that can work without
-reasoning; default, storage, and error cases are in [profiles.md](spec/profiles.md) under
-"Model for automatic titles".
+The list includes text models and aliases from all configured providers that support
+reasoning off. See "Model for automatic titles" in [profiles.md](spec/profiles.md) for
+defaults, storage, and error cases.
 
 "Appearance" contains the interface choice and the run panel settings. "Plugins" contains
 "By plugin" and "By capability" as technical catalogs with search. Clicking the

@@ -194,7 +194,7 @@ together in the journal. The compact `toolCalls` projection does not copy the so
 detail views read the stored event.
 
 The `TurnToolset` binds calls to exactly one turn. After that turn ends, the binding is invalid.
-Before calls, it resolves the current tool set again through the registry. Between model requests,
+Before calls, it resolves the current tool set again through the registry. An empty registry offers no functions. Between model requests,
 the agent runtime renews native schemas and the generated system overview from the same set without
 ending the running turn. Hooks, in contrast, live with the agent's runtime across its turns and must
 not capture old turn state.
@@ -1253,7 +1253,9 @@ writes the event `run.title-changed`, `primaryActor` chooses an active agent, Ty
 actor as primary actor (`run.primary-actor-selected`); both together are allowed, neither is a named error;
 the call confirms with `null`. The owner of the run configures by right, every other actor needs
 the grant; the journal semantics check the same when loading. Owner and coordinator hold all ten
-capability names from `domain/vocabulary.ts`; the coordinator holds `script.start` without passing it on. If the primary actor changes, the chat rebinds to it.
+capability names from `domain/vocabulary.ts`. The coordinator holds `script.start` without passing it on.
+These grants authorize operations on the run. A model receives their tool contracts only when the
+profile loads the plugin that provides them. If the primary actor changes, the chat rebinds to it.
 A run script (`typescript-platform.md`) uses exactly this when it starts without a coordinator.
 
 Automatically condensed list titles, in contrast, are host metadata outside the journal. They do

@@ -226,7 +226,7 @@ Every function is a native model tool and is also available through `context.fun
 `typescript_eval`. The model calls a single action directly; a snippet combines calls, filters
 results, and passes values onward without transcription. `nativeTool: false` keeps a function
 snippet-only. That is the exception for low-level interfaces whose raw results belong in code,
-such as the engine's journal event functions (`event_query`, `event_subscribe`,
+such as the orchestration plugin's journal event functions (`event_query`, `event_subscribe`,
 `event_unsubscribe`, `event_subscription_list`); for models, `watch_*` covers waiting for state.
 A function whose purpose only works natively, such as `browser_view_screenshot` returning image
 pixels, must not opt out. Functions that only programs may call are limited by their

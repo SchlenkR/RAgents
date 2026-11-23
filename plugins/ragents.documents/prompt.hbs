@@ -12,7 +12,9 @@ every binding{{#if (available "bash")}}, and so does `bash` with a `cwd` under i
 - Embed images in a document with a path relative to the document, such as
   `![Login](shots/login.png)`, or with `@documents/...`.
 - The user sees the store in the "Documents" area, grouped by folder.
+{{#if (available "agent_spawn")}}
 - When you spawn agents, name in their task the folder under `@documents` they write to.
+{{/if}}
 {{#if (available "show_document")}}
 
 If the user wants to see the content of a file or a document, show it COMPLETELY via

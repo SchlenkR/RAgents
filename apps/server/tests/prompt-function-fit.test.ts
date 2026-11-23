@@ -5,7 +5,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
-import { AgentLoopDriver, agentTools, type TurnRequest } from "@ragents/engine";
+import { AgentLoopDriver, type TurnRequest } from "@ragents/engine";
 import { noUsage } from "../../../packages/ragents/tests/support.ts";
 import { config as coreConfig } from "../../../ragents.config.core.ts";
 import { coordinatorRunId } from "../../../plugins/ragents.overseer/server/coordinator.ts";
@@ -40,7 +40,7 @@ after(async () => {
   await rm(directory, { recursive: true, force: true });
 });
 const engine = (provider as unknown as { engine: Engine }).engine;
-const registered = [...new Set([...agentTools.map((tool) => tool.name), ...provider.plugins.tools.describe().map((tool) => tool.name)])];
+const registered = provider.plugins.tools.describe().map((tool) => tool.name);
 
 const workerTools = ["read", "write", "edit", "bash", "actor_program_create", "actor_program_diagnostics"];
 

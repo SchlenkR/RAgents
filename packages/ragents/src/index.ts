@@ -60,13 +60,11 @@ export {
 } from "./agents/plugins.ts";
 export { TurnScheduler, type TurnInterruption, type TurnSchedulerOptions } from "./agents/scheduler.ts";
 export {
-    agentTools,
     defineToolAvailability,
     describeToolAvailability,
     defineRunFunction,
     holdsUsable,
     isNativeTool,
-    modelToolDescriptors,
     type RunFunction,
     type ToolAvailability,
     type ToolAvailabilitySummary,
@@ -114,7 +112,7 @@ export {
     type SkillSelectionRequest,
     type SkillSelector,
 } from "./drivers/agent.ts";
-export { isThinkingLevel, thinkingLevels, type ThinkingLevel } from "./domain/driver.ts";
+export { agentDriverKinds, isThinkingLevel, thinkingLevels, type ThinkingLevel } from "./domain/driver.ts";
 export {
     isAutomated,
     type AgentDriver,
@@ -127,11 +125,12 @@ export {
 } from "./drivers/types.ts";
 export * from "./domain/model.ts";
 export { isPortableId, isRunId } from "./domain/portable-id.ts";
-export { capabilityNames, firstHandCapabilities, isCapabilityName, type CapabilityName } from "./domain/vocabulary.ts";
+export { capabilityNames, firstHandCapabilities, isCapabilityName, observableEventTypes, type CapabilityName } from "./domain/vocabulary.ts";
 export { DirectoryArtifactContents, MemoryArtifactContents, type ArtifactContents } from "./runtime/artifacts.ts";
 export type { CommandContext } from "./runtime/command.ts";
 export { DomainError } from "./runtime/domain-error.ts";
-export { checkedSharing, hasCapability, inheritedGrants } from "./runtime/guards.ts";
+export { capabilitySchema, literalUnion } from "./agents/schemas.ts";
+export { addressedActorOf, checkedSharing, hasCapability, inheritedGrants } from "./runtime/guards.ts";
 export { throwFailures, throwRejected } from "./runtime/failures.ts";
 export type { JournalEvent } from "./domain/events.ts";
 export { Journal, journalFormatVersion, type CommandRecord, type JournalLoadFailure } from "./runtime/journal.ts";

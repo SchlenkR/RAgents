@@ -21,7 +21,6 @@ process.env.DATA_DIR = directory;
 process.env.PRODUCT_PROFILE = "core";
 process.env.PRODUCT_ID = "test";
 process.env.PRODUCT_TITLE = "Test";
-process.env.COMPACTION_MODEL = "";
 Object.assign(process.env, modelProviderEnvironment);
 delete process.env.ACCESS_TOKEN;
 const { RunSessionProvider } = await import("../src/provider.ts");

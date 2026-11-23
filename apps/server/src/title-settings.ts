@@ -3,6 +3,7 @@ import path from "node:path";
 import type { ModelRuntime } from "@ragents/agent";
 import { getSupportedThinkingLevels } from "@ragents/ai";
 import { DomainError } from "@ragents/engine";
+import { modelLabel } from "./plugin-support/model-aliases.js";
 import type { TitleModelSelection, TitleModelSettings } from "./title-settings-contract.js";
 
 const preferred = ["google/gemma-4-26b-a4b-it", "qwen/qwen3.8-flash", "openai/gpt-5.4-nano"];
@@ -12,26 +13,39 @@ export class TitleSettingsStore {
   #selection: TitleModelSelection | null;
   #pending: Promise<unknown> = Promise.resolve();
 
-  private constructor(private readonly file: string, private readonly models: TitleModelSettings["models"], value: unknown, stored: boolean) {
-    this.#selection = stored ? this.#parsed(value) : this.#validate(value);
+  private constructor(private readonly file: string, private readonly models: TitleModelSettings["models"], selection: TitleModelSelection | null) {
+    this.#selection = selection;
   }
 
-  static async create(file: string, runtime: ModelRuntime, defaults: TitleModelSelection | null, provider: string): Promise<TitleSettingsStore> {
-    const models = runtime.getModels(provider).filter((model) => model.input.includes("text") && getSupportedThinkingLevels(model).includes("off"))
-      .map((model) => ({ provider: model.provider, id: model.id, label: model.name.trim() }));
+  static async create(file: string, runtime: ModelRuntime, defaultId: string): Promise<TitleSettingsStore> {
+    const catalog = runtime.getModels();
+    const suitable = catalog.filter((model) => model.input.includes("text") && getSupportedThinkingLevels(model).includes("off"));
+    const models = suitable.map((model) => ({
+      provider: model.provider,
+      id: model.id,
+      label: suitable.some((other) => other !== model && other.name === model.name)
+        ? modelLabel(model.provider, model.id) : model.name.trim(),
+    }));
     models.sort((left, right) => {
       const rank = (id: string) => preferred.includes(id) ? preferred.indexOf(id) : preferred.length;
       return rank(left.id) - rank(right.id) || left.label.localeCompare(right.label);
     });
-    let value: unknown;
-    let stored = true;
-    try { value = JSON.parse(await readFile(file, "utf8")); }
+
+    let selection: TitleModelSelection | null = null;
+    if (defaultId) {
+      const matches = catalog.filter((model) => model.id === defaultId);
+      const [model] = matches;
+      if (!model) throw invalid(`TITLE_MODEL: model ${defaultId} is not configured; configured model ids: ${catalog.map((entry) => entry.id).join(", ") || "none"}`);
+      if (matches.length > 1) throw invalid(`TITLE_MODEL: model ${defaultId} is ambiguous across providers ${matches.map((entry) => entry.provider).join(", ")}. Choose a unique model id or define a unique MODEL_ALIASES name.`);
+      if (!suitable.includes(model)) throw invalid(`TITLE_MODEL: model ${defaultId} must accept text and support reasoning off; suitable model ids: ${suitable.map((entry) => entry.id).join(", ") || "none"}`);
+      selection = { provider: model.provider, model: model.id };
+    }
+    const store = new TitleSettingsStore(file, models, selection);
+    try { store.#selection = store.#parsed(JSON.parse(await readFile(file, "utf8"))); }
     catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-      value = { selection: defaults };
-      stored = false;
     }
-    return new TitleSettingsStore(file, models, value, stored);
+    return store;
   }
 
   selection = (): TitleModelSelection | null => {

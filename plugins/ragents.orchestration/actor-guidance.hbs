@@ -1,0 +1,15 @@
+{{#if (available "actor_input")}}
+With actor_input you give another actor a task or a question.
+{{/if}}
+{{#if (available "event_subscribe")}}
+With context.functions.event_subscribe in a snippet you subscribe to the events of the actors whose work you want to follow.
+{{/if}}
+{{#if (available "event_subscription_list")}}
+context.functions.event_subscription_list shows your active event subscriptions.
+{{/if}}
+{{#if (available "event_unsubscribe")}}
+You end subscriptions you no longer need with context.functions.event_unsubscribe.
+{{/if}}
+{{#if (available "agent_spawn" "actor_input")}}
+agent_spawn creates the actor and, given a task, enqueues it as its first input at once. Send further tasks with actor_input.
+{{/if}}

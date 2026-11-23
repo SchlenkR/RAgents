@@ -12,7 +12,7 @@ import { overseerPermissions } from "../../plugins/ragents.overseer/contract.ts"
 import { coreContracts } from "../../apps/server/src/api/contracts.ts";
 import ts from "typescript";
 import { Value } from "typebox/value";
-import { agentTools } from "../../packages/ragents/src/agents/tools.ts";
+import { orchestrationFunctions } from "../../plugins/ragents.orchestration/server/functions.ts";
 import { appPackageSchema, installServerSdk, prepareAppProject, typecheckServerProject } from "../../apps/server/src/plugin-support/actor-programs/app-project.ts";
 import { programPermissionFunctions } from "../../plugins/ragents.actor-programs/server/permissions.ts";
 import type { RunFunction } from "../../packages/ragents/src/agents/tools.ts";
@@ -87,6 +87,7 @@ function literal(node: ts.Node): unknown {
 test("shown actor and subscription calls match the real tool contracts", async () => {
   const { extensions } = await buildHomepageExtensions(repoRoot);
   const examples = extensions.filter((entry) => entry.id === "run-capabilities" || entry.id === "subscriptions");
+  const tools = orchestrationFunctions();
   let checked = 0;
   for (const example of examples) {
     const source = ts.createSourceFile(example.id + ".ts", example.example, ts.ScriptTarget.Latest, true);
@@ -95,7 +96,7 @@ test("shown actor and subscription calls match the real tool contracts", async (
         const name = node.expression.name;
         const [input] = node.arguments;
         assert.ok(input);
-        const tool = agentTools.find((tool) => tool.name === name.text);
+        const tool = tools.find((tool) => tool.name === name.text);
         assert.ok(tool, `Tool ${name.text} exists.`);
         assert.ok(Value.Check(tool.schema, literal(input)), `Example for ${name.text} must satisfy its current schema.`);
         checked += 1;

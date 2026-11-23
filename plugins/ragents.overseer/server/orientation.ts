@@ -1,4 +1,4 @@
-import { modelToolDescriptors, type PluginHost } from "@ragents/engine";
+import type { PluginHost } from "@ragents/engine";
 
 const summary = (text: string): string => {
   const normalized = text.replace(/\s+/g, " ").trim();
@@ -24,10 +24,7 @@ export function overseerOrientation(host: PluginHost, shell: boolean): string {
 
 /** The catalog of run functions, kept in a file so that the prompt names only the coordinator's own functions. */
 export function runFunctionCatalog(host: PluginHost): string {
-  const tools = [
-    ...modelToolDescriptors.map((tool) => ({ ...tool, owner: "engine" })),
-    ...host.tools.describe(),
-  ];
+  const tools = host.tools.describe();
   const owners = [...new Set(tools.map((tool) => tool.owner))].sort();
   return [
     "# Functions of regular runs",

@@ -1,5 +1,24 @@
 # Decisions
 
+## 2026-11-23: Profiles choose orchestration and name a model for titles
+
+Chapters: `spec/core.md`, `spec/plugins.md`, `spec/typescript-platform.md`, and `spec/profiles.md`.
+
+The tool registry used to add orchestration to every turn, and the product required
+the orchestration plugin even for a single chat participant. The plugin now supplies its
+functions, runtime-specific spawn schema, run script tools and prompt guidance through the
+same registrations as other plugins. Settings and TypeScript discovery read those registrations.
+Actor grants still govern authorization within a run. Documents and watches can be installed
+independently of orchestration. A child failure notice gives the actor and cause without directing
+the recipient to a tool it may lack. Host API 23 removes `agentTools` and `modelToolDescriptors`.
+External plugin bundles need a rebuild against this API.
+
+The runtime already uses the current agent model and its own limits for compaction.
+The host nevertheless required a compaction provider just to populate title settings.
+The optional `TITLE_MODEL` identifies one model in the initialized catalog, including relay
+models and aliases. This also lets a profile start with automatic titles disabled.
+Saved title selections still identify the provider and model together.
+
 ## 2026-11-10: Parallel file tool calls on one file run one after another
 
 Chapter: `spec/plugins.md` (Workspace, sandbox tools, and processes, seen file state).

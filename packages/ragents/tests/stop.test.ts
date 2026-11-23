@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { TurnScheduler } from "../src/agents/scheduler.ts";
+import { orchestrationRegistry } from "./orchestration-fixture.ts";
 import { TurnToolset } from "../src/agents/toolset.ts";
 import { claimTurn } from "../src/agents/turn.ts";
 import type { CapabilityGrant, RunView } from "../src/domain/model.ts";
@@ -247,7 +248,7 @@ test("actor_stop stops the target and its active descendants in one command in t
         const reviewer = spawn(runtime, runtime.view(view.id), "zoë", lead.id, leadTurn.turnId, branchGrants);
         const reviewerTurn = start(runtime, runtime.view(view.id), reviewer.id, "reviewer");
         const helper = spawn(runtime, runtime.view(view.id), "helper", reviewer.id, reviewerTurn);
-        const toolset = await TurnToolset.create({ runtime, turn: leadTurn, catalog });
+        const toolset = await TurnToolset.create({ runtime, turn: leadTurn, catalog, registry: orchestrationRegistry() });
 
         await toolset.invokeFunction("stop-call", "actor_stop", { actorId: "@Zoe\u0308", reason: "Checked enough." });
 

@@ -25,7 +25,7 @@ export const modelProviderEnvironment: Readonly<Record<string, string>> = {
       { id: "z-ai/glm-5.3-flash", contextWindow: 1_048_576, maxTokens: 131_072, reasoning: true, input: ["text"], thinkingLevelMap: { off: null, minimal: null, medium: null } },
     ] }]),
   TEST_MODEL_KEY: "test-key",
-  COMPACTION_PROVIDER: "openrouter",
+  TITLE_MODEL: "",
 };
 
 export const compositionEnvironment: Readonly<Record<string, string | undefined>> = {
@@ -42,7 +42,6 @@ export const compositionEnvironment: Readonly<Record<string, string | undefined>
   AGENT_MODEL_REASONING: undefined,
   MODEL_SELECTABLE: undefined,
   ACCESS_TOKEN: undefined,
-  COMPACTION_MODEL: "",
   SYSTEM_PROMPT_PATH: undefined,
   SYSTEM_PROMPTS_DIR: undefined,
   SYSTEM_PROMPT_MODE: undefined,

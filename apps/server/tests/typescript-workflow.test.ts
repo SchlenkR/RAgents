@@ -5,10 +5,11 @@ import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { Type } from "typebox";
 import {
-    claimTurn, createAccessContext, defineRunFunction, FixedWorkspaces, ScriptDriver, ToolRegistry, TurnScheduler, TurnToolset, type JsonValue,
+    claimTurn, createAccessContext, defineRunFunction, FixedWorkspaces, ScriptDriver, TurnScheduler, TurnToolset, type JsonValue,
 } from "@ragents/engine";
 import { allGrants, catalog, postTo, setupRun } from "../../../packages/ragents/tests/support.ts";
 import { ActorProgramRuntime } from "../../../plugins/ragents.actor-programs/server/runtime.ts";
+import { orchestrationRegistry } from "../../../packages/ragents/tests/orchestration-fixture.ts";
 import { createActorProgramToolContributors } from "../../../plugins/ragents.actor-programs/server/tool-contributor.ts";
 import { createTypeScriptToolContributor } from "../src/ragents/typescript-tools.ts";
 import { NodeTypeScriptExecutor } from "../src/plugin-support/native-typescript-executor.ts";
@@ -17,7 +18,7 @@ import { WorkspaceSandboxHost } from "../src/plugin-support/workspace-sandbox-ho
 const workflow = async (t: TestContext) => {
     const directory = await mkdtemp(path.join(tmpdir(), "ragents-typescript-workflow-"));
     const setup = setupRun({ grants: allGrants() });
-    const registry = new ToolRegistry();
+    const registry = orchestrationRegistry();
     const calls: { text: string; actor: string }[] = [];
     registry.register({ name: "test-extension", dynamic: true, descriptors: [], tools: () => [defineRunFunction({
         name: "extension_echo", label: "Echo text", description: "Return text and the identity invoking this extension.",

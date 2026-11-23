@@ -190,9 +190,8 @@ expose only the alias.
 
 - Two environment variables, often with the same value, are needed: `connect` reads
   `RAGENTS_TOKEN`, while the name used by `RELAY_TOKEN: env("...")` must also be set.
-- `COMPACTION_PROVIDER: "relay"` with an empty `COMPACTION_MODEL` can start without a text model
-  at reasoning level `off`; automatic titles stay disabled and Settings explains why. An
-  explicitly named alias must be such a model or startup fails.
+- A relay-only profile can omit `TITLE_MODEL` even if none of its models supports reasoning
+  level `off`. To enable automatic titles by default, set it to a relay alias that supports `off`.
 - The relay must be reachable when the local server starts because it fetches the alias catalog
   once. Alias changes require restarting the local server.
 - Revoking access affects the next model request immediately, not the running server process.

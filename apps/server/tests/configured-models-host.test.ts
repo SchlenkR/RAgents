@@ -4,19 +4,25 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
 import test from "node:test";
+import { readBody } from "../src/plugin-support/http.ts";
+import type { ActorConversations } from "../src/ragents/actor-chat-history.ts";
 import { announcement, isolatedDirectory, rpc, stopChild } from "./foreign-plugin-fixture.ts";
 
 const root = path.resolve(import.meta.dirname, "../../..");
 const models = ["worker", "coordinator", "extra"].map((id) => ({
   id, contextWindow: 131_072, maxTokens: 16_384, reasoning: false, input: ["text"],
 }));
-const defaultHost = { COMPACTION_PROVIDER: "local", COMPACTION_MODEL: "" };
+const compaction = { threshold: 100_000, keepRecentTokens: 20_000, summaryTokens: 8_000 };
+const relayCatalog = {
+  object: "list",
+  data: models.map(({ id, ...catalog }) => ({ id, object: "model", catalog: { ...catalog, compaction } })),
+};
 const defaultProduct = {
   AGENT_PROVIDER: "local", AGENT_MODEL: "worker", AGENT_COORDINATOR_MODEL: "coordinator",
   AGENT_THINKING: "off", AGENT_COORDINATOR_THINKING: "off",
 };
 
-const fixture = (host: Readonly<Record<string, unknown>> = defaultHost, product: Readonly<Record<string, unknown>> = defaultProduct, withProviders = true) => {
+const fixture = (host: Readonly<Record<string, unknown>> = {}, product: Readonly<Record<string, unknown>> = defaultProduct, withProviders = true) => {
   const directory = isolatedDirectory("ragents-configured-models-");
   const profile = path.join(directory, "ragents.config.model-check.ts");
   writeFileSync(profile, `import { env } from "@ragents/host/config-definition.js";
@@ -30,7 +36,7 @@ export const config = {
 `);
   const env: NodeJS.ProcessEnv = { ...process.env, RAGENTS_DEV: "1", PRODUCT_PROFILE: "model-check", PRODUCT_PROFILE_FILE: profile,
     DATA_DIR: path.join(directory, "data"), TEST_MODEL_KEY: "test-key", PORT: undefined, BIND_ADDRESS: undefined,
-    MODEL_PROVIDERS: undefined, MODEL_ALIASES: undefined, COMPACTION_PROVIDER: undefined, COMPACTION_MODEL: undefined,
+    MODEL_PROVIDERS: undefined, MODEL_ALIASES: undefined, TITLE_MODEL: undefined,
     AGENT_PROVIDER: undefined, AGENT_MODEL: undefined, AGENT_COORDINATOR_MODEL: undefined, AGENT_MODELS: undefined,
     AGENT_MODEL_REASONING: undefined, AGENT_THINKING: undefined, AGENT_COORDINATOR_THINKING: undefined, MODEL_SELECTABLE: undefined,
     RELAY_URL: undefined, RELAY_TOKEN: undefined, TEST_RELAY_TOKEN: "test-relay-token" };
@@ -39,7 +45,7 @@ export const config = {
 
 test("direct configured models supply the product roles and selection, optionally restricted by AGENT_MODELS", { timeout: 120_000 }, async () => {
   for (const ids of [undefined, ["coordinator", "worker"]]) {
-    const { directory, options } = fixture(defaultHost, { ...defaultProduct, ...(ids ? { AGENT_MODELS: ids } : {}) });
+    const { directory, options } = fixture({}, { ...defaultProduct, ...(ids ? { AGENT_MODELS: ids } : {}) });
     const output: string[] = [];
     const child = spawn(process.execPath, ["--import", "tsx", "src/main.ts", "--port", "0"], { ...options, stdio: ["ignore", "pipe", "pipe"] });
     try {
@@ -61,13 +67,12 @@ test("direct configured models supply the product roles and selection, optionall
 
 test("invalid model configuration fails startup with the key, provider and configured names", { timeout: 120_000 }, () => {
   const cases = [
-    { host: defaultHost, product: { ...defaultProduct, AGENT_PROVIDER: undefined }, error: /AGENT_PROVIDER: provider openrouter is not configured; declare it in MODEL_PROVIDERS or set AGENT_PROVIDER/ },
-    { host: { COMPACTION_MODEL: "" }, product: defaultProduct, error: /COMPACTION_PROVIDER: provider openrouter is not configured; declare it in MODEL_PROVIDERS or set COMPACTION_PROVIDER/ },
-    ...["AGENT_MODEL", "AGENT_COORDINATOR_MODEL"].map((key) => ({ host: defaultHost, product: { ...defaultProduct, [key]: "missing" }, error: new RegExp(`${key}: model missing is not configured for provider local; configured model ids: worker, coordinator, extra`) })),
-    { host: defaultHost, product: { ...defaultProduct, AGENT_COORDINATOR_THINKING: "max" }, error: /thinking level max of role coordinator is not available/ },
-    { host: defaultHost, product: { ...defaultProduct, AGENT_MODELS: ["worker", "coordinator", "missing"] }, error: /AGENT_MODELS: model missing is not configured for provider local; configured model ids: worker, coordinator, extra/ },
-    { host: { ...defaultHost, COMPACTION_MODEL: "missing" }, product: defaultProduct, error: /COMPACTION_MODEL: model missing is not configured for provider local; configured model ids: worker, coordinator, extra/ },
-    { host: defaultHost, product: { ...defaultProduct, OPENROUTER_API_KEY: { kind: "environment", name: "TEST_MODEL_KEY" } }, error: /ragents\.product\.OPENROUTER_API_KEY is not declared for this plugin/ },
+    { host: {}, product: { ...defaultProduct, AGENT_PROVIDER: undefined }, error: /AGENT_PROVIDER: provider openrouter is not configured; declare it in MODEL_PROVIDERS or set AGENT_PROVIDER/ },
+    ...["AGENT_MODEL", "AGENT_COORDINATOR_MODEL"].map((key) => ({ host: {}, product: { ...defaultProduct, [key]: "missing" }, error: new RegExp(`${key}: model missing is not configured for provider local; configured model ids: worker, coordinator, extra`) })),
+    { host: {}, product: { ...defaultProduct, AGENT_COORDINATOR_THINKING: "max" }, error: /thinking level max of role coordinator is not available/ },
+    { host: {}, product: { ...defaultProduct, AGENT_MODELS: ["worker", "coordinator", "missing"] }, error: /AGENT_MODELS: model missing is not configured for provider local; configured model ids: worker, coordinator, extra/ },
+    { host: { TITLE_MODEL: "missing" }, product: defaultProduct, error: /TITLE_MODEL: model missing is not configured; configured model ids: worker, coordinator, extra/ },
+    { host: {}, product: { ...defaultProduct, OPENROUTER_API_KEY: { kind: "environment", name: "TEST_MODEL_KEY" } }, error: /ragents\.product\.OPENROUTER_API_KEY is not declared for this plugin/ },
   ];
   for (const entry of cases) {
     const { directory, options } = fixture(entry.host, entry.product);
@@ -85,20 +90,17 @@ test("invalid model configuration fails startup with the key, provider and confi
 
 test("a relay profile loads its models once before resolving roles, aliases and title settings", { timeout: 60_000 }, async () => {
   const requests: { url: string | undefined; authorization: string | undefined }[] = [];
-  const compaction = { threshold: 100_000, keepRecentTokens: 20_000, summaryTokens: 8_000 };
   const relay = createServer((request, response) => {
     requests.push({ url: request.url, authorization: request.headers.authorization });
     assert.equal(request.method, "GET");
     assert.equal(request.url, "/relay/v1/models");
     response.writeHead(200, { "content-type": "application/json" });
-    response.end(JSON.stringify({ object: "list", data: models.map(({ id, ...catalog }) => ({
-      id, object: "model", catalog: { ...catalog, compaction },
-    })) }));
+    response.end(JSON.stringify(relayCatalog));
   });
   await new Promise<void>((resolve) => relay.listen(0, "127.0.0.1", resolve));
   const address = relay.address();
   assert.ok(address && typeof address === "object");
-  const { directory, options } = fixture({ COMPACTION_PROVIDER: "relay", COMPACTION_MODEL: "coordinator",
+  const { directory, options } = fixture({ TITLE_MODEL: "team-coordinator",
     MODEL_ALIASES: [{ alias: "team-coordinator", model: "relay/coordinator", compaction }] },
   { ...defaultProduct, AGENT_PROVIDER: "relay", RELAY_URL: `http://127.0.0.1:${address.port}`,
     RELAY_TOKEN: { kind: "environment", name: "TEST_RELAY_TOKEN" } }, false);
@@ -112,10 +114,10 @@ test("a relay profile loads its models once before resolving roles, aliases and 
       ["coordinator", "coordinator", "relay"], ["relay", "coordinator", "relay"], ["standard", "worker", "relay"],
     ]);
     const titles = await rpc(host, "ragents.settings.titles.read") as { models: { id: string; provider: string }[]; selection: unknown };
-    assert.deepEqual(titles.selection, { provider: "relay", model: "coordinator" });
-    assert.deepEqual(titles.models.map(({ id, provider }) => [id, provider]).sort(), models.map(({ id }) => [id, "relay"]).sort());
+    assert.deepEqual(titles.selection, { provider: "alias", model: "team-coordinator" });
+    assert.deepEqual(titles.models.map(({ id, provider }) => [id, provider]).sort(), [...models.map(({ id }) => [id, "relay"]), ["team-coordinator", "alias"]].sort());
     assert.deepEqual(requests, [{ url: "/relay/v1/models", authorization: "Bearer test-relay-token" }]);
-    const invalid = fixture({ COMPACTION_PROVIDER: "relay", COMPACTION_MODEL: "coordinator",
+    const invalid = fixture({ TITLE_MODEL: "team-coordinator",
       MODEL_ALIASES: [{ alias: "team-coordinator", model: "relay/coordinator", compaction: { ...compaction, threshold: 125_000 } }] },
     { ...defaultProduct, AGENT_PROVIDER: "relay", RELAY_URL: `http://127.0.0.1:${address.port}`,
       RELAY_TOKEN: { kind: "environment", name: "TEST_RELAY_TOKEN" } }, false);
@@ -137,7 +139,7 @@ test("a relay profile loads its models once before resolving roles, aliases and 
 
 
 test("the built host starts with stale title and role choices, renders their settings and keeps relay aliases independent", { timeout: 60_000 }, async () => {
-  const { directory, options } = fixture({ ...defaultHost,
+  const { directory, options } = fixture({
     PLUGINS: ["ragents.orchestration", "ragents.workspace", "ragents.product", "ragents.overseer", "ragents.model-relay"],
     MODEL_ALIASES: [{ alias: "shared", model: "local/worker", compaction: { threshold: 100_000, keepRecentTokens: 20_000, summaryTokens: 8_000 } }],
   });
@@ -161,6 +163,77 @@ test("the built host starts with stale title and role choices, renders their set
     assert.equal(response.status, 200);
     const catalog = await response.json() as { data: { id: string }[] };
     assert.deepEqual(catalog.data.map(({ id }) => id), ["shared"]);
+  } finally {
+    await stopChild(child);
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("a relay-only profile without orchestration can chat and exposes only its own functions", { timeout: 60_000 }, async (t) => {
+  const reply = "The relay received the message.";
+  const calls: {
+    model: string;
+    messages: { role: string; content: unknown }[];
+    tools: { function: { name: string } }[];
+  }[] = [];
+  const relay = createServer(async (request, response) => {
+    if (request.headers.authorization !== "Bearer test-relay-token") {
+      response.writeHead(401).end();
+    } else if (request.method === "GET" && request.url === "/relay/v1/models") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify(relayCatalog));
+    } else if (request.method === "POST" && request.url === "/relay/v1/chat/completions") {
+      const call = JSON.parse(await readBody(request)) as (typeof calls)[number];
+      calls.push(call);
+      const lookup = calls.length === 1;
+      const delta = lookup
+        ? { tool_calls: [{ index: 0, id: "available-functions", type: "function", function: { name: "typescript_api", arguments: "{}" } }] }
+        : { content: reply };
+      const chunk = { id: "reply", object: "chat.completion.chunk", created: 1, model: call.model,
+        choices: [{ index: 0, delta, finish_reason: lookup ? "tool_calls" : "stop" }] };
+      response.writeHead(200, { "content-type": "text/event-stream" });
+      response.end(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`);
+    } else {
+      response.writeHead(404).end();
+    }
+  });
+  await new Promise<void>((resolve) => relay.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise<void>((resolve, reject) => relay.close((error) => error ? reject(error) : resolve())));
+  const address = relay.address();
+  assert.ok(address && typeof address === "object");
+  const { directory, options } = fixture({ PLUGINS: ["ragents.workspace", "ragents.product"] }, {
+    ...defaultProduct, AGENT_PROVIDER: "relay", RELAY_URL: `http://127.0.0.1:${address.port}`,
+    RELAY_TOKEN: { kind: "environment", name: "TEST_RELAY_TOKEN" },
+  }, false);
+  const child = spawn(process.execPath, ["--import", "tsx", "src/main.ts", "--port", "0"], { ...options, stdio: ["ignore", "pipe", "pipe"] });
+  try {
+    const host = await announcement(child, []);
+    const runId = "solo-chat";
+    await rpc(host, "ragents.chat.send", { runId, text: "List your functions." });
+    await t.waitFor(async () => {
+      const history = await rpc(host, "ragents.chat.actorHistory", { runId }) as ActorConversations;
+      assert.ok(Object.values(history.actors).flat().some((message) => message.role === "assistant" && message.text === reply));
+    }, { timeout: 15_000 });
+
+    const orchestration = /\b(?:agent_spawn|actor_\w+|event_\w+|artifact_\w+|model_list|run_configure|run_stop|run_script_\w+)\b/;
+    assert.deepEqual(calls.map((call) => call.model), ["coordinator", "coordinator"]);
+    const settings = await rpc(host, "ragents.settings.read") as { tools: { name: string }[] };
+    assert.doesNotMatch(settings.tools.map((tool) => tool.name).join(" "), orchestration);
+    const nativeNames = calls[0]!.tools.map((tool) => tool.function.name);
+    assert.ok(nativeNames.includes("read") && nativeNames.includes("typescript_api"));
+    assert.doesNotMatch(nativeNames.join(" "), orchestration);
+    const system = calls[0]!.messages.find((message) => message.role === "system");
+    assert.ok(system);
+    assert.doesNotMatch(JSON.stringify(system.content), /Orchestration through TypeScript/);
+    assert.equal(JSON.stringify(system.content).match(orchestration)?.[0], undefined, "The prompt names an unavailable orchestration function");
+    const result = calls[1]!.messages.find((message) => message.role === "tool");
+    assert.ok(typeof result?.content === "string");
+    const catalog = JSON.parse(result.content) as { functions: { name: string }[] };
+    const functionNames = catalog.functions.map((fn) => fn.name);
+    assert.ok(functionNames.includes("read"));
+    assert.doesNotMatch(functionNames.join(" "), orchestration);
+    const usage = await rpc(host, "ragents.chat.contextUsage", { runId }) as { compactionThreshold: number };
+    assert.equal(usage.compactionThreshold, compaction.threshold);
   } finally {
     await stopChild(child);
     rmSync(directory, { recursive: true, force: true });

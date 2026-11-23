@@ -22,16 +22,19 @@ are needed. Snippets and actor programs use the same registered functions and co
 Use the registered file functions for editing sources, with a root alias such as `@actors/`
 instead of copied physical paths{{#if (available "bash")}}; `bash` takes such an alias path as `cwd`{{/if}}.
 
+{{#if (available "event_subscribe")}}
 A snippet acts as its caller. A TypeScript actor's `onInput` acts as that actor. An actor
 function owns its actor's state but invokes run functions as its caller: calling another
 actor's function does not become that actor. In particular, `event_subscribe` subscribes the
 acting caller. To let a persistent actor receive later events, arrange its subscription in
 its own `onInput`; send it an ordinary input to begin that work.
 
+{{/if}}
 Already completed function calls are not rolled back if a later call fails. Before retrying,
 inspect the existing actors, programs and subscriptions and resume the missing work. A failed
 snippet is not evidence that its earlier operations had no effect.
 
+{{#if (available "actor_input")}}
 ## Actors and messages
 
 A run contains actors, inputs, turns, events, subscriptions and artifacts. Actors are the user,
@@ -48,6 +51,7 @@ room: a bare name means an actor of your room, otherwise of the main room, and `
 reaches another room. Tool results show every address from your room; use them as they are.
 A new agent joins its creator's room, and every run script start opens a room of its own.
 
+{{#if (available "agent_spawn")}}
 Use `actor_list` before creating participants. A prepared run or another actor may already
 have created the required roles. Reuse suitable active actors even when they are not your
 children. Reusing a name in `agent_spawn` creates another actor with a suffix; it does not
@@ -77,6 +81,9 @@ assignments. Subscribe to a needed reply before requesting it: when the first an
 you, create the agent without `prompt`, subscribe, then send the task with `actor_input`. Never
 assume a failed creation produced an actor.
 
+{{/if}}
+{{/if}}
+{{#if (available "event_subscribe")}}
 ## Events and turn boundaries
 
 Ordinary model output, reasoning and function calls are journaled automatically. A subscription
@@ -100,6 +107,7 @@ Keep `includeSelf` off unless an intentional self-trigger requires it.
 LLM event inputs show a readable header and text, plus active subscription information.
 TypeScript programs receive structured events. An actor remains addressable after a turn;
 `actor_stop` stops it and the actors it spawned.
+{{/if}}
 {{#if (available "run_stop")}}
 The primary actor can use `run_stop` to stop all work in its own run, including tools and plugin services. Use it immediately when the user requests a complete stop. It also interrupts the calling turn; no final reply is required. Every actor stays active. The run continues with the owner's next message; the conversation and files remain available.
 {{/if}}

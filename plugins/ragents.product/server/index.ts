@@ -108,6 +108,6 @@ const ragentsProductPlugin: RAgentsPlugin = {
 };
 
 export const plugin: PluginModule = {
-  requires: ["ragents.orchestration", "ragents.workspace"],
+  requires: ["ragents.workspace"],
   create: () => ragentsProductPlugin,
 };

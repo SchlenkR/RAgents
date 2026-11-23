@@ -466,7 +466,7 @@ Every function is a native model tool and is also available through `context.fun
 `typescript_eval`. The model calls a single action directly; a snippet combines calls, filters
 results, and passes values onward without transcription. `nativeTool: false` keeps a function
 snippet-only. That is the exception for low-level interfaces whose raw results belong in code,
-such as the engine's journal event functions (`event_query`, `event_subscribe`,
+such as the orchestration plugin's journal event functions (`event_query`, `event_subscribe`,
 `event_unsubscribe`, `event_subscription_list`); for models, `watch_*` covers waiting for state.
 A function whose purpose only works natively, such as `browser_view_screenshot` returning image
 pixels, must not opt out. Functions that only programs may call are limited by their
@@ -552,6 +552,13 @@ in the chapters on demand, and for the prompt part of the selected system prompt
 text the coordinator receives and, with `shareWithAgents`, every worker too. The actor SDK types use the current function contracts; the final build check
 narrows them based on the program and its actor.
 Mini-apps deliver their complete guide separately through `actor_program_controls` with `topic: "guide"`.
+
+`ragents.orchestration` registers the functions for actor coordination, journal events, artifacts,
+model discovery, run configuration, run stop, and run scripts. Its prompts use the reading
+actor's available functions. Removing the plugin removes these functions and prompts from
+native calls, TypeScript lookup and execution, and the profile's tool catalog. The host still
+provides coordinator chat and the TypeScript snippet tools. Documents and watches can each be
+installed without orchestration.
 
 The orchestration guidance requires carrying out tasks yourself by default. Several
 languages, files, or steps alone do not justify additional actors. Delegation
@@ -2631,8 +2638,7 @@ The host uses quassel 0.9.1's default assistant layout and card composer. Pill c
 multi-party rows, threads, reactions, and mentions remain optional library features for callers
 that supply their props; the host does not turn them on for existing chats. The six additional
 value exports are available under both `@schlenkr/quassel` and the deprecated `quassel` alias.
-No existing export or required prop is removed, so host API 22 stays unchanged; bundles that use
-a new name require a host whose inventory includes it.
+Bundles that import one of these names require a host whose inventory includes it.
 `ChatPanel` and `ChatMessages` use the full available width by default with 24 pixels of
 side spacing. `maxWidth` and `horizontalPadding` adjust these dimensions from outside; the panel's
 defaults apply to history and input together. Responses have no additional

@@ -27,7 +27,7 @@ Every function available to an actor is also a native model tool: `read`, `write
 code in which every function is available as `context.functions.<name>(input)`. A snippet combines
 calls, filters results, and passes values onward without transcription. Both belong to the server
 foundation, even without the optional actor-program plugin. A function can stay snippet-only with
-`nativeTool: false`; the engine does so for the low-level journal event functions `event_query`,
+`nativeTool: false`; the orchestration plugin does so for the low-level journal event functions `event_query`,
 `event_subscribe`, `event_unsubscribe`, and `event_subscription_list`. Native and snippet calls use
 the same implementation, working-directory resolution, permission checks, and journal recording.
 Plugins register each implementation once; snippets and persistent actor programs use the same API.

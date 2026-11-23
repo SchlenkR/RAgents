@@ -90,11 +90,11 @@ export const stopChild = async (child: ChildProcess): Promise<void> => {
   await exited;
 };
 
-export const rpc = async (host: Announced, method: string): Promise<unknown> => {
+export const rpc = async (host: Announced, method: string, params: Record<string, unknown> = {}): Promise<unknown> => {
   const response = await fetch(`${host.url}/rpc`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${host.token}` },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params: {} }),
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
   });
   const body = await response.json() as { result?: unknown; error?: unknown };
   assert.equal(body.error, undefined, `${method}: ${JSON.stringify(body.error)}`);

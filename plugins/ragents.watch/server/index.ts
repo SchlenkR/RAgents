@@ -34,6 +34,5 @@ const watchPlugin: RAgentsPlugin = {
 };
 
 export const plugin: PluginModule = {
-  requires: ["ragents.orchestration"],
   create: () => watchPlugin,
 };

@@ -19,7 +19,6 @@ import {
   OperationContributionRegistry,
   ScriptDriver,
   StartOptionContributionRegistry,
-  ToolRegistry,
   TurnScheduler,
   type ActorProgramFile,
   type RunFunction,
@@ -34,7 +33,8 @@ import { coreMethods } from "../src/api/core-methods.ts";
 import { ACTOR_SCRIPT_STATE_ID, type ActorScriptState } from "../src/plugin-support/actor-programs/contract.ts";
 import type { Engine } from "../src/ragents/engine.ts";
 import type { RunManagement } from "../src/ragents/global-chat.ts";
-import { createRunScriptToolContributor } from "../src/ragents/run-script-tools.ts";
+import { orchestrationRegistry } from "../../../packages/ragents/tests/orchestration-fixture.ts";
+import { createRunScriptToolContributor } from "../../../plugins/ragents.orchestration/server/run-script-tools.ts";
 import { RunChatSession, type RunScriptStart } from "../src/ragents/session.ts";
 import { coreSources, methodContext } from "./rpc-fixture.ts";
 import { invocationResult, runtimeFor } from "./actor-runtime-fixture.ts";
@@ -168,7 +168,7 @@ const fixture = async (t: TestContext, scripts: RunScriptStart[], extra: {
   const programs = runtimeFor(setup, directory, extra.operations, undefined, sources,
     hostTools, shared);
   const managementTools = createActorProgramToolContributors(programs, { latest: () => "" })[0]!;
-  const registry = new ToolRegistry();
+  const registry = orchestrationRegistry();
   registry.register(contributor);
   registry.register(managementTools);
   const scheduler = new TurnScheduler(setup.runtime, setup.journal, {

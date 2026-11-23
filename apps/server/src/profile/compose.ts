@@ -6,7 +6,6 @@ import { aliasCompletionModel, aliasCompletionModelToken, completionModelToken, 
 import { withFolderAssets } from "../plugin-support/plugin-folder.js";
 import type { PluginModule } from "../plugin-support/plugin-module.js";
 import { runManagementToken } from "../ragents/global-chat.js";
-import { registerRunScriptFunctions } from "../ragents/run-script-tools.js";
 import { registerTypeScriptFunctions } from "../ragents/typescript-tools.js";
 import { profileAccessFor } from "../ragents/profile-access.js";
 import {
@@ -102,7 +101,6 @@ export const composeProfile = (options: ProfileComposition, bridges: HostBridges
     }));
   }
   registerTypeScriptFunctions(host);
-  registerRunScriptFunctions(host);
   host.seal();
   return host;
 };

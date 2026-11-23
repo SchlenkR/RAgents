@@ -8,7 +8,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { Type } from "typebox";
-import { agentTools, createAccessContext, DomainError, ScriptDriver, PluginHost, type AccessContext } from "@ragents/engine";
+import { orchestrationFunctions } from "../../../plugins/ragents.orchestration/server/functions.ts";
+import { createAccessContext, DomainError, ScriptDriver, PluginHost, type AccessContext } from "@ragents/engine";
 import { plugin } from "../../../plugins/ragents.overseer/server/index.ts";
 import { RunDirectory } from "../../../plugins/ragents.overseer/server/run-directory.ts";
 import { overseerContracts } from "../../../plugins/ragents.overseer/contract.ts";
@@ -26,7 +27,6 @@ process.env.DATA_DIR = dataDirectory;
 process.env.PRODUCT_PROFILE = "core";
 process.env.PRODUCT_ID = "test";
 process.env.PRODUCT_TITLE = "Test";
-process.env.COMPACTION_MODEL = "";
 Object.assign(process.env, modelProviderEnvironment);
 const { RunSessionProvider } = await import("../src/provider.ts");
 const OVERSEER_RUN_ID = coordinatorRunId(null);
@@ -86,7 +86,7 @@ test("global coordinator persists separately and manages ordinary runs through t
           agentToolsFor: async (runId, actorId, provisional) => {
             const view = bridges.runtime().view(runId);
             const actor = provisional ?? view.actors.find((entry) => entry.id === actorId)!;
-            return agentTools.filter((tool) => tool.available(actor, view));
+            return orchestrationFunctions().filter((tool) => tool.available(actor, view));
           },
           askService: () => ({ask: async () => {throw new Error("Unexpected question");}}),
           reservedToolNames: () => [],

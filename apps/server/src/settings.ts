@@ -2,7 +2,6 @@ import { existsSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import {
-  modelToolDescriptors,
   skillPreloadHookName,
   runtimeOwner,
   type AgentProfile,
@@ -113,16 +112,7 @@ const internalAgentHooks: readonly InternalAgentHookContribution[] = [
 }));
 
 const toolsSettings = (plugins: PluginHost): readonly PublicToolDescriptor[] => {
-  const tools: PublicToolDescriptor[] = [
-    ...modelToolDescriptors.map((tool) => ({
-      id: `ragents:${tool.name}`,
-      owner: runtimeOwner,
-      source: "ragents.agent-tools",
-      kind: "ragents" as const,
-      ...tool,
-    })),
-    ...plugins.tools.describe(),
-  ];
+  const tools = plugins.tools.describe();
   const names = new Set<string>();
   for (const tool of tools) {
     if (names.has(tool.name)) throw new Error(`Tool ${tool.name} is registered more than once in the public catalog`);

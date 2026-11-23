@@ -12,6 +12,7 @@ import {
   type JsonValue,
   type TurnRequest,
 } from "@ragents/engine";
+import { orchestrationToolContributor } from "../../../plugins/ragents.orchestration/server/functions.ts";
 import { allGrants, executionFor, noUsage } from "../../../packages/ragents/tests/support.ts";
 import { toolDescriptorFrom } from "../src/plugin-support/agent-tool.ts";
 import { boundToTools } from "../src/plugin-support/prompt.ts";
@@ -87,6 +88,7 @@ test("coordinator prompts survive primary handover while dynamic guides remain e
       }, "build_demo"),
     );
   } });
+  plugins.tools.register("ragents.orchestration", [orchestrationToolContributor()]);
   registerTypeScriptFunctions(plugins);
   const workspaces = new SessionWorkspaces(() => ({
     execute: () => Promise.reject(new Error("The test stores no attachments")),

@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Type } from "typebox";
 
-import { ToolRegistry } from "../src/agents/plugins.ts";
+import { orchestrationRegistry } from "./orchestration-fixture.ts";
+import type { ToolRegistry } from "../src/agents/plugins.ts";
 import { TurnToolset } from "../src/agents/toolset.ts";
 import { claimTurn } from "../src/agents/turn.ts";
 import { defineRunFunction } from "../src/agents/tools.ts";
@@ -12,7 +13,7 @@ import { allGrants, catalog, postTo, setupRun } from "./support.ts";
 const turnToolset = async (
     setup: ReturnType<typeof setupRun>,
     content: string,
-    registry?: ToolRegistry,
+    registry: ToolRegistry = orchestrationRegistry(),
 ) => {
     const queued = postTo(setup.runtime, setup.view, setup.agent.id, `input-${content}`, content);
     const input = queued.inputs.find((entry) => entry.actorId === setup.agent.id && entry.lifecycle.kind === "pending");
@@ -101,7 +102,7 @@ test("a completed tool call replays within the same turn without acting twice", 
         available: () => true,
         run: () => ({ calls: ++calls }),
     });
-    const registry = new ToolRegistry().register({
+    const registry = orchestrationRegistry().register({
         name: "counting",
         descriptors: [],
         dynamic: true,
@@ -136,7 +137,7 @@ test("journal replay happens before the current tool input schema is checked", a
         available: () => true,
         run: () => ({ calls: ++calls }),
     });
-    const registry = new ToolRegistry().register({
+    const registry = orchestrationRegistry().register({
         name: "changing",
         descriptors: [],
         dynamic: true,
@@ -242,7 +243,7 @@ test("agent_spawn with explicit null resolves a dynamic toolset without copying 
         name: "later_function", label: "Later function", description: "A function activated after spawning.",
         schema: Type.Object({}), resultSchema: Type.String(), available: () => true, run: () => "ready",
     });
-    const registry = new ToolRegistry().register({ name: "later", descriptors: [], dynamic: true, tools: () => enabled ? [dynamicTool] : [] });
+    const registry = orchestrationRegistry().register({ name: "later", descriptors: [], dynamic: true, tools: () => enabled ? [dynamicTool] : [] });
     const setup = setupRun({ grants: allGrants(), toolNames: ["agent_spawn"] });
     try {
         const { toolset } = await turnToolset(setup, "dynamic parent", registry);
@@ -265,7 +266,7 @@ test("agent_spawn validates existing dynamic names even when they belong to anot
         name: "bound_function", label: "Bound function", description: "An existing actor function.",
         schema: Type.Object({}), resultSchema: Type.String(), available: () => true, run: () => "ready",
     });
-    const registry = new ToolRegistry().register({ name: "bound", descriptors: [], dynamic: true, tools: (context) => context.actor.handle === "bound" ? [dynamicTool] : [] });
+    const registry = orchestrationRegistry().register({ name: "bound", descriptors: [], dynamic: true, tools: (context) => context.actor.handle === "bound" ? [dynamicTool] : [] });
     const setup = setupRun({ grants: allGrants(), toolNames: ["agent_spawn"] });
     try {
         setup.runtime.spawnAgent({ actorId: setup.view.ownerId, commandId: "create-bound" }, setup.view.id, {

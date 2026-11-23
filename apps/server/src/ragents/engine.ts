@@ -161,38 +161,14 @@ export interface RuntimeContract {
   content: string;
 }
 
-const hasTool = (actor: ExecutableActor, name: string, capability: string): boolean =>
-  (actor.toolNames === null || actor.toolNames.includes(name))
-  && actor.grants.some((grant) => grant.capability === capability && grant.usable !== false);
-
 const outputContractFor = (role: ActorRole): string => role === "primary"
   ? "Your model text is shown in the chat with the user. Respond naturally as text."
   : "Respond naturally in the model text.";
 
-const coreContractFor = (actor: ExecutableActor): string => {
-  if (actor.toolNames?.length === 0) return "";
-
-  const lines = [
-    "Everything you write in the model text is automatically recorded as an event.",
-    "Your turn ends as soon as you no longer call a tool. After that you are idle until the next ActorInput.",
-  ];
-  if (hasTool(actor, "actor_input", "actor.input")) {
-    lines.push("With actor_input you give another actor a task or a question.");
-  }
-  if (hasTool(actor, "event_subscribe", "event.subscribe")) {
-    lines.push("With context.functions.event_subscribe in a snippet you subscribe to the events of the actors whose work you want to follow.");
-  }
-  if (hasTool(actor, "event_subscription_list", "event.subscribe")) {
-    lines.push("context.functions.event_subscription_list shows your active event subscriptions.");
-  }
-  if (hasTool(actor, "event_unsubscribe", "event.subscribe")) {
-    lines.push("You end subscriptions you no longer need with context.functions.event_unsubscribe.");
-  }
-  if (hasTool(actor, "agent_spawn", "agent.spawn") && hasTool(actor, "actor_input", "actor.input")) {
-    lines.push("agent_spawn creates the actor and, given a task, enqueues it as its first input at once; further tasks go to the actor with actor_input.");
-  }
-  return lines.join("\n");
-};
+const coreContractFor = (actor: ExecutableActor): string => actor.toolNames?.length === 0 ? "" : [
+  "Everything you write in the model text is automatically recorded as an event.",
+  "Your turn ends as soon as you no longer call a tool. After that you are idle until the next ActorInput.",
+].join("\n");
 
 export const createEngine = async (options: EngineOptions): Promise<Engine> => {
   await mkdir(layout.runsDir, { recursive: true });
@@ -274,7 +250,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
       return [...new Set(kinds)].filter((kind) => kind === "image" || kind === "video" || kind === "file");
     });
   }
-  const registry = new ToolRegistry(() => options.plugins.actorRuntimes.describe());
+  const registry = new ToolRegistry();
   for (const contributor of options.plugins.tools.entries()) registry.register(contributor);
   const live = new LiveBus({
     onListenerError: (error, context) => {
@@ -390,7 +366,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     },
     ...(workspaceToolNaming ? { workspaceToolNaming } : {}),
     basePrompt: basePromptFor,
-    contract: (actor) => coreContractFor(actor),
+    contract: coreContractFor,
     toolChapters: (runId, _actor, toolNames, availableTools) => chaptersFor(runId, toolNames, availableTools.map((tool) => tool.name)),
     inputOrientation: (runId, input) => globalChat?.inputOrientation && globalChat.isCoordinator(runId)
       ? globalChat.inputOrientation(runtime, runId, input) : "",

@@ -25,7 +25,7 @@ import { askPayloadOf } from "../../../plugins/ragents.ask/ask-payload.ts";
 const directory = await mkdtemp(path.join(tmpdir(), "ragents-acp-actors-"));
 const adapter = path.resolve(import.meta.dirname, "fixtures/acp/agent.mjs");
 const environment = { DATA_DIR: path.join(directory, "data"), PRODUCT_PROFILE: "core", PRODUCT_ID: "test-acp-actors", PRODUCT_TITLE: "ACP actors",
-  PROCESS_SANDBOX: "off", COMPACTION_MODEL: "", MODEL_ALIASES: undefined, ...modelProviderEnvironment, MCP_SERVERS: undefined, ACP_AGENTS: undefined, ACCESS_TOKEN: undefined };
+  PROCESS_SANDBOX: "off", MODEL_ALIASES: undefined, ...modelProviderEnvironment, MCP_SERVERS: undefined, ACP_AGENTS: undefined, ACCESS_TOKEN: undefined };
 const previous = new Map(Object.keys(environment).map((key) => [key, process.env[key]]));
 for (const [key, value] of Object.entries(environment)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
 after(async () => {
@@ -49,6 +49,7 @@ const fixture = async (t: TestContext, env: Record<string, string> = {}) => {
   const { runManagementToken } = await import("../src/ragents/global-chat.ts");
   const { runtimeProviderToken, runWorkspaceProviderToken } = await import("../src/ragents/host-services.ts");
   const { askServiceToken } = await import("../../../plugins/ragents.ask/server/contract.ts");
+  const { plugin: orchestration } = await import("../../../plugins/ragents.orchestration/server/index.ts");
   const { plugin: workspace } = await import("../../../plugins/ragents.workspace/server/index.ts");
   const { plugin: mcp } = await import("../../../plugins/ragents.mcp/server/index.ts");
   const { plugin: ask } = await import("../../../plugins/ragents.ask/server/index.ts");
@@ -70,7 +71,7 @@ const fixture = async (t: TestContext, env: Record<string, string> = {}) => {
       providers: () => [{ id: model.provider, config: { api: faux.api, baseUrl: model.baseUrl, apiKey: "fixture-only", models: faux.models } }],
       profiles: () => [{ name: "coordinator", description: "Coordinator", driver: "agent", provider: model.provider, model: model.id, thinking: "off", turnTimeoutMs: null, isolateWorkspace: false }] });
   } }) };
-  const modules = new Map([["ragents.workspace", workspace], ["test.product", product], ["ragents.ask", ask], ["ragents.mcp", mcp], ["ragents.acp", acp]]);
+  const modules = new Map([["ragents.orchestration", orchestration], ["ragents.workspace", workspace], ["test.product", product], ["ragents.ask", ask], ["ragents.mcp", mcp], ["ragents.acp", acp]]);
   const createProvider = () => new RunSessionProvider((bridges) => composeProfile({ product: { id: "test-acp-actors", title: "ACP actors" }, pluginIds: [...modules.keys()], modules,
     web: new Map(), executor: contributions }, bridges), undefined);
   let provider = createProvider();

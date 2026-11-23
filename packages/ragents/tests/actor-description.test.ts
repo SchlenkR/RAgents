@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { claimTurn } from "../src/agents/turn.ts";
+import { orchestrationRegistry } from "./orchestration-fixture.ts";
 import { TurnToolset } from "../src/agents/toolset.ts";
 import { actorDescriptionMaxLength } from "../src/domain/model.ts";
 import { Journal, type CommandRecord } from "../src/runtime/journal.ts";
@@ -17,7 +18,7 @@ const spawningToolset = async (setup: ReturnType<typeof setupRun>) => {
     const input = queued.inputs.find((entry) => entry.actorId === setup.agent.id && entry.lifecycle.kind === "pending");
     assert.ok(input);
     const turn = claimTurn(setup.runtime, setup.view.id, setup.agent.id, input.id, "turn-spawn");
-    return TurnToolset.create({ runtime: setup.runtime, turn, catalog });
+    return TurnToolset.create({ runtime: setup.runtime, turn, catalog, registry: orchestrationRegistry() });
 };
 
 const reviewRun = () => {

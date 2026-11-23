@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { resolveExecution, type ModelCatalog } from "../src/agents/catalog.ts";
+import { orchestrationToolContributor } from "../../../plugins/ragents.orchestration/server/functions.ts";
 import { ToolRegistry } from "../src/agents/plugins.ts";
 import { TurnScheduler } from "../src/agents/scheduler.ts";
 import { journalEventOf } from "../src/domain/event-validation.ts";
@@ -119,7 +120,7 @@ test("external observations and actor kinds survive disk replay and malformed ru
 
 test("built-in actors cannot emit external observations and spawn schemas name configured runtimes", async () => {
     const setup = setupRun();
-    const registry = new ToolRegistry(() => runtimes);
+    const registry = new ToolRegistry().register(orchestrationToolContributor(() => runtimes));
     const tools = await registry.resolve({ runId: setup.view.id, actorId: setup.agent.id, actor: setup.agent, turnId: null, view: setup.view, workspace: "." });
     assert.equal(tools.some((tool) => tool.description.includes("Example coder")), false, "an actor without spawn capability receives no spawn tool");
     const view = setup.runtime.enqueueInput({ actorId: setup.view.ownerId, commandId: "input" }, setup.view.id, { actorId: setup.agent.id, content: "Work" });

@@ -20,7 +20,7 @@ const fixture = async (t: TestContext) => {
     { id: "z-ai/glm-5.3-flash", name: "Mandatory thinking model", contextWindow: 131_072, maxTokens: 16_384, reasoning: true, input: ["text"], thinkingLevelMap: { off: null }, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } },
   ] });
   const file = path.join(directory, "settings.json");
-  const store = await TitleSettingsStore.create(file, runtime, initial, "openrouter");
+  const store = await TitleSettingsStore.create(file, runtime, initial.model);
   return { directory, file, runtime, store };
 };
 
@@ -39,18 +39,30 @@ test("title settings offer actual text models with reasoning off and prioritize 
   assert.equal(store.get().models[0]!.id, initial.model);
 });
 
+test("a title model name must identify one catalog entry and settings can distinguish matching models", async (t) => {
+  const { file, runtime } = await fixture(t);
+  const other = { provider: "second", model: initial.model };
+  const source = runtime.getModel(initial.provider, initial.model)!;
+  runtime.registerProvider(other.provider, { api: "openai-completions", baseUrl: "https://models.invalid/v1", apiKey: "test-key", models: [source] });
+  await assert.rejects(TitleSettingsStore.create(file, runtime, initial.model), /TITLE_MODEL: .*ambiguous across providers openrouter, second.*MODEL_ALIASES/);
+  const store = await TitleSettingsStore.create(file, runtime, next.model);
+  const options = store.get().models.filter((model) => model.id === initial.model);
+  assert.deepEqual(options.map(({ label }) => label), [initial, other].map(({ provider, model }) => `${provider}/${model}`));
+  assert.deepEqual((await store.save({ selection: other })).selection, other);
+});
+
 test("a changed or disabled title model survives reload independently of new defaults", async (t) => {
   const { store, file, runtime } = await fixture(t);
   assert.deepEqual((await store.save({ selection: next })).selection, next);
   assert.deepEqual(JSON.parse(await readFile(file, "utf8")), { selection: next });
-  const reloaded = await TitleSettingsStore.create(file, runtime, initial, "openrouter");
+  const reloaded = await TitleSettingsStore.create(file, runtime, initial.model);
   assert.deepEqual(reloaded.selection(), next);
   assert.equal((await reloaded.save({ selection: null })).selection, null);
   assert.deepEqual(JSON.parse(await readFile(file, "utf8")), { selection: null });
-  assert.equal((await TitleSettingsStore.create(file, runtime, initial, "openrouter")).selection(), null);
+  assert.equal((await TitleSettingsStore.create(file, runtime, initial.model)).selection(), null);
 });
 
-test("invalid title settings reject unknown models, mandatory thinking, other providers and unexpected body fields", async (t) => {
+test("invalid title settings reject unknown models, mandatory thinking, unknown providers and unexpected body fields", async (t) => {
   const { store, file, runtime } = await fixture(t);
   assert.ok(runtime.getModel("openrouter", "z-ai/glm-5.3-flash"), "The mandatory-thinking regression must use an existing model");
   await store.save({ selection: initial });
@@ -71,27 +83,28 @@ test("invalid title settings reject unknown models, mandatory thinking, other pr
   assert.deepEqual(JSON.parse(await readFile(file, "utf8")), { selection: initial });
 });
 
-test("corrupt persisted title settings and unavailable provider catalogs fail immediately", async (t) => {
+test("corrupt persisted title settings and invalid configured defaults fail immediately", async (t) => {
   const { file, runtime, directory } = await fixture(t);
   await writeFile(file, "not-json");
-  await assert.rejects(TitleSettingsStore.create(file, runtime, initial, "openrouter"), SyntaxError);
+  await assert.rejects(TitleSettingsStore.create(file, runtime, initial.model), SyntaxError);
   for (const value of [{}, { selection: { provider: initial.provider } }, { selection: initial, extra: true }]) {
     await writeFile(file, JSON.stringify(value));
-    await assert.rejects(TitleSettingsStore.create(file, runtime, initial, "openrouter"), /selection|needs provider and model|not available for selection/);
+    await assert.rejects(TitleSettingsStore.create(file, runtime, initial.model), /selection|needs provider and model|not available for selection/);
   }
-  await assert.rejects(TitleSettingsStore.create(directory, runtime, initial, "openrouter"), /EISDIR/);
-  await assert.rejects(TitleSettingsStore.create(path.join(directory, "new.json"), runtime, initial, "unknown-provider"), /not available for selection/);
-  await assert.rejects(TitleSettingsStore.create(path.join(directory, "new.json"), runtime, { ...initial, model: "z-ai/glm-5.3-flash" }, "openrouter"), /not available for selection/);
+  await assert.rejects(TitleSettingsStore.create(directory, runtime, initial.model), /EISDIR/);
+  await assert.rejects(TitleSettingsStore.create(path.join(directory, "new.json"), runtime, "missing"), /TITLE_MODEL: model missing is not configured/);
+  await assert.rejects(TitleSettingsStore.create(path.join(directory, "new.json"), runtime, "z-ai/glm-5.3-flash"), /TITLE_MODEL: model z-ai\/glm-5.3-flash must accept text and support reasoning off/);
 });
 
 test("an empty catalog only fails the start with a configured title model, otherwise titles stay switched off", async (t) => {
-  const { directory, runtime } = await fixture(t);
+  const { directory } = await fixture(t);
+  const runtime = ModelRuntime.create();
   const file = path.join(directory, "disabled.json");
-  const store = await TitleSettingsStore.create(file, runtime, null, "unknown-provider");
+  const store = await TitleSettingsStore.create(file, runtime, "");
   assert.deepEqual(store.get(), { selection: null, models: [] });
   await assert.rejects(store.save({ selection: initial }), (error) => error instanceof DomainError && error.code === "title-model-invalid");
   assert.equal((await store.save({ selection: null })).selection, null);
-  assert.equal((await TitleSettingsStore.create(file, runtime, initial, "unknown-provider")).selection(), null);
+  await assert.rejects(TitleSettingsStore.create(file, runtime, initial.model), /TITLE_MODEL: model .* is not configured/);
 });
 
 test("failed title settings writes preserve the active selection and later serialized writes still succeed", async (t) => {
@@ -115,7 +128,7 @@ test("a stale title model loads, fails only title generation and can be replaced
   const { file, runtime } = await fixture(t);
   for (const selection of [{ ...initial, model: "removed" }, { ...initial, model: "z-ai/glm-5.3-flash" }, { ...initial, provider: "removed" }]) {
     await writeFile(file, JSON.stringify({ selection }));
-    const store = await TitleSettingsStore.create(file, runtime, initial, "openrouter");
+    const store = await TitleSettingsStore.create(file, runtime, initial.model);
     assert.deepEqual(store.get().selection, selection);
     assert.throws(store.selection, /stored title model from title-settings.json.*Settings, Models, Titles.*not available for selection/);
     await assert.rejects(store.save({ selection }), /not available for selection/);

@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, wr
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
-import { agentTools, compileTypeScriptSnippet, Journal, Orchestration, TypeScriptSnippetCompilationError, type PluginContext, type PluginHost, type RunCapabilityDescriptor, type RunFunction } from "@ragents/engine";
+import { compileTypeScriptSnippet, Journal, Orchestration, TypeScriptSnippetCompilationError, type PluginContext, type PluginHost, type RunCapabilityDescriptor, type RunFunction } from "@ragents/engine";
 import { testServices } from "../../../packages/ragents/tests/support.ts";
 import { pluginsRoot } from "../src/plugin-support/plugins-root.ts";
 import { nativeExecutorFixture } from "./native-executor-fixture.ts";
@@ -159,7 +159,6 @@ const capabilitiesOf = async (profile: CompositionFixture): Promise<RunCapabilit
   const actor = view.actors.find((candidate) => candidate.id === run.ownerId)!;
   const context: PluginContext = { runId: run.id, actorId: actor.id, turnId: null, actor, view, workspace: workspaceDirectory };
   const byName = new Map<string, RunFunction>();
-  for (const fn of agentTools) byName.set(fn.name, fn);
   const host = await composed(profile);
   for (const contributor of host.tools.entries()) {
     for (const fn of await contributor.tools(context)) byName.set(fn.name, fn);

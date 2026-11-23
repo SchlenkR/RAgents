@@ -208,7 +208,7 @@ export const config = {
     }],
     PORT: 4710,
     PRODUCT_PROFILE: "core",
-    COMPACTION_MODEL: "google/gemma-4-26b-a4b-it",
+    TITLE_MODEL: "google/gemma-4-26b-a4b-it",
     // Aliases for other RAgents servers that obtain their models from here via ragents.model-relay.
     MODEL_ALIASES: [
       { alias: "core-standard", model: "openrouter/z-ai/glm-5.3-flash", compaction: { threshold: 160_000, keepRecentTokens: 24_000, summaryTokens: 12_000 } },

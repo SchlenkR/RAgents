@@ -1,8 +1,9 @@
 import { nativeTestExecutor, scriptProgram } from "./native-executor.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { agentTools } from "../src/agents/tools.ts";
+import { orchestrationFunctions } from "../../../plugins/ragents.orchestration/server/functions.ts";
 
+import { orchestrationRegistry } from "./orchestration-fixture.ts";
 import { TurnScheduler } from "../src/agents/scheduler.ts";
 import type { JsonValue } from "../src/domain/json.ts";
 import { Journal } from "../src/runtime/journal.ts";
@@ -33,7 +34,7 @@ const mediatorSession = (source: string) => {
     const deliver = async (input: unknown) => {
         const outcome = await nativeTestExecutor.execute({
             program: scriptProgram(source), input, state: carried,
-            context: { runId: "run-test", invocationId: "turn-test", invocationKind: "input", principal: { id: "relay", kind: "script" }, capabilities: agentTools.map(tool=>({id:tool.name,label:tool.label,description:tool.description,schema:tool.schema,resultSchema:tool.resultSchema})) },
+            context: { runId: "run-test", invocationId: "turn-test", invocationKind: "input", principal: { id: "relay", kind: "script" }, capabilities: orchestrationFunctions().map(tool=>({id:tool.name,label:tool.label,description:tool.description,schema:tool.schema,resultSchema:tool.resultSchema})) },
             std: { now: scriptTestClock, idPrefix: "test:std" },
         }, {
             signal,
@@ -664,6 +665,7 @@ test("an installed mediator carries a real circle of agents to its artifact", as
     });
     const scheduler = new TurnScheduler(runtime, journal, {
         drivers: { agent: driver, script: new ScriptDriver({ runtime }) },
+        registry: orchestrationRegistry(),
         catalog,
     });
 

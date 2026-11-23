@@ -1,6 +1,5 @@
 import type { Actor, RunView } from "../domain/model.ts";
 import {
-    agentTools,
     describeToolAvailability,
     isNativeTool,
     type RunFunction,
@@ -31,12 +30,7 @@ export interface ToolProvider {
 
 export class ToolRegistry implements ToolProvider {
     readonly #plugins: ToolContributor[] = [];
-    readonly #descriptorOwners = new Map(agentTools.map((tool) => [tool.name, "ragents.agent-tools"]));
-    readonly #runtimes: () => readonly { id: string; title: string }[];
-
-    constructor(runtimes: () => readonly { id: string; title: string }[] = () => []) {
-        this.#runtimes = runtimes;
-    }
+    readonly #descriptorOwners = new Map<string, string>();
 
     register(plugin: ToolContributor) {
         if (this.#plugins.some((entry) => entry.name === plugin.name))
@@ -74,23 +68,8 @@ export class ToolRegistry implements ToolProvider {
     }
 
     async resolve(context: PluginContext, onUnavailable?: (tool: RunFunction) => void) {
-        const resolved = agentTools.filter((tool) => {
-            if (tool.available(context.actor, context.view)) return true;
-            onUnavailable?.(tool);
-            return false;
-        });
-        const runtimes = this.#runtimes();
-        const spawn = resolved.findIndex((tool) => tool.name === "agent_spawn");
-        if (spawn >= 0 && runtimes.length > 0) {
-            const tool = resolved[spawn]!;
-            const properties = (tool.schema as unknown as { properties: Record<string, unknown> }).properties;
-            resolved[spawn] = {
-                ...tool,
-                description: `${tool.description} External runtimes: ${runtimes.map(({ id, title }) => `${id} (${title})`).join(", ")}. Select runtime and tools: null.`,
-                schema: { ...tool.schema, properties: { ...properties, runtime: { type: "string", enum: runtimes.map(({ id }) => id), description: "Configured external actor runtime." } } },
-            };
-        }
-        const taken = new Set(agentTools.map((entry) => entry.name));
+        const resolved: RunFunction[] = [];
+        const taken = new Set<string>();
 
         for (const plugin of this.#plugins) {
             if (plugin.runCondition && !plugin.runCondition(context.runId))

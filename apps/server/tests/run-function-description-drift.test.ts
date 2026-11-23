@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
 import { Type } from "typebox";
-import { agentTools, Journal, Orchestration, type PluginContext, type PluginHost, type RunFunction } from "@ragents/engine";
+import { Journal, Orchestration, type PluginContext, type PluginHost, type RunFunction } from "@ragents/engine";
 import { testServices } from "../../../packages/ragents/tests/support.ts";
 import { nativeExecutorFixture } from "./native-executor-fixture.ts";
 import { compositionEnvironment, showcaseFixture, type CompositionFixture } from "./fixtures/profile-composition/profiles.ts";
@@ -90,7 +90,6 @@ const allRunFunctions = async (): Promise<readonly RunFunction[]> => {
   const actor = view.actors.find((candidate) => candidate.id === run.ownerId)!;
   const context: PluginContext = { runId: run.id, actorId: actor.id, turnId: null, actor, view, workspace: workspaceDirectory };
   const byName = new Map<string, RunFunction>();
-  for (const fn of agentTools) byName.set(fn.name, fn);
   const host = await composed(showcaseFixture);
   for (const contributor of host.tools.entries()) {
     for (const fn of await contributor.tools(context)) byName.set(fn.name, fn);

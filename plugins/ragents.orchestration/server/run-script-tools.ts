@@ -1,7 +1,7 @@
 import { Type } from "typebox";
-import { addressFrom, defineRunFunction, defineToolAvailability, holdsUsable, type JsonValue, type PluginHost, type ToolContributor } from "@ragents/engine";
-import { toolDescriptorFrom } from "../plugin-support/agent-tool.js";
-import { runManagementToken, type RunManagement } from "./global-chat.js";
+import { addressFrom, defineRunFunction, defineToolAvailability, holdsUsable, type JsonValue, type ToolContributor } from "@ragents/engine";
+import { toolDescriptorFrom } from "@ragents/host/plugin-support/agent-tool.js";
+import type { RunManagement } from "@ragents/host/ragents/global-chat.js";
 
 const available = defineToolAvailability({
   availability: "conditional",
@@ -66,9 +66,4 @@ export const createRunScriptToolContributor = (management: () => RunManagement):
     descriptors: [toolDescriptorFrom(listMetadata, available), toolDescriptorFrom(startMetadata, available)],
     tools: () => [list, start],
   };
-};
-
-/** The profile registers them once while composing; they act on the caller's own run. */
-export const registerRunScriptFunctions = (host: PluginHost): void => {
-  host.tools.register("ragents.runtime", [createRunScriptToolContributor(() => host.service(runManagementToken)())]);
 };

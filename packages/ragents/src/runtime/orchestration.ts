@@ -841,8 +841,7 @@ export class Orchestration {
                 continue;
 
             const content = alert.kind === "failed"
-                ? `[Automatic notice] The turn of your actor @${addressFrom(child, creator.room)} FAILED: ${alert.reason} `
-                    + "Check the state with event_query and decide: delegate again, repair or stop."
+                ? `[Automatic notice] The turn of your actor @${addressFrom(child, creator.room)} FAILED: ${alert.reason}`
                 : `[Automatic notice] The turn of your actor @${addressFrom(child, creator.room)} was interrupted: ${alert.reason}`;
 
             try {

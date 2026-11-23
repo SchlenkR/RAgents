@@ -35,7 +35,7 @@ const fixtureUsers = [
 ];
 const environment = { DATA_DIR: path.join(directory, "data"), PRODUCT_PROFILE: "core", PRODUCT_ID: "test-acp", PRODUCT_TITLE: "ACP fixture",
   PRODUCT_PROFILE_FILE: path.join(directory, "ragents.config.core.ts"),
-  PROCESS_SANDBOX: "off", COMPACTION_MODEL: "", MODEL_ALIASES: undefined, ...modelProviderEnvironment, MCP_SERVERS: undefined, ACCESS_TOKEN: undefined };
+  PROCESS_SANDBOX: "off", MODEL_ALIASES: undefined, ...modelProviderEnvironment, MCP_SERVERS: undefined, ACCESS_TOKEN: undefined };
 const previous = new Map(Object.keys(environment).map((key) => [key, process.env[key]]));
 for (const [key, value] of Object.entries(environment)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
 after(async () => {

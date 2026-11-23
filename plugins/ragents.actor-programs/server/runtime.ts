@@ -6,7 +6,7 @@ import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { Type, type TSchema } from "typebox";
 import { Value } from "typebox/value";
-import { actorByHandle, actorDescriptionMaxLength, addressFrom, addressOf, agentTools, assertJsonValue, canonicalHash, defineRunFunction, defineToolAvailability, emptyUsage, freeRoomName, handleKey, inheritedGrants, runCapabilityContractHash, scriptInputOf, schemaComplaints, type AccessContext, type Actor, type ActorInput, type ActorProgramExecutor, type RunFunction, type CommandContext, type ExecutableActor, type JsonValue, type OperationContext, type Orchestration, type PluginContext, type RunCapabilityDescriptor, type RunView, type TurnRequest, type TurnResult, } from "@ragents/engine";
+import { actorByHandle, actorDescriptionMaxLength, addressFrom, addressOf, assertJsonValue, canonicalHash, defineRunFunction, defineToolAvailability, emptyUsage, freeRoomName, handleKey, inheritedGrants, runCapabilityContractHash, scriptInputOf, schemaComplaints, type AccessContext, type Actor, type ActorInput, type ActorProgramExecutor, type RunFunction, type CommandContext, type ExecutableActor, type JsonValue, type OperationContext, type Orchestration, type PluginContext, type RunCapabilityDescriptor, type RunView, type TurnRequest, type TurnResult, } from "@ragents/engine";
 import { ACTOR_PROGRAMS_STATE_ID, ACTOR_INVOCATIONS_STATE_ID, ACTOR_SCRIPT_STATE_ID, ACTOR_STATE_ID, relativeName, resolveActorView, type ActorDataState, type ActorFunctionDefinition, type ActorFunctionInvocation, type ActorPackageOrigin, type ActorProgramDefinition, type ActorProgramIdentity, type ActorProgramState, type ActorScriptDelivery, type ActorScriptPackage, type ActorScriptState, type ActorTriggerProgress, type ActorViewListing, } from "@ragents/host/plugin-support/actor-programs/contract.js";
 import type { ActivatedActorProgram, ActorProgramSource, ActorProgramsService, ActorViewReference, NamedAppSource, RunScriptSources, RunScriptStartInput } from "@ragents/host/plugin-support/actor-programs/service.js";
 import { jsonValue, jsonBytes, MAX_INVOCATIONS_STATE_BYTES } from "./limits.js";
@@ -1107,7 +1107,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     #assertToolNames(runId: string, definition: ActorProgramDefinition, taken: string, view = this.view(runId)): void {
         const actors = view.actors;
         const roomOfActor = (actorId: string) => actorId === "pending" ? roomOfKey(definition.name) : actors.find((actor) => actor.id === actorId)?.room ?? null;
-        const reserved = new Set([...agentTools.map((tool) => tool.name), ...this.#options.reservedToolNames()]);
+        const reserved = new Set(this.#options.reservedToolNames());
         const published = this.programsOf(view).filter((program) => program.name !== definition.name).flatMap((program) =>
             program.functions.flatMap((fn) => fn.tool ? [{ name: fn.tool.name, program: program.name, reach: { room: roomOfKey(program.name), targets: fn.tool.targets } }] : []));
         const own = definition.functions.flatMap((fn) => fn.tool ? [fn.tool] : []);

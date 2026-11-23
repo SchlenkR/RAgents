@@ -203,6 +203,12 @@ If the profile no longer offers the stored model or thinking level, the server s
 settings show the stored selection with a notice, and every turn of the global coordinator fails
 with an error naming it until another selection is saved. A damaged file still aborts the start.
 
+A profile for a single chat coordinator can list just `ragents.workspace` and
+`ragents.product` in `host.PLUGINS`. Add `ragents.orchestration` to equip agents with
+actor, event, artifact, model discovery and run management functions and their instructions.
+Other plugins declare their own prerequisites. Journaled grants still limit each actor's
+use of the functions installed in the profile.
+
 The model provider is `AGENT_PROVIDER` in `ragents.product`, default `openrouter`. Every
 ordinary provider and its models come from `host.MODEL_PROVIDERS`; the host has no built-in
 providers or model catalog and never fetches model metadata. `openrouter` is an ordinary provider
@@ -213,21 +219,19 @@ reference; `ragents.product` has no `OPENROUTER_API_KEY` key.
 With a configured provider id, `AGENT_MODEL`, `AGENT_COORDINATOR_MODEL`, other role model keys,
 and `AGENT_MODELS` name that provider's model ids directly. Aliases are optional. Without
 `AGENT_MODELS`, the selection offers exactly the configured models of that provider; otherwise
-it offers only the listed ids. The host keys `COMPACTION_PROVIDER` (also default `openrouter`)
-and `COMPACTION_MODEL` choose the compaction model in the same way, and the title selection uses
-that provider's configured models. A missing provider is a start error naming the provider key
-and asking to declare the provider in `MODEL_PROVIDERS` or set the key. An unknown model is a
+it offers only the listed ids. A missing agent provider is a start error naming the provider key
+and asking to declare the provider in `MODEL_PROVIDERS` or set the key. An unknown role model is a
 start error naming its key, provider, and the configured model ids. Every role default must also
-belong to the offered selection.
+belong to the offered selection. Each agent compacts with its own model and that model's compaction
+limits. The optional host setting `TITLE_MODEL` selects a model for automatic titles.
 
 With `AGENT_PROVIDER: "relay"`, catalog and model access come from another
 RAgents server: `RELAY_URL` names its address, `RELAY_TOKEN` (secret, `env(...)`) the personal
 token of a user there. At start, the product plugin fetches `GET /relay/v1/models` and registers
 the provider `relay` through a profile contribution (`providers` in `ProfileContribution`) in the
 server's one model runtime, before the title model, preparation, or engine look up a model.
-`AGENT_MODEL`, `AGENT_COORDINATOR_MODEL`, `AGENT_MODELS`, `COMPACTION_MODEL` (with
-`COMPACTION_PROVIDER: "relay"`), and the title model then name aliases of the relay; the model
-selection shows them as `relay/<alias>`. Each alias comes with the thinking levels it offers on the
+`AGENT_MODEL`, `AGENT_COORDINATOR_MODEL`, and `AGENT_MODELS` then name aliases of the relay.
+`TITLE_MODEL` can also name a relay alias. The agent model selection shows them as `relay/<alias>`. Each alias comes with the thinking levels it offers on the
 server, including what goes to the target for each level, and with its compaction values; the
 client offers the same levels, sends the same as the server for a chosen level, and compacts with
 the same values. The relay does not pass on the default thinking level of an alias. An unreachable
@@ -325,7 +329,7 @@ MODEL_ALIASES: [
 ],
 ```
 
-`id` is the provider name used directly by `AGENT_PROVIDER` and `COMPACTION_PROVIDER`, or as the
+`id` is the provider name used directly by `AGENT_PROVIDER`, or as the
 prefix in an alias target `provider/model`. It must not be `alias` or `relay`.
 `sdk` names the AI SDK provider package that serves the provider's models, from a fixed registry in
 `packages/ai` (`MODEL_SDKS`, `createChatModel`): `mistral` uses `@ai-sdk/mistral`,
@@ -631,19 +635,17 @@ conversely, its own selection changes no defaults for new runs or agents.
 ## Model for automatic titles
 
 Title generation is a host service with its own model selection under Settings, Models, Titles. It
-uses the configured models of `COMPACTION_PROVIDER`, independent of
-`AGENT_MODELS` and the roles. Models with text input that support reasoning turned off are
-selectable. Title execution always sets reasoning to `off`; there is no additional thinking level
-selection.
+offers text models supporting reasoning `off` from all configured providers, including relay
+models and profile aliases. Title execution uses `off`. The selection is independent of the
+agent roles and `AGENT_MODELS`.
 
-`COMPACTION_MODEL` is the default as long as `${DATA_DIR}/title-settings.json` is missing; an empty
-default disables automatic generation. A configured compaction provider must exist even when
-this default is empty. If the provider offers no suitable model, the selection
-stays empty: without a default, the server starts with title generation turned off and says so in
-the settings; a default without a matching model stays a start error. The bundled files for core
-and showcase use `google/gemma-4-26b-a4b-it` (Gemma 4 A4B). Gemma 4 A4B, Qwen 3.8 Flash, and
+`host.TITLE_MODEL` sets the default by model id or alias. The name must identify exactly one
+configured model across providers. If several providers offer the same id, give the desired
+model a unique name in `MODEL_ALIASES` and use that name. An unknown, ambiguous, or unsuitable
+default is a startup error. With the key omitted or empty, automatic titles start disabled.
+The bundled files for core and showcase use `google/gemma-4-26b-a4b-it` (Gemma 4 A4B). Gemma 4 A4B, Qwen 3.8 Flash, and
 GPT-5.4 nano are at the top of the suitable model selection; further matching models stay
-selectable. Stored settings take precedence. The file contains `selection` with provider and model
+selectable. Stored settings in `${DATA_DIR}/title-settings.json` take precedence. The file contains `selection` with provider and model
 or `null` to disable. A stored selection whose model is no longer suitable or configured loads
 without blocking startup. Settings show it with a notice and offer another model or turning titles
 off. Generation with it leaves the run's title unchanged and reports a warning naming the stored

@@ -9,6 +9,7 @@ import { fauxAssistantMessage, registerFauxProvider, type Context } from "@ragen
 
 import { resolveExecution, StaticModelCatalog, type CatalogModel } from "../src/agents/catalog.ts";
 import { modelContextOf } from "../src/agents/model-context.ts";
+import { orchestrationRegistry } from "./orchestration-fixture.ts";
 import { TurnScheduler } from "../src/agents/scheduler.ts";
 import { FixedWorkspaces } from "../src/agents/workspaces.ts";
 import { thinkingLevels } from "../src/domain/driver.ts";
@@ -60,7 +61,7 @@ test("the system prompt stays byte-identical across turns; preloaded skills and 
     faux.setResponses([answer("Reviewed."), answer("Continued."), answer("Wrapped up.")]);
     const engineFor = (journal: Journal, runtime: Orchestration) => {
         const driver = new AgentLoopDriver({ modelRuntime, resolveSkills: () => [skill], skillPreload: { selector: async () => null } });
-        const scheduler = new TurnScheduler(runtime, journal, { drivers: { agent: driver }, catalog: fauxCatalog, workspaces: new FixedWorkspaces(directory) });
+        const scheduler = new TurnScheduler(runtime, journal, { drivers: { agent: driver }, catalog: fauxCatalog, registry: orchestrationRegistry(), workspaces: new FixedWorkspaces(directory) });
         return { driver, scheduler, stop: async () => { await scheduler.stop(); await driver.shutdown(); } };
     };
 

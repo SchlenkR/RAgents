@@ -43,6 +43,7 @@ const { composeProfile } = await import("../src/profile/compose.ts");
 const { documentStoreToken } = await import("../src/ragents/document-store.ts");
 const { productRuntimeToken } = await import("../src/ragents/product-runtime.ts");
 const { workspaceRuntimeToken } = await import("../src/ragents/workspace-runtime.ts");
+const { watchServiceToken } = await import("../../../plugins/ragents.watch/server/contract.ts");
 const { browserRuntimeToken } = await import("../../../plugins/ragents.browser/server/contract.ts");
 
 const composed = async (profile: CompositionFixture, defaultStartEntry?: string): Promise<PluginHost> => {
@@ -112,6 +113,8 @@ test("the neutral showcase fixture composes real plugins and folder contribution
   assert.ok(host.optionalService(browserRuntimeToken), "browser service is missing");
   assert.deepEqual(names(host.operations.describe()), ["actor_input"]);
   assert.deepEqual(host.tools.describe().map((tool) => tool.name).sort(), [
+    "actor_input", "actor_list", "actor_restart", "actor_stop", "agent_spawn", "artifact_publish", "artifact_read",
+    "event_query", "event_subscribe", "event_subscription_list", "event_unsubscribe", "model_list", "run_configure",
     "ask_user", "bash", "copy", "edit",
     "fsharp_close", "fsharp_diagnostics", "fsharp_open",
     "global_app_create", "global_app_list", "global_app_remove",
@@ -157,10 +160,27 @@ test("a reduced fixture removes optional actor program and reference contributio
   assert.ok(host.optionalService(workspaceRuntimeToken), "WorkspaceRuntime is missing");
   assert.deepEqual(names(host.operations.describe()), ["actor_input"]);
   assert.equal(host.tools.describe().some((tool) => tool.name.startsWith("actor_program_") || tool.name.startsWith("actor_view_")), false);
-  assert.deepEqual(host.tools.describe().filter((entry) => !entry.nativeTool).map((entry) => entry.name), []);
+  assert.deepEqual(host.tools.describe().filter((entry) => !entry.nativeTool).map((entry) => entry.name).sort(),
+    ["event_query", "event_subscribe", "event_subscription_list", "event_unsubscribe"]);
   assert.deepEqual(await host.skills.global(), []);
   assert.equal(profile.startEntries.some((entry) => entry.owner === "ragents.reference"), false);
   assert.equal(host.accessProjections.state(programState, restricted), programState, "without the plugin the host knows no projection");
+});
+
+test("documents and watches initialize without orchestration", async () => {
+  const host = await composed({ ...minimalFixture, plugins: ["ragents.workspace", "ragents.product", "ragents.documents", "ragents.watch"] });
+  await host.initialize();
+  const runId = "solo-run";
+  const directory = await host.service(documentStoreToken).directoryFor(runId);
+  assert.equal(path.basename(directory), "documents");
+  assert.deepEqual(host.service(watchServiceToken).list(runId), []);
+  const functions = host.tools.describe().map((tool) => tool.name);
+  assert.ok(functions.includes("show_document") && functions.includes("watch_create"));
+  assert.ok(!functions.includes("agent_spawn"));
+  const documents = (await host.prompts.snapshot({ functions })).contributions.find((entry) => entry.id === "ragents.documents.prompt");
+  assert.ok(documents);
+  assert.match(documents.content, /show_document/);
+  assert.doesNotMatch(documents.content, /spawn agents/);
 });
 
 test("the default template of the profile file must be a registered template and then appears in the bootstrap", async () => {
@@ -177,7 +197,7 @@ test("every plugin carries its requires from the module contract into the manife
   assert.deepEqual(manifests.get("ragents.orchestration"), []);
   assert.deepEqual(manifests.get("ragents.actor-programs"), ["ragents.orchestration", "ragents.ask"]);
   assert.deepEqual(manifests.get("ragents.browser"), ["ragents.documents"]);
-  assert.deepEqual(manifests.get("ragents.product"), ["ragents.orchestration", "ragents.workspace"]);
+  assert.deepEqual(manifests.get("ragents.product"), ["ragents.workspace"]);
   assert.deepEqual(manifests.get("ragents.reference"), ["ragents.orchestration", "ragents.actor-programs"]);
 });
 
@@ -281,10 +301,7 @@ test("function catalogs keep compact descriptions while runtime functions retain
 });
 
 test("no tool offers the model a union at the root of its input schema", async () => {
-  const { agentTools } = await import("@ragents/engine");
   const roots = new Map<string, { type?: unknown; anyOf?: unknown; oneOf?: unknown }>();
-
-  for (const tool of agentTools) roots.set(tool.name, tool.schema);
 
   for (const fixture of [showcaseFixture, minimalFixture]) {
     const host = await composed(fixture);
