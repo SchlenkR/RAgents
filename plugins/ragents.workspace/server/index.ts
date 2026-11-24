@@ -142,6 +142,11 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
       void pending.catch(() => { if (startedSandbox === pending) startedSandbox = undefined; });
       return pending;
     };
+    const runSandbox = (): Promise<ServerProcessSandbox> => startSandbox().catch((cause: unknown) => {
+      console.warn(cause instanceof Error ? cause.message : String(cause));
+      throw new DomainError("process-sandbox-unavailable", "Commands and file changes on the server are unavailable because its process sandbox "
+        + "cannot start. Only an administrator can set it up; retrying does not help.", 503);
+    });
     const bash = bashSetting();
     const rg = rgSetting();
     const bashTimeoutSeconds = bashTimeoutSetting();
@@ -149,9 +154,9 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
     const runtime = new RunWorkspaceRuntime({
       clients,
       contributions: contributions.map((contribution) => contribution.parts),
-      processSandboxFor: (runId) => bindingOf(runState(runId)).machine !== "server" || securityFor(runId).restricted ? startSandbox() : Promise.resolve(undefined),
-      isolatedProcessSandboxFor: (runId) => bindingOf(runState(runId)).machine === "server" && !securityFor(runId).restricted ? Promise.resolve(undefined) : startSandbox(),
-      isolatedProcessSandbox: () => sandboxSetting.mode === "off" ? Promise.resolve(undefined) : startSandbox(),
+      processSandboxFor: (runId) => bindingOf(runState(runId)).machine !== "server" || securityFor(runId).restricted ? runSandbox() : Promise.resolve(undefined),
+      isolatedProcessSandboxFor: (runId) => bindingOf(runState(runId)).machine === "server" && !securityFor(runId).restricted ? Promise.resolve(undefined) : runSandbox(),
+      isolatedProcessSandbox: () => sandboxSetting.mode === "off" ? Promise.resolve(undefined) : runSandbox(),
       restrictedFor: (runId) => bindingOf(runState(runId)).machine !== "server" || securityFor(runId).restricted,
       grantsFor: (runId) => bindingOf(runState(runId)).machine === "server" ? grantsOf(runState(runId)) : [],
       grantPolicyFor: localGrantPolicy,

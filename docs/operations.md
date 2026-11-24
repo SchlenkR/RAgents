@@ -946,7 +946,8 @@ and language servers on its machine. Existing server folders can only be bound b
 administrators; other users use a new folder per run or their own workstation.
 
 An isolated Linux operation fails if bubblewrap, socat, ripgrep, or required user-namespace support
-is missing. Install the named prerequisite (for Debian or Ubuntu: `sudo apt-get install bubblewrap
+is missing. The run only learns that an administrator has to set up the sandbox; the server log names
+the missing prerequisite. Install it (for Debian or Ubuntu: `sudo apt-get install bubblewrap
 socat ripgrep`) and enable user namespaces in the kernel or container, or switch the run to
 "Full access" with local confirmation. Missing prerequisites never launch an unrestricted command.
 

@@ -1,5 +1,16 @@
 # Decisions
 
+## 2026-11-24: Sandbox failures reach the run as a short domain error
+
+Chapters `spec/plugins.md` and `operations.md`.
+
+An embedded assistant passed the sandbox start error with package names, install commands and
+configuration keys on to end users who cannot act on them. A run now gets the stable code
+`process-sandbox-unavailable` with a short message, and the server log keeps the cause for the
+administrator. Plugins can recognize the code instead of matching texts. Startup with
+`PROCESS_SANDBOX: "on"` still aborts with the full cause. The roots section of the prompt no longer
+names language servers, which a profile may not have; it speaks of tools that take a path.
+
 ## 2026-11-24: Profiles set model tools and the closing prompt
 
 Chapters `spec/profiles.md`, `spec/core.md`, `spec/plugins.md`, `spec/typescript-platform.md`,

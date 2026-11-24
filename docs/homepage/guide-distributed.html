@@ -1083,7 +1083,8 @@ confirmation. Returning to &quot;Isolated&quot; stops the run&#39;s background c
 and language servers on its machine. Existing server folders can only be bound by
 administrators; other users use a new folder per run or their own workstation.</p>
 <p>An isolated Linux operation fails if bubblewrap, socat, ripgrep, or required user-namespace support
-is missing. Install the named prerequisite (for Debian or Ubuntu: <code>sudo apt-get install bubblewrap socat ripgrep</code>) and enable user namespaces in the kernel or container, or switch the run to
+is missing. The run only learns that an administrator has to set up the sandbox; the server log names
+the missing prerequisite. Install it (for Debian or Ubuntu: <code>sudo apt-get install bubblewrap socat ripgrep</code>) and enable user namespaces in the kernel or container, or switch the run to
 &quot;Full access&quot; with local confirmation. Missing prerequisites never launch an unrestricted command.</p>
 <p>Embedded chat and multi-user servers must set <code>ragents.workspace.PROCESS_SANDBOX: &quot;on&quot;</code>, even
 when conversations belong to a service account with <code>*</code>. Run the server under its own operating

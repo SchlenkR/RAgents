@@ -132,7 +132,7 @@ const hasVariables = (roots: readonly ServerRootDescription[]): boolean => roots
 const serverRootsDescription = (roots: readonly ServerRootDescription[], bash: boolean): string => [
   "## Roots besides the working directory",
   "",
-  `This run also reaches ${rootList(roots)}. File tools and language servers take a path that starts with the alias, `
+  `This run also reaches ${rootList(roots)}. Tools that take a path accept one that starts with the alias, `
     + `such as \`${roots[0]!.alias}/<path>\`.`
     + (bash ? " `bash` runs in such a root with that path as `cwd`." : "")
     + (bash && hasVariables(roots) ? ` \`bash\` also has ${variableList(roots)}.` : ""),
@@ -142,7 +142,7 @@ const serverRootsDescription = (roots: readonly ServerRootDescription[], bash: b
 const workstationRootsDescription = (roots: readonly ServerRootDescription[], bash: boolean): string => [
   "## Roots on the server",
   "",
-  `This run also reaches roots on the server: ${rootList(roots)}. File tools and language servers reach them from the `
+  `This run also reaches roots on the server: ${rootList(roots)}. Tools that take a path reach them from the `
     + `workstation as well: pass a path that starts with the alias, such as \`${roots[0]!.alias}/<path>\`.`
     + (bash ? " `bash` runs on the workstation; with a `cwd` that starts with an alias it runs on the server instead and sees only the server"
       + (hasVariables(roots) ? `, and only that bash has ${variableList(roots)}.` : ".") : "")

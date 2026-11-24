@@ -5149,7 +5149,10 @@ core knows no Git here; the shared rule gives file tools and processes the same 
 
 When forced by `PROCESS_SANDBOX: "on"`, startup checks the prerequisites, starts the proxy,
 and runs one sandboxed process. Otherwise the first restricted server operation initializes
-it. Initialization failures refuse that operation with their cause; execution never falls
+it. An initialization failure at startup aborts it with the cause. A failure during a run refuses that
+operation with the domain error `process-sandbox-unavailable` (status 503), whose message only says
+that commands and file changes on the server are unavailable and that an administrator has to set
+up the sandbox; the cause goes to the server log. Execution never falls
 back to an unrestricted process. Causes include Windows (unsupported per-run folder rules),
 another unsupported platform, missing bubblewrap, socat, or ripgrep on Linux, and a kernel
 or container without user namespaces. An administrator's explicitly chosen full access can still work
