@@ -58,6 +58,9 @@ provisions the plugin tools and then starts the server. Nothing is built: the pa
 finished web interface, which is the same for every profile, and the server loads the web halves
 of the profile's plugins from their bundles at runtime.
 
+In a profile that hosts an assistant, set the model tool list and system prompt files in
+`ragents.product`, then restart the host. See [Model tools and system prompt](../spec/profiles.md#model-tools-and-system-prompt).
+
 The server loads plugins only as bundles. The package carries its built-in plugins as bundles
 under `bundles/`; a custom plugin is built first with `ragents plugin build <source-folder...>`,
 which writes `./dist/plugins/<custom-plugin-id>` by default. The package brings everything this

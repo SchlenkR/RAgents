@@ -70,6 +70,7 @@ export interface PublicPromptContribution {
   owner: string;
   order: number;
   delivery: "initial" | "on-demand";
+  suffix?: true;
   content: string;
   requiresTools: readonly string[];
 }
@@ -321,6 +322,7 @@ export interface PromptContribution {
   id: string;
   order: number;
   delivery?: "initial" | "on-demand";
+  suffix?: true;
   requiresTools?: readonly string[];
   render: (context: PromptRenderContext) => string | Promise<string>;
   /** If the contribution depends on the individual run, this text replaces the one from `render`, undefined keeps it - synchronous so the turn has it without waiting. */

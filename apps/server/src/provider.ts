@@ -272,6 +272,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       coordinator: globalPolicy ? { ...productRuntime.coordinator, displayName: globalPolicy.title } : productRuntime.coordinator,
       initialTitle: globalPolicy?.title ?? initialTitle,
       ...(globalPolicy ? { toolNames: globalPolicy.toolNames } : {}),
+      ...(productRuntime.agentToolNames ? { agentToolNames: productRuntime.agentToolNames } : {}),
       ...(globalPolicy?.model ? { modelSelection: () => globalPolicy.model!.selection() } : {}),
       ...(globalPolicy?.inputContext ? { inputContext: globalPolicy.inputContext } : {}),
       prompt: () => engine.systemPromptFor(id),
@@ -650,7 +651,7 @@ export class RunSessionProvider implements ChatSessionProvider {
         const workspace = await this.resolveWorkspace(id, emitSystem, preparationSignal);
         preparationSignal.throwIfAborted();
         this.ensureUsable(id);
-        this.workspaces.remember(id, workspace.cwd, workspace.description);
+        this.workspaces.remember(id, workspace.cwd, workspace.descriptionForTools ?? workspace.description);
         return workspace;
       } catch (error) {
         this.sessionWorkspaces.delete(id);

@@ -107,7 +107,8 @@ own. Snippets and persistent actor programs use the same typed functions of the 
 `context.functions`. Equipped models automatically receive the available function names with short
 descriptions, load the details through `typescript_api`, and run snippets with `typescript_eval`.
 These two tools are part of the server's basic equipment, independent of the optional plugin for
-actor programs; an explicit tool list with `exactTools: true` receives them only when named.
+actor programs. The [profile and actor tool selections](profiles.md#model-tools-and-system-prompt)
+can omit them.
 Domain tasks describe the desired result; the model works out the technical
 implementation from the environment. A prepared setup can be built by a run script. Skills combine
 working instructions for agents with optional editable start tasks and supplementary files;

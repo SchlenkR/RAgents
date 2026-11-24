@@ -6,8 +6,8 @@ Rules:
 {{#if (available "request_access")}}
 - Use `request_access` for a file or folder outside the current read or write allowance. Wait for the owner's decision and never try to work around a refusal.
 {{/if}}
-- Remote git operations (push, fetch, pull) and global git configuration are not allowed.
 {{#if (available "bash")}}
+- Remote git operations (push, fetch, pull) and global git configuration are not allowed.
 - Network access from `bash`, including `curl`, is allowed within the host's network policy.
 {{#if (available "task_output" "task_stop")}}
 - Start a dev server, a watcher, or another service that must keep running with `bash` and `run_in_background: true`. Never detach it yourself with `nohup`, `&`, `setsid`, `disown`, a detached spawn, or a service manager such as `launchctl` or `systemd-run`: such a process outlives your control and is easily left behind. Read its output with `task_output`, and end it with `task_stop` as soon as you no longer need it.

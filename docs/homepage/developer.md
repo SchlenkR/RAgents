@@ -1880,9 +1880,11 @@ host.provide(productRuntimeToken, policy);
 
 coordinator describes handle, display name, profile, run title, and owner. roleFor determines primary or worker, contract returns the role prompt, promptComposition the composition, and systemPrompts the catalog.
 
+agentToolNames limits model tools for this profile. systemPromptSuffix renders a replacement for the general closing sections using the reader's available functions.
+
 A new domain plugin does not register a second product service next to an existing product. The configuration must provide a complete model catalog for the profile in use.
 
-Contract fields: product.coordinator, product.roleFor, product.contract, product.promptComposition, product.systemPrompts.
+Contract fields: product.coordinator, product.roleFor, product.contract, product.promptComposition, product.systemPrompts, product.agentToolNames, product.systemPromptSuffix.
 
 ### Resolve workspaces
 
@@ -2965,6 +2967,8 @@ export interface ProductRuntimePolicy {
   contract: (role: ActorRole) => string;
   promptComposition: string;
   systemPrompts: () => SystemPromptCatalog;
+  agentToolNames?: readonly string[];
+  systemPromptSuffix?: (context: PromptRenderContext) => string | Promise<string>;
 }
 ```
 

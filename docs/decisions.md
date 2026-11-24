@@ -1,5 +1,16 @@
 # Decisions
 
+## 2026-11-24: Profiles set model tools and the closing prompt
+
+Chapters `spec/profiles.md`, `spec/core.md`, `spec/plugins.md`, `spec/typescript-platform.md`,
+and `spec/overview.md`.
+
+An assistant profile can reuse plugin services while choosing a small model interface.
+`AGENT_TOOLS` narrows the existing actor tool resolution on every turn. This keeps prompt
+rendering and tool calls on the same effective selection, including resumed actors.
+`SYSTEM_PROMPT_SUFFIX_PATH` uses the existing Handlebars renderer for the closing sections.
+Workspace access has one initial contribution, independent of the shell platform description.
+
 ## 2026-11-23: Profiles choose orchestration and name a model for titles
 
 Chapters: `spec/core.md`, `spec/plugins.md`, `spec/typescript-platform.md`, and `spec/profiles.md`.

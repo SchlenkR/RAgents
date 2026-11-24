@@ -2,7 +2,7 @@ export interface Workspaces {
     ensure(runId: string, workspacePath: string | null): string;
     waitUntilReady?(runId: string, signal: AbortSignal): Promise<void>;
     /** How the run's workspace is described to a model; undefined when nothing describes it. */
-    description(runId: string): string | undefined;
+    description(runId: string, toolNames: readonly string[]): string | undefined;
     /** Stores an attached file in the run's storage, available through @attachments; returns its name there. */
     storeAttachment(runId: string, name: string, content: Uint8Array, reuseIdentical?: boolean): Promise<string>;
 }

@@ -773,6 +773,8 @@ ragents run ~/projects/mine &quot;Build this&quot; --profile ~/projects/mine/rag
 provisions the plugin tools and then starts the server. Nothing is built: the package carries the
 finished web interface, which is the same for every profile, and the server loads the web halves
 of the profile&#39;s plugins from their bundles at runtime.</p>
+<p>In a profile that hosts an assistant, set the model tool list and system prompt files in
+<code>ragents.product</code>, then restart the host. See <a href="../spec/profiles.md#model-tools-and-system-prompt">Model tools and system prompt</a>.</p>
 <p>The server loads plugins only as bundles. The package carries its built-in plugins as bundles
 under <code>bundles/</code>; a custom plugin is built first with <code>ragents plugin build &lt;source-folder...&gt;</code>,
 which writes <code>./dist/plugins/&lt;custom-plugin-id&gt;</code> by default. The package brings everything this

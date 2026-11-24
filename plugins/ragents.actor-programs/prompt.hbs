@@ -1,7 +1,8 @@
 ## Actor programs
 
-Inspect types with `typescript_api`; call functions directly, or combine them through
-`context.functions` in `typescript_eval` or an actor program. Use snippets for one-time work, programs for persistent state, later inputs or views.
+{{#if (available "typescript_api")}}Inspect types with `typescript_api`. {{/if}}Call functions directly.{{#if (available "typescript_eval")}}
+Use `typescript_eval` to combine calls in a one-off snippet.{{/if}}
+Actor programs combine calls through `context.functions` and handle persistent state, later inputs or views.
 Work that waits and then continues is a `defineProgram`: read `topic: "state-aware"`.
 
 Actors can own TypeScript functions, journaled state and React views. An LLM actor still uses

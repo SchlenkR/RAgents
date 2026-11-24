@@ -4,6 +4,7 @@ import { storedStartOption } from "@ragents/host/ragents/start-option-state.js";
 import { bindingOf, type WorkspaceRunState } from "./binding.js";
 import { WORKSPACE_ACCESS_OPTION_ID, WORKSPACE_BINDING_OPTION_ID, storedWorkspaceBinding, type WorkspaceBinding } from "../contract.js";
 import type { RunSecurityPolicy } from "./contract.js";
+import { agentWorkspaceToolNames } from "./workspace-tool-naming.js";
 
 export const accessLevelOf = (state: WorkspaceRunState | null): "isolated" | "full" => {
   const value = storedStartOption(state, WORKSPACE_ACCESS_OPTION_ID);
@@ -92,6 +93,7 @@ export const accessNoteContribution = (
 ): AgentContribution => ({
   id: "ragents.workspace.access-note",
   beforeModelCall: ({ runId }, call) => {
+    if (call.toolNames && !call.toolNames.some((name) => agentWorkspaceToolNames.includes(name))) return undefined;
     const state = stateFor(runId);
     const level = accessLevelOf(state);
     const marker = revisionFor(runId);

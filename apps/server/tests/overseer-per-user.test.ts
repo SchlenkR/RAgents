@@ -25,6 +25,7 @@ import { workspaceRuntimeToken, type SessionWorkspace } from "../src/ragents/wor
 import { sandboxServicesToken } from "../src/plugin-support/workspace-sandbox-host.ts";
 import { runOwnerAccessToken } from "../src/ragents/host-services.ts";
 import { profileAccessFor } from "../src/ragents/profile-access.ts";
+import { registerTypeScriptFunctions } from "../src/ragents/typescript-tools.ts";
 
 const root = await mkdtemp(path.join(tmpdir(), "ragents-overseer-users-"));
 const dataDirectory = path.join(root, "data");
@@ -98,6 +99,7 @@ test("every user has their own coordinator whose tools act only with that user's
       },
     });
     host.register(plugin.create(host));
+    registerTypeScriptFunctions(host);
     host.seal();
     return host;
   }, "http://127.0.0.1:51235");
@@ -144,8 +146,8 @@ test("every user has their own coordinator whose tools act only with that user's
     return createAccessContext(sessions.coordinatorSnapshot(user.userId));
   };
   const policy = provider.plugins.service(globalChatToken);
-  assert.deepEqual(policy.toolNames, ["read", "write", "edit", "overseer_notify", "run_list"], "with users the coordinator has no host shell");
-  assert.match(policy.prompt, /you have no shell/);
+  assert.deepEqual(policy.toolNames, ["read", "write", "edit", "overseer_notify", "run_list", "typescript_api", "typescript_eval"], "with users the coordinator has no host shell");
+  assert.match(policy.prompt, /Your tools include read, write and edit\./);
   assert.match(policy.prompt, /JSON-RPC calls via fetch in a snippet/);
   assert.doesNotMatch(policy.prompt, /read, write, edit and bash|bash function|bash and curl/);
   const aliceTools = await toolAccess(aliceCoordinator);

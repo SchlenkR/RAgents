@@ -15,9 +15,11 @@ export const ragentsProductConfigDescriptors = [
   { key: "AGENT_PROVIDER", source: "environment" },
   { key: "AGENT_MODEL", source: "environment" },
   { key: "AGENT_THINKING", source: "environment" },
+  { key: "AGENT_TOOLS", source: "environment" },
   { key: "AGENT_COORDINATOR_MODEL", source: "environment" },
   { key: "AGENT_COORDINATOR_THINKING", source: "environment" },
   { key: "SYSTEM_PROMPT_PATH", source: "environment" },
+  { key: "SYSTEM_PROMPT_SUFFIX_PATH", source: "environment" },
   { key: "RELAY_URL", source: "environment" },
   { key: "RELAY_TOKEN", source: "environment", secret: true },
   ...chatDisplayEnvDescriptors,
@@ -29,6 +31,14 @@ export const ragentsProductConfigDescriptors = [
 const env = declaredEnvironment(ragentsProductConfigDescriptors);
 
 const systemPromptPath = env.optional("SYSTEM_PROMPT_PATH");
+const systemPromptSuffixPath = env.optional("SYSTEM_PROMPT_SUFFIX_PATH");
+const agentToolNames = (): readonly string[] | undefined => {
+  if (env.optional("AGENT_TOOLS") === undefined) return undefined;
+  const names = env.list("AGENT_TOOLS");
+  if (names.some((name) => !name || name.trim() !== name) || new Set(names).size !== names.length)
+    throw new Error("AGENT_TOOLS needs distinct non-empty tool names without surrounding whitespace");
+  return names;
+};
 const provider = env.value("AGENT_PROVIDER", "openrouter");
 
 // With AGENT_PROVIDER "relay", catalog and model access come from another RAgents server.
@@ -53,9 +63,11 @@ export const ragentsProductConfig = Object.freeze({
   relay,
   model: configuredModel,
   thinking: () => roleThinkingLevel(env.optional("AGENT_THINKING"), "AGENT_THINKING", provider, configuredModel()),
+  agentToolNames: agentToolNames(),
   coordinatorModel: configuredCoordinatorModel,
   coordinatorThinking: () => roleThinkingLevel(env.optional("AGENT_COORDINATOR_THINKING"), "AGENT_COORDINATOR_THINKING", provider, configuredCoordinatorModel()),
   systemPromptPath: systemPromptPath ? path.resolve(systemPromptPath) : undefined,
+  systemPromptSuffixPath: systemPromptSuffixPath ? path.resolve(systemPromptSuffixPath) : undefined,
   chatDisplayPolicy: chatDisplayPolicyFromEnvironment(env, { selectable: true }),
   skills: skillsFromEnvironment(env, "ragents.file"),
   modelChoice: modelChoiceFromEnvironment(env, {

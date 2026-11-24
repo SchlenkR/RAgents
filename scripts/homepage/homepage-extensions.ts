@@ -1162,8 +1162,9 @@ const policy: ProductRuntimePolicy = {
   promptComposition: "Product prompt and role contract are used together.",
   systemPrompts: () => ({ mode: "fixed", options: [], defaultIds: [], shareDefault: false }),
 };
-host.provide(productRuntimeToken, policy);`, ["product.coordinator", "product.roleFor", "product.contract", "product.promptComposition", "product.systemPrompts"], [
+host.provide(productRuntimeToken, policy);`, ["product.coordinator", "product.roleFor", "product.contract", "product.promptComposition", "product.systemPrompts", "product.agentToolNames", "product.systemPromptSuffix"], [
     "coordinator describes handle, display name, profile, run title, and owner. roleFor determines primary or worker, contract returns the role prompt, promptComposition the composition, and systemPrompts the catalog.",
+    "agentToolNames limits model tools for this profile. systemPromptSuffix renders a replacement for the general closing sections using the reader's available functions.",
     "A new domain plugin does not register a second product service next to an existing product. The configuration must provide a complete model catalog for the profile in use.",
   ]),
   entry("workspace-policy", "Product and runtime contracts", "Resolve workspaces", "A workspace determines in which directories the agents of a run work with files and processes. The WorkspaceRuntime service resolves this area and describes it. An optional WorkspaceResolver can adjust the assignment without replacing the entire service.", "register(host); workspaceResolverToken comes from the neutral server host.", `

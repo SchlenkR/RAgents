@@ -15,6 +15,7 @@ export const shellPlatformPrompt = (
   id,
   order,
   delivery: "initial",
+  suffix: true,
   render: () => shellPlatformChapter(process.platform, serverTools),
   ...(chapterFor ? { renderForRun: chapterFor } : {}),
 }, "bash");

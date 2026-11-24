@@ -92,6 +92,8 @@ test("the system prompts of the core coordinator, an ordinary agent and the glob
   assert.match(worker.systemPrompt, /Reader-specific rules/);
   assert.doesNotMatch(worker.systemPrompt, /event_query/);
   assert.match(cases[0]!.request!.systemPrompt, /Use event_query for history/);
+  assert.match(cases[0]!.request!.systemPrompt, /Everything you write in the model text/);
+  assert.equal(cases[0]!.request!.systemPrompt.match(/Isolated access on the server:/g)?.length, 1);
   const coordinator = cases[2]!.request!;
   assert.ok(coordinator.functionNames.includes("actor_program_controls"), "the global coordinator reads the authoring guide");
   assert.equal(coordinator.functionNames.includes("actor_program_activate"), false, "it activates through global_app_create");

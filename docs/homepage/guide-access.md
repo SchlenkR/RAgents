@@ -99,8 +99,8 @@ User permissions such as `runs.write` instead control access to application rout
 The `tools` value on spawn selects the actor's function API: `[]` for a plain LLM, a list of
 names for selected functions plus automatic TypeScript tools, or `null` for the dynamic full set.
 `exactTools: true` requires an explicit array and adds no TypeScript tools; names explicitly
-included remain available. The selection is not inherited
-from the coordinator. Delegable engine capabilities are inherited as grants and can be reduced
+included remain eligible. The profile's `AGENT_TOOLS` list also applies. Each actor has its own
+selection. Delegable engine capabilities are inherited as grants and can be reduced
 with `withoutCapabilities`. Prompt instructions describe a role but grant no technical access.
 Actor programs also declare required functions under `capabilities`; this limits calls but does
 not supply missing grants. The [runtime guide](guide-runtime.html#equipping-subagents)

@@ -1,12 +1,12 @@
 ## Actor programs
 
-Use snippets for one-time work; actor programs own functions, shared state and React views.
+{{#if (available "typescript_eval")}}Use snippets for one-time work. {{/if}}Actor programs own functions, shared state and React views.
 {{#if (available "actor_program_create")}}
 Use `actor_program_create` with the closest template; reuse its code and tests in the returned
 `directory`{{#if (available "actor_program_activate")}}, then `actor_program_activate`{{/if}}{{#if (available "bash")}}. Use `bash` with `cwd: "@actors/<name>"`,
 in a room `cwd: "@actors/<room>.<name>"`{{/if}}.
 {{/if}}
-Call functions directly; `typescript_api` gives contracts. Published functions join your tools this turn.
+Call functions directly.{{#if (available "typescript_api")}} `typescript_api` gives contracts.{{/if}} Published functions join your tools this turn.
 Bind with `self` or `@handle`; otherwise a backend creates a TypeScript actor and a pure view
 uses the caller. UI functions need no model turn. Project errors arrive automatically{{#if (available "actor_program_diagnostics")}};
 `actor_program_diagnostics` gives details{{/if}}. Visible views open as tabs beside Chat.

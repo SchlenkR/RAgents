@@ -365,8 +365,8 @@ test("initial access prompts stay unchanged while the first model call reports a
   const runId = "prompt-access";
   f.createRun(runId, "administrator");
   const prompts = f.host.prompts.runOverrides(runId);
-  assert.match(prompts.get("ragents.workspace.access.prompt") ?? "", /Isolated access on the server/);
-  assert.match(prompts.get("ragents.workspace.shell.prompt") ?? "", /Isolated access on the server/);
+  assert.match(prompts.get("ragents.workspace.access.prompt") ?? "", /## Run access\n\nIsolated access on the server/);
+  assert.doesNotMatch(prompts.get("ragents.workspace.shell.prompt") ?? "", /Run access|Isolated access/);
   const replace = (level: "isolated" | "full") => {
     const state = f.orchestration.state(runId);
     f.orchestration.replacePluginState({ actorId: state.ownerId, commandId: `access:${state.revision}` }, runId, {
@@ -379,6 +379,7 @@ test("initial access prompts stay unchanged while the first model call reports a
   const call = () => ({ signal: undefined, modelReadsImages: false, kept: kept.at(-1), keep: (value: JsonValue) => { kept.push(value); } });
   replace("full");
   assert.deepEqual(f.host.prompts.runOverrides(runId), prompts);
+  assert.equal(await hook()({ ...call(), toolNames: ["ask_user"] }), undefined);
   assert.match((await hook()(call()))!, /Run access changed.*Full access on the server/);
   assert.equal(await hook()(call()), undefined);
   replace("isolated");

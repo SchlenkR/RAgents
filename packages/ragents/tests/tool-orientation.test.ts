@@ -11,13 +11,20 @@ const evaluator = defineRunFunction({
 
 test("native tool orientation points at the shared API without an opening protocol", () => {
     const orientation = toolOrientationText([evaluator]);
-    assert.match(orientation, /typescript_api/);
+    assert.doesNotMatch(orientation, /typescript_api/);
     assert.match(orientation, /context.functions/);
     assert.doesNotMatch(orientation, /tool_open|indexed/);
 });
 
 test("plain LLMs receive no TypeScript orientation", () => {
     assert.equal(toolOrientationText([]), "");
+    assert.equal(toolOrientationText([{ ...evaluator, name: "read" }]), "");
+});
+
+test("discovery alone describes the API without offering snippet execution", () => {
+    const orientation = toolOrientationText([{ ...evaluator, name: "typescript_api" }]);
+    assert.match(orientation, /typescript_api/);
+    assert.doesNotMatch(orientation, /typescript_eval|context.functions/);
 });
 
 

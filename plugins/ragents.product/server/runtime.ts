@@ -1,4 +1,5 @@
 import type { ProductRuntimePolicy } from "@ragents/host/ragents/product-runtime.js";
+import { handlebarsPrompt } from "@ragents/host/plugin-support/prompt.js";
 import { ragentsProductConfig } from "./config.js";
 
 const contract = [
@@ -13,6 +14,8 @@ const promptComposition = [
   "Actors with workspace tools get the workspace description as the last chapter; the agent runtime adds skills and hooks.",
 ].join(" ");
 
+const suffixPath = ragentsProductConfig.systemPromptSuffixPath;
+
 export const ragentsProductRuntime = {
   coordinator: {
     handle: "coordinator",
@@ -24,6 +27,8 @@ export const ragentsProductRuntime = {
   },
   roleFor: (view, actor) => view.primaryActorId === actor.id ? "primary" : "worker",
   contract: () => contract,
-  promptComposition,
+  promptComposition: suffixPath ? "The profile supplies the final prompt section for model actors." : promptComposition,
   systemPrompts: ragentsProductConfig.systemPrompts,
+  ...(ragentsProductConfig.agentToolNames === undefined ? {} : { agentToolNames: ragentsProductConfig.agentToolNames }),
+  ...(suffixPath ? { systemPromptSuffix: handlebarsPrompt("ragents.product.suffix", 0, suffixPath).render } : {}),
 } satisfies ProductRuntimePolicy;

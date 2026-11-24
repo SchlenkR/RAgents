@@ -3,7 +3,6 @@ import path from "node:path";
 import { Type } from "typebox";
 import { DomainError, type AccessContext, type JsonValue, type RunListDetail, type RunState, type StartOptionContribution, type StartOptionContext } from "@ragents/engine";
 import type { ShellTools } from "@ragents/workspace-executor";
-import { accessDescription } from "./security.js";
 import { shellPlatformChapter } from "./shell-platform.js";
 import { storedStartOption } from "@ragents/host/ragents/start-option-state.js";
 import type { WorkspaceResolver } from "@ragents/host/ragents/workspace-runtime.js";
@@ -98,20 +97,14 @@ export const executorShellChapter = (
   owner: string | null,
   binding: WorkspaceBinding,
   serverTools: ShellTools,
-  level: "isolated" | "full" = "isolated",
 ): string => {
   const { machine } = binding;
-  const client = machine === "server" ? undefined : registry.info(owner, machine.client);
-  const access = `
-
-## Run access
-
-${accessDescription(level, machine !== "server", client?.platform)}`;
-  if (machine === "server") return shellPlatformChapter(process.platform, serverTools) + access;
-  return (client
+  if (machine === "server") return shellPlatformChapter(process.platform, serverTools);
+  const client = registry.info(owner, machine.client);
+  return client
     ? shellPlatformChapter(client.platform as NodeJS.Platform, { ripgrep: client.ripgrep })
     : `## Shell platform\n\nThe workstation ${machine.label} that holds this project is not registered right now, `
-      + "so the platform of its shell is unknown; the workspace tools fail until it connects again.") + access;
+      + "so the platform of its shell is unknown; the workspace tools fail until it connects again.";
 };
 
 /** Where the root of a run is, in words: on a workstation with its label, otherwise the path itself. */

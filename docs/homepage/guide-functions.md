@@ -32,16 +32,16 @@ foundation, even without the optional actor-program plugin. A function can stay 
 the same implementation, working-directory resolution, permission checks, and journal recording.
 Plugins register each implementation once; snippets and persistent actor programs use the same API.
 
-Every equipped LLM actor receives its native tools as tool definitions with their short and
-detailed descriptions. Its system prompt additionally explains the snippet path and lists the
-snippet-only functions available to it with names and short descriptions. This applies to
-coordinators and subagents. Both update even during a turn, including functions that an actor
-program activates. Neither grants additional functions or permissions; plain LLMs with
-`tools: []` receive neither.
+Every equipped LLM actor receives its selected native tools as tool definitions with their short
+and detailed descriptions. The default system prompt describes each TypeScript tool the actor
+has. With `typescript_eval` it also lists the snippet-only functions available to it with names
+and short descriptions. This applies to coordinators and subagents and updates during a turn,
+including when an actor program activates functions. Plain LLMs with `tools: []` receive only
+their own instructions.
 
 An explicit `tools` array with `exactTools: true` receives no automatic TypeScript tools.
-`typescript_api` and `typescript_eval` must be named explicitly to remain available; an omitted
-tool cannot be called. This selection does not change grants ([core.md](../spec/core.md#equipping-subagents)).
+`typescript_api` and `typescript_eval` must be named explicitly to remain available. A configured
+`AGENT_TOOLS` list also applies to automatic tools ([core.md](../spec/core.md#equipping-subagents)).
 
 ### Short descriptions and details
 

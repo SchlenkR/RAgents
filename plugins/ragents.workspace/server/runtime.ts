@@ -129,23 +129,24 @@ const variableList = (roots: readonly ServerRootDescription[]): string => listed
 const hasVariables = (roots: readonly ServerRootDescription[]): boolean => roots.some((root) => root.environmentVariable !== undefined);
 
 /** On the server, workspace and roots are on one machine; every bash sees both. */
-const serverRootsDescription = (roots: readonly ServerRootDescription[]): string => [
+const serverRootsDescription = (roots: readonly ServerRootDescription[], bash: boolean): string => [
   "## Roots besides the working directory",
   "",
   `This run also reaches ${rootList(roots)}. File tools and language servers take a path that starts with the alias, `
-    + `such as \`${roots[0]!.alias}/<path>\`; \`bash\` runs in such a root with that path as \`cwd\`.`
-    + (hasVariables(roots) ? ` \`bash\` also has ${variableList(roots)}.` : ""),
+    + `such as \`${roots[0]!.alias}/<path>\`.`
+    + (bash ? " `bash` runs in such a root with that path as `cwd`." : "")
+    + (bash && hasVariables(roots) ? ` \`bash\` also has ${variableList(roots)}.` : ""),
 ].join("\n");
 
 /** The roots are on the server, the workspace on the workstation; a bash always sees only one of the two machines. */
-const workstationRootsDescription = (roots: readonly ServerRootDescription[]): string => [
+const workstationRootsDescription = (roots: readonly ServerRootDescription[], bash: boolean): string => [
   "## Roots on the server",
   "",
   `This run also reaches roots on the server: ${rootList(roots)}. File tools and language servers reach them from the `
-    + `workstation as well: pass a path that starts with the alias, such as \`${roots[0]!.alias}/<path>\`. \`bash\` runs on `
-    + "the workstation; with a `cwd` that starts with an alias it runs on the server instead and sees only the server"
-    + (hasVariables(roots) ? `, and only that bash has ${variableList(roots)}` : "")
-    + ". One call reaches one machine: never combine a path with an alias and a path in the working directory in one call.",
+    + `workstation as well: pass a path that starts with the alias, such as \`${roots[0]!.alias}/<path>\`.`
+    + (bash ? " `bash` runs on the workstation; with a `cwd` that starts with an alias it runs on the server instead and sees only the server"
+      + (hasVariables(roots) ? `, and only that bash has ${variableList(roots)}.` : ".") : "")
+    + " One call reaches one machine: never combine a path with an alias and a path in the working directory in one call.",
 ].join("\n");
 
 export class RunWorkspaceRuntime implements WorkspaceRuntime {
@@ -356,8 +357,12 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
   async #withRoots(workspace: SessionWorkspace, onWorkstation: boolean): Promise<SessionWorkspace> {
     const roots = await this.sandbox.serverRoots();
     if (roots.length === 0) return workspace;
-    const described = onWorkstation ? workstationRootsDescription(roots) : serverRootsDescription(roots);
-    return { ...workspace, description: [workspace.description, described].filter(Boolean).join("\n\n") };
+    const describeRoots = onWorkstation ? workstationRootsDescription : serverRootsDescription;
+    const descriptionForTools = (toolNames: readonly string[]) => [
+      workspace.descriptionForTools?.(toolNames) ?? workspace.description,
+      describeRoots(roots, toolNames.includes("bash")),
+    ].filter(Boolean).join("\n\n");
+    return { ...workspace, description: descriptionForTools(["bash"]), descriptionForTools };
   }
 
   placementOf(runId: string): WorkspacePlacement {

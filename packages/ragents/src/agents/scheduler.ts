@@ -40,7 +40,9 @@ export type TurnSchedulerOptions = {
     workspaceToolNaming?: WorkspaceToolNaming | undefined;
     /** The prompt of the actor before its contract; toolNames are its functions, native and snippet-only. */
     basePrompt?: (runId: string, actor: ExecutableActor, toolNames: readonly string[]) => string | Promise<string>;
-    contract?: (actor: ExecutableActor) => string;
+    contract?: (actor: ExecutableActor, toolNames: readonly string[]) => string;
+    systemPromptSuffix?: (toolNames: readonly string[]) => string | Promise<string>;
+    agentToolNames?: readonly string[];
     toolChapters?: (runId: string, actor: ExecutableActor, toolNames: readonly string[], availableTools: readonly RunFunction[]) => string | Promise<string>;
     /** What a model reads before one of its inputs, such as the interface context of a message; journaled with the input, never in the system prompt. */
     inputOrientation?: (runId: string, input: DeliveredInput) => string;
@@ -140,20 +142,6 @@ const turnProgressEvents = new Set<JournalEvent["type"]>([
     "context.compacted",
 ]);
 
-const systemPromptFor = async (
-    runId: string,
-    actor: ExecutableActor,
-    toolNames: readonly string[],
-    basePrompt: (runId: string, actor: ExecutableActor, toolNames: readonly string[]) => string | Promise<string>,
-    contract: (actor: ExecutableActor) => string,
-    orientation: string,
-    workspace: string,
-) => actor.kind === "agent" && actor.toolNames?.length === 0
-    ? actor.prompt.trim()
-    : [(await basePrompt(runId, actor, toolNames)).trim(), contract(actor).trim(), orientation, workspace]
-        .filter(Boolean)
-        .join("\n\n");
-
 export class TurnScheduler {
     readonly #runtime: Orchestration;
     readonly #journal: Journal;
@@ -166,7 +154,9 @@ export class TurnScheduler {
     readonly #live: LiveBus | undefined;
     readonly #workspaceToolNaming: WorkspaceToolNaming | undefined;
     readonly #basePrompt: (runId: string, actor: ExecutableActor, toolNames: readonly string[]) => string | Promise<string>;
-    readonly #contract: (actor: ExecutableActor) => string;
+    readonly #contract: NonNullable<TurnSchedulerOptions["contract"]>;
+    readonly #systemPromptSuffix: TurnSchedulerOptions["systemPromptSuffix"];
+    readonly #agentToolNames: ReadonlySet<string> | undefined;
     readonly #toolChapters: (
         runId: string,
         actor: ExecutableActor,
@@ -210,6 +200,8 @@ export class TurnScheduler {
         this.#workspaceToolNaming = options.workspaceToolNaming;
         this.#basePrompt = options.basePrompt ?? ((_runId, actor) => (actor.kind === "agent" ? actor.prompt : ""));
         this.#contract = options.contract ?? (() => "");
+        this.#systemPromptSuffix = options.systemPromptSuffix;
+        this.#agentToolNames = options.agentToolNames === undefined ? undefined : new Set(options.agentToolNames);
         this.#toolChapters = options.toolChapters ?? (() => "");
         this.#inputOrientation = options.inputOrientation ?? (() => "");
         this.#modelSelection = options.modelSelection;
@@ -228,6 +220,19 @@ export class TurnScheduler {
             return [];
 
         return [...names.read, ...names.write, ...names.execute];
+    }
+
+    async #systemPromptFor(runId: string, actor: ExecutableActor, functions: readonly RunFunction[]): Promise<string> {
+        if (actor.kind === "agent" && actor.toolNames?.length === 0) return actor.prompt.trim();
+        const toolNames = functions.map((tool) => tool.name);
+        const base = (await this.#basePrompt(runId, actor, toolNames)).trim();
+        if (this.#systemPromptSuffix && actor.kind === "agent")
+            return [base, (await this.#systemPromptSuffix(toolNames)).trim()].filter(Boolean).join("\n\n");
+        const workspace = this.#workspaceToolsFor(actor).some((name) => toolNames.includes(name))
+            ? this.#workspaces.description(runId, toolNames)
+            : undefined;
+        return [base, this.#contract(actor, toolNames).trim(), actor.kind === "agent" ? toolOrientationText(functions) : "", workspace]
+            .filter(Boolean).join("\n\n");
     }
 
     start() {
@@ -955,6 +960,7 @@ export class TurnScheduler {
                 registry: driverRef.kind === "external" ? { resolve: async () => [] } : this.#registry,
                 workspace,
                 signal: controller.signal,
+                agentToolNames: this.#agentToolNames,
                 chapters: (toolNames) => this.#toolChapters(runId, actor, toolNames, toolset.functions),
             });
             const configuredWorkspace = this.#workspaceToolNaming?.agentToolNames(driverRef.kind);
@@ -970,11 +976,7 @@ export class TurnScheduler {
                     `Actor ${actor.id} requested workspace tools without workspace.use: ${deniedWorkspaceTools.join(", ")}.`,
                 );
 
-            const workspaceToolNames = this.#workspaceToolsFor(actor);
             const resolvedToolNames = new Set(toolset.functions.map((tool) => tool.name));
-            const workspaceChapter = workspaceToolNames.some((name) => resolvedToolNames.has(name))
-                ? this.#workspaces.description(runId) ?? ""
-                : "";
             const unresolvedToolNames = actor.toolNames?.filter((name) => !resolvedToolNames.has(name)) ?? [];
 
             if (driverRef.kind !== "agent" && unresolvedToolNames.length > 0)
@@ -990,31 +992,17 @@ export class TurnScheduler {
                 input: turn.input,
                 attachments: this.#attachmentsOf(runId, actorId, turn.input.artifactIds),
                 prompt: renderedPromptFor(startView, actorId, turn.input),
-                systemPrompt: await systemPromptFor(
-                    runId,
-                    actor,
-                    [...resolvedToolNames],
-                    this.#basePrompt,
-                    this.#contract,
-                    actor.kind === "agent" ? toolOrientationText(toolset.functions) : "",
-                    workspaceChapter,
-                ),
+                systemPrompt: await this.#systemPromptFor(runId, actor, toolset.functions),
                 workspace,
                 storeAttachment: (name: string, content: Uint8Array, reuseIdentical?: boolean) => this.#workspaces.storeAttachment(runId, name, content, reuseIdentical),
                 tools: driverRef.kind === "script" ? toolset.functions : toolset.tools,
-                allowedToolNames: actor.toolNames,
+                allowedToolNames: driverRef.kind === "agent" && this.#agentToolNames?.size === 0 ? [] : actor.toolNames,
                 refreshTools: async () => {
                     await toolset.refresh();
                     return {
                         tools: toolset.tools,
                         functionNames: toolset.functions.map((tool) => tool.name),
-                        systemPrompt: await systemPromptFor(
-                            runId, actor,
-                            toolset.functions.map((tool) => tool.name),
-                            this.#basePrompt, this.#contract,
-                            actor.kind === "agent" ? toolOrientationText(toolset.functions) : "",
-                            workspaceChapter,
-                        ),
+                        systemPrompt: await this.#systemPromptFor(runId, actor, toolset.functions),
                     };
                 },
                 emit: (driverEvent: DriverEvent) => this.#append(turn, emitted++, driverEvent),

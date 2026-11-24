@@ -571,11 +571,16 @@ test("the self-description names the server roots per binding, and in a workstat
   server.bindings.set("foreign", { machine: { client: "notebook-0010", label: "Notebook" }, folder: { path: "/foreign-machine/project" } });
   server.bindings.set("here", { machine: "server", folder: "fresh" });
 
-  const remote = (await server.runtime.resolve("foreign", () => undefined)).description ?? "";
+  const remoteWorkspace = await server.runtime.resolve("foreign", () => undefined);
+  const remote = remoteWorkspace.description ?? "";
   assert.match(remote, /## Roots on the server/);
   assert.match(remote, /`@actors` \(read and write\), `@documents` \(read and write\), `@skills` \(read only\) and `@attachments` \(read only\)/);
   assert.match(remote, /with a `cwd` that starts with an alias it runs on the server instead and sees only the server, and only that bash has `\$RAGENTS_ACTORS_DIR` for `@actors` and `\$RAGENTS_DOCUMENTS_DIR` for `@documents`/);
   assert.match(remote, /never combine a path with an alias and a path in the working directory/);
+  const readOnly = remoteWorkspace.descriptionForTools?.(["read"]);
+  assert.ok(readOnly);
+  assert.match(readOnly, /## Roots on the server/);
+  assert.doesNotMatch(readOnly, /bash|RAGENTS_ACTORS_DIR/);
   const local = (await server.runtime.resolve("here", () => undefined)).description ?? "";
   assert.match(local, /## Roots besides the working directory/);
   assert.match(local, /`bash` also has `\$RAGENTS_ACTORS_DIR` for `@actors` and `\$RAGENTS_DOCUMENTS_DIR` for `@documents`\./);

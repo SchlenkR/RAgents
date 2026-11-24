@@ -97,6 +97,7 @@ export interface RunChatSessionOptions {
   coordinator: CoordinatorDescriptor;
   initialTitle?: string;
   toolNames?: readonly string[];
+  agentToolNames?: readonly string[];
   modelSelection?: () => ModelSelection;
   inputContext?: GlobalChatPolicy["inputContext"];
   prompt: () => string;
@@ -116,6 +117,7 @@ export class RunChatSession implements ChatSessionLike {
   readonly #coordinator: CoordinatorDescriptor;
   readonly #initialTitle: string | undefined;
   readonly #toolNames: readonly string[] | null;
+  readonly #agentToolNames: readonly string[] | undefined;
   readonly #modelSelection: (() => ModelSelection) | undefined;
   readonly #inputContext: GlobalChatPolicy["inputContext"];
   readonly #prompt: () => string;
@@ -161,6 +163,7 @@ export class RunChatSession implements ChatSessionLike {
     this.#coordinator = options.coordinator;
     this.#initialTitle = options.initialTitle;
     this.#toolNames = options.toolNames ?? null;
+    this.#agentToolNames = options.agentToolNames;
     this.#modelSelection = options.modelSelection;
     this.#inputContext = options.inputContext;
     this.#prompt = options.prompt;
@@ -709,7 +712,8 @@ export class RunChatSession implements ChatSessionLike {
       if ((kind === "image" || kind === "video" || kind === "file") && !input.includes(kind)) {
         throw new DomainError("attachment-model-unsupported", `The model ${model} does not support ${kind} (${attachment.name}). Inputs: ${input.join(", ")}.`, 400);
       }
-      if (kind === "binary" && toolNames !== null && !toolNames.some((name) => name === "read" || name === "bash")) {
+      if (kind === "binary" && !["read", "bash"].some((name) =>
+        (toolNames === null || toolNames.includes(name)) && (this.#agentToolNames?.includes(name) ?? true))) {
         throw new DomainError("attachment-tools-required", `${attachment.name} requires file access, but this actor has neither read nor bash.`, 400);
       }
     }

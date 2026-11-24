@@ -525,6 +525,9 @@ Prompt contributions distinguish between `initial` and `on-demand` through `deli
 default. Short notes can explicitly stay initial, such as the mini-app introduction,
 the document note, and the workspace rules. The binding checks the functions actually available. Workers also receive matching bound initial notes.
 Long detail chapters are rendered only on demand and are not carried into later system prompts.
+An initial contribution with `suffix: true` belongs to the general closing sections. The
+profile's [suffix template](profiles.md#model-tools-and-system-prompt) replaces these
+contributions together with the host's generated closing text.
 
 A prompt never names a function its reader does not have. The system prompt of every model
 request renders the initial contributions, and a chapter request its chapters, for the functions
@@ -535,9 +538,9 @@ of the reading actor:
 whether a contribution arrives at all; `available` decides each sentence inside it, because a
 contribution bound to any of several functions reaches readers with only some of them. Where a text
 must say what the reader lacks, it describes it without the name, such as "activation" for a reader
-without `actor_program_activate`. Catalogs, including the product prompt in settings and the
-prompt stored with the coordinator, explicitly pass `functions: "all"`; calling `available` without
-a function set is an error. Selected system prompts are also rendered for each reader, including
+without `actor_program_activate`. The product prompt catalog in settings and the prompt stored
+with the coordinator use the profile's function list or `functions: "all"` if none is set.
+Calling `available` without a function set is an error. Selected system prompts are also rendered for each reader, including
 workers that share them. Function names in capability declarations follow the same rule; a prompt
 can refer to the authoring guide for helpers only the resulting package will have.
 The guides that `actor_program_controls` returns are rendered for the caller's functions
@@ -744,20 +747,22 @@ working directory after a restart. The host calls the resolution only after the 
 created, so that the start options are in the journal; the scheduler receives the `cwd` per run through the
 provider cache and passes it to the agent runtime as the tools' working directory; it receives its
 own folder separately from that (`core.md`, Actor roster in the input, workspace in the system prompt). Besides the `cwd`, the resolution
-provides with `SessionWorkspace.description` a text that describes the resolved workspace;
-it becomes a chapter in the system prompt of every actor with workspace tools (section
+provides `SessionWorkspace.description` as text and can supply `descriptionForTools` to render it
+for the actor's tools.
+It becomes a chapter of the default system prompt for actors with workspace tools (section
 Actor roster in the input, workspace in the system prompt in `core.md`). `ragents.workspace` words it per binding: an existing folder
 on the server is called the project folder on the server machine, one on a workstation the project folder
 there including that workstation's name; the new folder on the server is the run's private, initially empty folder
 with the path the resolver provided, the new one on a workstation the same
 there, with the contribution's `workstation.description` in its place. If the server has roots with
 an alias (`WorkspaceSandboxHost.serverRoots()`: the registered ones, `@skills`, and `@attachments`),
-`ragents.workspace` appends a paragraph about them to each of these descriptions, per binding: on the server
+`ragents.workspace` appends a paragraph about them to each of these descriptions. On the server
 it names the aliases with access, that file tools and language servers take a path with an alias,
 that `bash` runs in it with the path as `cwd`, and which variables `bash` has for that; on a
 workstation it names the same aliases as roots of the server, which file tools and language servers
 also reach from there, that `bash` runs there and only with an alias as `cwd` on the server,
-that only this bash has the variables, and that one call reaches only one machine. No other
+that only this bash has the variables, and that one call reaches only one machine. An actor
+receives the shell instructions only when it has `bash`. No other
 prompt contribution and no tool description names such a variable, only the alias. The
 chat system note on resolution remains the notice for the user alongside it.
 
@@ -4173,9 +4178,11 @@ operations, and blocks later operations after a failure until cleanup succeeds o
 sandbox cleanup releases Linux per-launch mount and profile resources only after processes and
 in-flight operations have stopped; contexts created during the run participate in that cleanup.
 Native
-TypeScript backends are stopped through their executor too. The initial workspace and shell prompts state
-the level and its machine-specific limits. After a change, `beforeModelCall` emits one hidden
-note per change through `keep` and `kept`, retaining that delivery state across a host restart
+TypeScript backends are stopped through their executor too. The initial "Run access" chapter
+states the level and its machine-specific limits once for an actor with workspace tools. The
+"Shell platform" chapter and the remote Git rule require `bash`. After a change, `beforeModelCall`
+emits one hidden note per change for an actor with workspace tools through `keep` and `kept`,
+retaining that delivery state across a host restart
 without rewriting the initial prompt.
 
 **Owner-approved paths.** `request_access` takes `path`, `access` (`"read"` or `"write"`), and

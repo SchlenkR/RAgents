@@ -373,28 +373,35 @@ export class PromptContributionRegistry {
     };
   }
 
-  /** Without toolNames the selection keeps every contribution of its delivery, bound or not. */
+  /** Without toolNames the selection keeps unbound contributions as well. */
   async describe(context: PromptRenderContext, selection?: {
     delivery: "initial" | "on-demand";
     toolNames?: readonly string[];
+    excludeSuffix?: boolean;
   }): Promise<readonly PublicPromptContribution[]> {
+    const functions = context.functions;
     const entries = [...this.#prompts.entries()]
       .filter(({ value }) => !selection || (value.delivery ?? "initial") === selection.delivery
+        && (!selection.excludeSuffix || !value.suffix)
         && (selection.toolNames === undefined || (value.requiresTools?.some((name) => selection.toolNames!.includes(name)) ?? false)))
+      .filter(({ value }) => functions === undefined || functions === "all" || !value.requiresTools?.length
+        || value.requiresTools.some((name) => functions.includes(name)))
       .sort((left, right) => left.value.order - right.value.order || left.value.id.localeCompare(right.value.id));
     return Promise.all(entries.map(async ({ owner, value }) => ({
       id: value.id,
       owner,
       order: value.order,
       delivery: value.delivery ?? "initial",
+      ...(value.suffix ? { suffix: true } : {}),
       content: (await value.render(context)).trim(),
       requiresTools: value.requiresTools ?? [],
     })));
   }
 
   /** The contributions that read differently for this run than in the snapshot; an empty text is missing there, everything else stays the rendered text. */
-  runOverrides(runId: string): ReadonlyMap<string, string> {
+  runOverrides(runId: string, promptIds?: ReadonlySet<string>): ReadonlyMap<string, string> {
     return new Map([...this.#prompts.entries()].flatMap(({ owner, value }) => {
+      if (promptIds && !promptIds.has(value.id)) return [];
       if (!this.#conditions.applies(owner, runId)) return [[value.id, ""] as const];
       const text = value.renderForRun?.(runId);
       return text === undefined ? [] : [[value.id, text.trim()] as const];

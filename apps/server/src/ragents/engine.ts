@@ -54,7 +54,7 @@ import { storedStartOption, storedSystemPrompt } from "./start-option-state.js";
 import { restartStartOptionId } from "../plugin-support/start-options-contract.js";
 import { coordinatorSelection, isRunCoordinator, storedModelChoice } from "./coordinator.js";
 import { runtimeBridgeToken } from "./runtime-bridge.js";
-import { workspaceRuntimeToken } from "./workspace-runtime.js";
+import { workspaceRuntimeToken, type SessionWorkspace } from "./workspace-runtime.js";
 import { globalChatToken, globalRunPolicyOf } from "./global-chat.js";
 import { NodeTypeScriptExecutor } from "../plugin-support/native-typescript-executor.js";
 import { sandboxServicesToken, type SandboxServices } from "../plugin-support/workspace-sandbox-host.js";
@@ -63,7 +63,7 @@ const FINAL_RUN_STOP_TIMEOUT_MS = 15_000;
 
 type RememberedWorkspace = {
   readonly cwd: string;
-  readonly description?: string;
+  readonly description?: string | SessionWorkspace["descriptionForTools"];
 };
 
 export class SessionWorkspaces implements Workspaces {
@@ -79,7 +79,7 @@ export class SessionWorkspaces implements Workspaces {
 
   waitUntilReady(runId: string, signal: AbortSignal): Promise<void> { return this.#ready(runId, signal); }
 
-  remember(runId: string, cwd: string, description?: string): void {
+  remember(runId: string, cwd: string, description?: RememberedWorkspace["description"]): void {
     this.#roots.set(runId, { cwd, ...(description ? { description } : {}) });
   }
 
@@ -93,8 +93,9 @@ export class SessionWorkspaces implements Workspaces {
     return root.cwd;
   }
 
-  description(runId: string): string | undefined {
-    return this.#roots.get(runId)?.description;
+  description(runId: string, toolNames: readonly string[]): string | undefined {
+    const description = this.#roots.get(runId)?.description;
+    return typeof description === "function" ? description(toolNames) : description;
   }
 
   async storeAttachment(runId: string, name: string, content: Uint8Array, reuseIdentical?: boolean): Promise<string> {
@@ -165,10 +166,11 @@ const outputContractFor = (role: ActorRole): string => role === "primary"
   ? "Your model text is shown in the chat with the user. Respond naturally as text."
   : "Respond naturally in the model text.";
 
-const coreContractFor = (actor: ExecutableActor): string => actor.toolNames?.length === 0 ? "" : [
-  "Everything you write in the model text is automatically recorded as an event.",
-  "Your turn ends as soon as you no longer call a tool. After that you are idle until the next ActorInput.",
-].join("\n");
+const coreContractFor = (_actor: ExecutableActor, tools: readonly string[]): string =>
+  tools.includes("typescript_eval") && (tools.includes("event_query") || tools.includes("event_subscribe")) ? [
+    "Everything you write in the model text is automatically recorded as an event.",
+    "Your turn ends as soon as you no longer call a tool. After that you are idle until the next ActorInput.",
+  ].join("\n") : "";
 
 export const createEngine = async (options: EngineOptions): Promise<Engine> => {
   await mkdir(layout.runsDir, { recursive: true });
@@ -202,6 +204,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     },
   });
   const productRuntime = options.plugins.service(productRuntimeToken);
+  const { agentToolNames, systemPromptSuffix } = productRuntime;
   const globalChat = options.plugins.optionalService(globalChatToken);
   const roleFor = (runId: string, actor: ProductActor): ActorRole =>
     productRuntime.roleFor(runtime.view(runId), actor);
@@ -266,11 +269,16 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     ...(workspaceToolNaming ? { workspaceTools: workspaceToolNaming } : {}),
   });
   const promptCatalog = productRuntime.systemPrompts();
-  const baseSnapshot: PublicPromptSnapshot = await options.plugins.prompts.snapshot({ functions: "all" });
+  const catalogFunctions = agentToolNames ?? "all";
+  const baseSnapshot: PublicPromptSnapshot = await options.plugins.prompts.snapshot({ functions: catalogFunctions });
+  const catalogSuffix = (await systemPromptSuffix?.({ functions: catalogFunctions }))?.trim();
+  const globalSuffix = systemPromptSuffix && globalChat
+    ? (await systemPromptSuffix({ functions: globalChat.toolNames.filter((name) => agentToolNames?.includes(name) ?? true) })).trim()
+    : undefined;
   const optionTexts = new Map<string, string>();
   for (const option of promptCatalog.options) {
-    const context = { systemPromptIds: [option.id], functions: "all" as const };
-    optionTexts.set(option.id, (await renderSystemPromptOption(promptCatalog, context)).trim());
+    const text = await renderSystemPromptOption(promptCatalog, { systemPromptIds: [option.id], functions: catalogFunctions });
+    optionTexts.set(option.id, text.trim());
   }
   const promptIdsFor = (runId: string): readonly string[] => promptCatalog.mode === "fixed"
     ? promptCatalog.defaultIds
@@ -283,63 +291,50 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
       }
       return text;
     });
-  const boundToTools = (entry: PublicPromptContribution, toolNames: readonly string[]): boolean =>
-    entry.requiresTools.some((name) => toolNames.includes(name));
   /** A contribution may read differently per run or be missing, e.g. the executor's shell platform or a plugin whose run condition does not apply; this also holds for the chosen system prompts. */
-  const contentFor = (runId: string | null, texts: () => readonly string[]): ((entry: PublicPromptContribution) => string) => {
-    const overrides = runId === null ? undefined : options.plugins.prompts.runOverrides(runId);
-    return (entry) => overrides?.get(entry.id)
-      ?? (systemPromptSelectionPromptIds.has(entry.id) ? texts().join("\n\n") : entry.content);
+  const contentsFor = (runId: string | null, entries: readonly PublicPromptContribution[], texts: readonly string[]): string[] => {
+    const overrides = runId === null ? undefined : options.plugins.prompts.runOverrides(runId, new Set(entries.map((entry) => entry.id)));
+    return entries.map((entry) => overrides?.get(entry.id)
+      ?? (systemPromptSelectionPromptIds.has(entry.id) ? texts.join("\n\n") : entry.content));
   };
-  const composeWith = (
-    runId: string | null,
-    contributions: readonly PublicPromptContribution[],
-    texts: readonly string[],
-    toolNames: readonly string[] | null,
-  ): string => {
-    const content = contentFor(runId, () => texts);
-    return contributions
-      .filter((entry) => entry.delivery === "initial")
-      .filter((entry) => toolNames === null || entry.requiresTools.length === 0 || boundToTools(entry, toolNames))
-      .map(content)
-      .filter(Boolean)
-      .join("\n\n");
-  };
+  const initialContributions = (contributions: readonly PublicPromptContribution[]): PublicPromptContribution[] => contributions
+    .filter((entry) => entry.delivery === "initial" && (!systemPromptSuffix || !entry.suffix))
+    .sort((left, right) => Number(left.suffix === true) - Number(right.suffix === true));
+  const catalogContributions = initialContributions(baseSnapshot.contributions);
   /** Rendered for the functions of the actor that reads them, so a text names only functions it has. */
   const initialFor = (toolNames: readonly string[]): Promise<readonly PublicPromptContribution[]> =>
-    options.plugins.prompts.describe({ functions: toolNames }, { delivery: "initial" });
+    options.plugins.prompts.describe({ functions: toolNames }, { delivery: "initial", excludeSuffix: systemPromptSuffix !== undefined });
   const chaptersFor = async (runId: string, toolNames: readonly string[], functions: readonly string[]): Promise<string> => {
     const chapters = await options.plugins.prompts.describe({ functions }, { delivery: "on-demand", toolNames });
-    const content = contentFor(runId, () => []);
-    return chapters.map(content).filter(Boolean).join("\n\n");
+    return contentsFor(runId, chapters, []).filter(Boolean).join("\n\n");
   };
-  const systemPromptFor = (runId: string): string => globalChat?.isCoordinator(runId)
-    ? globalChat.prompt : composeWith(runId, baseSnapshot.contributions, textsFor(runId), null);
+  const systemPromptFor = (runId: string): string => (globalChat?.isCoordinator(runId)
+    ? [globalChat.prompt, globalSuffix]
+    : [...contentsFor(runId, catalogContributions, textsFor(runId)), catalogSuffix]).filter(Boolean).join("\n\n");
   const selectionPrompts = baseSnapshot.contributions.filter((entry) => systemPromptSelectionPromptIds.has(entry.id));
   const agentPromptFor = (runId: string, texts: readonly string[], contributions: readonly PublicPromptContribution[]): string => {
     if (!storedSystemPrompt(journal.stateOf(runId)).shareWithAgents) return "";
     if (selectionPrompts.length === 0) return texts.join("\n\n");
-    const content = contentFor(runId, () => texts);
-    return contributions.filter((entry) => systemPromptSelectionPromptIds.has(entry.id)).map(content).filter(Boolean).join("\n\n");
+    return contentsFor(runId, contributions.filter((entry) => systemPromptSelectionPromptIds.has(entry.id)), texts).filter(Boolean).join("\n\n");
   };
-  const systemPrompt = composeWith(
-    null,
-    baseSnapshot.contributions,
-    selectedSystemPrompts(promptCatalog, promptCatalog.defaultIds).map((option) => optionTexts.get(option.id) ?? ""),
-    null);
+  const systemPrompt = [
+    ...contentsFor(null, catalogContributions, selectedSystemPrompts(promptCatalog, promptCatalog.defaultIds).map((option) => optionTexts.get(option.id) ?? "")),
+    catalogSuffix,
+  ].filter(Boolean).join("\n\n");
   const basePromptFor = async (runId: string, actor: ExecutableActor, toolNames: readonly string[]): Promise<string> => {
-    const contributions = await initialFor(toolNames);
+    const contributions = initialContributions(await initialFor(toolNames));
+    const bound = contributions.filter((entry) => entry.requiresTools.length > 0);
     if (globalChat?.isCoordinator(runId)) return [globalChat.prompt,
-      ...contributions.filter((entry) => boundToTools(entry, toolNames)).map(contentFor(runId, () => [])),
-      outputContractFor("primary")].filter(Boolean).join("\n\n");
+      ...contentsFor(runId, bound, []),
+      systemPromptSuffix ? "" : outputContractFor("primary")].filter(Boolean).join("\n\n");
     const texts = [await renderSystemPromptOption(promptCatalog, { systemPromptIds: promptIdsFor(runId), functions: toolNames })];
     const role = roleFor(runId, actor);
     const prompt = isRunCoordinator(runtime, runId, actor.id)
-      ? composeWith(runId, contributions, texts, toolNames)
+      ? contentsFor(runId, contributions, texts)
       : [agentPromptFor(runId, texts, contributions), actor.kind === "agent" ? actor.prompt : "",
-          ...contributions.filter((entry) => boundToTools(entry, toolNames)).map(contentFor(runId, () => texts)),
-        ].filter(Boolean).join("\n\n");
-    return [prompt, productRuntime.contract(role), outputContractFor(role)]
+          ...contentsFor(runId, bound, texts),
+        ];
+    return [...prompt, ...(systemPromptSuffix ? [] : [productRuntime.contract(role), outputContractFor(role)])]
       .filter(Boolean)
       .join("\n\n");
   };
@@ -365,6 +360,8 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
         : actor.execution.driver.config;
     },
     ...(workspaceToolNaming ? { workspaceToolNaming } : {}),
+    ...(agentToolNames === undefined ? {} : { agentToolNames }),
+    ...(systemPromptSuffix ? { systemPromptSuffix: (functions) => systemPromptSuffix({ functions }) } : {}),
     basePrompt: basePromptFor,
     contract: coreContractFor,
     toolChapters: (runId, _actor, toolNames, availableTools) => chaptersFor(runId, toolNames, availableTools.map((tool) => tool.name)),
@@ -449,7 +446,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     inputCapabilities: (provider, model) => agentRuntime.inputCapabilities(provider, model),
     contextLimits: (provider, model) => agentRuntime.contextLimits(provider, model),
     promptContributions: baseSnapshot.contributions,
-    runtimeContracts: [
+    runtimeContracts: systemPromptSuffix ? [] : [
       {
         audience: "coordinator",
         content: [productRuntime.contract("primary"), outputContractFor("primary")].join("\n\n"),

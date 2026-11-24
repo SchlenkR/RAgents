@@ -192,10 +192,17 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
       orchestration().events(runId).filter((event) => (event.type === "plugin.state-replaced" || event.type === "plugin.state-patched")
         && event.payload.pluginId === WORKSPACE_ACCESS_OPTION_ID).at(-1)?.sequence ?? 0, (runId) => initialAccessEvent(runId)?.sequence ?? 0, platformFor));
     const rules = handlebarsPrompt("ragents.workspace.prompt", 100, pluginAsset("ragents.workspace", "prompt.hbs"));
+    const accessChapter = (runId?: string): string => {
+      const state = runId === undefined ? null : runState(runId);
+      const binding = bindingOf(state);
+      const level = runId === undefined ? "isolated" : initialLevel(runId);
+      return `## Run access\n\n${accessDescription(level, binding.machine !== "server", platformFor(binding, workspaceOwnerOf(state)))}`;
+    };
     host.prompts(
       boundToTools({
         ...rules,
         delivery: "initial",
+        suffix: true,
         // The rules apply to the host's workspaces; a contributed kind describes its own.
         render: (context) => contribution()?.kind ? "" : rules.render(context),
       }, ...agentWorkspaceToolNames),
@@ -203,16 +210,13 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
         id: "ragents.workspace.access.prompt",
         order: 101,
         delivery: "initial",
-        render: () => accessDescription("isolated", false),
-        renderForRun: (runId) => {
-          const state = runState(runId);
-          const binding = bindingOf(state);
-          return accessDescription(initialLevel(runId), binding.machine !== "server", platformFor(binding, workspaceOwnerOf(state)));
-        },
+        suffix: true,
+        render: () => accessChapter(),
+        renderForRun: accessChapter,
       }, ...agentWorkspaceToolNames),
       shellPlatformPrompt("ragents.workspace.shell.prompt", 102, serverTools, (runId) => {
         const state = runState(runId);
-        return executorShellChapter(clients, workspaceOwnerOf(state), bindingOf(state), serverTools, initialLevel(runId));
+        return executorShellChapter(clients, workspaceOwnerOf(state), bindingOf(state), serverTools);
       }),
     );
     const browseOptions = {

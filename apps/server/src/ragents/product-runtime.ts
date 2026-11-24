@@ -1,4 +1,4 @@
-import { serviceToken } from "@ragents/engine";
+import { serviceToken, type PromptRenderContext } from "@ragents/engine";
 import type { SystemPromptCatalog } from "../plugin-support/system-prompts.js";
 
 export type ActorRole = "primary" | "worker";
@@ -26,6 +26,8 @@ export interface ProductRuntimePolicy {
   contract: (role: ActorRole) => string;
   promptComposition: string;
   systemPrompts: () => SystemPromptCatalog;
+  agentToolNames?: readonly string[];
+  systemPromptSuffix?: (context: PromptRenderContext) => string | Promise<string>;
 }
 
 export const productRuntimeToken = serviceToken<ProductRuntimePolicy>("ragents.product-runtime");

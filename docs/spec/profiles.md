@@ -209,6 +209,38 @@ actor, event, artifact, model discovery and run management functions and their i
 Other plugins declare their own prerequisites. Journaled grants still limit each actor's
 use of the functions installed in the profile.
 
+### Model tools and system prompt
+
+`AGENT_TOOLS` in `ragents.product` optionally lists the exact function names that built-in LLM
+actors in the profile can receive, including the run and global coordinators. An omitted setting
+allows the full registered set. `[]` supplies no model tools. A list applies on every turn,
+including existing runs and `tools: null` actors. Each actor's own selection, grants, and
+run-time availability narrow it further. Automatic TypeScript tools can only be added if the
+profile list includes them. A name can refer to a function that becomes available later, for
+example through an actor program. Use a JSON array for an environment override.
+
+`SYSTEM_PROMPT_PATH` replaces the run coordinator's preamble. `SYSTEM_PROMPT_SUFFIX_PATH` replaces
+the general closing sections with the contents of a file. The usual closing sections include
+workspace rules, initial run access, shell platform, role and output guidance, event and
+TypeScript guidance, and the working directory. An empty file leaves the suffix out. Selected
+system prompts and other applicable plugin contributions continue to supply their own text.
+Both paths are resolved from the server's working directory and read as Handlebars templates.
+`available` tests the function names of the actual reader. An actor created with `tools: []`
+continues to use only its own instructions.
+
+```ts
+"ragents.product": {
+  AGENT_TOOLS: ["ask_user"],
+  SYSTEM_PROMPT_PATH: "./assistant.hbs",
+  SYSTEM_PROMPT_SUFFIX_PATH: "./closing.hbs",
+},
+```
+
+Restart the host to apply the settings. External runtimes and TypeScript actors use their own
+execution contracts. The preparation chat uses its own handover tool.
+
+### Model providers
+
 The model provider is `AGENT_PROVIDER` in `ragents.product`, default `openrouter`. Every
 ordinary provider and its models come from `host.MODEL_PROVIDERS`; the host has no built-in
 providers or model catalog and never fetches model metadata. `openrouter` is an ordinary provider
@@ -972,8 +1004,8 @@ User permissions such as `runs.write` instead control access to application rout
 The `tools` value on spawn selects the actor's function API: `[]` for a plain LLM, a list of
 names for selected functions plus automatic TypeScript tools, or `null` for the dynamic full set.
 `exactTools: true` requires an explicit array and adds no TypeScript tools; names explicitly
-included remain available. The selection is not inherited
-from the coordinator. Delegable engine capabilities are inherited as grants and can be reduced
+included remain eligible. The profile's `AGENT_TOOLS` list also applies. Each actor has its own
+selection. Delegable engine capabilities are inherited as grants and can be reduced
 with `withoutCapabilities`. Prompt instructions describe a role but grant no technical access.
 Actor programs also declare required functions under `capabilities`; this limits calls but does
 not supply missing grants. The [runtime guide](../homepage/guide-runtime.html#equipping-subagents)

@@ -21,6 +21,7 @@ export type TurnToolsetOptions = {
     workspace?: string;
     signal?: AbortSignal | undefined;
     chapters?: ToolChapters | undefined;
+    agentToolNames?: ReadonlySet<string> | undefined;
 };
 
 const nativeInfrastructure = new Set(["typescript_api", "typescript_eval"]);
@@ -92,6 +93,7 @@ export class TurnToolset {
     readonly #registry: ToolProvider;
     readonly #workspace: string;
     readonly #chapters: ToolChapters;
+    readonly #agentToolNames: ReadonlySet<string> | undefined;
 
     static async create(options: TurnToolsetOptions) {
         const registry = options.registry ?? new ToolRegistry();
@@ -110,6 +112,7 @@ export class TurnToolset {
         this.#registry = registry;
         this.#workspace = options.workspace ?? process.cwd();
         this.#chapters = options.chapters ?? noChapters;
+        this.#agentToolNames = options.agentToolNames;
 
         this.tools = tools;
         this.#scope = {
@@ -157,8 +160,12 @@ export class TurnToolset {
         if (actor.toolNames !== null && new Set(actor.toolNames).size !== actor.toolNames.length)
             throw new Error(`Actor ${actor.id} contains duplicate tool names.`);
         const requested = actor.toolNames === null ? null : new Set(actor.toolNames);
-        const selected = requested === null ? resolved : resolved.filter((tool) => requested.has(tool.name));
-        const infrastructure = actor.toolNames?.length === 0 || (actor.kind !== "script" && actor.exactTools === true) ? [] : resolved.filter((tool) =>
+        const agentToolNames = this.#agentToolNames;
+        const allowed = actor.execution.driver.kind === "agent" && agentToolNames
+            ? resolved.filter((tool) => agentToolNames.has(tool.name))
+            : resolved;
+        const selected = requested === null ? allowed : allowed.filter((tool) => requested.has(tool.name));
+        const infrastructure = actor.toolNames?.length === 0 || (actor.kind !== "script" && actor.exactTools === true) ? [] : allowed.filter((tool) =>
             nativeInfrastructure.has(tool.name) && !selected.some((entry) => entry.name === tool.name));
         this.functions.splice(0, this.functions.length, ...selected, ...infrastructure);
         this.tools.splice(0, this.tools.length, ...this.functions.filter(isNativeTool));

@@ -995,14 +995,14 @@ and starts its own turns with its own. Inputs taken over through steering bring 
 turn, `actor_list` updates the roster. Without this tool, in particular with `tools: []`, the
 overview is omitted.
 
-If an actor has workspace tools, the scheduler appends a last chapter to its system prompt for
-every turn: the description of the resolved workspace, which the workspace itself provides
-(`SessionWorkspace.description`, in the core just a text without reference to tools). It names what
+If an actor has workspace tools, the default system prompt ends with the description of the
+resolved workspace, which the workspace supplies through `SessionWorkspace.description` or
+`descriptionForTools`. It names what
 the folder is, where it is, and on whose machine, and asks the model to look around in it before
 making statements about the project; plus the server's roots with their alias, how the tools reach
-them in this binding, and which variables exist only in bash on the server. This applies to every
-actor, not only the coordinator, and also after a `refreshTools` in the running turn, whether the
-host provides the tools as functions or the agent runtime brings them along. This chapter is the
+them in this binding. The description includes shell instructions and variables when the actor
+has `bash`. The scheduler renders it for each actor, including after `refreshTools`. A profile
+can replace these instructions with its [own suffix](profiles.md#model-tools-and-system-prompt). This chapter is the
 only place that names a working directory to a model: the agent runtime appends nothing about
 folders to the scheduler's system prompt, not even a `Current working directory` line. An actor
 without workspace tools gets neither the chapter nor a path. Its only file access would be
@@ -1200,6 +1200,8 @@ and `typescript_eval`. They appear only if named in that array; without them the
 from model requests and rejected on calls. `exactTools: true` with `tools: null` is invalid.
 The journal preserves the choice across replay and restarts. It changes only function selection,
 not spawn rights, grants, or delegation. Run scripts use the same `agent_spawn` field.
+The profile's `AGENT_TOOLS` list limits the resolved set, including the automatic TypeScript tools.
+The scheduler checks the resulting functions again when tools refresh during a turn.
 
 A missing selection or unknown names are rejected before spawning. Actors created any other
 way, by the host, a run script, or an actor program, are checked by the scheduler: when an actor
@@ -1218,11 +1220,11 @@ reach the fork. Both source and fork require the agent driver; a source without 
 reached the model, and not itself a fork, is rejected with `fork-without-turn`. A plain LLM receives no function overview. Its driver must explicitly support this
 isolation or the turn is rejected.
 
-Equipped LLMs receive their available functions as native tools, plus `typescript_api` and
-`typescript_eval` unless their explicit list uses `exactTools: true`; snippets call the same
-functions through `context.functions`. A generated
-overview in the system prompt lists only the snippet-only functions (`nativeTool: false`) with
-names and short descriptions. Tools and overview stay current during the turn. Roles
+Equipped LLMs receive tool definitions for their selected native functions. The default system
+prompt describes `typescript_api` or `typescript_eval` when present. With `typescript_eval` it
+also lists the snippet-only functions (`nativeTool: false`) with names and short descriptions
+for calls through `context.functions`. The default event and turn note accompanies snippet
+access to event history or subscriptions. Tools and overview stay current during the turn. Roles
 and work boundaries remain prompt instructions. Alongside a role (field `profile`), `agent_spawn` accepts
 `model` and `thinking` from the model list. A role supplies only the driver, provider,
 reasoning level, turn inactivity limit, and workspace default; the product model list defines
@@ -1379,7 +1381,8 @@ selection, and a small working directory in the plugin storage. The global coord
 uses the profile's default model. Initial contributions whose `requiresTools` match its selected
 tools reach its turns, including the global app authoring instructions. Ordinary product
 prompts, product skills, hooks, and preparation of a product working directory remain excluded.
-Its native interface contains `typescript_api`, `typescript_eval`, and the allowed file tools
+The profile can further limit its model tools and replace the general suffix. Its default
+native interface contains `typescript_api`, `typescript_eval`, and the allowed file tools
 `read`, `write`, and `edit`. Installed plugins also contribute `actor_program_create`,
 `actor_program_controls` for the authoring guide and the control contracts,
 `actor_program_diagnostics`, the TypeScript and TypeScript language-server tools, and the

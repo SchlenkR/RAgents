@@ -9,16 +9,18 @@ const summary = (text: string): string => {
 
 export const RUN_FUNCTIONS_FILE = "run-functions.md";
 
-export function overseerOrientation(host: PluginHost, shell: boolean): string {
+export function overseerOrientation(host: PluginHost, shell: boolean, read = true): string {
   const methods = [...host.methods.describe()].sort((left, right) => left.id.localeCompare(right.id, "en"));
   return [
     "[Capability overview from the registered contracts]",
-    `JSON-RPC calls via ${shell ? "bash/curl" : "fetch in a snippet"} against $RAGENTS_API_BASE_URL/rpc. Look up inputs and results in rpc-reference.md or openrpc.json when needed.`,
+    `JSON-RPC calls via ${shell ? "bash/curl" : "fetch in a snippet"} against $RAGENTS_API_BASE_URL/rpc.${read ? " Look up inputs and results in rpc-reference.md or openrpc.json when needed." : ""}`,
     ...methods.map((method) => `- ${method.id}: ${summary(method.description)} [${method.rights.join(", ") || "no fixed rights"}]`),
     "The rights in brackets apply to signed-in users. This coordinator calls the methods with its user's access and thus has exactly their rights.",
-    "",
-    "[Building blocks of regular runs]",
-    `${RUN_FUNCTIONS_FILE} in your working directory lists the functions of the engine and the installed plugins of this profile that actors of regular runs can be equipped with; they are not your tools. Read it when you set up runs through the JSON-RPC API. Details and examples: $RAGENTS_API_BASE_URL/help/llms.txt; the public help describes core.`,
+    ...(read ? [
+      "",
+      "[Building blocks of regular runs]",
+      `${RUN_FUNCTIONS_FILE} in your working directory lists the functions of the engine and the installed plugins of this profile that actors of regular runs can be equipped with; they are not your tools. Read it when you set up runs through the JSON-RPC API. Details and examples: $RAGENTS_API_BASE_URL/help/llms.txt; the public help describes core.`,
+    ] : []),
   ].join("\n");
 }
 

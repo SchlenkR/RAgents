@@ -312,6 +312,8 @@ and `typescript_eval`. They appear only if named in that array; without them the
 from model requests and rejected on calls. `exactTools: true` with `tools: null` is invalid.
 The journal preserves the choice across replay and restarts. It changes only function selection,
 not spawn rights, grants, or delegation. Run scripts use the same `agent_spawn` field.
+The profile's `AGENT_TOOLS` list limits the resolved set, including the automatic TypeScript tools.
+The scheduler checks the resulting functions again when tools refresh during a turn.
 
 A missing selection or unknown names are rejected before spawning. Actors created any other
 way, by the host, a run script, or an actor program, are checked by the scheduler: when an actor
@@ -330,11 +332,11 @@ reach the fork. Both source and fork require the agent driver; a source without 
 reached the model, and not itself a fork, is rejected with `fork-without-turn`. A plain LLM receives no function overview. Its driver must explicitly support this
 isolation or the turn is rejected.
 
-Equipped LLMs receive their available functions as native tools, plus `typescript_api` and
-`typescript_eval` unless their explicit list uses `exactTools: true`; snippets call the same
-functions through `context.functions`. A generated
-overview in the system prompt lists only the snippet-only functions (`nativeTool: false`) with
-names and short descriptions. Tools and overview stay current during the turn. Roles
+Equipped LLMs receive tool definitions for their selected native functions. The default system
+prompt describes `typescript_api` or `typescript_eval` when present. With `typescript_eval` it
+also lists the snippet-only functions (`nativeTool: false`) with names and short descriptions
+for calls through `context.functions`. The default event and turn note accompanies snippet
+access to event history or subscriptions. Tools and overview stay current during the turn. Roles
 and work boundaries remain prompt instructions. Alongside a role (field `profile`), `agent_spawn` accepts
 `model` and `thinking` from the model list. A role supplies only the driver, provider,
 reasoning level, turn inactivity limit, and workspace default; the product model list defines

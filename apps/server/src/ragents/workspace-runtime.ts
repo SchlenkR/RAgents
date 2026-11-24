@@ -11,6 +11,7 @@ export interface SessionWorkspace {
   cwd: string;
   /** Describes the resolved workspace in words; becomes a chapter in the system prompt of every actor with workspace tools. */
   description?: string;
+  descriptionForTools?: (toolNames: readonly string[]) => string;
   /** Home folder, read-only roots and account of the sandbox, if the workspace determines them itself. */
   hostSandbox?: { home: string; readOnlyRoots: readonly ResolvedWorkspaceRoot[]; ident?: SessionIdent };
   /** What the run's processes on the server need outside the workspace, e.g. the shared repository of a Git worktree. */
